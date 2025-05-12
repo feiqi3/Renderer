@@ -1,0 +1,54 @@
+cmake_minimum_required(VERSION 3.10)
+project(Renderer)
+
+# Set C++ standard to C++17
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# Optionally set the build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Gather all source files from the src folder
+file(GLOB SOURCES "src/*.cpp" "include/*.h")
+
+# Create the Renderer executable
+add_executable(Renderer ${SOURCES})
+
+message("Sources: ${SOURCES}")
+
+set(GLFW_LIBRARY_TYPE "STATIC")
+set(GLFW_BUILD_EXAMPLES OFF)
+set(GLFW_BUILD_TESTS OFF)
+set(GLFW_BUILD_DOCS OFF)
+add_subdirectory(3rd/glfw)
+
+## For Volk/glfw: platform-specific 
+if(UNIX AND NOT APPLE)
+  message("targeting Linux")
+  target_compile_definitions(Renderer PRIVATE VK_KHR_xlib_surface VK_USE_PLATFORM_XLIB_KHR GLFW_EXPOSE_NATIVE_X11)
+  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XLIB_KHR VK_KHR_xlib_surface)
+elseif(WIN32)
+  message("targeting win32")
+  target_compile_definitions(Renderer PRIVATE VK_KHR_win32_surface VK_USE_PLATFORM_WIN32_KHR GLFW_EXPOSE_NATIVE_WIN32)
+  target_compile_definitions(Renderer PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR VK_KHR_win32_surface)
+elseif(APPLE) ## TODO: ios/osx
+  message("targeting OSX")
+  target_compile_definitions(Renderer PRIVATE VK_MVK_macos_surface VK_USE_PLATFORM_MACOS_MVK GLFW_EXPOSE_NATIVE_COCOA)
+  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_MACOS_MVK VK_MVK_macos_surface)
+endif()
+add_subdirectory(3rd/volk)
+
+# Add include directory for header files
+target_include_directories(Renderer PUBLIC include)
+
+# Link libraries if required
+
+target_include_directories(Renderer PRIVATE 3rd/vma)
+target_link_libraries(Renderer PRIVATE glfw)
+target_link_libraries(Renderer PRIVATE volk::volk)
+# target_link_libraries(Renderer <libname>)
