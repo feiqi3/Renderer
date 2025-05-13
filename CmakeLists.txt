@@ -13,7 +13,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Gather all source files from the src folder
-file(GLOB SOURCES "src/*.cpp" "include/*.h")
+file(GLOB_RECURSE SOURCES "src/*.cpp" "include/*.h")
 
 # Create the Renderer executable
 add_executable(Renderer ${SOURCES})

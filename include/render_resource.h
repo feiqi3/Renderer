@@ -1,5 +1,7 @@
-#include "volk.h"
+#ifndef RENDER_RESOURCE_H_
+#define RENDER_RESOURCE_H_
 
+#include "render_resource_def.h"
 namespace Render {
 
 	struct rs_context{
@@ -7,20 +9,33 @@ namespace Render {
 
 	struct rs_base {
 		void* native = 0;
+		void* delfunc = 0;
 	};
 
 
-	struct rs_shader : rs_base {};
+	struct rs_shader : rs_base {
+		ShaderType shaderType;
+	};
 
-	struct rs_image : rs_base {};
+	struct rs_image : rs_base {
+		ImageFormat format = ImageFormat::Invalid;
+	};
 
-	struct rs_imageview : rs_base {};
+	struct rs_imageview : rs_base {
+		ImageViewType viewType = ImageViewType::V2D;
+	};
 
-	struct rs_buffer : rs_base {};
+	struct rs_buffer : rs_base {
+		uint32_t bufferType = BufferType::None;
+		uint32_t byteSize = 0;
+	};
 
-	struct rs_sampler : rs_base {};
+	struct rs_sampler : rs_base {
+	};
 	
-	struct rs_memory : rs_base {};
+	struct rs_memory : rs_base {
+		uint32_t byteSize = 0;
+	};
 
 	struct rs_pipeline : rs_base {};
 
@@ -36,13 +51,17 @@ namespace Render {
 
 	struct rs_commandBuffer : rs_base { };
 
-	class rs_commandPool : rs_base { };
+	struct rs_commandPool : rs_base { };
 
-	class rs_descriptorSetPool : rs_base { };
+	struct rs_descriptorSetPool : rs_base { };
 
-	class rs_descriptorSet : rs_base { };
+	struct rs_descriptorSet : rs_base { };
 
-	class rs_descriptorSetLayout : rs_base { };
+	struct rs_descriptorSetLayout : rs_base { };
 
-	class rs_queue : rs_base { };
+	struct rs_queue : rs_base {
+		uint8_t queueType;
+	};
 };
+
+#endif
