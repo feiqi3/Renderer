@@ -19,22 +19,20 @@ namespace Render {
 
 	struct rs_image : rs_base {
 		ImageFormat format = ImageFormat::Invalid;
-	};
-
-	struct rs_imageview : rs_base {
-		ImageViewType viewType = ImageViewType::V2D;
+		ImageType type = ImageType::V2D;
+		uint16_t width;
+		uint16_t height;
+		uint16_t depth;
+		uint16_t mipLevels;
+		uint16_t arrayLayers;
 	};
 
 	struct rs_buffer : rs_base {
-		uint32_t bufferType = BufferType::None;
+		uint32_t bufferType = BufferType::BufferType_None;
 		uint32_t byteSize = 0;
 	};
 
 	struct rs_sampler : rs_base {
-	};
-	
-	struct rs_memory : rs_base {
-		uint32_t byteSize = 0;
 	};
 
 	struct rs_pipeline : rs_base {};

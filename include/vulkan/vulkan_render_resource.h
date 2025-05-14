@@ -24,15 +24,14 @@ namespace Render::Vulkan {
 		VmaAllocation allocation;
 	};
 
+	struct rs_image_vk : rs_image {
+		VmaAllocation allocation;
+		VkImageView view;
+	};
+
 	VK_RS_DEF(rs_shader);
 
-	VK_RS_DEF(rs_image);
-
-	VK_RS_DEF(rs_imageview);
-
 	VK_RS_DEF(rs_sampler);
-
-	VK_RS_DEF(rs_memory);
 
 	VK_RS_DEF(rs_pipeline);
 

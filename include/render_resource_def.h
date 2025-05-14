@@ -3,14 +3,25 @@
 #include <stdint.h>
 namespace Render {
     enum BufferType : uint32_t {
-        None = 0,
-        Vertex = 1u << 0,  
-        Index = 1u << 1, 
-        Uniform = 1u << 2,   
-        Storage = 1u << 3, 
-        Transfer = 1u << 4,  //Means GPU visible
-        Indirect = 1u << 5, 
-        Count = 1u << 6,
+        BufferType_None = 0,
+        BufferType_Vertex = 1u << 0,  
+        BufferType_Index = 1u << 1, 
+        BufferType_Uniform = 1u << 2,   
+        BufferType_Storage = 1u << 3, 
+        BufferType_TransferSrc = 1u << 4,  //Means GPU visible
+        BufferType_Indirect = 1u << 5, 
+        BufferType_Count = 1u << 6,
+    };
+
+    enum ImageUsage : uint32_t {
+        ImageUsage_None = 0,
+        ImageUsage_Sampled = 1 << 0,
+        ImageUsage_Storage = 1 << 1,
+        ImageUsage_TransferSrc = 1 << 2,
+        ImageUsage_TransferDst = 1 << 3,
+        ImageUsage_ColorAttachment = 1 << 4,
+        ImageUsage_DepthStencilAttachment = 1 << 5,
+        ImageUsage_Count = 1 << 6,
     };
 
     enum class ShaderType : uint32_t {
@@ -33,6 +44,26 @@ namespace Render {
 
         Task = 1 << 12,  
         Mesh = 1 << 13,
+    };
+
+    enum class Filter : uint8_t {
+        Nearest,
+        Linear,
+        Cubic,
+        Unknown
+    };
+
+    using MipMapMode = Filter;
+
+    enum class CompareOp : uint8_t {
+        Never,              //  
+        Less,               // <  
+        Equal,              // == 
+        LessOrEqual,        // <= 
+        Greater,            // >  
+        NotEqual,           // != 
+        GreaterOrEqual,     // >= 
+        Always              // 
     };
 
     enum class ImageFormat : uint32_t {
@@ -71,7 +102,7 @@ namespace Render {
         Invalid,
     };
 
-    enum class ImageViewType : uint8_t {
+    enum class ImageType : uint8_t {
         V1D,    
         V2D,        
         V3D,     
@@ -92,20 +123,36 @@ namespace Render {
     };
 
     enum QueueType : uint8_t {
-        Graphics = 1 << 0,
-        Compute = 1 << 1,
-        Transfer = 1 << 2,
-        Present = 1 << 3,
+        QueueType_Graphics = 1 << 0,
+        QueueType_Compute = 1 << 1,
+        QueueType_Transfer = 1 << 2,
+        QueueType_Present = 1 << 3,
     };
 
-    enum class MemoryUsage : uint8_t {
-        Unknown = 0, 
-        GPUOnly,     
-        CPUOnly,  
-        CPUToGPU,     
-        GPUToCPU,    
-        CPUToGPU_Cached,   
-        GPUToCPU_Cached  
+    enum ImageUsage : uint32_t {
+        ImageUsage_None = 0,
+        ImageUsage_Sampled = 1 << 0,
+        ImageUsage_Storage = 1 << 1,
+        ImageUsage_TransferSrc = 1 << 2,
+        ImageUsage_TransferDst = 1 << 3,
+        ImageUsage_ColorAttachment = 1 << 4,
+        ImageUsage_DepthStencilAttachment = 1 << 5,
+    };
+
+    enum class SampleCount : uint32_t {
+        Count1 = 1 << 0,   // No MSAA
+        Count2 = 1 << 1,   // 2x MSAA
+        Count4 = 1 << 2,   // 4x MSAA
+        Count8 = 1 << 3,   // 8x MSAA
+    };
+
+    enum class BorderColor : uint8_t {
+        FloatTransparentBlack,  // (0,0,0,0)
+        IntTransparentBlack,    // (0,0,0,0) as integer
+        FloatOpaqueBlack,       // (0,0,0,1)
+        IntOpaqueBlack,         // (0,0,0,1) as integer
+        FloatOpaqueWhite,       // (1,1,1,1)
+        IntOpaqueWhite          // (1,1,1,1) as integer
     };
 };
 

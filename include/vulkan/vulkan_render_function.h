@@ -6,20 +6,32 @@ namespace Render::Vulkan {
 	//Helpers
 	VkFormat toVkFormat(ImageFormat fmt);
 
-	VkImageViewType toVkImageViewType(ImageViewType t);
+	VkImageViewType toVkImageViewType(ImageType t);
+	VkImageType toVkImageType(ImageType t);
 
 	VkSamplerAddressMode toVkAddressMode(AddressMode mode);
 
 	VkFilter toVkFilter(Filter f);
 
+	VkCompareOp toVkCompareOp(CompareOp op);
+
 	VkSamplerMipmapMode toVkMipmapFilterMode(Filter m);
 
 	VkBufferUsageFlags toVkBufferUsageFlags(uint32_t type);
 
-	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
+	VkSampleCountFlagBits toVkSampleCount(SampleCount s);
 
+	VkImageUsageFlags toVkImageUsage(uint32_t u);
+
+	VkBorderColor toVkBorderColor(BorderColor bc);
+
+	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
-
 	bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer);
+
+	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
+
+	rs_sampler_vk* createRsSampler(rs_context_vk* context, SamplerDesc& desc);
+
 }

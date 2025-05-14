@@ -6,6 +6,8 @@ namespace Render {
 	rs_buffer* createRsBuffer(rs_context* context,BufferDesc& desc);
 
 	bool isRsBufferMappable(rs_context* context, rs_buffer* buffer);
+
+	rs_image* createRsImage(rs_context* context, ImageDesc& desc);
 };
 
 #endif

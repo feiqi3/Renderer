@@ -64,19 +64,36 @@ namespace Render::Vulkan {
     //    }
     //}
 
-    VkImageViewType toVkImageViewType(ImageViewType t)
+    VkImageViewType toVkImageViewType(ImageType t)
     {
         switch (t) {
-        case ImageViewType::V1D:        return VK_IMAGE_VIEW_TYPE_1D;
-        case ImageViewType::V2D:        return VK_IMAGE_VIEW_TYPE_2D;
-        case ImageViewType::V3D:        return VK_IMAGE_VIEW_TYPE_3D;
-        case ImageViewType::VCube:       return VK_IMAGE_VIEW_TYPE_CUBE;
-        case ImageViewType::V1D_Array:  return VK_IMAGE_VIEW_TYPE_1D_ARRAY;
-        case ImageViewType::V2D_Array:  return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-        case ImageViewType::VCube_Array: return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+        case ImageType::V1D:        return VK_IMAGE_VIEW_TYPE_1D;
+        case ImageType::V2D:        return VK_IMAGE_VIEW_TYPE_2D;
+        case ImageType::V3D:        return VK_IMAGE_VIEW_TYPE_3D;
+        case ImageType::VCube:       return VK_IMAGE_VIEW_TYPE_CUBE;
+        case ImageType::V1D_Array:  return VK_IMAGE_VIEW_TYPE_1D_ARRAY;
+        case ImageType::V2D_Array:  return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        case ImageType::VCube_Array: return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
         default:                        return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
         }
     }
+
+    VkImageType toVkImageType(ImageType t) {
+        switch (t) {
+        case ImageType::V1D:       
+        case ImageType::V1D_Array: return VK_IMAGE_TYPE_1D;
+
+        case ImageType::V2D:  
+        case ImageType::VCube:
+        case ImageType::VCube_Array:
+        case ImageType::V2D_Array: return VK_IMAGE_TYPE_2D;
+
+        case ImageType::V3D:       return VK_IMAGE_TYPE_3D;
+
+        default:                   return VK_IMAGE_TYPE_2D;
+        }
+    }
+
     VkSamplerAddressMode toVkAddressMode(AddressMode mode)
     {
         switch (mode) {
@@ -111,31 +128,81 @@ namespace Render::Vulkan {
     {
         VkBufferUsageFlags flags = 0;
 
-        if ((type | BufferType::Vertex)) {
+        if ((type | BufferType::BufferType_Vertex)) {
             flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;      
         }
-        if ( (type | BufferType::Index)) {
+        if ( (type | BufferType::BufferType_Index)) {
             flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;       
         }
-        if ( (type | BufferType::Uniform)) {
+        if ( (type | BufferType::BufferType_Uniform)) {
             flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;   
         }
-        if ((type | BufferType::Storage)) {
+        if ((type | BufferType::BufferType_Storage)) {
             flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
         }
-        if ( (type | BufferType::Transfer)) {
+        if ( (type | BufferType::BufferType_TransferSrc)) {
             flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;        
         }
-        if ( (type |  BufferType::Indirect)) {
+        if ( (type |  BufferType::BufferType_Indirect)) {
             flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;     
         }
 
         //For the every buffer except transfer add VK_BUFFER_USAGE_TRANSFER_DST_BIT
-        if (!(type & BufferType::Transfer)) {
+        if (!(type & BufferType::BufferType_TransferSrc)) {
             flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         }
 
         return flags;
+    }
+
+    VkSampleCountFlagBits toVkSampleCount(SampleCount s) {
+        switch (s) {
+        case SampleCount::Count1:  return VK_SAMPLE_COUNT_1_BIT;
+        case SampleCount::Count2:  return VK_SAMPLE_COUNT_2_BIT;
+        case SampleCount::Count4:  return VK_SAMPLE_COUNT_4_BIT;
+        case SampleCount::Count8:  return VK_SAMPLE_COUNT_8_BIT;
+        default:                   return VK_SAMPLE_COUNT_1_BIT;
+        }
+    }
+
+    VkImageUsageFlags toVkImageUsage(uint32_t u)
+    {
+        VkImageUsageFlags f = 0;
+        if ( (u& ImageUsage::ImageUsage_Sampled))             f |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        if ( (u& ImageUsage::ImageUsage_Storage))             f |= VK_IMAGE_USAGE_STORAGE_BIT;
+        if ( (u& ImageUsage::ImageUsage_TransferSrc))         f |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        if ( (u& ImageUsage::ImageUsage_TransferDst))         f |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        if ( (u& ImageUsage::ImageUsage_ColorAttachment))     f |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        if ( (u& ImageUsage::ImageUsage_DepthStencilAttachment)) f |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        return f;
+    }
+
+    VkBorderColor toVkBorderColor(BorderColor bc)
+    {
+        switch (bc) {
+        case BorderColor::FloatTransparentBlack: return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+        case BorderColor::IntTransparentBlack:   return VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+        case BorderColor::FloatOpaqueBlack:      return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+        case BorderColor::IntOpaqueBlack:        return VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        case BorderColor::FloatOpaqueWhite:      return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        case BorderColor::IntOpaqueWhite:        return VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+        default:                                 return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+        }
+    }
+
+    VkCompareOp toVkCompareOp(CompareOp op)
+    {
+        switch (op) {
+        case CompareOp::Never:          return VK_COMPARE_OP_NEVER;
+        case CompareOp::Less:           return VK_COMPARE_OP_LESS;
+        case CompareOp::Equal:          return VK_COMPARE_OP_EQUAL;
+        case CompareOp::LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
+        case CompareOp::Greater:        return VK_COMPARE_OP_GREATER;
+        case CompareOp::NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
+        case CompareOp::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+        case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
+        default:                        return VK_COMPARE_OP_ALWAYS;
+        }
     }
 
     rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc)
@@ -159,7 +226,7 @@ namespace Render::Vulkan {
         
         uint32_t vmaFlags = 0;
         if (desc.mappable) {
-            if (desc.bufUsage & BufferType::Transfer) {
+            if (desc.bufUsage & BufferType::BufferType_TransferSrc) {
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
             }
             else {
@@ -205,12 +272,93 @@ namespace Render::Vulkan {
         return (memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
     }
 
-    enum class Filter : uint8_t {
-        Nearest,     
-        Linear,      
-        Cubic,    
-        Unknown  
-    };
+    rs_image_vk* createRsImage(rs_context_vk* ctx, ImageDesc& desc)
+    {
+        VkImage image;
+        VkImageView imageview;
+        VmaAllocation alloc;
+        VkImageCreateInfo ici{};
+        ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        ici.pNext = nullptr;
+        ici.flags = 0;
+        ici.imageType = toVkImageType(desc.type);
+        ici.format = toVkFormat(desc.format);
+        ici.extent = { desc.width, desc.height, desc.depth };
+        ici.mipLevels = desc.mipLevels;
+        ici.arrayLayers = desc.arrayLayers;
+        ici.samples =toVkSampleCount(desc.samples);
+        ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+        ici.usage = toVkImageUsage(desc.usage);
+        ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        VmaAllocationCreateInfo ai{};
+        ai.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        VmaAllocationInfo aif;
+        vmaCreateImage(ctx->allocator, &ici, &ai, &image, &alloc, &aif);
+
+        VkImageViewCreateInfo ivci{};
+        ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        ivci.image = image;
+        ivci.viewType = toVkImageViewType(desc.type);
+        ivci.format = ici.format;
+        ivci.components = { VK_COMPONENT_SWIZZLE_IDENTITY };
+        ivci.subresourceRange.aspectMask =
+            (desc.usage& ImageUsage_DepthStencilAttachment)
+            ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT
+            : VK_IMAGE_ASPECT_COLOR_BIT;
+        ivci.subresourceRange.baseMipLevel = 0;
+        ivci.subresourceRange.levelCount = desc.mipLevels;
+        ivci.subresourceRange.baseArrayLayer = 0;
+        ivci.subresourceRange.layerCount = desc.arrayLayers;
+
+        vkCreateImageView(ctx->device, &ivci, nullptr, &imageview);
+
+
+        auto ret = new rs_image_vk;
+        ret->native = image;
+        ret->view = imageview;
+        ret->allocation = alloc;
+        ret->width = desc.width;
+        ret->height = desc.height;
+        ret->depth = desc.depth;
+        ret->type = desc.type;
+        ret->format = desc.format;
+        ret->mipLevels = desc.mipLevels;
+        ret->arrayLayers = desc.arrayLayers;
+        return ret;
+    }
+
+    rs_sampler_vk* createRsSampler(rs_context_vk* ctx, SamplerDesc& desc)
+    {
+        VkSamplerCreateInfo sci{};
+        sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        sci.pNext = nullptr;
+        sci.addressModeU = toVkAddressMode(desc.addressU);
+        sci.addressModeV = toVkAddressMode(desc.addressV);
+        sci.addressModeW = toVkAddressMode(desc.addressW);
+        sci.magFilter = toVkFilter(desc.magFilter);
+        sci.minFilter = toVkFilter(desc.minFilter);
+        sci.mipmapMode = toVkMipmapFilterMode(desc.mipmapMode);
+        sci.mipLodBias = 0.f;
+        sci.anisotropyEnable = desc.enableAnisotropy ? VK_TRUE : VK_FALSE;
+        sci.maxAnisotropy = desc.maxAnisotropy;
+        sci.minLod = 0;
+        sci.maxLod = VK_LOD_CLAMP_NONE;
+        sci.compareEnable = desc.enableCompare ? VK_TRUE : VK_FALSE;
+        sci.compareOp = desc.enableCompare ? toVkCompareOp(desc.compareOp)
+            : VK_COMPARE_OP_NEVER;
+        sci.unnormalizedCoordinates = desc.unnormalizedCoords ? VK_TRUE : VK_FALSE;
+        sci.borderColor = toVkBorderColor(desc.borderColor);
+
+        rs_sampler_vk* result = new rs_sampler_vk();
+        VkSampler sampler;
+        vkCreateSampler(ctx->device, &sci, nullptr, &sampler);
+        result->native = sampler;
+
+        return result;
+    }
+
 }
 
 
