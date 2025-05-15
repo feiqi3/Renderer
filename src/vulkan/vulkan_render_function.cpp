@@ -1,5 +1,8 @@
 #include "vulkan/vulkan_render_function.h"
 #include "bit_helper.h"
+
+#define VK_CHECK(x,stmt) if(x != VK_SUCCESS){ stmt }
+
 namespace Render::Vulkan {
     VkFormat toVkFormat(ImageFormat fmt)
     {
@@ -190,6 +193,72 @@ namespace Render::Vulkan {
         }
     }
 
+    VkShaderStageFlags toVkShaderStageFlags(ShaderStage stage)
+    {
+        VkShaderStageFlags flags = 0;
+
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Vertex))
+            flags |= VK_SHADER_STAGE_VERTEX_BIT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::TessControl))
+            flags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::TessEvaluation))
+            flags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Geometry))
+            flags |= VK_SHADER_STAGE_GEOMETRY_BIT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Fragment))
+            flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Compute))
+            flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::RayGen))
+            flags |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::AnyHit))
+            flags |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::ClosestHit))
+            flags |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Miss))
+            flags |= VK_SHADER_STAGE_MISS_BIT_KHR;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Intersection))
+            flags |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Callable))
+            flags |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Task))
+            flags |= VK_SHADER_STAGE_TASK_BIT_EXT;
+        if (static_cast<uint32_t>(stage) & static_cast<uint32_t>(ShaderStage::Mesh))
+            flags |= VK_SHADER_STAGE_MESH_BIT_EXT;
+
+        return flags;
+    }
+
+    uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type)
+    {
+        switch (type)
+        {
+        case Render::QueueType_Present:
+        case Render::QueueType_Graphics:
+            return ctx->graphicQueue->familyIndex;
+            break;
+        case Render::QueueType_Compute:
+            if (ctx->computeQueue) {
+                return ctx->computeQueue->familyIndex;
+            }
+            else { 
+                return ctx->graphicQueue->familyIndex;
+            }
+            break;
+        case Render::QueueType_Transfer:
+            if (ctx->transferQueue) {
+                return ctx->transferQueue->familyIndex;
+            }
+            else {
+                return ctx->graphicQueue->familyIndex;
+            }
+            break;
+        default:
+            return ctx->graphicQueue->familyIndex;
+            break;
+        }
+    }
+
     VkCompareOp toVkCompareOp(CompareOp op)
     {
         switch (op) {
@@ -237,7 +306,11 @@ namespace Render::Vulkan {
         VmaAllocationCreateInfo ai{};
         ai.flags = vmaFlags;
         ai.usage = VMA_MEMORY_USAGE_AUTO;
-        vmaCreateBuffer(context->allocator, &CI, &ai, &buffer, &allocation, &allocInfo);
+        VK_CHECK(vmaCreateBuffer(context->allocator, &CI, &ai, &buffer, &allocation, &allocInfo),
+            {
+                return nullptr;
+            }
+            );
     
         rs_buffer_vk* ret = new rs_buffer_vk;
         ret->allocation = allocation;
@@ -312,7 +385,11 @@ namespace Render::Vulkan {
         ivci.subresourceRange.baseArrayLayer = 0;
         ivci.subresourceRange.layerCount = desc.arrayLayers;
 
-        vkCreateImageView(ctx->device, &ivci, nullptr, &imageview);
+        VK_CHECK(vkCreateImageView(ctx->device, &ivci, nullptr, &imageview),
+        {
+            return nullptr;
+        }
+       );
 
 
         auto ret = new rs_image_vk;
@@ -353,10 +430,67 @@ namespace Render::Vulkan {
 
         rs_sampler_vk* result = new rs_sampler_vk();
         VkSampler sampler;
-        vkCreateSampler(ctx->device, &sci, nullptr, &sampler);
+        VK_CHECK(vkCreateSampler(ctx->device, &sci, nullptr, &sampler),
+            { delete result; return nullptr; }
+        );
         result->native = sampler;
 
         return result;
+    }
+
+    rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc)
+    {
+        VkShaderModuleCreateInfo ci{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+        ci.codeSize = desc.codeSizeByte;
+        ci.pCode = reinterpret_cast<const uint32_t*>(desc.shaderCode);
+        rs_shader_module_vk* shader = new rs_shader_module_vk();
+        shader->shaderStage = desc.stage;
+        VkShaderModule smodule;
+        VK_CHECK(vkCreateShaderModule(context->device, &ci, 0, &smodule),
+            {
+            delete shader; return nullptr;
+            }
+        );
+        shader->native = smodule;
+        shader->entryPoint = desc.entryPoint;
+        return shader;
+    }
+
+    rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
+    {
+        VkCommandPool pool = VK_NULL_HANDLE;
+        {
+            VkCommandPoolCreateInfo pci{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+            pci.queueFamilyIndex = findQueueFamily(ctx, desc.queueType);
+            pci.flags = desc.transient ? VK_COMMAND_POOL_CREATE_TRANSIENT_BIT : 0;
+            VK_CHECK(
+                vkCreateCommandPool(ctx->device, &pci, nullptr, &pool),
+                {
+                    return nullptr;
+                }
+            );
+        }
+
+        // 分配命令缓冲
+        VkCommandBufferAllocateInfo ai{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        ai.commandPool = pool;
+        ai.level = desc.isSecondary
+            ? VK_COMMAND_BUFFER_LEVEL_SECONDARY
+            : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        ai.commandBufferCount = 1;
+        
+        VkCommandBuffer cmd = VK_NULL_HANDLE;
+        if (vkAllocateCommandBuffers(ctx->device, &ai, &cmd) != VK_SUCCESS) {
+            vkDestroyCommandPool(ctx->device, pool, nullptr);
+            return nullptr;
+        }
+
+        auto cb = new rs_commandbuffer_vk();
+        cb->pool = pool;
+        cb->native = cmd;
+        cb->isSecondary = desc.isSecondary;
+        cb->isTransitent = desc.transient;
+        return cb;
     }
 
 }

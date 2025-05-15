@@ -12,6 +12,8 @@ namespace Render::Vulkan {
 		VkDevice device;
 		VkPhysicalDevice physicalDevice;
 		rs_queue_vk* graphicQueue;
+		rs_queue_vk* computeQueue;
+		rs_queue_vk* transferQueue;
 		VmaAllocator allocator;
 	};
 
@@ -29,7 +31,7 @@ namespace Render::Vulkan {
 		VkImageView view;
 	};
 
-	VK_RS_DEF(rs_shader);
+	VK_RS_DEF(rs_shader_module);
 
 	VK_RS_DEF(rs_sampler);
 
@@ -45,9 +47,9 @@ namespace Render::Vulkan {
 
 	VK_RS_DEF(rs_event);
 
-	VK_RS_DEF(rs_commandBuffer);
-
-	VK_RS_DEF(rs_commandPool);
+	struct	rs_commandbuffer_vk : rs_commandbuffer {
+		VkCommandPool pool;
+	};
 
 	VK_RS_DEF(rs_descriptorSetPool);
 

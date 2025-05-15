@@ -34,9 +34,21 @@ namespace Render {
         bool            unnormalizedCoords = false;
         BorderColor     borderColor = BorderColor::FloatOpaqueBlack;
         bool            enableCompare = false;
-
-        std::string     debugName;
     };
+
+    struct ShaderDesc {
+        char* shaderCode;
+        const char* entryPoint = "main";
+        size_t codeSizeByte = 0;
+        ShaderStage   stage;       // 阶段
+    };
+
+    struct CommandBufferDesc {
+        QueueType queueType;
+        bool transient = true; //Will buffers be used multiTimes?
+        bool isSecondary = false;
+    };
+
 };
 
 #endif

@@ -25,6 +25,10 @@ namespace Render::Vulkan {
 
 	VkBorderColor toVkBorderColor(BorderColor bc);
 
+	VkShaderStageFlags toVkShaderStageFlags(ShaderStage stage);
+
+	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
+
 	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
@@ -33,5 +37,9 @@ namespace Render::Vulkan {
 	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
 
 	rs_sampler_vk* createRsSampler(rs_context_vk* context, SamplerDesc& desc);
+
+	rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc);
+
+	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
 
 }

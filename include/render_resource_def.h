@@ -24,7 +24,7 @@ namespace Render {
         ImageUsage_Count = 1 << 6,
     };
 
-    enum class ShaderType : uint32_t {
+    enum class ShaderStage : uint32_t {
         None = 0,
 
         Vertex = 1 << 0, 

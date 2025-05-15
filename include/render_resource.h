@@ -13,8 +13,9 @@ namespace Render {
 	};
 
 
-	struct rs_shader : rs_base {
-		ShaderType shaderType;
+	struct rs_shader_module : rs_base {
+		ShaderStage shaderStage;
+		const char* entryPoint = "main";
 	};
 
 	struct rs_image : rs_base {
@@ -47,9 +48,12 @@ namespace Render {
 
 	struct rs_event : rs_base {};
 
-	struct rs_commandBuffer : rs_base { };
-
-	struct rs_commandPool : rs_base { };
+	struct rs_commandbuffer : rs_base {
+		QueueType queueType;
+		bool isSecondary = false;
+		bool isTransitent = false;
+		bool recording = false;
+	};
 
 	struct rs_descriptorSetPool : rs_base { };
 

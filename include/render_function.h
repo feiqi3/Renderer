@@ -8,6 +8,8 @@ namespace Render {
 	bool isRsBufferMappable(rs_context* context, rs_buffer* buffer);
 
 	rs_image* createRsImage(rs_context* context, ImageDesc& desc);
+
+	rs_shader_module* createShader(rs_context* context, ShaderDesc& desc);
 };
 
 #endif
