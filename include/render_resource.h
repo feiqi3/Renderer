@@ -38,8 +38,6 @@ namespace Render {
 
 	struct rs_pipeline : rs_base {};
 
-	struct rs_pipelineLayout : rs_base {};
-
 	struct rs_renderpass : rs_base {};
 
 	struct rs_fence : rs_base {};

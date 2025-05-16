@@ -2,6 +2,8 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 
+#include <array>
+
 #define VK_RS_DEF(x) typedef x x##_vk;
 
 namespace Render::Vulkan {
@@ -37,7 +39,14 @@ namespace Render::Vulkan {
 
 	VK_RS_DEF(rs_pipeline);
 
-	VK_RS_DEF(rs_pipelineLayout);
+	struct rs_vk_descriporset_layout_hash {
+		std::array<uint64_t, 4> data{};
+	};
+
+	struct rs_pipeline_layout_vk : rs_base {
+
+
+	};
 	
 	VK_RS_DEF(rs_renderpass);
 
