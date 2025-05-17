@@ -9,7 +9,7 @@ namespace Render::Vulkan {
 
 	rs_renderpass_vk* createRenderPass(
 		rs_context_vk* ctx,
-		PassDesc const& rpDesc
+		const PassDesc & rpDesc
 	);
 
 }

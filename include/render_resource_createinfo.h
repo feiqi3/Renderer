@@ -66,6 +66,7 @@ namespace Render {
 
     struct PassDesc {
         std::vector<PassAttachment> attachments;
+        bool writeDepth = true;
     };
 
 };

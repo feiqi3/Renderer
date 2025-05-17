@@ -104,7 +104,7 @@ namespace Render::Vulkan {
             else if (att.usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
                 hasDepthRef = true;
                 deepRef.attachment = i;
-                deepRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                deepRef.layout = rpDesc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                 continue;
             }
             colorRefs.push_back(ref);
