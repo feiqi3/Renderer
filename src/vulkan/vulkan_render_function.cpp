@@ -1,7 +1,7 @@
 #include "vulkan/vulkan_render_function.h"
 #include "bit_helper.h"
 
-#define VK_CHECK(x,stmt) if(x != VK_SUCCESS){ stmt }
+#define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x); stmt }
 
 namespace Render::Vulkan {
     VkFormat toVkFormat(ImageFormat fmt)

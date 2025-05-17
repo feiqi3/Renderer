@@ -21,7 +21,8 @@ namespace Render {
         ImageUsage_TransferDst = 1 << 3,
         ImageUsage_ColorAttachment = 1 << 4,
         ImageUsage_DepthStencilAttachment = 1 << 5,
-        ImageUsage_Count = 1 << 6,
+        ImageUsage_PresentSrc = 1 << 6,
+        ImageUsage_Count = 1 << 7,
     };
 
     enum class ShaderStage : uint32_t {
@@ -129,16 +130,6 @@ namespace Render {
         QueueType_Present = 1 << 3,
     };
 
-    enum ImageUsage : uint32_t {
-        ImageUsage_None = 0,
-        ImageUsage_Sampled = 1 << 0,
-        ImageUsage_Storage = 1 << 1,
-        ImageUsage_TransferSrc = 1 << 2,
-        ImageUsage_TransferDst = 1 << 3,
-        ImageUsage_ColorAttachment = 1 << 4,
-        ImageUsage_DepthStencilAttachment = 1 << 5,
-    };
-
     enum class SampleCount : uint32_t {
         Count1 = 1 << 0,   // No MSAA
         Count2 = 1 << 1,   // 2x MSAA
@@ -153,6 +144,12 @@ namespace Render {
         IntOpaqueBlack,         // (0,0,0,1) as integer
         FloatOpaqueWhite,       // (1,1,1,1)
         IntOpaqueWhite          // (1,1,1,1) as integer
+    };
+
+    enum class PipelineType {
+        Graphics, 
+        Compute,  
+        RayTracing 
     };
 };
 

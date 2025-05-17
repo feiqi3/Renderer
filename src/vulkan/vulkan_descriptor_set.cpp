@@ -117,4 +117,8 @@ namespace Render::Vulkan {
         }
         return hash;
     }
+    VkDescriptorSetLayout DescriptorSetManager::getEmptySetlayoout()
+    {
+        return m_emptyLayout;
+    }
 }

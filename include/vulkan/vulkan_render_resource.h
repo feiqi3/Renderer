@@ -3,6 +3,7 @@
 #include "vk_mem_alloc.h"
 
 #include <array>
+#include <vector>
 
 #define VK_RS_DEF(x) typedef x x##_vk;
 
@@ -17,6 +18,7 @@ namespace Render::Vulkan {
 		rs_queue_vk* computeQueue;
 		rs_queue_vk* transferQueue;
 		VmaAllocator allocator;
+		class DescriptorSetManager* descriptorSetMgr = 0;
 	};
 
 	struct rs_queue_vk : rs_queue{
@@ -37,16 +39,37 @@ namespace Render::Vulkan {
 
 	VK_RS_DEF(rs_sampler);
 
-	VK_RS_DEF(rs_pipeline);
+	struct rs_descriptorset_layout_vk : rs_base {
+	
+
+		inline void accquir() {
+			ref++;
+		}
+		inline void release() {
+			ref--;
+			assert(ref >= 0 && "Wrong ref count");
+		}
+
+		std::atomic_uint32_t ref = 0;
+	
+	};
+
+	struct rs_pipeline_layout_vk : rs_base {
+		std::vector<std::pair<uint16_t,rs_descriptorset_layout_vk*>> setLayouts;
+		std::vector<VkPushConstantRange>       pushConstants;
+
+	};
+
+	struct rs_pipeline_vk {
+		rs_pipeline_layout_vk* layout;
+		PipelineType type{};
+	};
 
 	struct rs_vk_descriporset_layout_hash {
 		std::array<uint64_t, 4> data{};
 	};
 
-	struct rs_pipeline_layout_vk : rs_base {
 
-
-	};
 	
 	VK_RS_DEF(rs_renderpass);
 
@@ -63,7 +86,5 @@ namespace Render::Vulkan {
 	VK_RS_DEF(rs_descriptorSetPool);
 
 	VK_RS_DEF(rs_descriptorSet);
-
-	VK_RS_DEF(rs_descriptorSetLayout);
 
 };

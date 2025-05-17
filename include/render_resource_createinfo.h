@@ -1,6 +1,7 @@
 #ifndef RENDER_RESOURCE_CREATE_INFO
 #define RENDER_RESOURCE_CREATE_INFO
-#include "render_resource.h"
+#include "render_resource_def.h"
+#include <Vector>
 namespace Render {
     struct BufferDesc {
         size_t byteSize;
@@ -47,6 +48,24 @@ namespace Render {
         QueueType queueType;
         bool transient = true; //Will buffers be used multiTimes?
         bool isSecondary = false;
+    };
+
+    enum class StorageOp : uint8_t {
+        Cached,   
+        Clear,      
+        DontCare  
+    };
+
+    struct PassAttachment {
+        ImageFormat format;
+        ImageUsage  usage;
+        SampleCount samples = SampleCount::Count1;
+        StorageOp      loadOp;
+        StorageOp     storeOp;
+    };
+
+    struct PassDesc {
+        std::vector<PassAttachment> attachments;
     };
 
 };

@@ -71,12 +71,16 @@ namespace Render::Vulkan {
     };
 
     class DescriptorSetManager {
-    public:
 
     public:
-        using DescirptorSetLayoutMap = std::unordered_map< rs_vk_descriporset_layout_hash, VkDescriptorSetLayout, LayoutHashHasher, LayoutHashEqual>;
-        DescirptorSetLayoutMap m_descriptorsetLayoutMap;
+        using DescirptorSetLayoutMap = std::unordered_map< rs_vk_descriporset_layout_hash, rs_descriptorset_layout_vk, LayoutHashHasher, LayoutHashEqual>;
         
+
+        VkDescriptorSetLayout getEmptySetlayoout();
+        DescirptorSetLayoutMap m_descriptorsetLayoutMap;
+
+    public:
+        VkDescriptorSetLayout m_emptyLayout;
     };
 
 }

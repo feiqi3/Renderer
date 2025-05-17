@@ -2,6 +2,7 @@
 #define RENDER_RESOURCE_H_
 
 #include "render_resource_def.h"
+#include "render_resource_createinfo.h"
 namespace Render {
 
 	struct rs_context{
@@ -38,7 +39,9 @@ namespace Render {
 
 	struct rs_pipeline : rs_base {};
 
-	struct rs_renderpass : rs_base {};
+	struct rs_renderpass : rs_base {
+		PassDesc passDesc;
+	};
 
 	struct rs_fence : rs_base {};
 
