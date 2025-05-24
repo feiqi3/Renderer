@@ -2,85 +2,105 @@
 #define VULKAN_DESCRIPTOR_SET_H
 #include <vector>
 #include <unordered_map>
+#include <optional>
 #include "vulkan_render_resource.h"
+#include <set>
 namespace Render::Vulkan {
 
-    constexpr int BITS_PER_BINDING = 12;
+    constexpr int BITS_PER_BINDING = 11;
     constexpr int MAX_BINDINGS = 256 / BITS_PER_BINDING; // 21
 
-    struct DescriptorBinding {
-        uint8_t bindingPos : 8;
-        uint8_t descriptorType : 4;   // 0–15
-        uint8_t descriptorCount : 4;  // 0–15
-        uint8_t stageFlags : 4;
-    };
-
-    enum class DescriptorType : uint32_t {
-        // 采样器
-        Sampler = 0,
-        // 绑定采样器与着色器可读图像
-        CombinedImageSampler = 1,
-        // 仅着色器可读图像
-        SampledImage = 2,
-        // 仅着色器可写图像
-        StorageImage = 3,
-        // 统一（只读）缓冲区（Vulkan 中的 UBO）
-        UniformBuffer = 4,
-        // 存储（可读写）缓冲区（Vulkan 中的 SSBO）
-        StorageBuffer = 5,
-        // 统一缓冲区动态偏移（Vulkan 的 DYNAMIC UBO）
-        UniformBufferDynamic = 6,
-        // 存储缓冲区动态偏移（Vulkan 的 DYNAMIC SSBO）
-        StorageBufferDynamic = 7,
-        // 统一（只读）纹理缓冲（Texel Buffer）
-        UniformTexelBuffer = 8,
-        // 存储（可读写）纹理缓冲（Texel Buffer）
-        StorageTexelBuffer = 9,
-        // 输入附件（Vulkan 中的 Input Attachment）
-        InputAttachment = 10,
-        // 额外：加速结构（用于 Ray Tracing）
-        AccelerationStructure = 11,
-        // 保留用于未来扩展
-        Count = 12
-    };
-
-    VkDescriptorType toVkDescriptorType(DescriptorType type);
-
-    std::vector<DescriptorBinding> fromHashToBinding(const rs_vk_descriporset_layout_hash& hash);
-
-    rs_vk_descriporset_layout_hash fromBindingToHash(const std::vector<DescriptorBinding>& bindings);
-
-    struct LayoutHashHasher {
-        std::size_t operator()(rs_vk_descriporset_layout_hash const& h) const noexcept {
-            // 64位平台上 size_t=64位，可直接混合
-            uint64_t seed = 0xcbf29ce484222325ULL; // FNV offset basis
-            for (auto v : h.data) {
-                // FNV-1a 64-bit
-                seed ^= v;
-                seed *= 0x100000001b3ULL;
+    struct rs_vk_descriporset_layout_hash {
+        std::vector< rs_descriptor> mDescriptors;
+        uint64_t layoutHash = 0;
+        bool checkValid() {
+            std::set<uint8_t> bindings;
+            for (auto&& i : mDescriptors) {
+                if (bindings.find(i.binding) != bindings.end()) {
+                    return false;
+                }
+                bindings.insert(i.binding);
             }
-            return static_cast<std::size_t>(seed);
+            return true;
+        }
+        
+        inline void init() {
+            assert(checkValid());
+            std::map<int, rs_descriptor> mapSet;
+
+            std::sort(mDescriptors.begin(), mDescriptors.end(), [](const auto& a, const auto& b) {
+                return a.binding > b.binding;
+             });
+            union
+            {
+                uint64_t _ = 0;
+                rs_descriptor des;
+            };
+            const uint64_t FNV_offset = 0xcbf29ce484222325ULL;
+            const uint64_t FNV_prime = 0x100000001b3ULL;
+
+            uint64_t h = FNV_offset;
+
+            for (auto&& i : mDescriptors) {
+                des = i;
+                h ^= _;
+                h *= FNV_prime;
+            }
+            layoutHash = h;
         }
     };
 
-    struct LayoutHashEqual {
-        bool operator()(rs_vk_descriporset_layout_hash const& a,
-            rs_vk_descriporset_layout_hash const& b) const noexcept {
-            return a.data == b.data;
+    VkDescriptorType toVkDescriptorType(ResourceType resType);
+
+    std::optional<std::vector<rs_descriptor>> toDescriptors(const std::vector<std::vector<rs_descriptor>>& desc);
+
+    struct LayoutHash {
+        size_t operator()(rs_vk_descriporset_layout_hash const& L) const noexcept {
+            return static_cast<size_t>(L.layoutHash);
+        }
+    };
+
+    struct LayoutEqual {
+        bool operator()(rs_vk_descriporset_layout_hash const& A,
+            rs_vk_descriporset_layout_hash const& B) const noexcept
+        {
+            if (A.layoutHash != B.layoutHash)
+                return false;
+            if (A.mDescriptors.size() != B.mDescriptors.size())
+                return false;
+            for (size_t i = 0; i < A.mDescriptors.size(); ++i) {
+                auto const& a = A.mDescriptors[i];
+                auto const& b = B.mDescriptors[i];
+                if (a.binding != b.binding ||
+                    a.type != b.type ||
+                    a.shaderVisibleStage != b.shaderVisibleStage ||
+                    a.count != b.count)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     };
 
     class DescriptorSetManager {
 
     public:
-        using DescirptorSetLayoutMap = std::unordered_map< rs_vk_descriporset_layout_hash, rs_descriptorset_layout_vk, LayoutHashHasher, LayoutHashEqual>;
-        
+        rs_descriptorset_layout_vk* createDescriptorSetLayout(rs_context_vk* ctx,const rs_vk_descriporset_layout_hash& layoutHash);
+        void returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
+        VkDescriptorSetLayout getEmptyDescriptorSetLayout(rs_context_vk* ctx);
+    private:
+        using LayoutMap = std::unordered_map<
+            rs_vk_descriporset_layout_hash,  // key
+            rs_descriptorset_layout_vk*,                    // value
+            LayoutHash,                      // hash functor
+            LayoutEqual                      // equal functor
+        >;
+        std::mutex mMutex;
+        LayoutMap mLayoutMap;
+        void destroyDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
 
-        VkDescriptorSetLayout getEmptySetlayoout();
-        DescirptorSetLayoutMap m_descriptorsetLayoutMap;
-
-    public:
-        VkDescriptorSetLayout m_emptyLayout;
+        VkDescriptorSetLayout mEmptyDescriptorSet = VK_NULL_HANDLE;
     };
 
 }

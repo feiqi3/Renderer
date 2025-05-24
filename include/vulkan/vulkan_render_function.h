@@ -15,6 +15,8 @@ namespace Render::Vulkan {
 
 	VkCompareOp toVkCompareOp(CompareOp op);
 
+	VkFrontFace toVkFrontFace(FrontFace face);
+
 	VkSamplerMipmapMode toVkMipmapFilterMode(Filter m);
 
 	VkBufferUsageFlags toVkBufferUsageFlags(uint32_t type);
@@ -25,7 +27,7 @@ namespace Render::Vulkan {
 
 	VkBorderColor toVkBorderColor(BorderColor bc);
 
-	VkShaderStageFlags toVkShaderStageFlags(ShaderStage stage);
+	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
 	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
 

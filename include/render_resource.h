@@ -1,11 +1,12 @@
 #ifndef RENDER_RESOURCE_H_
 #define RENDER_RESOURCE_H_
-
+#include <string>
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
 namespace Render {
 
 	struct rs_context{
+		BackEndInitDesc initDesc;
 	};
 
 	struct rs_base {
@@ -16,7 +17,9 @@ namespace Render {
 
 	struct rs_shader_module : rs_base {
 		ShaderStage shaderStage;
-		const char* entryPoint = "main";
+		std::string entryPoint = "main";
+		std::string shaderName = "shader";
+		uint64_t shaderHash = 0;
 	};
 
 	struct rs_image : rs_base {
@@ -37,7 +40,14 @@ namespace Render {
 	struct rs_sampler : rs_base {
 	};
 
-	struct rs_pipeline : rs_base {};
+	struct rs_binding_info {
+		std::vector<BindingInfo> mInfo;
+	};
+
+	struct rs_pipeline : rs_base {
+		VertexInputDescription vtxInput;
+		RenderState renderState;
+	};
 
 	struct rs_renderpass : rs_base {
 		PassDesc passDesc;

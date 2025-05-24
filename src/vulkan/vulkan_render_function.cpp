@@ -1,7 +1,6 @@
 #include "vulkan/vulkan_render_function.h"
 #include "bit_helper.h"
 
-#define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x); stmt }
 
 namespace Render::Vulkan {
     VkFormat toVkFormat(ImageFormat fmt)
@@ -193,7 +192,7 @@ namespace Render::Vulkan {
         }
     }
 
-    VkShaderStageFlags toVkShaderStageFlags(ShaderStage stage)
+    VkShaderStageFlags toVkShaderStageFlags(uint16_t stage)
     {
         VkShaderStageFlags flags = 0;
 
@@ -271,6 +270,22 @@ namespace Render::Vulkan {
         case CompareOp::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
         case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
         default:                        return VK_COMPARE_OP_ALWAYS;
+        }
+    }
+
+    VkFrontFace toVkFrontFace(FrontFace face)
+    {
+        switch (face)
+        {
+        case Render::FrontFace::ClockWise:
+            return VK_FRONT_FACE_CLOCKWISE;
+            break;
+        case Render::FrontFace::CtClockWise:
+            return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+                break;
+        default:
+            return VK_FRONT_FACE_CLOCKWISE;
+            break;
         }
     }
 
@@ -443,14 +458,15 @@ namespace Render::Vulkan {
         VkShaderModuleCreateInfo ci{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
         ci.codeSize = desc.codeSizeByte;
         ci.pCode = reinterpret_cast<const uint32_t*>(desc.shaderCode);
-        rs_shader_module_vk* shader = new rs_shader_module_vk();
-        shader->shaderStage = desc.stage;
+
         VkShaderModule smodule;
         VK_CHECK(vkCreateShaderModule(context->device, &ci, 0, &smodule),
             {
-            delete shader; return nullptr;
+            return nullptr;
             }
         );
+        rs_shader_module_vk* shader = new rs_shader_module_vk();
+        shader->shaderStage = desc.stage;
         shader->native = smodule;
         shader->entryPoint = desc.entryPoint;
         return shader;

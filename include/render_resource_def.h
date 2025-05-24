@@ -25,7 +25,7 @@ namespace Render {
         ImageUsage_Count = 1 << 7,
     };
 
-    enum class ShaderStage : uint32_t {
+    enum class ShaderStage : uint16_t {
         None = 0,
 
         Vertex = 1 << 0, 
@@ -103,6 +103,8 @@ namespace Render {
         Invalid,
     };
 
+    using VertexFormat = ImageFormat;
+
     enum class ImageType : uint8_t {
         V1D,    
         V2D,        
@@ -150,6 +152,87 @@ namespace Render {
         Graphics, 
         Compute,  
         RayTracing 
+    };
+
+    // 深度／模板比较方式
+    enum class CompareOp : uint8_t {
+        Never,
+        Less,
+        Equal,
+        LessOrEqual,
+        Greater,
+        NotEqual,
+        GreaterOrEqual,
+        Always
+    };
+
+    // 混合因子和操作
+    enum class BlendFactor : uint8_t {
+        Zero,
+        One,
+        SrcColor,
+        OneMinusSrcColor,
+        DstColor,
+        OneMinusDstColor,
+        SrcAlpha,
+        OneMinusSrcAlpha,
+        DstAlpha,
+        OneMinusDstAlpha
+    };
+    enum class BlendOp : uint8_t {
+        Add,
+        Subtract,
+        ReverseSubtract,
+        Min,
+        Max
+    };
+
+    enum class Topology {
+        TriangleList,
+        TriangleStrip,
+        TriangleFAn,
+        Point,
+        LineList,
+        LineStrip,
+    };
+
+    enum class FillMode {
+        Fill,
+        Line,
+        Point,
+    };
+
+    enum class CullMode {
+        None,
+        Front,
+        Back,
+        FrontAndBack
+    };
+
+    enum class FrontFace {
+        ClockWise,
+        CtClockWise,
+    };
+
+    enum class StencilOp : uint8_t {
+        Keep,                  // 保持原值
+        Zero,                  // 置零
+        Replace,               // 用参考值替换
+        IncrementAndClamp,     // 增量并钳制到最大值
+        DecrementAndClamp,     // 减量并钳制到 0
+        Invert,                // 按位取反
+        IncrementAndWrap,      // 增量并溢出回绕到 0
+        DecrementAndWrap       // 减量并溢出回绕到最大值
+    };
+
+    enum class ResourceType : uint8_t {
+        UniformBuffer,
+        StorageBuffer,
+        StorageImage,
+        Texture,
+        InputAttachment,
+        Sampler,
+        AccelerationStructure
     };
 };
 
