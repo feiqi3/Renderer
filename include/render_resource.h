@@ -72,6 +72,8 @@ namespace Render {
 
 	struct rs_descriptorSetLayout : rs_base { };
 
+	struct rs_swapchian : rs_base {};
+
 	struct rs_queue : rs_base {
 		uint8_t queueType;
 	};

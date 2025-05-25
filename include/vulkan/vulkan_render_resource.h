@@ -92,6 +92,11 @@ namespace Render::Vulkan {
 		VkCommandPool pool;
 	};
 
+	struct	rs_swapchian_vk : rs_swapchian {
+		VkSurfaceKHR surface; //Surface
+		std::vector<rs_image_vk*> swapchainImgs;
+	};
+
 	VK_RS_DEF(rs_descriptorSetPool);
 
 	VK_RS_DEF(rs_descriptorSet);

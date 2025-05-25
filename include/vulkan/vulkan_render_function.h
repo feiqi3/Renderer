@@ -1,5 +1,6 @@
 #include "vulkan_render_resource.h"
 #include "render_resource_createinfo.h"
+#include "render_resource_window.h"
 
 namespace Render::Vulkan {
 
@@ -43,5 +44,7 @@ namespace Render::Vulkan {
 	rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc);
 
 	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
+
+	rs_swapchian* createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain = nullptr);
 
 }
