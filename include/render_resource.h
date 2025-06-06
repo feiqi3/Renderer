@@ -35,6 +35,7 @@ namespace Render {
 	struct rs_buffer : rs_base {
 		uint32_t bufferType = BufferType::BufferType_None;
 		uint32_t byteSize = 0;
+		void* mappedPtr = 0;
 	};
 
 	struct rs_sampler : rs_base {

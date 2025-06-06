@@ -40,7 +40,8 @@ namespace Render::Vulkan {
     VkDescriptorType toVkDescriptorType(ResourceType type) {
         switch (type) {
         case ResourceType::UniformBuffer:
-            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+            //TODO: change to dynamic
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case ResourceType::StorageBuffer:
             return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         case ResourceType::StorageImage:
@@ -56,6 +57,239 @@ namespace Render::Vulkan {
         default:
             return VK_DESCRIPTOR_TYPE_MAX_ENUM; // or handle error
         }
+    }
+
+    DescriptorSetManager::DescriptorSetManager(int maxFrame)
+    {
+        m_maxFrame = maxFrame;
+    }
+
+    VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(rs_context_vk* ctx, DescriptorPoolBlock& block, rs_descriptorset_layout_vk* layout) {
+        auto& type = layout->bindingHash.mDescriptors;
+
+        if (block.maxSets == 0)
+            return VK_NULL_HANDLE;
+
+        for (auto i = 0; i < (int)ResourceType::Count; ++i) {
+            if (block.sizes[i] < layout->bindingHash.mAllocaHint.hint[i]) {
+                return VK_NULL_HANDLE;
+            }
+        }
+
+        for (auto i = 0; i < (int)ResourceType::Count; ++i) {
+            block.sizes[i] -= layout->bindingHash.mAllocaHint.hint[i];
+        }
+        block.maxSets--;
+
+        VkDescriptorSetAllocateInfo allci{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+        allci.                descriptorPool = block.pool;
+        allci.                        descriptorSetCount = 1;
+        VkDescriptorSetLayout _layout = (VkDescriptorSetLayout)layout->native;
+        allci.pSetLayouts = &_layout;
+        VkDescriptorSet desSet;
+        vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
+        return desSet;
+    }
+
+    rs_descriptorSet_vk DescriptorSetManager::AllocateDescriptorSet(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs) {
+        for (auto&& i : this->m_pools[m_currentFrame]) {
+            auto desSet = tryAllocateFromPool(ctx, i, rs);
+            if (desSet != VK_NULL_HANDLE) {
+                i.vacationFrame = 0;
+                rs_descriptorSet_vk ret{};
+                ret.native = desSet;
+                ret.layout = rs;
+                return ret;
+            }
+        }
+        this->m_pools[m_currentFrame].push_back(createNewPool(ctx));
+        auto pool = m_pools[m_currentFrame].back();
+        auto desSet = tryAllocateFromPool(ctx, pool, rs);
+        assert(desSet != VK_NULL_HANDLE);
+        rs_descriptorSet_vk ret{};
+        ret.native = desSet;
+        ret.layout = rs;
+        return ret;
+    }
+
+    DescriptorPoolBlock DescriptorSetManager::createNewPool(rs_context_vk* ctx)
+    {
+        DescriptorPoolBlock block{};
+        block.maxSets = this->m_maxSet;
+        block.sizes = this->m_defaultSize;
+
+        VkDescriptorPoolCreateInfo ci{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+        ci.                       maxSets = m_maxSet;
+        ci.                       poolSizeCount = m_defaultPoolAllocSize.size();
+        ci. pPoolSizes = m_defaultPoolAllocSize.data();
+        VK_CHECK(vkCreateDescriptorPool(ctx->device, &ci, 0, &block.pool), {
+         });
+
+        return block;
+    }
+
+    DescriptorSetManager::dyUBuffer DescriptorSetManager::createNewDyBuffer(rs_context_vk* ctx, int size, uint8_t queueType)
+    {
+        BufferDesc desc{};
+        desc.byteSize = (uint32_t)size;
+        desc.bufUsage = BufferType_Uniform;
+        desc.mappable = true;
+        desc.queueType = queueType;
+        auto rsBuffer = createRsBuffer(ctx, desc);
+        dyUBuffer dy{};
+        dy.buffer = rsBuffer;
+        dy.freeSize = size;
+        dy.maxSize  = size;
+        dy.queueType = queueType;
+        return dy;
+    }
+
+    void DescriptorSetManager::updateBufferData(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, void* data, int size, uint8_t queueType)
+    {
+        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
+            return;
+        }
+        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        if (bindingInfo.type != ResourceType::UniformBuffer) {
+            assert(0 && "Wrong binding type");
+            return;
+        }
+
+        auto& dyBuffersFrame = mFrameBuffers[frame];
+        dyUBuffer* targetBuffer = 0;
+        auto itor = dyBuffersFrame.begin();
+        while (itor != dyBuffersFrame.end()) {
+            auto& buffer = *itor;
+            if (buffer.queueType == queueType && buffer.freeSize > size) {
+                targetBuffer = &buffer;
+                break;
+            }
+            ++itor;
+        }
+        if (!targetBuffer) {
+            auto newBuffer = createNewDyBuffer(
+                ctx, Max_Uniform_Buffer_Block_Size, queueType
+            );
+            dyBuffersFrame.push_back(
+                newBuffer
+            );
+
+            auto it = dyBuffersFrame.end()--;
+            targetBuffer = &(*it);
+        }
+        VkWriteDescriptorSet info{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+
+        VkDescriptorBufferInfo binfo{};
+        binfo.        buffer = (VkBuffer)targetBuffer->buffer->native;
+        binfo.        offset = targetBuffer->maxSize - targetBuffer->freeSize;
+        binfo.        range  = size;
+        info.                  dstSet = (VkDescriptorSet)descriptorSet->native;
+        info.                  dstBinding = binding;
+        info.                  dstArrayElement = 0;
+        info.                  descriptorCount = bindingInfo.count;
+        info.                  descriptorType = toVkDescriptorType(bindingInfo.type);
+        info.                  pBufferInfo = &binfo;
+        vkUpdateDescriptorSets(
+            ctx->device, 1, &info, 0, 0
+        );
+        if (!targetBuffer->buffer->mappedPtr) {
+            targetBuffer->buffer->mappedPtr = mapRsBuffer(ctx, targetBuffer->buffer);
+        }
+
+        auto mapPtr = targetBuffer->buffer->mappedPtr;
+        memcpy((char*)mapPtr + targetBuffer->maxSize - targetBuffer->freeSize, data, size);
+    }
+    void DescriptorSetManager::updateSampler(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType) {
+        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
+            return;
+        }
+        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        if (bindingInfo.type != ResourceType::Sampler) {
+            assert(0 && "Wrong binding type");
+            return;
+        }
+
+        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        writeSet.dstBinding = binding;
+        writeSet.dstArrayElement = 0;
+        writeSet.descriptorCount = 1;
+        writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
+        VkDescriptorImageInfo iInfo{};
+        iInfo.sampler = (VkSampler)sampler->native;
+        writeSet.pImageInfo = &iInfo;
+
+        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
+
+    }
+
+    void DescriptorSetManager::updateImage(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType)
+    {
+        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
+            return;
+        }
+        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        if (bindingInfo.type != ResourceType::StorageBuffer) {
+            assert(0 && "Wrong binding type");
+            return;
+        }
+
+        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        writeSet.dstBinding = binding;
+        writeSet.dstArrayElement = 0;
+        writeSet.descriptorCount = 1;
+        writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
+        VkDescriptorImageInfo iInfo{};
+        iInfo.imageView = (VkImageView)image->view;
+        iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        writeSet.pImageInfo = &iInfo;
+
+        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
+
+    }
+
+    void DescriptorSetManager::updateBuffer(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType)
+    {
+        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
+            return;
+        }
+        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        if (bindingInfo.type != ResourceType::StorageBuffer) {
+            assert(0 && "Wrong binding type");
+            return;
+        }
+
+        VkWriteDescriptorSet writeSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        writeSet.                         dstBinding = binding;
+        writeSet.                         dstArrayElement = 0;
+        writeSet.                         descriptorCount = 1;
+        writeSet.                         descriptorType = toVkDescriptorType(bindingInfo.type);
+        VkDescriptorBufferInfo bInfo{};
+        bInfo.buffer = (VkBuffer)buffer->native;
+        bInfo.offset = 0;
+        bInfo.range = buffer->byteSize;
+        writeSet.pBufferInfo = &bInfo;
+
+        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
+
+    }
+
+    void DescriptorSetManager::beginFrame(rs_context_vk* ctx, int frame)
+    {
+        assert(frame < this->m_maxFrame);
+        if(frame > this->m_maxFrame){
+            (void)*(int*)0;
+        }
+
+        for (auto i = m_pools[frame].begin(); i != m_pools[frame].end(); ) {
+            vkResetDescriptorPool(ctx->device, i->pool, 0);
+            if (i->vacationFrame >= Max_Vacant_Frame) {
+                i = m_pools[frame].erase(i);
+            }
+            else {
+                ++i;
+            }
+        }
+
     }
 
     void DescriptorSetManager::returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs)

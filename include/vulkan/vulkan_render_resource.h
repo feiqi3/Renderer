@@ -99,7 +99,9 @@ namespace Render::Vulkan {
 
 	VK_RS_DEF(rs_descriptorSetPool);
 
-	VK_RS_DEF(rs_descriptorSet);
+	struct rs_descriptorSet_vk :rs_descriptorSet{
+		rs_descriptorset_layout_vk* layout;
+	};
 
 };
 

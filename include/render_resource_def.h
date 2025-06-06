@@ -232,7 +232,8 @@ namespace Render {
         Texture,
         InputAttachment,
         Sampler,
-        AccelerationStructure
+        AccelerationStructure,
+        Count
     };
 };
 

@@ -137,9 +137,10 @@ namespace Render {
     };
 
     struct BindingInfo {
-        uint8_t binding = 0;
-        uint8_t count = 0; //max 256
         uint16_t shaderVisibleStage = 0; //shader stage
+        uint16_t count = 0; 
+        uint16_t size = 0; 
+        uint8_t binding = 0;
         ResourceType type;
     };
 

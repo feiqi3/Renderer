@@ -11,6 +11,11 @@ namespace Render::Vulkan {
     constexpr int MAX_BINDINGS = 256 / BITS_PER_BINDING; // 21
 
     struct rs_vk_descriporset_layout_hash {
+
+        struct AllocateHint {
+            std::vector<uint16_t> hint;
+        } mAllocaHint;
+
         std::vector< rs_descriptor> mDescriptors;
         uint64_t layoutHash = 0;
         bool checkValid() {
@@ -41,11 +46,16 @@ namespace Render::Vulkan {
 
             uint64_t h = FNV_offset;
 
+            mAllocaHint.hint.resize((int)ResourceType::Count);
+
             for (auto&& i : mDescriptors) {
                 des = i;
                 h ^= _;
                 h *= FNV_prime;
+                
+                mAllocaHint.hint[(int)i.type]++;
             }
+
             layoutHash = h;
         }
     };
@@ -83,12 +93,38 @@ namespace Render::Vulkan {
         }
     };
 
+    using PoolSizeInfo = std::vector<VkDescriptorPoolSize>;
+
+    struct DescriptorPoolBlock {
+        VkDescriptorPool         pool = VK_NULL_HANDLE;
+        PoolSizeInfo sizes;
+        uint32_t                  maxSets = 0;
+        int vacationFrame               = 0;
+    };
+
+    //TODO: per layout allocator
     class DescriptorSetManager {
 
     public:
+        void bindBufferToDescriptor();
+
+        DescriptorSetManager(int maxFrame);
         rs_descriptorset_layout_vk* createDescriptorSetLayout(rs_context_vk* ctx,const rs_vk_descriporset_layout_hash& layoutHash);
         void returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
         VkDescriptorSetLayout getEmptyDescriptorSetLayout(rs_context_vk* ctx);
+
+        rs_descriptorSet_vk AllocateDescriptorSet(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
+        
+        void beginFrame(rs_context_vk* ctx, int frame);
+
+    private:
+        void destroyDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
+        DescriptorPoolBlock createNewPool(rs_context_vk* ctx);
+        VkDescriptorSet tryAllocateFromPool(rs_context_vk* ctx,DescriptorPoolBlock& block,rs_descriptorset_layout_vk* layout);
+        void updateBufferData(int frame,rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet,int binding,void* data, int size, uint8_t queueType);
+        void updateBuffer(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType);
+        void updateImage(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType);
+        void updateSampler(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType);
     private:
         using LayoutMap = std::unordered_map<
             rs_vk_descriporset_layout_hash,  // key
@@ -96,11 +132,39 @@ namespace Render::Vulkan {
             LayoutHash,                      // hash functor
             LayoutEqual                      // equal functor
         >;
+
+        typedef std::list< DescriptorPoolBlock>  PoolList;
+
         std::mutex mMutex;
         LayoutMap mLayoutMap;
-        void destroyDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
+        std::vector<PoolList> m_pools;
 
+        struct dyUBuffer {
+            rs_buffer_vk* buffer;
+            int freeSize;
+            int maxSize;
+            float lastUsedTime = 0.f;
+            uint8_t queueType = 0;
+        };
+
+        std::vector<
+            std::list<dyUBuffer>
+        > mFrameBuffers;
+        
+        dyUBuffer createNewDyBuffer(rs_context_vk* ctx, int size,uint8_t queueType);
+
+        //TODO: create
+        //Per pool
+        PoolSizeInfo        m_defaultSize;
+        std::vector<VkDescriptorPoolSize> m_defaultPoolAllocSize;
+        uint32_t m_maxSet;
+        
         VkDescriptorSetLayout mEmptyDescriptorSet = VK_NULL_HANDLE;
+        int m_maxFrame = 1;
+        int m_currentFrame = 0;
+
+        inline static const int Max_Vacant_Frame = 10;
+        inline static const int Max_Uniform_Buffer_Block_Size = 1024 * 256; //256k
     };
 
 }
