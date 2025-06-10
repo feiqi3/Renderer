@@ -99,32 +99,36 @@ namespace Render::Vulkan {
         VkDescriptorPool         pool = VK_NULL_HANDLE;
         PoolSizeInfo sizes;
         uint32_t                  maxSets = 0;
-        int vacationFrame               = 0;
+        uint64_t lastActiveFrame = 0;
     };
 
     //TODO: per layout allocator
     class DescriptorSetManager {
 
     public:
-        void bindBufferToDescriptor();
 
         DescriptorSetManager(int maxFrame);
+        void updateBufferData(uint64_t frame, rs_context_vk * ctx, rs_descriptorSet_vk * descriptorSet, int binding, void * data, int size, uint8_t queueType);
+        void updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer);
+        void updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType);
+        void updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType);
+        void updateSampler(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType);
+
+        
         rs_descriptorset_layout_vk* createDescriptorSetLayout(rs_context_vk* ctx,const rs_vk_descriporset_layout_hash& layoutHash);
         void returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
         VkDescriptorSetLayout getEmptyDescriptorSetLayout(rs_context_vk* ctx);
 
-        rs_descriptorSet_vk AllocateDescriptorSet(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
+        rs_descriptorSet_vk AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
         
-        void beginFrame(rs_context_vk* ctx, int frame);
+        void beginFrame(rs_context_vk* ctx, uint64_t frame);
+
+        void endFrame(rs_context_vk* ctx, uint64_t frame);
 
     private:
         void destroyDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
         DescriptorPoolBlock createNewPool(rs_context_vk* ctx);
-        VkDescriptorSet tryAllocateFromPool(rs_context_vk* ctx,DescriptorPoolBlock& block,rs_descriptorset_layout_vk* layout);
-        void updateBufferData(int frame,rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet,int binding,void* data, int size, uint8_t queueType);
-        void updateBuffer(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType);
-        void updateImage(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType);
-        void updateSampler(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType);
+        VkDescriptorSet tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx,DescriptorPoolBlock& block,rs_descriptorset_layout_vk* layout);
     private:
         using LayoutMap = std::unordered_map<
             rs_vk_descriporset_layout_hash,  // key
@@ -143,13 +147,13 @@ namespace Render::Vulkan {
             rs_buffer_vk* buffer;
             int freeSize;
             int maxSize;
-            float lastUsedTime = 0.f;
+            uint64_t lastActiveFrame = 0;
             uint8_t queueType = 0;
         };
 
         std::vector<
             std::list<dyUBuffer>
-        > mFrameBuffers;
+        > m_frameBuffers;
         
         dyUBuffer createNewDyBuffer(rs_context_vk* ctx, int size,uint8_t queueType);
 
@@ -161,7 +165,6 @@ namespace Render::Vulkan {
         
         VkDescriptorSetLayout mEmptyDescriptorSet = VK_NULL_HANDLE;
         int m_maxFrame = 1;
-        int m_currentFrame = 0;
 
         inline static const int Max_Vacant_Frame = 10;
         inline static const int Max_Uniform_Buffer_Block_Size = 1024 * 256; //256k

@@ -62,22 +62,25 @@ namespace Render::Vulkan {
     DescriptorSetManager::DescriptorSetManager(int maxFrame)
     {
         m_maxFrame = maxFrame;
+        this->m_pools.resize(maxFrame);
+        this->m_frameBuffers.resize(maxFrame);
     }
 
-    VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(rs_context_vk* ctx, DescriptorPoolBlock& block, rs_descriptorset_layout_vk* layout) {
+    VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx, DescriptorPoolBlock& block, rs_descriptorset_layout_vk* layout) {
         auto& type = layout->bindingHash.mDescriptors;
 
+        block.lastActiveFrame = frame;
         if (block.maxSets == 0)
             return VK_NULL_HANDLE;
 
         for (auto i = 0; i < (int)ResourceType::Count; ++i) {
-            if (block.sizes[i] < layout->bindingHash.mAllocaHint.hint[i]) {
+            if (block.sizes[i].descriptorCount < layout->bindingHash.mAllocaHint.hint[i]) {
                 return VK_NULL_HANDLE;
             }
         }
 
         for (auto i = 0; i < (int)ResourceType::Count; ++i) {
-            block.sizes[i] -= layout->bindingHash.mAllocaHint.hint[i];
+            block.sizes[i].descriptorCount -= layout->bindingHash.mAllocaHint.hint[i];
         }
         block.maxSets--;
 
@@ -91,20 +94,21 @@ namespace Render::Vulkan {
         return desSet;
     }
 
-    rs_descriptorSet_vk DescriptorSetManager::AllocateDescriptorSet(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs) {
-        for (auto&& i : this->m_pools[m_currentFrame]) {
-            auto desSet = tryAllocateFromPool(ctx, i, rs);
+    rs_descriptorSet_vk DescriptorSetManager::AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs) {
+        int frame_idx = frame / m_maxFrame;
+        for (auto&& i : this->m_pools[frame_idx]) {
+            auto desSet = tryAllocateFromPool(frame,ctx, i, rs);
             if (desSet != VK_NULL_HANDLE) {
-                i.vacationFrame = 0;
+                i.lastActiveFrame = 0;
                 rs_descriptorSet_vk ret{};
                 ret.native = desSet;
                 ret.layout = rs;
                 return ret;
             }
         }
-        this->m_pools[m_currentFrame].push_back(createNewPool(ctx));
-        auto pool = m_pools[m_currentFrame].back();
-        auto desSet = tryAllocateFromPool(ctx, pool, rs);
+        this->m_pools[frame_idx].push_back(createNewPool(ctx));
+        auto pool = m_pools[frame_idx].back();
+        auto desSet = tryAllocateFromPool(frame,ctx, pool, rs);
         assert(desSet != VK_NULL_HANDLE);
         rs_descriptorSet_vk ret{};
         ret.native = desSet;
@@ -144,7 +148,7 @@ namespace Render::Vulkan {
         return dy;
     }
 
-    void DescriptorSetManager::updateBufferData(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, void* data, int size, uint8_t queueType)
+    void DescriptorSetManager::updateBufferData(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, void* data, int size, uint8_t queueType)
     {
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
@@ -155,7 +159,7 @@ namespace Render::Vulkan {
             return;
         }
 
-        auto& dyBuffersFrame = mFrameBuffers[frame];
+        auto& dyBuffersFrame = m_frameBuffers[frame];
         dyUBuffer* targetBuffer = 0;
         auto itor = dyBuffersFrame.begin();
         while (itor != dyBuffersFrame.end()) {
@@ -198,8 +202,9 @@ namespace Render::Vulkan {
 
         auto mapPtr = targetBuffer->buffer->mappedPtr;
         memcpy((char*)mapPtr + targetBuffer->maxSize - targetBuffer->freeSize, data, size);
+        targetBuffer->lastActiveFrame = frame;
     }
-    void DescriptorSetManager::updateSampler(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType) {
+    void DescriptorSetManager::updateSampler(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType) {
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
         }
@@ -222,7 +227,7 @@ namespace Render::Vulkan {
 
     }
 
-    void DescriptorSetManager::updateImage(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType)
+    void DescriptorSetManager::updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType)
     {
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
@@ -247,7 +252,32 @@ namespace Render::Vulkan {
 
     }
 
-    void DescriptorSetManager::updateBuffer(int frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType)
+    void DescriptorSetManager::updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer)
+    {
+        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
+            return;
+        }
+        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        if (bindingInfo.type != ResourceType::StorageBuffer) {
+            assert(0 && "Wrong binding type");
+            return;
+        }
+
+        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        writeSet.dstBinding = binding;
+        writeSet.dstArrayElement = 0;
+        writeSet.descriptorCount = 1;
+        writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
+        VkDescriptorBufferInfo bInfo{};
+        bInfo.buffer = (VkBuffer)buffer->native;
+        bInfo.offset = 0;
+        bInfo.range = buffer->byteSize;
+        writeSet.pBufferInfo = &bInfo;
+
+        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
+    }
+
+    void DescriptorSetManager::updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType)
     {
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
@@ -273,23 +303,34 @@ namespace Render::Vulkan {
 
     }
 
-    void DescriptorSetManager::beginFrame(rs_context_vk* ctx, int frame)
-    {
-        assert(frame < this->m_maxFrame);
-        if(frame > this->m_maxFrame){
-            (void)*(int*)0;
-        }
+    void DescriptorSetManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
+    {  
+    }
 
-        for (auto i = m_pools[frame].begin(); i != m_pools[frame].end(); ) {
+    void DescriptorSetManager::endFrame(rs_context_vk* ctx, uint64_t frame)
+    {
+        int curframeIdx = frame % m_maxFrame;
+        for (auto i = m_pools[curframeIdx].begin(); i != m_pools[frame].end(); ) {
             vkResetDescriptorPool(ctx->device, i->pool, 0);
-            if (i->vacationFrame >= Max_Vacant_Frame) {
-                i = m_pools[frame].erase(i);
+            if (i->lastActiveFrame - frame >= Max_Vacant_Frame) {
+                vkDestroyDescriptorPool(ctx->device, i->pool, 0);
+                i = m_pools[curframeIdx].erase(i);
             }
             else {
                 ++i;
             }
         }
 
+        for (auto i = this->m_frameBuffers[curframeIdx].begin(); i != m_frameBuffers[frame].end(); ) {
+            i->freeSize = i->maxSize;
+            if (i->lastActiveFrame - frame >= Max_Vacant_Frame) {
+                destroyRsBuffer(ctx, i->buffer);
+                i = m_frameBuffers[curframeIdx].erase(i);
+            }
+            else {
+                ++i;
+            }
+        }
     }
 
     void DescriptorSetManager::returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs)

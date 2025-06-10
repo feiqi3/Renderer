@@ -33,6 +33,7 @@ namespace Render::Vulkan {
 	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
 
 	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
+	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer);

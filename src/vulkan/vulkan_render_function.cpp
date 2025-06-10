@@ -439,6 +439,14 @@ namespace Render::Vulkan {
         return ret;
     }
 
+    void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer)
+    {
+        vmaDestroyBuffer(context->allocator, (VkBuffer)buffer->native, buffer->allocation);
+        buffer->native = 0;
+        delete buffer;
+        buffer = 0;
+    }
+
     void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer)
     {
         assert(isRsBufferMappable(context, buffer));
