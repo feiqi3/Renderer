@@ -2,6 +2,7 @@
 #define VULKAN_PIPELINE_H
 #include "vulkan_render_resource.h"
 #include "vulkan_descriptor_set.h"
+#include "vulkan_shader_module.h"
 #include <vector>
 namespace Render::Vulkan {
 
