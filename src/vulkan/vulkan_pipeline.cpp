@@ -418,7 +418,7 @@ namespace Render::Vulkan {
         rsCi.                                   rasterizerDiscardEnable = VK_FALSE;
         rsCi.                              polygonMode = toVkFillMode(desc.renderState.fillMode);
         rsCi.                            cullMode = toVkCullMode(desc.renderState.cullMode);
-        rsCi.frontFace = toVkFrontFace(ctx->initDesc.frontFaceSet);
+        rsCi.frontFace = toVkFrontFace(desc.renderState.frontFace);
         rsCi.depthBiasEnable = VK_FALSE;
         rsCi.depthBiasConstantFactor = 0;
         rsCi.depthBiasClamp = 0;

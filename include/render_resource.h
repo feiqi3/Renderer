@@ -7,6 +7,7 @@ namespace Render {
 
 	struct rs_context{
 		BackEndInitDesc initDesc;
+		std::vector<std::string> physicalDevices;
 	};
 
 	struct rs_base {

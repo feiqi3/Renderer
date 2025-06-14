@@ -45,6 +45,18 @@ namespace Render::Vulkan {
 
 	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
 
-	rs_swapchian* createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain = nullptr);
+	void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain = nullptr);
+	void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window);
+	void createVkInstance(rs_context_vk* context);
+	void createVkPhysicalDevice(rs_context_vk* context,int chooseOne);
+	void createVkQueue(rs_context_vk* context, bool seperateCompute,  bool seperateTransfer);
+	void createVkDevice(rs_context_vk* context);
 
+	void createDebugUtilsMessengerEXT(rs_context_vk* ctx);
+
+	std::vector<const char*> getExtensionEnableDevice(rs_context_vk* context);
+	VkPhysicalDeviceFeatures getExtensionEnablePhysicalDevice(rs_context_vk* context);
+	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
+	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
+	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
 }

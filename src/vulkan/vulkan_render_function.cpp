@@ -4,7 +4,18 @@
 #include "GLFW/glfw3.h"
 #include "window/render_resource_window_glfw.h"
 
+#include <set>
+#include <iostream>
 namespace {
+    //validation callback
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT              messageTypes,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData) {
+        std::cerr << "[renderer]Validation layer: " << pCallbackData->pMessage << std::endl;
+        return VK_FALSE;
+    }
 
     std::vector<VkPresentModeKHR> querySwapchainPresentModes(
         VkPhysicalDevice   physicalDevice,
@@ -612,14 +623,13 @@ namespace Render::Vulkan {
         return cb;
     }
 
-    rs_swapchian* createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain)
+    void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain)
     {
         using namespace Render::Window;
         rs_window_glfw* rsWindowGlfw = (rs_window_glfw*)window;
         GLFWwindow* glfwWin = (GLFWwindow*)rsWindowGlfw->nativeHandle();
         //Need vulkan extension --> khr xxxxxxx    
-        VkSurfaceKHR surface;
-        glfwCreateWindowSurface(context->instance, glfwWin, nullptr, &surface);
+        VkSurfaceKHR surface = context->swapchain->surface;
         VkExtent2D extent;
         int wHeight, wWidth;
         window->getFramebufferSize(wWidth, wHeight);
@@ -631,7 +641,7 @@ namespace Render::Vulkan {
         VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->physicalDevice, surface, &physicalCap), {
             uint64_t _ = 0;
             (void)*((int*)_);
-            });
+        });
         auto choosenFormat = chooseSwapSurfaceFormat(swapchainFormats);
         auto choosePresentMode = chooseSwapPresentMode(presentModes);
         auto chooseImageCount = chooseSwapchainImageCount(physicalCap);
@@ -656,7 +666,8 @@ namespace Render::Vulkan {
         }
         VkSwapchainKHR swapchain;
         VK_CHECK(vkCreateSwapchainKHR(context->device, &sci, nullptr, &swapchain), {
-            return nullptr;
+            uint64_t _ = 0;
+            (void)*((int*)_);
         });
 
         uint32_t swapImgCount = 0;
@@ -699,11 +710,433 @@ namespace Render::Vulkan {
             swapchainImages.push_back(rsImage);
         }
 
-        rs_swapchian_vk* ret = new rs_swapchian_vk;
-        ret->surface = surface;
-        ret->native = swapchain;
-        ret->swapchainImgs = swapchainImages;
-        return ret;
+        context->swapchain->native = swapchain;
+        context->swapchain->swapchainImgs = swapchainImages;
+    }
+
+    void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
+    {
+        if (!context->swapchain) {
+            context->swapchain = new rs_swapchian_vk;
+        }
+        VK_CHECK(glfwCreateWindowSurface(context->instance, (GLFWwindow*)window->nativeHandle(), 0, &context->swapchain->surface), { std::abort(); )};
+    }
+
+    int rateDeviceSuitability(rs_context_vk* context,VkPhysicalDevice device) {
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(device, &props);
+        VkPhysicalDeviceFeatures feats;
+        vkGetPhysicalDeviceFeatures(device, &feats);
+
+        int score = 0;
+
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            score += 1000;
+        }
+
+        score += props.limits.maxImageDimension2D;
+        score += props.limits.maxFramebufferHeight;
+        score += props.limits.maxVertexInputAttributes;
+        return score;
+    }
+
+
+    void createVkInstance(rs_context_vk* context)
+    {
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = context->initDesc.appName.c_str();
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = context->initDesc.engineName.c_str();
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_3; // 或 VK_API_VERSION_1_0
+
+        auto extension = getExtensionEnableInstance(context);
+        auto layers = getLayerEnableInstance(context);
+
+        VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+        createInfo.                    enabledLayerCount = layers.size();
+        createInfo.ppEnabledLayerNames = layers.data();
+        createInfo.                    enabledExtensionCount = extension.size();
+        createInfo.ppEnabledExtensionNames = extension.data();
+        VK_CHECK(vkCreateInstance(&createInfo, 0, &context->instance), { std::abort(); });
+    }
+
+    void createVkPhysicalDevice(rs_context_vk* context, int chooseOne)
+    {
+        uint32_t physicalDeviceCount = 0;
+        VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physicalDeviceCount, nullptr), { std::abort(); });
+        
+        std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+        vkEnumeratePhysicalDevices(context->instance, &physicalDeviceCount, physicalDevices.data());
+
+
+        if (chooseOne < 0 || chooseOne >= physicalDeviceCount) {
+            std::vector<std::string> deviceInfos;
+            deviceInfos.reserve(physicalDeviceCount);
+
+            int maxScore = -1;
+            int suitableDevice = 0;
+            int it = 0;
+            for (auto device : physicalDevices) {
+                VkPhysicalDeviceProperties props;
+                vkGetPhysicalDeviceProperties(device, &props);
+
+                // 注意：driverVersion 的编码厂商可能不同，这里采用 VK_VERSION_* 宏来拆解
+                uint32_t drvVer = props.driverVersion;
+                uint32_t drvMajor = VK_VERSION_MAJOR(drvVer);
+                uint32_t drvMinor = VK_VERSION_MINOR(drvVer);
+                uint32_t drvPatch = VK_VERSION_PATCH(drvVer);
+
+                // 拼接字符串："<Name> (Driver: x.y.z)"
+                std::string info = std::string(props.deviceName)
+                    + " (Driver: "
+                    + std::to_string(drvMajor) + "."
+                    + std::to_string(drvMinor) + "."
+                    + std::to_string(drvPatch) + ")";
+
+                deviceInfos.push_back(std::move(info));
+                int curScore = rateDeviceSuitability(context, device);
+                if (curScore > maxScore) {
+                    maxScore = curScore;
+                    suitableDevice = it;
+                }
+                ++it;
+            }
+            context->physicalDevice = physicalDevices[suitableDevice];
+            context->physicalDevices = std::move(deviceInfos);
+            
+        }
+        else {
+            context->physicalDevice = physicalDevices[chooseOne];
+
+        }
+    }
+
+    // 1) 查找只需支持 GRAPHICS 的队列族
+    static bool findGraphicsFamily(VkPhysicalDevice phys,
+        uint32_t& outFamily)
+    {
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, nullptr);
+        if (count == 0) return false;
+
+        std::vector<VkQueueFamilyProperties> props(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, props.data());
+
+        for (uint32_t i = 0; i < count; ++i) {
+            if (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                outFamily = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 2) 查找只需支持 PRESENT 的队列族
+    static bool findPresentFamily(VkPhysicalDevice phys,
+        VkSurfaceKHR   surface,
+        uint32_t& outFamily)
+    {
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, nullptr);
+        if (count == 0) return false;
+
+        std::vector<VkQueueFamilyProperties> props(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, props.data());
+
+        for (uint32_t i = 0; i < count; ++i) {
+            VkBool32 present = VK_FALSE;
+            vkGetPhysicalDeviceSurfaceSupportKHR(phys, i, surface, &present);
+            if (present) {
+                outFamily = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    static bool findComputeFamily(VkPhysicalDevice phys,
+        bool           separate,
+        uint32_t       graphicsFamily,
+        uint32_t& outFamily)
+    {
+        if (!separate) {
+            outFamily = graphicsFamily;
+            return true;
+        }
+
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, nullptr);
+        if (count == 0) return false;
+
+        std::vector<VkQueueFamilyProperties> props(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, props.data());
+
+        // 1) 优先找只支持 COMPUTE 的
+        for (uint32_t i = 0; i < count; ++i) {
+            bool onlyCompute = (props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) &&
+                !(props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT);
+            if (onlyCompute) {
+                outFamily = i;
+                return true;
+            }
+        }
+        // 2) 回退：找任意支持 COMPUTE 的
+        for (uint32_t i = 0; i < count; ++i) {
+            if (props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                outFamily = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 查找 Transfer 队列族；如果 separate==false，则直接返回 graphicsFamily
+    static bool findTransferFamily(VkPhysicalDevice phys,
+        bool           separate,
+        uint32_t       graphicsFamily,
+        uint32_t& outFamily)
+    {
+        if (!separate) {
+            outFamily = graphicsFamily;
+            return true;
+        }
+
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, nullptr);
+        if (count == 0) return false;
+
+        std::vector<VkQueueFamilyProperties> props(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(phys, &count, props.data());
+
+        // 1) 优先找只支持 TRANSFER 的
+        for (uint32_t i = 0; i < count; ++i) {
+            bool onlyTransfer = (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT) &&
+                !(props[i].queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT));
+            if (onlyTransfer) {
+                outFamily = i;
+                return true;
+            }
+        }
+        // 2) 回退：找任意支持 TRANSFER 的
+        for (uint32_t i = 0; i < count; ++i) {
+            if (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                outFamily = i;
+                return true;
+            }
+        }
+        return false;
+    }
+    void createVkQueue(rs_context_vk* context, bool seperateCompute, bool seperateTransfer)
+    {
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(context->physicalDevice, &count, nullptr);
+        std::vector<VkQueueFamilyProperties> props(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(context->physicalDevice, &count, props.data());
+
+        rs_queue_vk* graphic = new rs_queue_vk;
+        if (!findGraphicsFamily(context->physicalDevice, graphic->familyIndex)) {
+            std::abort();
+        }
+        
+        rs_queue_vk* present = new rs_queue_vk;
+        if (!findPresentFamily(context->physicalDevice, context->swapchain->surface, present->familyIndex)) {
+            std::abort();
+        }
+
+        rs_queue_vk* compute = new rs_queue_vk;
+        findComputeFamily(context->physicalDevice, seperateCompute, graphic->familyIndex, compute->familyIndex);
+
+        rs_queue_vk* transfer = new rs_queue_vk;
+        findTransferFamily(context->physicalDevice, seperateTransfer, graphic->familyIndex, transfer->familyIndex);
+
+        context->graphicQueue = graphic;
+        context->presentQueue = present;
+        context->computeQueue = compute;
+        context->transferQueue = transfer;
+    }
+
+    void createVkDevice(rs_context_vk* context)
+    {
+        createVkQueue(context, context->initDesc.asyncTransferCompute, context->initDesc.asyncTransferCompute);
+        auto extensionRequired = getExtensionEnableDevice(context);
+        auto deviceFeatureEnable = getExtensionEnablePhysicalDevice(context);
+        VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
+        float unifiedPriorities = 1.0f;
+        int graphicQueueCount = 1;
+        std::vector< VkDeviceQueueCreateInfo> queueInfos;
+
+        {
+            VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+            ci.queueFamilyIndex = context->graphicQueue->familyIndex;
+            ci.queueCount = 1;
+            ci.pQueuePriorities = &unifiedPriorities;
+            queueInfos.push_back(ci);
+        }
+
+        if (context->transferQueue->familyIndex != context->graphicQueue->familyIndex) {
+            VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+            ci.                    queueFamilyIndex = context->transferQueue->familyIndex;
+            ci.                    queueCount = 1;
+            ci.pQueuePriorities = &unifiedPriorities;
+            queueInfos.push_back(ci);
+        }
+        if (context->computeQueue->familyIndex != context->graphicQueue->familyIndex) {
+            VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+            ci.queueFamilyIndex = context->computeQueue->familyIndex;
+            ci.queueCount = 1;
+            ci.pQueuePriorities = &unifiedPriorities;
+            queueInfos.push_back(ci);
+        }
+
+        if (context->presentQueue->familyIndex != context->graphicQueue->familyIndex) {
+            VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+            ci.queueFamilyIndex = context->presentQueue->familyIndex;
+            ci.queueCount = 1;
+            ci.pQueuePriorities = &unifiedPriorities;
+            queueInfos.push_back(ci);
+        }
+
+
+
+        createInfo.                         queueCreateInfoCount = queueInfos.size();
+        createInfo.pQueueCreateInfos = queueInfos.data();
+        createInfo.enabledLayerCount = 0;
+        createInfo.                           enabledExtensionCount = extensionRequired.size();
+        createInfo.ppEnabledExtensionNames = extensionRequired.data();
+        createInfo. pEnabledFeatures = &deviceFeatureEnable;
+        
+        vkCreateDevice(context->physicalDevice, &createInfo, 0, &context->device);
+    }
+
+    void createDebugUtilsMessengerEXT(rs_context_vk* ctx)
+    {
+        VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+        debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        debugCreateInfo.messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        debugCreateInfo.messageType =
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugCreateInfo.pfnUserCallback = debugCallback;
+        debugCreateInfo.pUserData = nullptr;
+
+        if (ctx->initDesc.enableValidation) {
+            if (vkCreateDebugUtilsMessengerEXT(ctx->instance, &debugCreateInfo, nullptr, &ctx->validationObject)
+                != VK_SUCCESS) {
+                return;
+            }
+        }
+    }
+
+    std::vector<const char*> getExtensionEnableDevice(rs_context_vk* context)
+    {
+        uint32_t extCount = 0;
+        vkEnumerateDeviceExtensionProperties(context->physicalDevice,nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> availableExtensions(extCount);
+        vkEnumerateDeviceExtensionProperties(context->physicalDevice, nullptr, &extCount, availableExtensions.data());
+        std::set<std::string> extensionSet;
+        for (auto&& i : availableExtensions) {
+            extensionSet.insert(std::string(i.extensionName));
+        }
+
+        std::vector<const char*> requiredExtensionNames{};
+            
+        //swapchain extension
+        requiredExtensionNames.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+        //Remove unsuppored extension
+        auto itor = std::remove_if(requiredExtensionNames.begin(), requiredExtensionNames.end(), [&extensionSet](const char* in) {
+            auto itor = extensionSet.find(std::string(in));
+            if (itor == extensionSet.end())return true;
+            return false;
+            });
+
+        requiredExtensionNames.erase(itor, requiredExtensionNames.end());
+        return requiredExtensionNames;
+    }
+
+    VkPhysicalDeviceFeatures getExtensionEnablePhysicalDevice(rs_context_vk* context)
+    {
+        VkPhysicalDeviceFeatures referenceFeature;
+        vkGetPhysicalDeviceFeatures(context->physicalDevice, &referenceFeature);
+        return referenceFeature;
+    }
+
+    VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context)
+    {
+        VkPhysicalDeviceFeatures2 referenceFeature;
+        vkGetPhysicalDeviceFeatures2(context->physicalDevice, &referenceFeature);
+        return referenceFeature;
+    }
+
+    std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context)
+    {
+        uint32_t extCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr ,&extCount,nullptr);
+        std::vector<VkExtensionProperties> availableExtensions(extCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extCount, availableExtensions.data());
+        std::set<std::string> extensionSet;
+        for (auto&& i : availableExtensions) {
+            extensionSet.insert(std::string(i.extensionName));
+        }
+
+        std::vector<const char*> requiredExtensionNames{};
+
+        uint32_t glfwrequired;
+        const char** glfwExts = glfwGetRequiredInstanceExtensions(&glfwrequired);
+        for (auto i = 0; i < glfwrequired; ++i) {
+            requiredExtensionNames.push_back(glfwExts[i]);
+        }
+        
+        if (context->initDesc.enableValidation) {
+            requiredExtensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        //Remove unsuppored extension
+        auto itor = std::remove_if(requiredExtensionNames.begin(), requiredExtensionNames.end(), [&extensionSet](const char* in) {
+            auto itor = extensionSet.find(std::string(in));
+            if (itor == extensionSet.end())return true;
+            return false;
+        });
+
+        requiredExtensionNames.erase(itor, requiredExtensionNames.end());
+        return requiredExtensionNames;
+    }
+
+    std::vector<const char*> getLayerEnableInstance(rs_context_vk* context)
+    {
+        uint32_t layerCount = 0;
+        vkEnumerateInstanceLayerProperties( &layerCount, nullptr);
+        std::vector<VkLayerProperties> availableLayers(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+        std::set<std::string> layerSet;
+        for (auto&& i : availableLayers) {
+            layerSet.insert(std::string(i.layerName));
+        }
+
+        std::vector<const char*> requiredLayerNames{};
+
+        if (context->initDesc.enableValidation) {
+            requiredLayerNames.push_back("VK_LAYER_KHRONOS_validation");
+        }
+
+        //Remove unsuppored extension
+        auto itor = std::remove_if(requiredLayerNames.begin(), requiredLayerNames.end(), [&layerSet](const char* in) {
+            auto itor = layerSet.find(std::string(in));
+            if (itor == layerSet.end())return true;
+            return false;
+            });
+
+        requiredLayerNames.erase(itor, requiredLayerNames.end());
+        return requiredLayerNames;
     }
 
 }

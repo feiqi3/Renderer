@@ -60,6 +60,21 @@ namespace Render::Vulkan {
         }
     };
 
+    struct rs_descriptorset_layout_vk : rs_base {
+
+
+        inline void accquir() {
+            ref++;
+        }
+        inline void release() {
+            ref--;
+            assert(ref >= 0 && "Wrong ref count");
+        }
+
+        std::atomic_uint32_t ref = 0;
+        rs_vk_descriporset_layout_hash bindingHash;
+    };
+
     VkDescriptorType toVkDescriptorType(ResourceType resType);
 
     std::optional<std::vector<rs_descriptor>> toDescriptors(const std::vector<std::vector<rs_descriptor>>& desc);

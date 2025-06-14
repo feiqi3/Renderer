@@ -20,11 +20,19 @@ namespace Render::Vulkan {
 		VkInstance instance;
 		VkDevice device;
 		VkPhysicalDevice physicalDevice;
+		rs_queue_vk* presentQueue;
 		rs_queue_vk* graphicQueue;
 		rs_queue_vk* computeQueue;
 		rs_queue_vk* transferQueue;
 		VmaAllocator allocator;
 		
+		rs_swapchian_vk* swapchain;
+
+		VkDebugUtilsMessengerEXT validationObject;
+
+		bool mIsValidationLayerEnabled = false;
+
+
 		//For Pipeline 
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
@@ -55,23 +63,8 @@ namespace Render::Vulkan {
 
 	VK_RS_DEF(rs_sampler);
 
-	struct rs_descriptorset_layout_vk : rs_base {
-	
-
-		inline void accquir() {
-			ref++;
-		}
-		inline void release() {
-			ref--;
-			assert(ref >= 0 && "Wrong ref count");
-		}
-
-		std::atomic_uint32_t ref = 0;
-		rs_vk_descriporset_layout_hash bindingHash;
-	};
-
 	struct rs_pipeline_layout_vk : rs_base {
-		std::vector<std::pair<uint16_t,rs_descriptorset_layout_vk*>> setLayouts;
+		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;
 		std::vector<VkPushConstantRange>       pushConstants;
 	};
 
@@ -101,6 +94,10 @@ namespace Render::Vulkan {
 
 	struct rs_descriptorSet_vk :rs_descriptorSet{
 		rs_descriptorset_layout_vk* layout;
+	};
+
+	struct rs_validation_vk :rs_base {
+		
 	};
 
 };

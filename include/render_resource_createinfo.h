@@ -6,7 +6,10 @@ namespace Render {
 
 
     struct BackEndInitDesc {
-        FrontFace frontFaceSet = FrontFace::ClockWise;
+        std::string appName;
+        std::string engineName;
+        bool enableValidation = true;
+        bool asyncTransferCompute = false;
     };
 
     struct BufferDesc {
@@ -107,6 +110,8 @@ namespace Render {
         Topology topology;
         FillMode fillMode;
         CullMode cullMode;
+        FrontFace frontFace;
+
         // 多重采样
         uint32_t    rasterizationSamples = 1;
     };
