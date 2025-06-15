@@ -947,6 +947,7 @@ namespace Render::Vulkan {
         vkGetPhysicalDeviceQueueFamilyProperties(context->physicalDevice, &count, props.data());
 
         rs_queue_vk* graphic = new rs_queue_vk;
+        graphic->queueType = QueueType_Graphics;
         if (!findGraphicsFamily(context->physicalDevice, graphic->familyIndex)) {
             std::abort();
         }
@@ -955,12 +956,23 @@ namespace Render::Vulkan {
         if (!findPresentFamily(context->physicalDevice, context->swapchain->surface, present->familyIndex)) {
             std::abort();
         }
+        present->queueType = QueueType_Present;
 
         rs_queue_vk* compute = new rs_queue_vk;
-        findComputeFamily(context->physicalDevice, seperateCompute, graphic->familyIndex, compute->familyIndex);
+        bool haveSeperateCompute = findComputeFamily(context->physicalDevice, seperateCompute, graphic->familyIndex, compute->familyIndex);
+        if (!haveSeperateCompute || !seperateCompute) {
+            delete compute;
+            compute = 0;
+            graphic->queueType |= QueueType_Compute;
+        }
 
         rs_queue_vk* transfer = new rs_queue_vk;
-        findTransferFamily(context->physicalDevice, seperateTransfer, graphic->familyIndex, transfer->familyIndex);
+        bool haveSeperateTranser = findTransferFamily(context->physicalDevice, seperateTransfer, graphic->familyIndex, transfer->familyIndex);
+        if (!haveSeperateCompute || !seperateTransfer) {
+            delete transfer;
+            transfer = 0;
+            graphic->queueType |= QueueType_Transfer;
+        }
 
         context->graphicQueue = graphic;
         context->presentQueue = present;

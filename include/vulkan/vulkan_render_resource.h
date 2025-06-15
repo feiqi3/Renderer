@@ -38,6 +38,7 @@ namespace Render::Vulkan {
 		uint32_t scissorCount = 1;
 		std::vector<VkDynamicState> pipelineDyStates; // VK_DYNAMIC_STATE_VIEWPORT ,VK_DYNAMIC_STATE_SCISSOR 
 		class DescriptorSetManager* descriptorSetMgr = 0;
+		class CommandBufferManager* cmdBufferMgr = 0;
 	};
 
 	struct rs_queue_vk : rs_queue{
@@ -81,8 +82,12 @@ namespace Render::Vulkan {
 
 	VK_RS_DEF(rs_event);
 
+	struct rs_commandpool_vk : rs_base {
+		rs_queue_vk* queue;
+	};
+
 	struct	rs_commandbuffer_vk : rs_commandbuffer {
-		VkCommandPool pool;
+		rs_commandpool_vk* pool;
 	};
 
 	struct	rs_swapchian_vk : rs_swapchian {

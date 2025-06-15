@@ -62,7 +62,7 @@ namespace Render {
 	struct rs_event : rs_base {};
 
 	struct rs_commandbuffer : rs_base {
-		QueueType queueType;
+		uint8_t queueType;
 		bool isSecondary = false;
 		bool isTransitent = false;
 		bool recording = false;
