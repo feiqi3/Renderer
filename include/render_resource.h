@@ -31,6 +31,8 @@ namespace Render {
 		uint16_t depth;
 		uint16_t mipLevels;
 		uint16_t arrayLayers;
+		uint32_t usage;
+		SampleCount sampleCount = SampleCount::Count1;
 	};
 
 	struct rs_buffer : rs_base {
@@ -52,7 +54,12 @@ namespace Render {
 	};
 
 	struct rs_renderpass : rs_base {
+		std::string passName;
 		PassDesc passDesc;
+		uint32_t height;
+		uint32_t width;
+		bool haveDepth;
+		bool writeDepth;
 	};
 
 	struct rs_fence : rs_base {};
@@ -74,10 +81,15 @@ namespace Render {
 
 	struct rs_descriptorSetLayout : rs_base { };
 
-	struct rs_swapchian : rs_base {};
+	struct rs_swapchain : rs_base {};
 
 	struct rs_queue : rs_base {
 		uint8_t queueType;
+	};
+
+	struct rs_rendertarget : rs_base {
+		std::vector<rs_image*> m_attachments;
+		rs_image* m_depthStencilAttachment;
 	};
 };
 

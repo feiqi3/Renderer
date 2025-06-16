@@ -3,6 +3,7 @@
 
 #include "GLFW/glfw3.h"
 #include "window/render_resource_window_glfw.h"
+#include "vulkan/vulkan_command.h"
 
 #include <set>
 #include <iostream>
@@ -372,6 +373,35 @@ namespace Render::Vulkan {
         }
     }
 
+    rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk>& images, rs_image_vk* depthStencil)
+    {
+        int iw = images[0].width;
+        int ih = images[0].height;
+        int il = images[0].arrayLayers;
+        VkFramebufferCreateInfo ci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        std::vector<rs_image*> localimages;
+
+        int depthAttPos = -1;
+
+        for (int i = 0; i < images.size(); ++i) {
+            auto& img = images[i];
+            if (!(img.usage & ImageUsage_ColorAttachment)) {
+                assert(0 && "Image usage not match");
+                return nullptr;
+            }
+            if (img.width != iw || img.height != ih || img.arrayLayers != il) {
+                assert(0 && "Attachment size not match");
+                return nullptr;
+            }
+            localimages.push_back((rs_image*) & img);
+        }
+
+        rs_rendertarget_vk* rt = new rs_rendertarget_vk;
+        rt->m_attachments = localimages;
+        rt->m_depthStencilAttachment = depthStencil;
+        return rt;
+    }
+
     VkCompareOp toVkCompareOp(CompareOp op)
     {
         switch (op) {
@@ -540,6 +570,8 @@ namespace Render::Vulkan {
         ret->format = desc.format;
         ret->mipLevels = desc.mipLevels;
         ret->arrayLayers = desc.arrayLayers;
+        ret->usage = desc.usage;
+        ret->sampleCount = desc.samples;
         return ret;
     }
 
@@ -594,44 +626,13 @@ namespace Render::Vulkan {
         return shader;
     }
 
-    rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
+    rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, uint64_t frame, const CommandBufferDesc& desc)
     {
-        VkCommandPool pool = VK_NULL_HANDLE;
-        {
-            VkCommandPoolCreateInfo pci{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-            pci.queueFamilyIndex = findQueueFamily(ctx, desc.queueType);
-            pci.flags = desc.transient ? VK_COMMAND_POOL_CREATE_TRANSIENT_BIT : 0;
-            VK_CHECK(
-                vkCreateCommandPool(ctx->device, &pci, nullptr, &pool),
-                {
-                    return nullptr;
-                }
-            );
-        }
-
-        // 分配命令缓冲
-        VkCommandBufferAllocateInfo ai{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-        ai.commandPool = pool;
-        ai.level = desc.isSecondary
-            ? VK_COMMAND_BUFFER_LEVEL_SECONDARY
-            : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        ai.commandBufferCount = 1;
-        
-        VkCommandBuffer cmd = VK_NULL_HANDLE;
-        if (vkAllocateCommandBuffers(ctx->device, &ai, &cmd) != VK_SUCCESS) {
-            vkDestroyCommandPool(ctx->device, pool, nullptr);
-            return nullptr;
-        }
-
-        auto cb = new rs_commandbuffer_vk();
-        cb->pool = pool;
-        cb->native = cmd;
-        cb->isSecondary = desc.isSecondary;
-        cb->isTransitent = desc.transient;
-        return cb;
+        auto cmdMgr = ctx->cmdBufferMgr;
+        return cmdMgr->getCmdBufferLocalThread(ctx, frame, desc.queueType);
     }
 
-    void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain)
+    void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain)
     {
         using namespace Render::Window;
         rs_window_glfw* rsWindowGlfw = (rs_window_glfw*)window;
@@ -725,7 +726,7 @@ namespace Render::Vulkan {
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
-            context->swapchain = new rs_swapchian_vk;
+            context->swapchain = new rs_swapchain_vk;
         }
         VK_CHECK(glfwCreateWindowSurface(context->instance, (GLFWwindow*)window->nativeHandle(), 0, &context->swapchain->surface), { std::abort(); )};
     }
@@ -1157,6 +1158,56 @@ namespace Render::Vulkan {
 
         requiredLayerNames.erase(itor, requiredLayerNames.end());
         return requiredLayerNames;
+    }
+
+    void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs)
+    {
+        std::vector< VkClearValue> clearValues;
+        clearValues.reserve(renderpass->passDesc.attachments.size());
+        
+        //The last desc is depthAndStencil
+        for (int i = 0; i < clearColor.size() - 1; ++i) {
+            auto& c = clearColor[i];
+            VkClearValue clr{};
+            auto& passDesc = renderpass->passDesc.attachments[i];
+            if (passDesc.isHDR) {
+                clr.color.float32[0] = c.rgba[0];
+                clr.color.float32[1] = c.rgba[1];
+                clr.color.float32[2] = c.rgba[2];
+                clr.color.float32[3] = c.rgba[3];
+            }
+            else {
+                clr.color.uint32[0] = (uint32_t)(c.rgba[0] * 255.f);
+                clr.color.uint32[1] = (uint32_t)(c.rgba[1] * 255.f);
+                clr.color.uint32[2] = (uint32_t)(c.rgba[2] * 255.f);
+                clr.color.uint32[3] = (uint32_t)(c.rgba[3] * 255.f);
+            }
+            clearValues.push_back(clr);
+        }
+
+        if (renderpass->haveDepth) {
+            VkClearValue clr{};
+            clr.depthStencil.depth = clearDs.depth;
+            clr.depthStencil.stencil = clearDs.stencil;
+            clearValues.push_back(clr);
+        }
+
+        VkRenderPassBeginInfo info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        info.renderPass = (VkRenderPass)renderpass->native;
+        info.framebuffer = renderpass->frameBuffer;
+
+        auto& extent = info.renderArea.extent;
+        extent.width = renderpass->width;
+        extent.width = renderpass->height;
+        info.               clearValueCount = clearValues.size();
+        info.               pClearValues = clearValues.data();
+
+        vkCmdBeginRenderPass((VkCommandBuffer)cb->native, &info, VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    void cmdEndRenderPass(rs_commandbuffer_vk* cb)
+    {
+        vkCmdEndRenderPass((VkCommandBuffer)cb->native);
     }
 
 }

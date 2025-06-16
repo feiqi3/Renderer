@@ -66,11 +66,9 @@ namespace Render {
     };
 
     struct PassAttachment {
-        ImageFormat format;
-        ImageUsage  usage;
-        SampleCount samples = SampleCount::Count1;
         StorageOp      loadOp;
         StorageOp     storeOp;
+        bool isHDR = false; //float rt is HDR
     };
 
     struct PassDesc {

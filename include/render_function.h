@@ -17,7 +17,7 @@ namespace Render {
 
 	rs_shader_module* createShader(rs_context* context, ShaderDesc& desc);
 
-	rs_swapchian* createSwapchain(rs_context* context,Window::rs_window* window);
+	rs_swapchain* createSwapchain(rs_context* context,Window::rs_window* window);
 };
 
 #endif

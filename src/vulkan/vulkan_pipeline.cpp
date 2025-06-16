@@ -160,31 +160,49 @@ namespace Render::Vulkan {
         layout->native = res;
         return layout;
     }
-    rs_renderpass_vk* createRenderPass(rs_context_vk* ctx, PassDesc const& rpDesc)
+    rs_renderpass_vk* createRsRenderPass(rs_context_vk* ctx,
+        rs_rendertarget_vk* rt,
+        const PassDesc& rpDesc)
     {
+
+        if (!(rt && rt->m_attachments.size() + rt->m_depthStencilAttachment ? 1 : 0 == rpDesc.attachments.size())) {
+            assert(0);
+            return nullptr;
+        }
+        std::vector<VkImageView> imgViews;
+        auto attachments = rt->m_attachments;
+        if (rt->m_depthStencilAttachment) {
+            attachments.push_back(rt->m_depthStencilAttachment);
+        }
+
         std::vector<VkAttachmentDescription> vkAttachments;
-        vkAttachments.reserve(rpDesc.attachments.size());
-        for (auto const& a : rpDesc.attachments) {
+        vkAttachments.reserve(attachments.size());
+
+        for (int i = 0; i < rt->m_attachments.size(); ++i) {
             VkAttachmentDescription ad;
-            ad.format = toVkFormat(a.format);
-            ad.samples = toVkSampleCount(a.samples);
+            auto image = attachments[i];
+            auto& attPassDesc = rpDesc.attachments[i];
+            ad.format = toVkFormat(image->format);
+            ad.samples = toVkSampleCount(image->sampleCount);
             // loadOps
-            ad.loadOp = (a.loadOp == StorageOp::Clear)
+            ad.loadOp = (attPassDesc.loadOp == StorageOp::Clear)
                 ? VK_ATTACHMENT_LOAD_OP_CLEAR
-                : (a.loadOp == StorageOp::DontCare)
+                : (attPassDesc.loadOp == StorageOp::DontCare)
                 ? VK_ATTACHMENT_LOAD_OP_DONT_CARE
                 : VK_ATTACHMENT_LOAD_OP_LOAD;
             // storeOps
-            ad.storeOp = (a.storeOp == StorageOp::Clear) ? VK_ATTACHMENT_STORE_OP_NONE
-                : ((a.storeOp == StorageOp::Cached) ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE);
+            ad.storeOp = (attPassDesc.storeOp == StorageOp::Clear) ? VK_ATTACHMENT_STORE_OP_NONE
+                : ((attPassDesc.storeOp == StorageOp::Cached) ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE);
             // stencil 默认不使用
             ad.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             ad.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             // 布局
-            ad.initialLayout = pickLayout(a.usage, a.loadOp);
-            ad.finalLayout = pickLayout(a.usage, a.storeOp);
+            ad.initialLayout = pickLayout(image->usage, attPassDesc.loadOp);
+            ad.finalLayout = pickLayout(image->usage, attPassDesc.storeOp);
             vkAttachments.push_back(ad);
+            imgViews.push_back(((rs_image_vk*)image)->view);
         }
+
         // VkSubpassDescription (+ AttachmentReference)
         VkSubpassDescription sd{};
         sd.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -192,18 +210,19 @@ namespace Render::Vulkan {
         // 假设 RenderPassDesc.subpasses.size() == 1
         // 准备颜色 AttachmentReference 数组
         std::vector<VkAttachmentReference> colorRefs;
-        colorRefs.reserve(rpDesc.attachments.size());
+        colorRefs.reserve(attachments.size());
         bool hasDepthRef = false;
         VkAttachmentReference deepRef{};
-        for (auto i = 0; i < rpDesc.attachments.size(); ++i) {
+        for (auto i = 0; i < attachments.size(); ++i) {
             int idx = i;
-            auto& att = rpDesc.attachments[i];
+            auto image = attachments[i];
+            //auto& att = rpDesc.attachments[i];
             VkAttachmentReference ref{};
             ref.attachment = i;
-            if (att.usage & ImageUsage::ImageUsage_ColorAttachment) {
+            if (image->usage & ImageUsage::ImageUsage_ColorAttachment) {
                 ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             }
-            else if (att.usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
+            else if (image->usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
                 hasDepthRef = true;
                 deepRef.attachment = i;
                 deepRef.layout = rpDesc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
@@ -225,10 +244,28 @@ namespace Render::Vulkan {
             }
         );
 
+
+
+        VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        fbCi.                renderPass = rdpass;
+        fbCi.                attachmentCount = imgViews.size();
+        fbCi.                pAttachments = imgViews.data();
+        fbCi.                width = rt->m_attachments[0]->width;
+        fbCi.                height = rt->m_attachments[0]->height;
+        fbCi.                layers = rt->m_attachments[0]->arrayLayers;
+        
+        VkFramebuffer fb;
+
+        VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, 0, &fb), { vkDestroyRenderPass(ctx->device,rdpass,0); return nullptr; });
+        
         auto* rp = new rs_renderpass_vk();
         rp->passDesc = rpDesc;  // 复制描述
         rp->native = rdpass;
-
+        rp->frameBuffer = fb;
+        rp->width = attachments[0]->width;
+        rp->height = attachments[0]->height;
+        rp->haveDepth = rt->m_depthStencilAttachment != nullptr;
+        rp->writeDepth = rpDesc.writeDepth;
         return rp;
     }
 

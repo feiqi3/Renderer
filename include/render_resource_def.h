@@ -235,6 +235,16 @@ namespace Render {
         AccelerationStructure,
         Count
     };
+
+    struct ClearColor {
+        float rgba[4];
+    };
+
+    struct ClearDepthStencil {
+        float depth;
+        uint32_t stencil;
+    };
+
 };
 
 #endif

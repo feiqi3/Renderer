@@ -26,7 +26,7 @@ namespace Render::Vulkan {
 		rs_queue_vk* transferQueue;
 		VmaAllocator allocator;
 		
-		rs_swapchian_vk* swapchain;
+		rs_swapchain_vk* swapchain;
 
 		VkDebugUtilsMessengerEXT validationObject;
 
@@ -69,12 +69,16 @@ namespace Render::Vulkan {
 		std::vector<VkPushConstantRange>       pushConstants;
 	};
 
+	struct rs_rendertarget_vk : rs_rendertarget {};
+
 	struct rs_pipeline_vk: rs_pipeline {
 		PipelineType type{};
 		rs_pipeline_layout_vk* layout;
 	};
 	
-	VK_RS_DEF(rs_renderpass);
+	struct rs_renderpass_vk :rs_renderpass {
+		VkFramebuffer frameBuffer;
+	};
 
 	VK_RS_DEF(rs_fence);
 
@@ -90,7 +94,7 @@ namespace Render::Vulkan {
 		rs_commandpool_vk* pool;
 	};
 
-	struct	rs_swapchian_vk : rs_swapchian {
+	struct	rs_swapchain_vk : rs_swapchain {
 		VkSurfaceKHR surface; //Surface
 		std::vector<rs_image_vk*> swapchainImgs;
 	};

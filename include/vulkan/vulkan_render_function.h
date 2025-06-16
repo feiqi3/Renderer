@@ -2,6 +2,7 @@
 #include "render_resource_createinfo.h"
 #include "render_resource_window.h"
 
+#include <vector>
 namespace Render::Vulkan {
 
 	//Helpers
@@ -30,8 +31,7 @@ namespace Render::Vulkan {
 
 	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
-	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
-
+	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk>& images, rs_image_vk* depthStencil);
 	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
@@ -44,9 +44,10 @@ namespace Render::Vulkan {
 
 	rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc);
 
-	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
+	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx,uint64_t frame, const CommandBufferDesc& desc);
 
-	void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchian* oldSwapchain = nullptr);
+	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
+	void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain = nullptr);
 	void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window);
 	void createVkInstance(rs_context_vk* context);
 	void createVkPhysicalDevice(rs_context_vk* context,int chooseOne);
@@ -60,4 +61,9 @@ namespace Render::Vulkan {
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
+
+	//-------------------------------------------------------------------------------------//     
+	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
+	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
+
 }
