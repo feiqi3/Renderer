@@ -6,6 +6,11 @@
 #include "vulkan/vulkan_shader_module.h"
 namespace Render::Vulkan {
 
+    const std::vector<VkDynamicState> s_pipelineDynamicStates = {
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_VIEWPORT,
+    };
+
     namespace {
         VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op) {
             using namespace Render;
@@ -521,8 +526,8 @@ namespace Render::Vulkan {
         ci.pColorBlendState = &bsCi;
 
         VkPipelineDynamicStateCreateInfo dyStateCi{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
-        dyStateCi.                             dynamicStateCount = ctx->pipelineDyStates.size();
-        dyStateCi.pDynamicStates = ctx->pipelineDyStates.data();
+        dyStateCi.dynamicStateCount = s_pipelineDynamicStates.size();
+        dyStateCi.pDynamicStates = s_pipelineDynamicStates.data();
         ci. pDynamicState = &dyStateCi;
 
         auto descritporSetInfos = getPipelineShaderInfo(desc.shaders);

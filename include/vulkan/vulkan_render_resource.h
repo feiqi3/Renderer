@@ -36,7 +36,6 @@ namespace Render::Vulkan {
 		//For Pipeline 
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
-		std::vector<VkDynamicState> pipelineDyStates; // VK_DYNAMIC_STATE_VIEWPORT ,VK_DYNAMIC_STATE_SCISSOR 
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 	};

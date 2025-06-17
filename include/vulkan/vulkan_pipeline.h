@@ -10,7 +10,6 @@ namespace Render::Vulkan {
 
 	rs_pipeline_vk* createPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc);
 
-
 	rs_pipeline_layout_vk* createPipelineLayoutVk(rs_context_vk* ctx, const std::vector< DescritporSetInfo>& descriptorInfos);
 	void destroyPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout);
 
