@@ -1203,11 +1203,64 @@ namespace Render::Vulkan {
         info.               pClearValues = clearValues.data();
 
         vkCmdBeginRenderPass((VkCommandBuffer)cb->native, &info, VK_SUBPASS_CONTENTS_INLINE);
+        cb->currentRenderPass = renderpass;
     }
 
     void cmdEndRenderPass(rs_commandbuffer_vk* cb)
     {
+        cb->currentRenderPass = 0;
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
+    }
+
+    void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect)
+    {
+        assert(cb->currentRenderPass != nullptr);
+        VkViewport viewport{};
+        viewport.x = rect.l * cb->currentRenderPass->width;
+        viewport.y = rect.t * cb->currentRenderPass->height;
+        viewport.width = (rect.r - rect.l) * cb->currentRenderPass->width;
+        viewport.height = (rect.b - rect.t) * cb->currentRenderPass->height;
+        vkCmdSetViewport((VkCommandBuffer)cb->native, 0, 1, &viewport);
+    }
+
+    void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect)
+    {
+        assert(cb->currentRenderPass != nullptr);
+        VkRect2D scissor{};
+        scissor.extent.width = (rect.r - rect.l) * cb->currentRenderPass->width;
+        scissor.extent.height = (rect.b - rect.t) * cb->currentRenderPass->height;
+        scissor.offset.x = rect.l * cb->currentRenderPass->width;
+        scissor.offset.y = rect.t * cb->currentRenderPass->height;
+
+        vkCmdSetScissor((VkCommandBuffer)cb->native, 0, 1, &scissor);
+    }
+
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, const RenderInfo& info, bool isInstanced)
+    {
+        if (info.pipeline == 0) {
+            assert(0);
+            return;
+        }
+        rs_pipeline_vk* pipeline = (rs_pipeline_vk*)info.pipeline;
+        auto& bufferBinding = pipeline->vtxInput.bindings;
+        if (bufferBinding.size() != info.bindingBuffers.size()) {
+            assert(0);
+            return;
+        }
+        vkCmdBindPipeline((VkCommandBuffer)cb->native, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)info.pipeline->native);
+
+        vkCmdBindIndexBuffer((VkCommandBuffer)(cb->native), (VkBuffer)info.indexBuffer, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        std::vector<VkBuffer> bindingBuffers;
+        std::vector<VkDeviceSize> bufferoffsets;
+        for (int i = 0; i < info.bindingBuffers.size(); ++i) {
+            bindingBuffers.push_back((VkBuffer)(info.bindingBuffers[i].buffer->native));
+            bufferoffsets.push_back(info.bindingBuffers[i].offset);
+        }
+        vkCmdBindVertexBuffers((VkCommandBuffer)cb->native, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        
+        uint32_t instanceCnt = isInstanced? info.instanceCount : 1;
+
+        vkCmdDrawIndexed((VkCommandBuffer)cb->native, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
     }
 
 }

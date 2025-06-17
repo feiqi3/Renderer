@@ -236,6 +236,11 @@ namespace Render {
         Count
     };
 
+    enum class IndexType : uint8_t {
+        Uint16,
+        Uint32
+    };
+
     struct ClearColor {
         float rgba[4];
     };

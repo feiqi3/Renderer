@@ -114,8 +114,8 @@ namespace Render {
         uint32_t    rasterizationSamples = 1;
     };
 
+    //Binding Position is the declared sequence in pipeline buffer list
     struct InputBufferBinding {
-        uint32_t    binding;       // vertex buffer binding index
         uint32_t    stride;        // bytes per vertex / instance
         bool        perInstance;   // false = per-vertex, true = per-instance
     };
@@ -147,6 +147,27 @@ namespace Render {
         ResourceType type;
     };
 
+    struct Rect2D {
+        float l, r, t, b;
+    };
+
+    struct VertexBindingInfo {
+        uint16_t offset;
+        struct rs_buffer* buffer;
+    };
+
+    struct RenderInfo {
+        struct rs_pipeline* pipeline;                                         //pipeline
+        std::vector<VertexBindingInfo > bindingBuffers;                      //in buffers
+        struct rs_buffer* indexBuffer = 0;
+        IndexType indexType = IndexType::Uint32;
+        std::vector < std::pair<uint16_t, struct rs_descrptor*>> descriptors; //binding,descriptor
+        uint32_t idxOffset;
+        uint32_t idxCount;
+        uint32_t vtxoffset;
+        uint32_t instanceCount;
+        bool isIndirect = false;
+    };
 };
 
 #endif

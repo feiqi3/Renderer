@@ -404,12 +404,14 @@ namespace Render::Vulkan {
         VkPipelineVertexInputStateCreateInfo vtxInputState{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
         vtxInputState.vertexBindingDescriptionCount = desc.vertexInputDesc.bindings.size();
         std::vector<VkVertexInputBindingDescription> vtxBinding;
+        int bindingpos = 0;
         for (auto&& i : desc.vertexInputDesc.bindings) {
             VkVertexInputBindingDescription bd{};
-            bd.binding = i.binding;
+            bd.binding = bindingpos;
             bd.stride = i.stride;
             bd.inputRate = i.perInstance == true ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
             vtxBinding.push_back(bd);
+            bindingpos++;
         }
 
         vtxInputState.pVertexBindingDescriptions = vtxBinding.data();

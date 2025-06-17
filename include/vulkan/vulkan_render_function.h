@@ -65,5 +65,7 @@ namespace Render::Vulkan {
 	//-------------------------------------------------------------------------------------//     
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
-
+	void cmdSetViewport(rs_commandbuffer_vk* cb,Rect2D& rect);
+	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect);
+	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
 }

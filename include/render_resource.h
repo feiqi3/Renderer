@@ -70,6 +70,7 @@ namespace Render {
 
 	struct rs_commandbuffer : rs_base {
 		uint8_t queueType;
+		rs_renderpass* currentRenderPass = 0;;
 		bool isSecondary = false;
 		bool isTransitent = false;
 		bool recording = false;
