@@ -132,7 +132,7 @@ namespace Render::Vulkan {
         }
     }
 
-    rs_pipeline_layout_vk* createPipelineLayout(rs_context_vk* context, const std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>>& setLayouts, const std::vector<VkPushConstantRange>& pushConstants)
+    rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* context, const std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>>& setLayouts, const std::vector<VkPushConstantRange>& pushConstants)
     {
         
         uint32_t maxSets = 0;
@@ -388,7 +388,7 @@ namespace Render::Vulkan {
         return VK_BLEND_OP_ADD;
     }
 
-    rs_pipeline_vk* createPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc)
+    rs_pipeline_vk* createRsPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc)
     {
         VkGraphicsPipelineCreateInfo ci{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 
@@ -532,7 +532,7 @@ namespace Render::Vulkan {
 
         auto descritporSetInfos = getPipelineShaderInfo(desc.shaders);
 
-        auto pipelineLayout = createPipelineLayoutVk(ctx, descritporSetInfos);
+        auto pipelineLayout = createRsPipelineLayout(ctx, descritporSetInfos);
 
         if (!pipelineLayout)
         {
@@ -559,7 +559,16 @@ namespace Render::Vulkan {
         ret->layout = pipelineLayout;
         return ret;
     }
-    rs_pipeline_layout_vk* createPipelineLayoutVk(rs_context_vk* ctx, const std::vector<DescritporSetInfo>& descriptorInfos)
+    void destroyRsPipeline(rs_context_vk* ctx, rs_pipeline_vk*& pipeline, bool immediately)
+    {
+        if(!immediately)
+            ctx->destroyer->destroyPipeline(ctx->nextRenderFrame, pipeline);
+        vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->native, 0);
+        destroyPipelineLayout(ctx, pipeline->layout);
+        delete pipeline;
+        pipeline = 0;
+    }
+    rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const std::vector<DescritporSetInfo>& descriptorInfos)
     {
         std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>> setlayouts;
         for (auto&& setInfo : descriptorInfos) {
@@ -568,7 +577,7 @@ namespace Render::Vulkan {
             p.first = setInfo.setIdx;
             setlayouts.push_back(p);
         }
-        auto pipelineLayout = createPipelineLayout(ctx, setlayouts, {});
+        auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, {});
         return pipelineLayout;
     }
 

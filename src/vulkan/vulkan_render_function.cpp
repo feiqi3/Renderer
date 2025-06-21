@@ -4,7 +4,7 @@
 #include "GLFW/glfw3.h"
 #include "window/render_resource_window_glfw.h"
 #include "vulkan/vulkan_command.h"
-
+#include "vulkan/vulkan_deferred_destroy.h"
 #include <set>
 #include <iostream>
 namespace {
@@ -440,6 +440,7 @@ namespace Render::Vulkan {
         VmaAllocationInfo allocInfo;
 
         auto toUseQueue = desc.queueType;
+        //TODO:
         assert(Util::ContainsAll(context->graphicQueue->queueType, toUseQueue));
         uint32_t queueFamily = context->graphicQueue->familyIndex;
         VkBufferCreateInfo CI{};
@@ -476,12 +477,16 @@ namespace Render::Vulkan {
         ret->bufferType = desc.bufUsage;
         ret->byteSize = desc.byteSize;
         ret->native = buffer;
-
+        ret->queueType = context->graphicQueue->queueType;
         return ret;
     }
 
-    void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer)
+    void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer, bool immediately)
     {
+        if (!immediately) {
+            context->destroyer->destroyBuffer(context->nextRenderFrame, buffer);
+            return;
+        }
         vmaDestroyBuffer(context->allocator, (VkBuffer)buffer->native, buffer->allocation);
         buffer->native = 0;
         delete buffer;
@@ -575,6 +580,17 @@ namespace Render::Vulkan {
         return ret;
     }
 
+    void destroyRsImage(rs_context_vk* context, rs_image_vk*& image, bool immediately)
+    {
+        if (!immediately) {
+            context->destroyer->destroyImage(context->nextRenderFrame, image);
+            return;
+        }
+        vmaDestroyImage(context->allocator, (VkImage)image->native, image->allocation);
+        delete image;
+        image = 0;
+    }
+
     rs_sampler_vk* createRsSampler(rs_context_vk* ctx, SamplerDesc& desc)
     {
         VkSamplerCreateInfo sci{};
@@ -607,6 +623,17 @@ namespace Render::Vulkan {
         return result;
     }
 
+    void destroyRsSampler(rs_context_vk* context, rs_sampler_vk*& sampler, bool immediately)
+    {
+        if (!immediately) {
+            context->destroyer->destroySampler(context->nextRenderFrame, sampler);
+            return;
+        }
+        vkDestroySampler(context->device, (VkSampler)sampler->native,0);
+        delete sampler;
+        sampler = 0;
+    }
+
     rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc)
     {
         VkShaderModuleCreateInfo ci{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
@@ -626,10 +653,17 @@ namespace Render::Vulkan {
         return shader;
     }
 
-    rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, uint64_t frame, const CommandBufferDesc& desc)
+    void destroyRsShader(rs_context_vk* context, rs_shader_module_vk*& shaderModule)
+    {
+        vkDestroyShaderModule(context->device, (VkShaderModule)shaderModule->native, 0);
+        delete shaderModule;
+        shaderModule = 0;
+    }
+
+    rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
     {
         auto cmdMgr = ctx->cmdBufferMgr;
-        return cmdMgr->getCmdBufferLocalThread(ctx, frame, desc.queueType);
+        return cmdMgr->getCmdBufferLocalThread(ctx, ctx->nextRenderFrame, desc.queueType);
     }
 
     void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain)
@@ -1261,6 +1295,44 @@ namespace Render::Vulkan {
         uint32_t instanceCnt = isInstanced? info.instanceCount : 1;
 
         vkCmdDrawIndexed((VkCommandBuffer)cb->native, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+    }
+
+    void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset)
+    {
+        assert(buffer && data);
+        uint64_t cpSize = std::min((uint64_t)buffer->byteSize, size);
+        if (buffer->mappedPtr) {
+            memcpy(buffer->mappedPtr, data, size);
+            return;
+        }
+        BufferDesc stageBufferDesc{};
+        stageBufferDesc.bufUsage = BufferType_TransferSrc;
+        stageBufferDesc.mappable = true;
+        stageBufferDesc.queueType = QueueType_Graphics;
+        stageBufferDesc.byteSize = size;
+        auto tempBuffer = createRsBuffer(ctx, stageBufferDesc);
+        auto descPtr = mapRsBuffer(ctx, tempBuffer);
+        memcpy(descPtr, data, size);
+        VkCopyBufferInfo2 cpInfo{
+            VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2
+        };
+
+        cpInfo.srcBuffer = (VkBuffer)tempBuffer->native;
+        cpInfo.dstBuffer = (VkBuffer)buffer->native;
+        cpInfo.regionCount = 1;
+        VkBufferCopy2 bufferCopy{
+            VK_STRUCTURE_TYPE_BUFFER_COPY_2
+        };
+        cpInfo.pRegions = &bufferCopy;
+
+        bufferCopy.        srcOffset = 0;
+        bufferCopy.        dstOffset = dstOffset;
+        bufferCopy.        size = size;
+
+        vkCmdCopyBuffer2((VkCommandBuffer)cb->native,&cpInfo);
+
+        destroyRsBuffer(ctx,tempBuffer);
+
     }
 
 }

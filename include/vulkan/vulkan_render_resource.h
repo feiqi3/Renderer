@@ -4,7 +4,7 @@
 #include "render_resource.h"
 #include "volk.h"
 #include "vk_mem_alloc.h"
-
+#include "vulkan_deferred_destroy.h"
 #include <array>
 #include <vector>
 
@@ -38,6 +38,7 @@ namespace Render::Vulkan {
 		uint32_t scissorCount = 1;
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
+		class DeferredDestroyer* destroyer = 0;
 	};
 
 	struct rs_queue_vk : rs_queue{

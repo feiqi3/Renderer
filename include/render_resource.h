@@ -8,6 +8,7 @@ namespace Render {
 	struct rs_context{
 		BackEndInitDesc initDesc;
 		std::vector<std::string> physicalDevices;
+		uint64_t nextRenderFrame = 0;
 	};
 
 	struct rs_base {
@@ -38,6 +39,7 @@ namespace Render {
 	struct rs_buffer : rs_base {
 		uint32_t bufferType = BufferType::BufferType_None;
 		uint32_t byteSize = 0;
+		uint8_t queueType;
 		void* mappedPtr = 0;
 	};
 

@@ -1,4 +1,4 @@
-#include "vulkan_shader_module.h"
+#include "vulkan/vulkan_shader_module.h"
 #include <map>
 namespace Render::Vulkan {
     std::vector<DescritporSetInfo> assembleDescriptorSetInfo(const std::vector<ShaderModuleDescriptorsInfo>& descritpors)

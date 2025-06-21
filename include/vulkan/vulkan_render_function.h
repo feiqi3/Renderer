@@ -33,18 +33,21 @@ namespace Render::Vulkan {
 
 	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk>& images, rs_image_vk* depthStencil);
 	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
-	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer);
+	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer);
 
 	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
+	void destroyRsImage(rs_context_vk* context, rs_image_vk*& image,bool immediately = false);
 
 	rs_sampler_vk* createRsSampler(rs_context_vk* context, SamplerDesc& desc);
+	void destroyRsSampler(rs_context_vk* context, rs_sampler_vk*& sampler, bool immediately = false);
 
 	rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc);
+	void destroyRsShader(rs_context_vk* context, rs_shader_module_vk*& module);
 
-	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx,uint64_t frame, const CommandBufferDesc& desc);
+	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
 
 	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
 	void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain = nullptr);
@@ -68,4 +71,5 @@ namespace Render::Vulkan {
 	void cmdSetViewport(rs_commandbuffer_vk* cb,Rect2D& rect);
 	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
+	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
 }
