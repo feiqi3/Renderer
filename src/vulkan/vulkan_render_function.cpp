@@ -496,11 +496,15 @@ namespace Render::Vulkan {
     void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer)
     {
         assert(isRsBufferMappable(context, buffer));
+        if (buffer->mappedPtr) {
+            return buffer->mappedPtr;
+        }
         void* mappedData = nullptr;
         VkResult result = vmaMapMemory(context->allocator, buffer->allocation, &mappedData);
         if (result != VK_SUCCESS) {
             return nullptr;
         }
+        buffer->mappedPtr = mappedData;
         return mappedData;
     }
 
@@ -1194,6 +1198,16 @@ namespace Render::Vulkan {
         return requiredLayerNames;
     }
 
+    rs_buffer_vk* createStageBufferTemp(rs_context_vk* context, uint64_t size)
+    {
+        BufferDesc stageBufferDesc{};
+        stageBufferDesc.bufUsage = BufferType_TransferSrc;
+        stageBufferDesc.mappable = true;
+        stageBufferDesc.queueType = QueueType_Graphics;
+        stageBufferDesc.byteSize = size;
+        return createRsBuffer(context, stageBufferDesc);
+    }
+
     void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs)
     {
         std::vector< VkClearValue> clearValues;
@@ -1297,6 +1311,30 @@ namespace Render::Vulkan {
         vkCmdDrawIndexed((VkCommandBuffer)cb->native, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
     }
 
+    uint32_t bufferBarrierTransferDstCalc(rs_buffer_vk* buffer) {
+        auto bufferType = buffer->bufferType;
+        uint32_t dstAccessBits = 0;
+        if (bufferType & BufferType_Vertex) {
+            dstAccessBits |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+        }
+        if (bufferType & BufferType_Index) {
+            dstAccessBits |= VK_ACCESS_INDEX_READ_BIT;
+        }
+        if (bufferType & BufferType_Uniform) {
+            dstAccessBits |= VK_ACCESS_UNIFORM_READ_BIT;
+        }
+        if (bufferType & BufferType_Storage) {
+            dstAccessBits |= VK_ACCESS_SHADER_READ_BIT;
+        }
+        if (bufferType & BufferType_TransferSrc) {
+            dstAccessBits |= VK_ACCESS_HOST_READ_BIT& VK_ACCESS_TRANSFER_READ_BIT & VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        if (bufferType & BufferType_Indirect) {
+            dstAccessBits |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        }
+        return dstAccessBits;
+    }
+
     void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset)
     {
         assert(buffer && data);
@@ -1305,12 +1343,8 @@ namespace Render::Vulkan {
             memcpy(buffer->mappedPtr, data, size);
             return;
         }
-        BufferDesc stageBufferDesc{};
-        stageBufferDesc.bufUsage = BufferType_TransferSrc;
-        stageBufferDesc.mappable = true;
-        stageBufferDesc.queueType = QueueType_Graphics;
-        stageBufferDesc.byteSize = size;
-        auto tempBuffer = createRsBuffer(ctx, stageBufferDesc);
+
+        auto tempBuffer = createStageBufferTemp(ctx, size);
         auto descPtr = mapRsBuffer(ctx, tempBuffer);
         memcpy(descPtr, data, size);
         VkCopyBufferInfo2 cpInfo{
@@ -1329,10 +1363,219 @@ namespace Render::Vulkan {
         bufferCopy.        dstOffset = dstOffset;
         bufferCopy.        size = size;
 
-        vkCmdCopyBuffer2((VkCommandBuffer)cb->native,&cpInfo);
+        VkBufferMemoryBarrier barrierBefore = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT & VK_ACCESS_TRANSFER_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = (VkBuffer)tempBuffer->native,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+        };
 
+        VkBufferMemoryBarrier barrierAfter = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = bufferBarrierTransferDstCalc(buffer),
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = (VkBuffer)buffer->native,
+        .offset = dstOffset,
+        .size = VK_WHOLE_SIZE,
+        };
+
+        auto cmd = (VkCommandBuffer)cb->native;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
+        vkCmdCopyBuffer2(cmd,&cpInfo);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 1, &barrierAfter, 0, 0);
         destroyRsBuffer(ctx,tempBuffer);
 
+    }
+
+
+    VkAccessFlags calcSrcImageLayoutAccessStage(VkImageLayout oldLayout) {
+        switch (oldLayout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            return 0;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            return VK_ACCESS_HOST_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return VK_ACCESS_MEMORY_READ_BIT;
+        default:
+            // Fallback to all read/write
+            return VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+        }
+    }
+
+    // Utility: map VkImageLayout (newLayout) to appropriate dstAccessMask for pipeline barriers
+    VkAccessFlags calcDstImageLayoutAccessStage(VkImageLayout newLayout) {
+        switch (newLayout) {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return VK_ACCESS_MEMORY_READ_BIT;
+        default:
+            return VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+        }
+    }
+
+    VkPipelineStageFlags getSrcStageForLayout(VkImageLayout oldLayout) {
+        switch (oldLayout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            return VK_PIPELINE_STAGE_HOST_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        default:
+            // Fallback to all commands if unknown
+            return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        }
+    }
+
+    VkPipelineStageFlags getDstStageForLayout(VkImageLayout newLayout) {
+        switch (newLayout) {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        default:
+            // Fallback to all commands if unknown
+            return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        }
+    }
+
+    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, int mip, int layer, uint32_t aspect)
+    {
+        VkImageMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = calcSrcImageLayoutAccessStage(image->currentLayout),  // 前一个布局带来的访问屏障
+        .dstAccessMask = calcDstImageLayoutAccessStage(newlayout),
+        .oldLayout = image->currentLayout,                             // 比如：VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        .newLayout = newlayout,  // 要切到 transfer dst
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = (VkImage)image->native,
+        .subresourceRange = {
+            .aspectMask = aspect,
+            .baseMipLevel = mip,   // 只针对你要写入的 mip 级
+            .levelCount = 1,
+            .baseArrayLayer = layer,   // 只针对你要写入的那一层
+            .layerCount = 1,
+        },
+
+        };
+        vkCmdPipelineBarrier((VkCommandBuffer)cb->native, getSrcStageForLayout(image->currentLayout), getDstStageForLayout(newlayout), 0, 0, 0, 0, 0,1 , &barrier);
+        image->currentLayout = newlayout;
+    }
+
+
+    void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int dstMip, int layer)
+    {
+        assert(image && data);
+        auto cmd = (VkCommandBuffer)cb->native;
+        auto tempBuffer = createStageBufferTemp(context, size);
+        auto dstPtr = mapRsBuffer(context, tempBuffer);
+        memcpy(dstPtr, data, size);
+
+
+        VkImageSubresourceLayers    imageSubresource{};
+        imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageSubresource.mipLevel = dstMip;
+        imageSubresource.baseArrayLayer = layer;
+        imageSubresource.layerCount = 1;
+        VkOffset3D                  imageOffset{ 0,0,0 };
+        VkExtent3D                  imageExtent{ image->width,image->height,image->depth };
+        VkBufferImageCopy2 imageCpy{ VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2 };
+        imageCpy.bufferOffset = 0;
+        imageCpy.bufferRowLength = 0;
+        imageCpy.bufferImageHeight = 0;
+        imageCpy.imageSubresource = imageSubresource;
+        imageCpy.imageOffset = imageOffset;
+        imageCpy.imageExtent = imageExtent;
+
+        VkBufferMemoryBarrier barrierBefore = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = (VkBuffer)tempBuffer->native,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+        };
+
+        VkBufferMemoryBarrier barrierAfter = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = calcDstImageLayoutAccessStage(image->currentLayout),
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = (VkBuffer)tempBuffer->native,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+        };
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
+        auto layoutSave = image->currentLayout;
+        cmdImageLayoutTo(cb, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstMip, layer, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkCopyBufferToImageInfo2 cpInfo{ VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2 };
+        cpInfo.srcBuffer = (VkBuffer)tempBuffer->native;
+        cpInfo.dstImage = (VkImage)image->native;
+        cpInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        cpInfo.regionCount = 1;
+        cpInfo.pRegions = &imageCpy;
+        vkCmdCopyBufferToImage2(cmd, &cpInfo);
+        cmdImageLayoutTo(cb, image, layoutSave, dstMip, layer, VK_IMAGE_ASPECT_COLOR_BIT);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, getDstStageForLayout(layoutSave), 0, 0, 0, 1, &barrierAfter, 0, 0);
     }
 
 }

@@ -53,6 +53,7 @@ namespace Render::Vulkan {
 	struct rs_image_vk : rs_image {
 		VmaAllocation allocation;
 		VkImageView view;
+		VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	};
 
 	struct rs_shader_module_vk :rs_shader_module{

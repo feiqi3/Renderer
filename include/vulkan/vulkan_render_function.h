@@ -65,6 +65,7 @@ namespace Render::Vulkan {
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
 
+	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
@@ -72,4 +73,6 @@ namespace Render::Vulkan {
 	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
+	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, int mip, int layer);
+	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout,int mip,int layer,uint32_t aspect);
 }
