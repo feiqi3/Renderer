@@ -27,7 +27,7 @@ namespace Render::Vulkan {
 		VmaAllocator allocator;
 		
 		rs_swapchain_vk* swapchain;
-
+		uint32_t maxSwapChainImages;
 		VkDebugUtilsMessengerEXT validationObject;
 
 		bool mIsValidationLayerEnabled = false;

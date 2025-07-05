@@ -5,6 +5,9 @@
 #include "window/render_resource_window_glfw.h"
 #include "vulkan/vulkan_command.h"
 #include "vulkan/vulkan_deferred_destroy.h"
+
+#include "vulkan/vulkan_descriptor_set.h"
+
 #include <set>
 #include <iostream>
 namespace {
@@ -341,6 +344,19 @@ namespace Render::Vulkan {
             flags |= VK_SHADER_STAGE_MESH_BIT_EXT;
 
         return flags;
+    }
+
+    void initVulkanBackEnd(BackEndInitDesc& desc, Window::rs_window_glfw* window)
+    {
+        rs_context_vk* ctx = new rs_context_vk;
+        ctx->initDesc = desc;
+        createVkInstance(ctx);
+        createSurface(ctx, window);
+        createVkPhysicalDevice(ctx, -1);
+        createSwapchain(ctx, window, 0);
+        createVkDevice(ctx);
+        ctx->descriptorSetMgr = new DescriptorSetManager(ctx->maxFrameInFlight);
+        ctx->cmdBufferMgr = new CommandBufferManager(ctx->maxFrameInFlight);
     }
 
     uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type)
@@ -759,6 +775,7 @@ namespace Render::Vulkan {
 
         context->swapchain->native = swapchain;
         context->swapchain->swapchainImgs = swapchainImages;
+        context->maxSwapChainImages = swapchainImages.size();
     }
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
@@ -809,6 +826,9 @@ namespace Render::Vulkan {
         createInfo.                    enabledExtensionCount = extension.size();
         createInfo.ppEnabledExtensionNames = extension.data();
         VK_CHECK(vkCreateInstance(&createInfo, 0, &context->instance), { std::abort(); });
+        if (context->initDesc.enableValidation) {
+            createDebugUtilsMessengerEXT(context);
+        }
     }
 
     void createVkPhysicalDevice(rs_context_vk* context, int chooseOne)
