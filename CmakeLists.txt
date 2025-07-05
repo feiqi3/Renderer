@@ -43,12 +43,40 @@ elseif(APPLE) ## TODO: ios/osx
 endif()
 add_subdirectory(3rd/volk)
 
+set(GLSLANG_TESTS_DEFAULT OFF CACHE BOOL "" FORCE) # Can be turned off, below, based on environment.
+set(GLSLANG_ENABLE_INSTALL OFF CACHE BOOL "" FORCE) # Can be turned off, below, based on environment.
+
+set(SHADERC_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(SHADERC_ENABLE_WGSL_OUTPUT OFF CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_INSTALL ON CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
+set(SHALDERC_ENABLE_SPIRV_TOOLS_ONLINE_COMPILER OFF CACHE BOOL "" FORCE)
+set(SHALDERC_ENABLE_FUZZ_TESTS OFF CACHE BOOL "" FORCE)
+message(STATUS "Configuring Shaderc dependencies...")
+execute_process(
+  COMMAND ${CMAKE_COMMAND} -E env python ${CMAKE_SOURCE_DIR}/3rd/shaderc/utils/git-sync-deps
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rd/shaderc
+)
+message(STATUS "Configuring Shaderc dependencies done.")
+add_subdirectory(3rd/shaderc)
+add_subdirectory(3rd/spirv-reflect)
+
+set(SPIRV_REFLECT_INSTALL OFF CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_INSTALL OFF CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_EXECUTABLE OFF CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SPIRV_REFLECT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # Add include directory for header files
 target_include_directories(Renderer PUBLIC include)
 
 # Link libraries if required
 
 target_include_directories(Renderer PRIVATE 3rd/vma)
+target_link_libraries(Renderer PRIVATE spirv-reflect-static)
+target_link_libraries(Renderer PRIVATE shaderc_static)
 target_link_libraries(Renderer PRIVATE glfw)
 target_link_libraries(Renderer PRIVATE volk::volk)
+
 # target_link_libraries(Renderer <libname>)

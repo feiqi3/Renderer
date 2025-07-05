@@ -4,3 +4,9 @@
 [submodule "3rd/volk"]
 	path = 3rd/volk
 	url = https://github.com/zeux/volk.git
+[submodule "3rd/shaderc"]
+	path = 3rd/shaderc
+	url = https://github.com/google/shaderc.git
+[submodule "3rd/spirv-reflect"]
+	path = 3rd/spirv-reflect
+	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
