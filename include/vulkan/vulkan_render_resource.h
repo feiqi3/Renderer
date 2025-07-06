@@ -12,8 +12,6 @@
 #define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x); stmt }
 
 namespace Render::Vulkan {
-	using rs_descriptor = BindingInfo;
-
 	struct rs_queue_vk;
 	
 	struct rs_context_vk : rs_context{
@@ -57,10 +55,6 @@ namespace Render::Vulkan {
 	};
 
 	struct rs_shader_module_vk :rs_shader_module{
-		std::vector<VkPushConstantRange>       pushConstants;
-		std::vector<
-			std::pair<uint16_t, std::vector<rs_descriptor>>
-		> descriptorSetinfo; //set / descriptors
 	};
 
 	VK_RS_DEF(rs_sampler);

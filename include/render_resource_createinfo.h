@@ -2,6 +2,7 @@
 #define RENDER_RESOURCE_CREATE_INFO
 #include "render_resource_def.h"
 #include <Vector>
+#include <functional>
 namespace Render {
 
 
@@ -147,6 +148,12 @@ namespace Render {
         ResourceType type;
     };
 
+
+    struct ShaderModuleDescriptorsInfo {
+        int setIdx = -1;
+        std::vector<BindingInfo> mInfo;
+    };
+
     struct Rect2D {
         float l, r, t, b;
     };
@@ -168,6 +175,25 @@ namespace Render {
         uint32_t instanceCount;
         bool isIndirect = false;
     };
+
+    struct ShaderIncludeRes {
+        std::string ShaderName;
+        std::string ShaderContent;
+    };
+
+    using ShaderIncFindFunc = std::function<ShaderIncludeRes(const std::vector<std::string>&, const std::string&)>;
+    struct ShaderCompileDesc {
+        ShaderStage stage;
+        ShaderLang langType = ShaderLang::HLSL;
+        std::vector<std::pair<std::string, std::string>> macros;
+        std::string shaderName;
+        std::string shaderSrcCode;
+        bool enableOptimize = false;
+        bool generateDebugInfo = false;
+        std::vector<std::string> shaderIncludeDirectories;
+        ShaderIncFindFunc shaderIncludeFindFunc = nullptr;
+    };
+
 };
 
 #endif

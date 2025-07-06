@@ -23,6 +23,7 @@ namespace Render {
 		std::string entryPoint = "main";
 		std::string shaderName = "shader";
 		uint64_t shaderHash = 0;
+		std::vector<ShaderModuleDescriptorsInfo> mReflectInfo;
 	};
 
 	struct rs_image : rs_base {
@@ -95,6 +96,8 @@ namespace Render {
 		std::vector<rs_image*> m_attachments;
 		rs_image* m_depthStencilAttachment;
 	};
+
+	using rs_descriptor = BindingInfo;
 };
 
 #endif

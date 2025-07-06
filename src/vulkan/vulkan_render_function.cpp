@@ -8,6 +8,7 @@
 
 #include "vulkan/vulkan_descriptor_set.h"
 
+#include "render_log.h"
 #include <set>
 #include <iostream>
 namespace {
@@ -17,7 +18,19 @@ namespace {
         VkDebugUtilsMessageTypeFlagsEXT              messageTypes,
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData) {
-        std::cerr << "[renderer]Validation layer: " << pCallbackData->pMessage << std::endl;
+        switch (messageTypes)
+        {case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT :
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT :
+            Render::Log::info(pCallbackData->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            Render::Log::warn(pCallbackData->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+        default:
+            Render::Log::error(pCallbackData->pMessage);
+            break;
+        }
         return VK_FALSE;
     }
 
@@ -346,7 +359,7 @@ namespace Render::Vulkan {
         return flags;
     }
 
-    void initVulkanBackEnd(BackEndInitDesc& desc, Window::rs_window_glfw* window)
+    void initVulkanBackEnd(BackEndInitDesc& desc, Window::rs_window* window)
     {
         rs_context_vk* ctx = new rs_context_vk;
         ctx->initDesc = desc;

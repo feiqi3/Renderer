@@ -250,6 +250,12 @@ namespace Render {
         uint32_t stencil;
     };
 
+    enum class ShaderLang {
+        HLSL,
+        GLSL,
+        MSL
+    };
+
 };
 
 #endif

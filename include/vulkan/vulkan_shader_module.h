@@ -5,11 +5,6 @@
 
 namespace Render::Vulkan {
 
-	struct ShaderModuleDescriptorsInfo{
-		int setIdx = -1;
-		std::vector<rs_descriptor> mInfo;
-	};
-
 	struct DescritporSetInfo {
 		int setIdx = -1;
 		rs_vk_descriporset_layout_hash layoutHash;
