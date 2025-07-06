@@ -1,0 +1,49 @@
+set(GLFW_LIBRARY_TYPE "STATIC")
+set(GLFW_BUILD_EXAMPLES OFF)
+set(GLFW_BUILD_TESTS OFF)
+set(GLFW_BUILD_DOCS OFF)
+add_subdirectory(glfw)
+
+## For Volk/glfw: platform-specific 
+if(UNIX AND NOT APPLE)
+  message("targeting Linux")
+  target_compile_definitions(Renderer PRIVATE VK_KHR_xlib_surface VK_USE_PLATFORM_XLIB_KHR GLFW_EXPOSE_NATIVE_X11)
+  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XLIB_KHR VK_KHR_xlib_surface)
+elseif(WIN32)
+  message("targeting win32")
+  target_compile_definitions(Renderer PRIVATE VK_KHR_win32_surface VK_USE_PLATFORM_WIN32_KHR GLFW_EXPOSE_NATIVE_WIN32)
+  target_compile_definitions(Renderer PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR VK_KHR_win32_surface)
+elseif(APPLE) ## TODO: ios/osx
+  message("targeting OSX")
+  target_compile_definitions(Renderer PRIVATE VK_MVK_macos_surface VK_USE_PLATFORM_MACOS_MVK GLFW_EXPOSE_NATIVE_COCOA)
+  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_MACOS_MVK VK_MVK_macos_surface)
+endif()
+add_subdirectory(volk)
+
+set(SHADERC_ENABLE_WGSL_OUTPUT OFF CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_EXECUTABLES OFF CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_INSTALL OFF CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
+set(SHALDERC_ENABLE_SPIRV_TOOLS_ONLINE_COMPILER OFF CACHE BOOL "" FORCE)
+set(SHALDERC_ENABLE_FUZZ_TESTS OFF CACHE BOOL "" FORCE)
+set(ENABLE_SPIRV_TOOLS_INSTALL OFF CACHE BOOL "" FORCE)
+
+message(STATUS "Configuring Shaderc dependencies...")
+execute_process(
+  COMMAND ${CMAKE_COMMAND} -E env python ${CMAKE_SOURCE_DIR}/3rd/shaderc/utils/git-sync-deps
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rd/shaderc
+)
+message(STATUS "Configuring Shaderc dependencies done.")
+add_subdirectory(shaderc)
+
+#custom spirv-reflect project
+
+add_library(spirv-reflect-static STATIC
+    spirv-reflect/spirv_reflect.c
+)
+
+target_include_directories(spirv-reflect-static PUBLIC
+    spirv-reflect
+)

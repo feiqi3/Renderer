@@ -20,54 +20,8 @@ add_executable(Renderer ${SOURCES})
 
 message("Sources: ${SOURCES}")
 
-set(GLFW_LIBRARY_TYPE "STATIC")
-set(GLFW_BUILD_EXAMPLES OFF)
-set(GLFW_BUILD_TESTS OFF)
-set(GLFW_BUILD_DOCS OFF)
-add_subdirectory(3rd/glfw)
+add_subdirectory(3rd)
 
-## For Volk/glfw: platform-specific 
-if(UNIX AND NOT APPLE)
-  message("targeting Linux")
-  target_compile_definitions(Renderer PRIVATE VK_KHR_xlib_surface VK_USE_PLATFORM_XLIB_KHR GLFW_EXPOSE_NATIVE_X11)
-  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XLIB_KHR VK_KHR_xlib_surface)
-elseif(WIN32)
-  message("targeting win32")
-  target_compile_definitions(Renderer PRIVATE VK_KHR_win32_surface VK_USE_PLATFORM_WIN32_KHR GLFW_EXPOSE_NATIVE_WIN32)
-  target_compile_definitions(Renderer PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
-  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR VK_KHR_win32_surface)
-elseif(APPLE) ## TODO: ios/osx
-  message("targeting OSX")
-  target_compile_definitions(Renderer PRIVATE VK_MVK_macos_surface VK_USE_PLATFORM_MACOS_MVK GLFW_EXPOSE_NATIVE_COCOA)
-  set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_MACOS_MVK VK_MVK_macos_surface)
-endif()
-add_subdirectory(3rd/volk)
-
-set(GLSLANG_TESTS_DEFAULT OFF CACHE BOOL "" FORCE) # Can be turned off, below, based on environment.
-set(GLSLANG_ENABLE_INSTALL OFF CACHE BOOL "" FORCE) # Can be turned off, below, based on environment.
-
-set(SHADERC_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
-set(SHADERC_ENABLE_WGSL_OUTPUT OFF CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_INSTALL ON CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
-set(SHALDERC_ENABLE_SPIRV_TOOLS_ONLINE_COMPILER OFF CACHE BOOL "" FORCE)
-set(SHALDERC_ENABLE_FUZZ_TESTS OFF CACHE BOOL "" FORCE)
-message(STATUS "Configuring Shaderc dependencies...")
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E env python ${CMAKE_SOURCE_DIR}/3rd/shaderc/utils/git-sync-deps
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rd/shaderc
-)
-message(STATUS "Configuring Shaderc dependencies done.")
-add_subdirectory(3rd/shaderc)
-add_subdirectory(3rd/spirv-reflect)
-
-set(SPIRV_REFLECT_INSTALL OFF CACHE BOOL "" FORCE)
-set(SPIRV_REFLECT_INSTALL OFF CACHE BOOL "" FORCE)
-set(SPIRV_REFLECT_EXECUTABLE OFF CACHE BOOL "" FORCE)
-set(SPIRV_REFLECT_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(SPIRV_REFLECT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # Add include directory for header files
 target_include_directories(Renderer PUBLIC include)
 

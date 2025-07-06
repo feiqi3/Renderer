@@ -6,7 +6,8 @@
 ################
 /.cache/
 /.vscode/
-
+/.vs/
+/out/
 # System files #
 ################
 .DS_Store
