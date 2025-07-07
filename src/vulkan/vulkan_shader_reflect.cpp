@@ -1,10 +1,107 @@
 #include "vulkan/vulkan_shader_reflect.h"
 #include "shaderc/shaderc.hpp"
+
+#include "vulkan/vulkan_render_function.h"
+
 #include "render_log.h"
 #include "spirv_reflect.h"
 #include <fstream>
 #include <filesystem>
 namespace {
+
+    Render::ResourceType SpvDescriptorTypeToResourceType(SpvReflectDescriptorType type) {
+        using ResourceType = Render::ResourceType;
+        switch (type) {
+        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+            return ResourceType::UniformBuffer;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+            return ResourceType::StorageBuffer;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+            return ResourceType::StorageImage;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+        case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+            return ResourceType::Texture;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+            return ResourceType::Sampler;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+            return ResourceType::InputAttachment;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+            return ResourceType::AccelerationStructure;
+
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+            return ResourceType::StorageBuffer;
+
+        default:
+            // 如果你愿意处理未知类型
+            return ResourceType::Count; // 或者抛异常 / 打日志
+        }
+    }
+
+    VkFormat SpvReflectFormatToVkFormat(SpvReflectFormat fmt) {
+        switch (fmt) {
+        case SPV_REFLECT_FORMAT_UNDEFINED:           return VK_FORMAT_UNDEFINED;
+
+        case SPV_REFLECT_FORMAT_R16_UINT:            return VK_FORMAT_R16_UINT;
+        case SPV_REFLECT_FORMAT_R16_SINT:            return VK_FORMAT_R16_SINT;
+        case SPV_REFLECT_FORMAT_R16_SFLOAT:          return VK_FORMAT_R16_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R16G16_UINT:         return VK_FORMAT_R16G16_UINT;
+        case SPV_REFLECT_FORMAT_R16G16_SINT:         return VK_FORMAT_R16G16_SINT;
+        case SPV_REFLECT_FORMAT_R16G16_SFLOAT:       return VK_FORMAT_R16G16_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R16G16B16_UINT:      return VK_FORMAT_R16G16B16_UINT;
+        case SPV_REFLECT_FORMAT_R16G16B16_SINT:      return VK_FORMAT_R16G16B16_SINT;
+        case SPV_REFLECT_FORMAT_R16G16B16_SFLOAT:    return VK_FORMAT_R16G16B16_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R16G16B16A16_UINT:   return VK_FORMAT_R16G16B16A16_UINT;
+        case SPV_REFLECT_FORMAT_R16G16B16A16_SINT:   return VK_FORMAT_R16G16B16A16_SINT;
+        case SPV_REFLECT_FORMAT_R16G16B16A16_SFLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R32_UINT:            return VK_FORMAT_R32_UINT;
+        case SPV_REFLECT_FORMAT_R32_SINT:            return VK_FORMAT_R32_SINT;
+        case SPV_REFLECT_FORMAT_R32_SFLOAT:          return VK_FORMAT_R32_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R32G32_UINT:         return VK_FORMAT_R32G32_UINT;
+        case SPV_REFLECT_FORMAT_R32G32_SINT:         return VK_FORMAT_R32G32_SINT;
+        case SPV_REFLECT_FORMAT_R32G32_SFLOAT:       return VK_FORMAT_R32G32_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R32G32B32_UINT:      return VK_FORMAT_R32G32B32_UINT;
+        case SPV_REFLECT_FORMAT_R32G32B32_SINT:      return VK_FORMAT_R32G32B32_SINT;
+        case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT:    return VK_FORMAT_R32G32B32_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R32G32B32A32_UINT:   return VK_FORMAT_R32G32B32A32_UINT;
+        case SPV_REFLECT_FORMAT_R32G32B32A32_SINT:   return VK_FORMAT_R32G32B32A32_SINT;
+        case SPV_REFLECT_FORMAT_R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R64_UINT:            return VK_FORMAT_R64_UINT;
+        case SPV_REFLECT_FORMAT_R64_SINT:            return VK_FORMAT_R64_SINT;
+        case SPV_REFLECT_FORMAT_R64_SFLOAT:          return VK_FORMAT_R64_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R64G64_UINT:         return VK_FORMAT_R64G64_UINT;
+        case SPV_REFLECT_FORMAT_R64G64_SINT:         return VK_FORMAT_R64G64_SINT;
+        case SPV_REFLECT_FORMAT_R64G64_SFLOAT:       return VK_FORMAT_R64G64_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R64G64B64_UINT:      return VK_FORMAT_R64G64B64_UINT;
+        case SPV_REFLECT_FORMAT_R64G64B64_SINT:      return VK_FORMAT_R64G64B64_SINT;
+        case SPV_REFLECT_FORMAT_R64G64B64_SFLOAT:    return VK_FORMAT_R64G64B64_SFLOAT;
+
+        case SPV_REFLECT_FORMAT_R64G64B64A64_UINT:   return VK_FORMAT_R64G64B64A64_UINT;
+        case SPV_REFLECT_FORMAT_R64G64B64A64_SINT:   return VK_FORMAT_R64G64B64A64_SINT;
+        case SPV_REFLECT_FORMAT_R64G64B64A64_SFLOAT: return VK_FORMAT_R64G64B64A64_SFLOAT;
+
+        default: return VK_FORMAT_UNDEFINED;
+        }
+    }
+
     using ShaderIncludeRes = ::Render::ShaderIncludeRes;
     using ShaderIncFindFunc = ::Render::ShaderIncFindFunc;
 
@@ -188,8 +285,61 @@ namespace Render::Vulkan {
 
         return shaderModule;
 	}
-    void reflectShader(rs_shader_module_vk* shader)
+    void reflectShader(rs_shader_module_vk* shader, uint32_t* spirv_code, uint64_t codeSize)
     {
-        //TODO:
+        SpvReflectShaderModule shaderModule;
+        SpvReflectResult result = spvReflectCreateShaderModule(
+            codeSize, spirv_code, &shaderModule);
+        if (result != SPV_REFLECT_RESULT_SUCCESS) {
+            Log::error("SpirV Reflect wrong" + shader->shaderName);
+            return;
+        }
+        uint32_t input_count = 0;
+        std::vector<InputAttribute> attributes;
+        std::vector<ShaderModuleDescriptorsInfo> bindings;
+
+
+        spvReflectEnumerateInputVariables(&shaderModule, &input_count, nullptr);
+        std::vector<SpvReflectInterfaceVariable*> inputs(input_count);
+        spvReflectEnumerateInputVariables(&shaderModule, &input_count, inputs.data());
+
+        for (const auto* var : inputs) {
+            if (var->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) continue;
+            InputAttribute attr{};
+            attr.location = var->location;
+            attr.format = ToImageFormat( SpvReflectFormatToVkFormat(var->format));
+        }
+
+        uint32_t binding_count = 0;
+        spvReflectEnumerateDescriptorBindings(&shaderModule, &binding_count, nullptr);
+        std::vector<SpvReflectDescriptorBinding*> rflbindings(binding_count);
+        spvReflectEnumerateDescriptorBindings(&shaderModule, &binding_count, rflbindings.data());
+
+        for (const auto* binding : rflbindings) {
+            
+            int tarsetIdx = -1;
+            for (int i = 0; i < bindings.size();++i) {
+                if (bindings[i].setIdx == binding->set) {
+                    tarsetIdx = i;
+                    break;
+                }
+            }
+
+            if (tarsetIdx == -1) {
+                bindings.push_back(ShaderModuleDescriptorsInfo{ binding->set, {} });
+                tarsetIdx = bindings.size() - 1;
+            }
+
+            auto& info = bindings[tarsetIdx];
+
+            BindingInfo bindingInfo{};
+            bindingInfo.binding = binding->binding;
+            bindingInfo.count = binding->count;
+            bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
+            bindingInfo.size = binding->block.size;
+        }
+        shader->reflectInfo = std::move(bindings);
+        shader->inputAttributes = std::move(attributes);
+
     }
 }

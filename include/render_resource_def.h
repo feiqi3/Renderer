@@ -84,14 +84,17 @@ namespace Render {
         // 16-bit normalized or float color formats
         R16_UNORM,          // 16-bit R                
         RG16_UNORM,         // 16-bit R, G             
+        RGB16_UNORM,         // 16-bit R, G, B             
         RGBA16_UNORM,       // 16-bit R, G, B, A        
         R16_SFLOAT,         // 16-bit float R          
         RG16_SFLOAT,        // 16-bit float R, G        
+        RGB16_SFLOAT,       // 16-bit float R, G, B        
         RGBA16_SFLOAT,      // 16-bit float RGBA        
 
         // 32-bit float color formats (HDR)
         R32_SFLOAT,         // 32-bit float R           
         RG32_SFLOAT,        // 32-bit float R, G       
+        RGB32_SFLOAT,        // 32-bit float R, G, B       
         RGBA32_SFLOAT,      // 32-bit float RGBA        
 
         // Depth/stencil formats

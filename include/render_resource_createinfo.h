@@ -150,7 +150,7 @@ namespace Render {
 
 
     struct ShaderModuleDescriptorsInfo {
-        int setIdx = -1;
+        uint32_t setIdx = -1;
         std::vector<BindingInfo> mInfo;
     };
 

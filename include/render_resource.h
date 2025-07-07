@@ -23,7 +23,8 @@ namespace Render {
 		std::string entryPoint = "main";
 		std::string shaderName = "shader";
 		uint64_t shaderHash = 0;
-		std::vector<ShaderModuleDescriptorsInfo> mReflectInfo;
+		std::vector<ShaderModuleDescriptorsInfo> reflectInfo;
+		std::vector<InputAttribute> inputAttributes;
 	};
 
 	struct rs_image : rs_base {
