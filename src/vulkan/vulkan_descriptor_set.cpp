@@ -1,5 +1,7 @@
 #include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_render_function.h"
+#include "render_log.h"
+#include <vulkan/vulkan_pipeline.h>
 #include <map>
 namespace Render::Vulkan {
     namespace {
@@ -225,6 +227,52 @@ namespace Render::Vulkan {
 
         vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
 
+    }
+
+    rs_pipeline_layout_vk* DescriptorSetManager::createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders)
+    {
+        std::vector<rs_vk_descriporset_layout_hash> hash;
+        std::map<int, std::map<int,BindingInfo>> setsBindings;
+        for (auto&&shader: shaders) {
+            for (const auto& set : shader->reflectInfo) {
+                for (const auto& binding : set.mInfo) {
+                    auto& sets = setsBindings[set.setIdx];
+                    auto itor = sets.find(binding.binding);
+                    if (itor != sets.end()) {
+                        BindingInfo info = binding;
+                        info. shaderVisibleStage = (uint16_t)shader->shaderStage; //shader stage
+                        sets.insert({ binding.binding,info });
+                    }
+                    else {
+                        auto& curInfo = itor->second;
+                        if (curInfo.count == binding.count &&
+                            curInfo.size == binding.size &&
+                            curInfo.type == binding.type
+                            ) {
+                            curInfo.shaderVisibleStage |= (uint16_t)shader->shaderStage;
+                        }
+                        else {
+                            Log::error("MisMatch duplicate Descriptor in Shader: " + shader->shaderName + " set: " + std::to_string(set.setIdx) + " binding: " + std::to_string(binding.binding));
+                            continue;
+                        }
+                    
+                    }
+                }
+            }
+        }
+
+        std::vector< DescritporSetInfo> setLayouts;
+        for (auto&& [setId, set] : setsBindings) {
+            hash.push_back({});
+            auto& tar = hash[hash.size() - 1];
+            for (auto&& binding : set) {
+                tar.mDescriptors.push_back(binding.second);
+            }
+            tar.init();
+            setLayouts.push_back({ setId,tar });
+            assert(tar.checkValid() == true);
+        }
+        return createRsPipelineLayout(ctx, setLayouts);
     }
 
     void DescriptorSetManager::updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType)

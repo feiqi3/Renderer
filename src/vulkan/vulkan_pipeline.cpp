@@ -568,6 +568,16 @@ namespace Render::Vulkan {
         delete pipeline;
         pipeline = 0;
     }
+    void destroyRsPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
+    {
+        if (!layout)return;
+        vkDestroyPipelineLayout(
+            ctx->device, (VkPipelineLayout)layout->native, 0
+        );
+        delete layout;
+        layout = 0;
+        return;
+    }
     rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const std::vector<DescritporSetInfo>& descriptorInfos)
     {
         std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>> setlayouts;

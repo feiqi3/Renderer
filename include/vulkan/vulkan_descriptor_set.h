@@ -1,10 +1,11 @@
 #ifndef VULKAN_DESCRIPTOR_SET_H
 #define VULKAN_DESCRIPTOR_SET_H
-#include <vector>
-#include <unordered_map>
-#include <optional>
+
 #include "vulkan_render_resource.h"
 #include <set>
+#include <vector>
+#include <map>
+#include <optional>
 namespace Render::Vulkan {
 
     constexpr int BITS_PER_BINDING = 11;
@@ -58,6 +59,7 @@ namespace Render::Vulkan {
 
             layoutHash = h;
         }
+
     };
 
     struct rs_descriptorset_layout_vk : rs_base {
@@ -129,7 +131,8 @@ namespace Render::Vulkan {
         void updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType);
         void updateSampler(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType);
 
-        
+        rs_pipeline_layout_vk* createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders);
+
         rs_descriptorset_layout_vk* createDescriptorSetLayout(rs_context_vk* ctx,const rs_vk_descriporset_layout_hash& layoutHash);
         void returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
         VkDescriptorSetLayout getEmptyDescriptorSetLayout(rs_context_vk* ctx);
