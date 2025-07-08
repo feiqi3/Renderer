@@ -51,6 +51,13 @@ namespace Render::Vulkan {
 	rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc);
 	void destroyRsShader(rs_context_vk* context, rs_shader_module_vk*& module);
 
+	rs_semaphore_vk* createRsSemaphore(rs_context_vk* ctx);
+	void destroyRsSemaphore(rs_context_vk* ctx, rs_semaphore_vk*& sem);
+	rs_fence_vk* createRsFence(rs_context_vk* ctx);
+	void destroyRsFence(rs_context_vk* ctx, rs_fence_vk*& fence);
+	void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence);
+	void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence,uint64_t timeoutNs);
+
 	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
 
 	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
@@ -79,4 +86,6 @@ namespace Render::Vulkan {
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, int mip, int layer);
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout,int mip,int layer,uint32_t aspect);
+	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> waitSemaphores,std::vector<rs_semaphore_vk*> signalSemaphores,rs_fence_vk* fence);
+	//-------------------------------------------------------------------------------------//     
 }

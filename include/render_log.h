@@ -6,7 +6,7 @@
 #include <string>
 namespace Render {
     namespace Log {
-        enum class Level { INFO, WARN, ERROR };
+        enum class Level { INFO, WARN, ERR };
 
         inline std::mutex logMutex;
 
@@ -19,7 +19,7 @@ namespace Render {
             case Level::WARN:
                 std::cerr << "[WARN] ";
                 break;
-            case Level::ERROR:
+            case Level::ERR:
                 std::cerr << "[ERROR] ";
                 break;
             }
@@ -35,7 +35,7 @@ namespace Render {
         }
 
         inline void error(const std::string& message) {
-            log(Level::ERROR, message);
+            log(Level::ERR, message);
         }
     }
 }

@@ -411,8 +411,11 @@ namespace Render::Vulkan {
         createVkPhysicalDevice(ctx, -1);
         createSwapchain(ctx, window, 0);
         createVkDevice(ctx);
-        ctx->descriptorSetMgr = new DescriptorSetManager(ctx->maxFrameInFlight);
-        ctx->cmdBufferMgr = new CommandBufferManager(ctx->maxFrameInFlight);
+        auto maxFif = ctx->maxFrameInFlight;
+        ctx->descriptorSetMgr = new DescriptorSetManager(maxFif);
+        ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
+        ctx->destroyer = new DeferredDestroyer(maxFif);
+
     }
 
     uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type)
@@ -734,6 +737,48 @@ namespace Render::Vulkan {
         vkDestroyShaderModule(context->device, (VkShaderModule)shaderModule->native, 0);
         delete shaderModule;
         shaderModule = 0;
+    }
+
+    rs_semaphore_vk* createRsSemaphore(rs_context_vk* ctx)
+    {
+        VkSemaphoreCreateInfo ci{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        rs_semaphore_vk* sem = new rs_semaphore_vk;
+        vkCreateSemaphore(ctx->device, &ci, 0, (VkSemaphore*)( & sem->native));
+        return sem;
+    }
+
+    void destroyRsSemaphore(rs_context_vk* ctx, rs_semaphore_vk*& sem)
+    {
+        vkDestroySemaphore(ctx->device, (VkSemaphore)sem->native, 0);
+        delete sem;
+        sem = 0;
+    }
+
+    rs_fence_vk* createRsFence(rs_context_vk* ctx)
+    {
+        VkFenceCreateInfo ci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        rs_fence_vk* fence = new rs_fence_vk;
+
+        vkCreateFence(ctx->device, &ci, 0, (VkFence*)&fence->native);
+
+        return fence;
+    }
+
+    void destroyRsFence(rs_context_vk* ctx, rs_fence_vk*& fence)
+    {
+        vkDestroyFence(ctx->device, (VkFence)fence->native, 0);
+        delete fence;
+        fence = 0;
+    }
+
+    void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence)
+    {
+        vkResetFences(ctx->device, 1, (VkFence*)&fence->native);
+    }
+
+    void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence, uint64_t timeout)
+    {
+        vkWaitForFences(ctx->device, 1, (VkFence*)&fence->native, VK_TRUE, timeout);
     }
 
     rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
@@ -1589,6 +1634,48 @@ namespace Render::Vulkan {
         };
         vkCmdPipelineBarrier((VkCommandBuffer)cb->native, getSrcStageForLayout(image->currentLayout), getDstStageForLayout(newlayout), 0, 0, 0, 0, 0,1 , &barrier);
         image->currentLayout = newlayout;
+    }
+
+    void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore_vk*> waitSemaphores, std::vector<rs_semaphore_vk*> signalSemaphores, rs_fence_vk* fence)
+    {
+        std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
+        for (auto&& sem : waitSemaphores) {
+            ntvwaitSemaphores.push_back((VkSemaphore)sem->native);
+        }
+        for (auto&& sem : signalSemaphores) {
+            ntvsignalSemaphores.push_back((VkSemaphore)sem->native);
+        }
+        VkSubmitInfo info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+
+        info.                       waitSemaphoreCount = ntvwaitSemaphores.size();
+        info.                       pWaitSemaphores = ntvwaitSemaphores.data();
+        info.commandBufferCount = 1;
+        info.pCommandBuffers = (VkCommandBuffer*)&cb->native;
+        info.signalSemaphoreCount = ntvsignalSemaphores.size();
+        info.pSignalSemaphores = ntvsignalSemaphores.data();
+
+        rs_queue_vk* rsQueue;
+
+        switch (queue)
+        {
+        case Render::QueueType_Graphics:
+            rsQueue = ctx->graphicQueue;
+            break;
+        case Render::QueueType_Compute:
+            rsQueue = ctx->computeQueue;
+            break;
+        case Render::QueueType_Transfer:
+            rsQueue = ctx->transferQueue;
+            break;
+        case Render::QueueType_Present:
+            rsQueue = ctx->presentQueue;
+            break;
+        default:
+            rsQueue = ctx->graphicQueue;
+            break;
+        }
+
+        vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? (VkFence)fence->native : VK_NULL_HANDLE);
     }
 
 

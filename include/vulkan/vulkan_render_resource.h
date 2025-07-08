@@ -37,6 +37,7 @@ namespace Render::Vulkan {
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 		class DeferredDestroyer* destroyer = 0;
+
 	};
 
 	struct rs_queue_vk : rs_queue{
