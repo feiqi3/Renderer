@@ -34,8 +34,10 @@ namespace Render::Vulkan {
 	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
 	void initVulkanBackEnd(BackEndInitDesc& desc,Window::rs_window* window);
-
-	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk>& images, rs_image_vk* depthStencil);
+	void deinitVulkanBackEnd(rs_context_vk* ctx, Window::rs_window* window);
+	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk*>& images, rs_image_vk* depthStencil);
+	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);
+	
 	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
@@ -62,13 +64,23 @@ namespace Render::Vulkan {
 
 	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
 	void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain = nullptr);
+	void destroySwapChain(rs_context_vk* context);
 	void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window);
+	inline void destroySurface(rs_context_vk* context) {};
+
 	void createVkInstance(rs_context_vk* context);
+	void destroyVkInstance(rs_context_vk* context);
+	
 	void createVkPhysicalDevice(rs_context_vk* context,int chooseOne);
+
 	void createVkQueue(rs_context_vk* context, bool seperateCompute,  bool seperateTransfer);
+	void destroyVkQueue(rs_context_vk* context);
+
 	void createVkDevice(rs_context_vk* context);
+	void destroyDevice(rs_context_vk* context);
 
 	void createDebugUtilsMessengerEXT(rs_context_vk* ctx);
+	void destroyDebugUtilsMessengerEXT(rs_context_vk* ctx);
 
 	std::vector<const char*> getExtensionEnableDevice(rs_context_vk* context);
 	VkPhysicalDeviceFeatures getExtensionEnablePhysicalDevice(rs_context_vk* context);
@@ -84,8 +96,8 @@ namespace Render::Vulkan {
 	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
-	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, int mip, int layer);
-	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout,int mip,int layer,uint32_t aspect);
+	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, uint32_t mip, uint32_t layer);
+	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer,uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> waitSemaphores,std::vector<rs_semaphore_vk*> signalSemaphores,rs_fence_vk* fence);
 	//-------------------------------------------------------------------------------------//     
 }

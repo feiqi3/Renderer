@@ -10,9 +10,6 @@ namespace Render::Vulkan {
 		rs_vk_descriporset_layout_hash layoutHash;
 	};
 
-	//TODO:   
-	std::vector< ShaderModuleDescriptorsInfo> reflectShaderModule(rs_shader_module* shader);
-
 	std::vector< DescritporSetInfo> assembleDescriptorSetInfo(const std::vector< ShaderModuleDescriptorsInfo>& descritpors);
 
 	std::vector< DescritporSetInfo> getPipelineShaderInfo(const std::vector<rs_shader_module*>& shaders);

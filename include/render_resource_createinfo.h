@@ -92,7 +92,6 @@ namespace Render {
         bool        depthTestEnable = true;
         bool        depthWriteEnable = true;
         CompareOp   depthCompareOp = CompareOp::Less;
-        bool        stencilTestEnable = false;
 
         // 模板测试
         bool        stencilTestEnable = false;                  // 是否启用模板测试
@@ -132,7 +131,7 @@ namespace Render {
         std::vector<InputBufferBinding>   bindings;
         std::vector<InputAttribute> attributes;
     };
-
+    struct rs_shader_module;
     struct PipelineDesc {
         PipelineType         type;         // Graphics / Compute / RayTracing
         std::vector<rs_shader_module*> shaders;

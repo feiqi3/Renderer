@@ -3,7 +3,7 @@
 #include "render_resource_window.h"
 #include "EventDispatcher.h"
 
-class GLFWwindow;
+struct GLFWwindow;
 
 namespace Render::Window {
 
@@ -67,7 +67,7 @@ namespace Render::Window {
         void initCallback();
 
     private:
-        class GLFWwindow* _window = nullptr;
+        struct GLFWwindow* _window = nullptr;
         int         _width;
         int         _height;
         bool        _resized = false;

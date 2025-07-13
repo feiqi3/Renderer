@@ -25,6 +25,7 @@ namespace Render {
 		uint64_t shaderHash = 0;
 		std::vector<ShaderModuleDescriptorsInfo> reflectInfo;
 		std::vector<InputAttribute> inputAttributes;
+		std::string shaderCode;
 	};
 
 	struct rs_image : rs_base {

@@ -2,6 +2,7 @@
 #define VULKAN_RENDER_RESOURCE_H
 
 #include "render_resource.h"
+#define VK_NO_PROTOTYPES
 #include "volk.h"
 #include "vk_mem_alloc.h"
 #include "vulkan_deferred_destroy.h"
@@ -13,7 +14,8 @@
 
 namespace Render::Vulkan {
 	struct rs_queue_vk;
-	
+	struct rs_swapchain_vk;
+
 	struct rs_context_vk : rs_context{
 		VkInstance instance;
 		VkDevice device;
@@ -24,7 +26,7 @@ namespace Render::Vulkan {
 		rs_queue_vk* transferQueue;
 		VmaAllocator allocator;
 		
-		rs_swapchain_vk* swapchain;
+		rs_swapchain_vk* swapchain = nullptr;
 		uint32_t maxSwapChainImages;
 		VkDebugUtilsMessengerEXT validationObject;
 
@@ -56,9 +58,10 @@ namespace Render::Vulkan {
 	};
 
 	struct rs_shader_module_vk :rs_shader_module{
+		std::vector<uint32_t> spirvCode;
 	};
 
-	VK_RS_DEF(rs_sampler);
+	struct rs_sampler_vk : rs_sampler {};
 
 	struct rs_pipeline_layout_vk : rs_base {
 		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;

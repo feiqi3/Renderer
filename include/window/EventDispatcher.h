@@ -32,7 +32,7 @@ namespace Render::Window {
         }
 
         void operator -=(CallbackID id) {
-            remove(fn);
+            remove(id);
         }
     private:
         std::map<CallbackID, std::function<void(Args...)>> _callbacks;

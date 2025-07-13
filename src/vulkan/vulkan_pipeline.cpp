@@ -1,8 +1,8 @@
 #include "vulkan/vulkan_pipeline.h"
+#include "vulkan/vulkan_render_function.h"
 #include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_render_resource.h"
-#include "vulkan_render_function.cpp"
-
+#include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_shader_module.h"
 namespace Render::Vulkan {
 
@@ -297,6 +297,7 @@ namespace Render::Vulkan {
             return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
             break;
         default:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
             break;
         }
     }
@@ -559,18 +560,33 @@ namespace Render::Vulkan {
         ret->layout = pipelineLayout;
         return ret;
     }
+
+    inline void destroyPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
+    {
+        if (!layout) {
+            assert(0 && "Null layout!");
+            return;
+        }
+        for (auto&& i : layout->setLayouts) {
+            ctx->descriptorSetMgr->returnDescriptorSetLayout(ctx, i.second);
+        }
+        delete layout;
+        layout = 0;
+    }
+
     void destroyRsPipeline(rs_context_vk* ctx, rs_pipeline_vk*& pipeline, bool immediately)
     {
         if(!immediately)
             ctx->destroyer->destroyPipeline(ctx->nextRenderFrame, pipeline);
         vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->native, 0);
-        destroyPipelineLayout(ctx, pipeline->layout);
+        destroyRsPipelineLayout(ctx, pipeline->layout);
         delete pipeline;
         pipeline = 0;
     }
     void destroyRsPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
     {
         if (!layout)return;
+        destroyPipelineLayout(ctx, layout);
         vkDestroyPipelineLayout(
             ctx->device, (VkPipelineLayout)layout->native, 0
         );
@@ -591,16 +607,4 @@ namespace Render::Vulkan {
         return pipelineLayout;
     }
 
-    void destroyPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
-    {
-        if (!layout) {
-            assert(0 && "Null layout!");
-            return;
-        }
-        for (auto&& i : layout->setLayouts) {
-            ctx->descriptorSetMgr->returnDescriptorSetLayout(ctx,i.second);
-        }
-        delete layout;
-        layout = 0;
-    }
 }

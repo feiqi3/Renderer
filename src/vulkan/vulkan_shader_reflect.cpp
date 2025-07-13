@@ -1,10 +1,8 @@
-#include "vulkan/vulkan_shader_reflect.h"
-#include "shaderc/shaderc.hpp"
-
-#include "vulkan/vulkan_render_function.h"
-
 #include "render_log.h"
-#include "spirv_reflect.h"
+#include "vulkan/vulkan_shader_reflect.h"
+#include "vulkan/vulkan_render_function.h"
+#include "../3rd/spirv-reflect/spirv_reflect.h"
+#include "shaderc/shaderc.hpp"
 #include <fstream>
 #include <filesystem>
 namespace {
@@ -262,6 +260,7 @@ namespace Render::Vulkan {
 
         //---------------------------------------------//
 
+
         shaderc::SpvCompilationResult module =
             compiler.CompileGlslToSpv(desc.shaderSrcCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str());
 
@@ -271,18 +270,21 @@ namespace Render::Vulkan {
         }
 
         if (module.GetNumWarnings() > 0) {
-            Render::Log::warn("Shader Compile Success with warning: " + desc.shaderName + " \Warning : " + module.GetErrorMessage());
+            Render::Log::warn("Shader Compile Success with warning: " + desc.shaderName + " \nWarning : " + module.GetErrorMessage());
         }
         VkShaderModule vkModule;
         VkShaderModuleCreateInfo ci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+
         ci.codeSize = module.end() - module.begin();
         ci.pCode = module.begin();
         VK_CHECK(vkCreateShaderModule(ctx->device, &ci, 0, &vkModule), { return nullptr; });
         rs_shader_module_vk* shaderModule = new rs_shader_module_vk;
+        shaderModule->spirvCode.resize(ci.codeSize);
+        std::memcpy(&shaderModule->spirvCode[0], ci.pCode, ci.codeSize);
         shaderModule->native = vkModule;
         shaderModule->shaderName = desc.shaderName;
         shaderModule->shaderStage = desc.stage;
-
+        shaderModule->shaderCode = desc.shaderSrcCode;
         return shaderModule;
 	}
     void reflectShader(rs_shader_module_vk* shader, uint32_t* spirv_code, uint64_t codeSize)

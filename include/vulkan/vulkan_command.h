@@ -2,6 +2,7 @@
 #define VULKAN_COMMAND_H
 #include "vulkan_render_resource.h"
 #include <thread>
+#include <mutex>
 namespace Render::Vulkan {
 
 	class CommandBufferManager {

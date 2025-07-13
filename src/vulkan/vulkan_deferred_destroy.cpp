@@ -66,4 +66,11 @@ namespace Render::Vulkan {
 		pipelines.clear();
 	}
 
+	void DeferredDestroyer::clearAll(rs_context_vk* ctx)
+	{
+		for (int i = 0; i < mMaxFrameInFlight; ++i) {
+			endFrameDestroy(ctx, i);
+		}
+	}
+
 }

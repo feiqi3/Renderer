@@ -1,12 +1,17 @@
+#define VK_NO_PROTOTYPES
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#define VMA_IMPLEMENTATION
+#include "Volk/volk.h"
+#include "vk_mem_alloc.h"
+#include "GLFW/glfw3.h"
+
+#include "window/render_resource_window_glfw.h"
 #include "vulkan/vulkan_render_function.h"
 #include "bit_helper.h"
-
-#include "GLFW/glfw3.h"
-#include "window/render_resource_window_glfw.h"
+#include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_command.h"
 #include "vulkan/vulkan_deferred_destroy.h"
-
-#include "vulkan/vulkan_descriptor_set.h"
 
 #include "render_log.h"
 #include <set>
@@ -409,13 +414,29 @@ namespace Render::Vulkan {
         createVkInstance(ctx);
         createSurface(ctx, window);
         createVkPhysicalDevice(ctx, -1);
-        createSwapchain(ctx, window, 0);
         createVkDevice(ctx);
+        createSwapchain(ctx, window, 0);
         auto maxFif = ctx->maxFrameInFlight;
         ctx->descriptorSetMgr = new DescriptorSetManager(maxFif);
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
+        
+    }
 
+    void deinitVulkanBackEnd(rs_context_vk* ctx, Window::rs_window* window)
+    {
+        if (ctx->computeQueue)
+            vkQueueWaitIdle(ctx->computeQueue->queue);
+        if(ctx->transferQueue)
+            vkQueueWaitIdle(ctx->transferQueue->queue);
+
+        vkQueueWaitIdle(ctx->graphicQueue->queue);
+
+        if(ctx->presentQueue)
+            vkQueueWaitIdle(ctx->presentQueue->queue);
+        ctx->destroyer->clearAll(ctx);
+        destroyDevice(ctx);
+        destroyVkInstance(ctx);
     }
 
     uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type)
@@ -448,18 +469,18 @@ namespace Render::Vulkan {
         }
     }
 
-    rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk>& images, rs_image_vk* depthStencil)
+    rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk*>& images, rs_image_vk* depthStencil)
     {
-        int iw = images[0].width;
-        int ih = images[0].height;
-        int il = images[0].arrayLayers;
+        int iw = images[0]->width;
+        int ih = images[0]->height;
+        int il = images[0]->arrayLayers;
         VkFramebufferCreateInfo ci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
         std::vector<rs_image*> localimages;
 
         int depthAttPos = -1;
 
         for (int i = 0; i < images.size(); ++i) {
-            auto& img = images[i];
+            auto& img = *(images[i]);
             if (!(img.usage & ImageUsage_ColorAttachment)) {
                 assert(0 && "Image usage not match");
                 return nullptr;
@@ -477,7 +498,14 @@ namespace Render::Vulkan {
         return rt;
     }
 
-    VkCompareOp toVkCompareOp(CompareOp op)
+    void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt)
+    {
+        delete rt;
+        rt = 0;
+    }
+
+    VkCompareOp
+        toVkCompareOp(CompareOp op)
     {
         switch (op) {
         case CompareOp::Never:          return VK_COMPARE_OP_NEVER;
@@ -879,6 +907,12 @@ namespace Render::Vulkan {
         context->maxSwapChainImages = swapchainImages.size();
     }
 
+    void destroySwapChain(rs_context_vk* context)
+    {
+        VkSwapchainKHR swapchain = (VkSwapchainKHR)context->swapchain->native;
+        vkDestroySwapchainKHR(context->device,swapchain,0);
+    }
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
@@ -908,6 +942,7 @@ namespace Render::Vulkan {
 
     void createVkInstance(rs_context_vk* context)
     {
+        volkInitialize();
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = context->initDesc.appName.c_str();
@@ -927,9 +962,18 @@ namespace Render::Vulkan {
         createInfo.                    enabledExtensionCount = extension.size();
         createInfo.ppEnabledExtensionNames = extension.data();
         VK_CHECK(vkCreateInstance(&createInfo, 0, &context->instance), { std::abort(); });
+        volkLoadInstance(context->instance);
         if (context->initDesc.enableValidation) {
             createDebugUtilsMessengerEXT(context);
         }
+    }
+
+    void destroyVkInstance(rs_context_vk* context)
+    {
+        destroyDebugUtilsMessengerEXT(context);
+        vkDestroyInstance(context->instance, 0);
+        context->instance = 0;
+        volkFinalize();
     }
 
     void createVkPhysicalDevice(rs_context_vk* context, int chooseOne)
@@ -1111,7 +1155,7 @@ namespace Render::Vulkan {
         if (!findGraphicsFamily(context->physicalDevice, graphic->familyIndex)) {
             std::abort();
         }
-        
+
         rs_queue_vk* present = new rs_queue_vk;
         if (!findPresentFamily(context->physicalDevice, context->swapchain->surface, present->familyIndex)) {
             std::abort();
@@ -1140,6 +1184,19 @@ namespace Render::Vulkan {
         context->transferQueue = transfer;
     }
 
+    void destroyVkQueue(rs_context_vk* context)
+    {
+        auto& ctx = context;
+        delete ctx->graphicQueue;
+          ctx->graphicQueue = 0;
+        delete ctx->computeQueue;
+          ctx->computeQueue = 0;
+        delete ctx->transferQueue;
+         ctx->transferQueue = 0;
+        delete ctx->presentQueue; 
+         ctx->presentQueue = 0; 
+    }
+
     void createVkDevice(rs_context_vk* context)
     {
         createVkQueue(context, context->initDesc.asyncTransferCompute, context->initDesc.asyncTransferCompute);
@@ -1158,14 +1215,14 @@ namespace Render::Vulkan {
             queueInfos.push_back(ci);
         }
 
-        if (context->transferQueue->familyIndex != context->graphicQueue->familyIndex) {
+        if (context->transferQueue && context->transferQueue->familyIndex != context->graphicQueue->familyIndex) {
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.                    queueFamilyIndex = context->transferQueue->familyIndex;
             ci.                    queueCount = 1;
             ci.pQueuePriorities = &unifiedPriorities;
             queueInfos.push_back(ci);
         }
-        if (context->computeQueue->familyIndex != context->graphicQueue->familyIndex) {
+        if (context->computeQueue && context->computeQueue->familyIndex != context->graphicQueue->familyIndex) {
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.queueFamilyIndex = context->computeQueue->familyIndex;
             ci.queueCount = 1;
@@ -1173,7 +1230,7 @@ namespace Render::Vulkan {
             queueInfos.push_back(ci);
         }
 
-        if (context->presentQueue->familyIndex != context->graphicQueue->familyIndex) {
+        if (context->presentQueue && context->presentQueue->familyIndex != context->graphicQueue->familyIndex) {
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.queueFamilyIndex = context->presentQueue->familyIndex;
             ci.queueCount = 1;
@@ -1191,6 +1248,25 @@ namespace Render::Vulkan {
         createInfo. pEnabledFeatures = &deviceFeatureEnable;
         
         vkCreateDevice(context->physicalDevice, &createInfo, 0, &context->device);
+        vkGetDeviceQueue(context->device, context->graphicQueue->familyIndex, 0, &context->graphicQueue->queue);
+        if (context->computeQueue)
+        {
+            vkGetDeviceQueue(context->device, context->computeQueue->familyIndex, 0, &context->graphicQueue->queue);
+        }
+        if (context->transferQueue) {
+            vkGetDeviceQueue(context->device, context->transferQueue->familyIndex, 0, &context->graphicQueue->queue);
+        }
+        if (context->presentQueue)
+        {
+            vkGetDeviceQueue(context->device, context->presentQueue->familyIndex, 0, &context->graphicQueue->queue);
+        }
+        volkLoadDevice(context->device);
+    }
+
+    void destroyDevice(rs_context_vk* context)
+    {
+        vkDestroyDevice(context->device,0);
+        context->device = 0;
     }
 
     void createDebugUtilsMessengerEXT(rs_context_vk* ctx)
@@ -1214,6 +1290,13 @@ namespace Render::Vulkan {
                 return;
             }
         }
+    }
+
+    void destroyDebugUtilsMessengerEXT(rs_context_vk* ctx)
+    {
+        if (!ctx->validationObject)return;
+        vkDestroyDebugUtilsMessengerEXT(ctx->instance, ctx->validationObject, 0);
+        ctx->validationObject = 0;
     }
 
     std::vector<const char*> getExtensionEnableDevice(rs_context_vk* context)
@@ -1612,7 +1695,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, int mip, int layer, uint32_t aspect)
+    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer, uint32_t aspect)
     {
         VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1679,7 +1762,7 @@ namespace Render::Vulkan {
     }
 
 
-    void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int dstMip, int layer)
+    void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, uint32_t dstMip, uint32_t layer)
     {
         assert(image && data);
         auto cmd = (VkCommandBuffer)cb->native;

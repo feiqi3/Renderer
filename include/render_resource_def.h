@@ -56,17 +56,6 @@ namespace Render {
 
     using MipMapMode = Filter;
 
-    enum class CompareOp : uint8_t {
-        Never,              //  
-        Less,               // <  
-        Equal,              // == 
-        LessOrEqual,        // <= 
-        Greater,            // >  
-        NotEqual,           // != 
-        GreaterOrEqual,     // >= 
-        Always              // 
-    };
-
     enum class ImageFormat : uint32_t {
         Unknown = 0,
 

@@ -1,5 +1,6 @@
 #include"vulkan/vulkan_command.h"
 #include <thread>
+#include <cassert>
 namespace Render::Vulkan {
 	CommandBufferManager::CommandBufferManager(int maxFrame) :m_maxFrameInFlight(maxFrame)
 	{

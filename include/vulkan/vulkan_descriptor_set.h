@@ -6,6 +6,10 @@
 #include <vector>
 #include <map>
 #include <optional>
+#include <cassert>
+#include <algorithm>
+#include <atomic>
+#include <mutex>
 namespace Render::Vulkan {
 
     constexpr int BITS_PER_BINDING = 11;
@@ -19,7 +23,7 @@ namespace Render::Vulkan {
 
         std::vector< rs_descriptor> mDescriptors;
         uint64_t layoutHash = 0;
-        bool checkValid() {
+        inline bool checkValid() {
             std::set<uint8_t> bindings;
             for (auto&& i : mDescriptors) {
                 if (bindings.find(i.binding) != bindings.end()) {

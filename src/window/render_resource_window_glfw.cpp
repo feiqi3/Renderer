@@ -38,6 +38,19 @@ namespace Render::Window
     bool rs_window_glfw::pollEvents()
     {
         glfwPollEvents();
+        return true;
+    }
+    void rs_window_glfw::getFramebufferSize(int& w, int& h) const
+    {
+        glfwGetWindowSize(_window, &w, &h);
+    }
+    bool rs_window_glfw::shouldClose() const
+    {
+        return glfwWindowShouldClose(_window)> 0;
+    }
+    void* rs_window_glfw::nativeHandle() const
+    {
+        return this->_window;
     }
     const char* Render::Window::rs_window_glfw::getTitle() const
     {

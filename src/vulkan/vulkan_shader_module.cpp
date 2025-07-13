@@ -1,4 +1,5 @@
 #include "vulkan/vulkan_shader_module.h"
+#include "vulkan/vulkan_shader_reflect.h"
 #include <map>
 namespace Render::Vulkan {
     std::vector<DescritporSetInfo> assembleDescriptorSetInfo(const std::vector<ShaderModuleDescriptorsInfo>& descritpors)
@@ -59,7 +60,12 @@ namespace Render::Vulkan {
         std::vector<ShaderModuleDescriptorsInfo> diffShaderInfos;
         for (auto&& s : shaders) {
             auto vks = (rs_shader_module_vk*)s;
-            auto perShaderInfo = reflectShaderModule(vks);
+
+            if (vks->reflectInfo.empty()) {
+                reflectShader(vks, vks->spirvCode.data(), vks->spirvCode.size());
+            }
+
+            auto& perShaderInfo = vks->reflectInfo;
             diffShaderInfos.insert(diffShaderInfos.end(), perShaderInfo.begin(), perShaderInfo.end());
         }
         return assembleDescriptorSetInfo(diffShaderInfos);
