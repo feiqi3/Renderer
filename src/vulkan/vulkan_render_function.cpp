@@ -407,7 +407,7 @@ namespace Render::Vulkan {
         return flags;
     }
 
-    void initVulkanBackEnd(BackEndInitDesc& desc, Window::rs_window* window)
+    rs_context_vk* initVulkanBackEnd(BackEndInitDesc& desc, Window::rs_window* window)
     {
         rs_context_vk* ctx = new rs_context_vk;
         ctx->initDesc = desc;
@@ -420,7 +420,7 @@ namespace Render::Vulkan {
         ctx->descriptorSetMgr = new DescriptorSetManager(maxFif);
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
-        
+        return ctx;
     }
 
     void deinitVulkanBackEnd(rs_context_vk* ctx, Window::rs_window* window)
@@ -1206,7 +1206,9 @@ namespace Render::Vulkan {
         float unifiedPriorities = 1.0f;
         int graphicQueueCount = 1;
         std::vector< VkDeviceQueueCreateInfo> queueInfos;
-
+        bool seperateCompute = false;
+        bool seperatePresent = false;
+        bool seperateTransfer = false;
         {
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.queueFamilyIndex = context->graphicQueue->familyIndex;
@@ -1216,6 +1218,7 @@ namespace Render::Vulkan {
         }
 
         if (context->transferQueue && context->transferQueue->familyIndex != context->graphicQueue->familyIndex) {
+            seperateTransfer = true;
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.                    queueFamilyIndex = context->transferQueue->familyIndex;
             ci.                    queueCount = 1;
@@ -1223,6 +1226,7 @@ namespace Render::Vulkan {
             queueInfos.push_back(ci);
         }
         if (context->computeQueue && context->computeQueue->familyIndex != context->graphicQueue->familyIndex) {
+            seperateCompute = true;
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.queueFamilyIndex = context->computeQueue->familyIndex;
             ci.queueCount = 1;
@@ -1231,6 +1235,7 @@ namespace Render::Vulkan {
         }
 
         if (context->presentQueue && context->presentQueue->familyIndex != context->graphicQueue->familyIndex) {
+            seperatePresent = true;
             VkDeviceQueueCreateInfo ci{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
             ci.queueFamilyIndex = context->presentQueue->familyIndex;
             ci.queueCount = 1;
@@ -1251,14 +1256,14 @@ namespace Render::Vulkan {
         vkGetDeviceQueue(context->device, context->graphicQueue->familyIndex, 0, &context->graphicQueue->queue);
         if (context->computeQueue)
         {
-            vkGetDeviceQueue(context->device, context->computeQueue->familyIndex, 0, &context->graphicQueue->queue);
+            vkGetDeviceQueue(context->device, context->computeQueue->familyIndex, 0, &context->computeQueue->queue);
         }
         if (context->transferQueue) {
-            vkGetDeviceQueue(context->device, context->transferQueue->familyIndex, 0, &context->graphicQueue->queue);
+            vkGetDeviceQueue(context->device, context->transferQueue->familyIndex, 0, &context->transferQueue->queue);
         }
         if (context->presentQueue)
         {
-            vkGetDeviceQueue(context->device, context->presentQueue->familyIndex, 0, &context->graphicQueue->queue);
+            vkGetDeviceQueue(context->device, context->presentQueue->familyIndex, 0, &context->presentQueue->queue);
         }
         volkLoadDevice(context->device);
     }

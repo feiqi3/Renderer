@@ -33,7 +33,7 @@ namespace Render::Vulkan {
 
 	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
-	void initVulkanBackEnd(BackEndInitDesc& desc,Window::rs_window* window);
+	rs_context_vk* initVulkanBackEnd(BackEndInitDesc& desc,Window::rs_window* window);
 	void deinitVulkanBackEnd(rs_context_vk* ctx, Window::rs_window* window);
 	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk*>& images, rs_image_vk* depthStencil);
 	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);
