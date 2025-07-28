@@ -13,6 +13,7 @@
 #include "vulkan/vulkan_command.h"
 #include "vulkan/vulkan_deferred_destroy.h"
 
+
 #include "render_log.h"
 #include <set>
 #include <iostream>
@@ -1514,8 +1515,15 @@ namespace Render::Vulkan {
             bufferoffsets.push_back(info.bindingBuffers[i].offset);
         }
         vkCmdBindVertexBuffers((VkCommandBuffer)cb->native, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
-        
-        uint32_t instanceCnt = isInstanced? info.instanceCount : 1;
+        VkPipelineLayout pLayut = (VkPipelineLayout)(((rs_pipeline_vk*)info.pipeline)->layout->native);
+        for (const auto& [setIdx, bindingData] : info.descriptors) {
+            auto descriptor = bindingData->info;
+            auto descriptorSet = bindingData->set;
+            auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
+            
+            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pLayut, setIdx, 1, &descriptorSetVk, 0, 0);
+        }
+        uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
 
         vkCmdDrawIndexed((VkCommandBuffer)cb->native, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
     }
