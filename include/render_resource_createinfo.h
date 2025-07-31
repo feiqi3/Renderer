@@ -52,6 +52,8 @@ namespace Render {
         const char* entryPoint = "main";
         size_t codeSizeByte = 0;
         ShaderStage   stage;       // 阶段
+        bool isSpirv = false;
+        struct ShaderCompileDesc* compileDesc = 0;
     };
 
     struct CommandBufferDesc {
@@ -162,17 +164,12 @@ namespace Render {
         struct rs_buffer* buffer;
     };
 
-    struct rs_binding_resource {
-        BindingInfo info;
-        rs_descriptorSet* set;
-    };
-
     struct RenderInfo {
         struct rs_pipeline* pipeline;                                         //pipeline
         std::vector<VertexBindingInfo > bindingBuffers;                      //in buffers
         struct rs_buffer* indexBuffer = 0;
         IndexType indexType = IndexType::Uint32;
-        std::vector < std::pair<uint16_t, rs_binding_resource*>> descriptors; //binding,descriptor
+        std::vector < std::pair<uint16_t, struct rs_descriptorSet*> > descriptors; //binding,descriptor
         uint32_t idxOffset;
         uint32_t idxCount;
         uint32_t vtxoffset;
@@ -186,6 +183,7 @@ namespace Render {
     };
 
     using ShaderIncFindFunc = std::function<ShaderIncludeRes(const std::vector<std::string>&, const std::string&)>;
+    
     struct ShaderCompileDesc {
         ShaderStage stage;
         ShaderLang langType = ShaderLang::HLSL;

@@ -2,10 +2,10 @@
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #define VMA_IMPLEMENTATION
-#include "Volk/volk.h"
+#include "volk.h"
 #include "vk_mem_alloc.h"
 #include "GLFW/glfw3.h"
-
+#include "vulkan/vulkan_shader_reflect.h"
 #include "window/render_resource_window_glfw.h"
 #include "vulkan/vulkan_render_function.h"
 #include "bit_helper.h"
@@ -149,6 +149,7 @@ namespace Render::Vulkan {
         case VK_FORMAT_R8G8B8_UNORM:            return ImageFormat::RGB8_UNORM;
         case VK_FORMAT_R8G8B8A8_UNORM:          return ImageFormat::RGBA8_UNORM;
         case VK_FORMAT_B8G8R8A8_UNORM:          return ImageFormat::BGRA8_UNORM;
+        case VK_FORMAT_B8G8R8A8_SRGB:          return ImageFormat::SBGR8_ALPHA8;
 
         case VK_FORMAT_R8G8B8_SRGB:             return ImageFormat::SRGB8;
         case VK_FORMAT_R8G8B8A8_SRGB:           return ImageFormat::SRGB8_ALPHA8;
@@ -191,6 +192,7 @@ namespace Render::Vulkan {
 
         case ImageFormat::SRGB8:              return VK_FORMAT_R8_SRGB;
         case ImageFormat::SRGB8_ALPHA8:       return VK_FORMAT_R8G8B8A8_SRGB;
+        case ImageFormat::SBGR8_ALPHA8:       return VK_FORMAT_B8G8R8A8_SRGB;
 
         case ImageFormat::R16_UNORM:          return VK_FORMAT_R16_UNORM;
         case ImageFormat::RG16_UNORM:         return VK_FORMAT_R16G16_UNORM;
@@ -421,6 +423,15 @@ namespace Render::Vulkan {
         ctx->descriptorSetMgr = new DescriptorSetManager(maxFif);
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
+
+        auto& fences = ctx->mFences;
+        fences.resize(ctx->maxFrameInFlight);
+
+        for (auto&& fence : fences) {
+            fence = createRsFence(ctx);
+            resetRsFence(ctx, fence);
+        }
+        ctx->currentSwapchainImage = ctx->maxSwapChainImages;
         return ctx;
     }
 
@@ -745,9 +756,18 @@ namespace Render::Vulkan {
     rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc)
     {
         VkShaderModuleCreateInfo ci{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-        ci.codeSize = desc.codeSizeByte;
-        ci.pCode = reinterpret_cast<const uint32_t*>(desc.shaderCode);
-
+        if (desc.isSpirv) {
+            ci.codeSize = desc.codeSizeByte;
+            ci.pCode = reinterpret_cast<const uint32_t*>(desc.shaderCode);
+        }
+        else {
+            if (desc.compileDesc) {
+                return compileShader(context, *desc.compileDesc);
+            }
+            else {
+                return nullptr;
+            }
+        }
         VkShaderModule smodule;
         VK_CHECK(vkCreateShaderModule(context->device, &ci, 0, &smodule),
             {
@@ -898,8 +918,9 @@ namespace Render::Vulkan {
             rsImage->type = ImageType::V2D;
             rsImage->depth = 1;
             rsImage->mipLevels = 1;
-            //TODO: rsImage->format = ?
-            
+            rsImage->usage = ImageUsage_PresentSrc | ImageUsage_ColorAttachment;
+            rsImage->format = ToImageFormat(choosenFormat.format);
+            rsImage->arrayLayers = 1;
             swapchainImages.push_back(rsImage);
         }
 
@@ -1517,8 +1538,7 @@ namespace Render::Vulkan {
         vkCmdBindVertexBuffers((VkCommandBuffer)cb->native, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
         VkPipelineLayout pLayut = (VkPipelineLayout)(((rs_pipeline_vk*)info.pipeline)->layout->native);
         for (const auto& [setIdx, bindingData] : info.descriptors) {
-            auto descriptor = bindingData->info;
-            auto descriptorSet = bindingData->set;
+            auto descriptorSet = bindingData;
             auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
             
             vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pLayut, setIdx, 1, &descriptorSetVk, 0, 0);
@@ -1774,6 +1794,48 @@ namespace Render::Vulkan {
         vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? (VkFence)fence->native : VK_NULL_HANDLE);
     }
 
+    uint64_t beginRsFrameVk(rs_context_vk* ctx)
+    {
+        uint64_t renderFrame = ctx->nextRenderFrame;
+        uint64_t newRenderFrame = renderFrame++;
+        uint64_t maxFif = ctx->maxFrameInFlight;
+        auto cmdbufMgr = ctx->cmdBufferMgr;
+        auto descriptorSetMgr = ctx->descriptorSetMgr;
+
+        //Wait newRenderFrame % maxFif finish
+        uint64_t toWaitFrame = newRenderFrame % maxFif;
+
+        waitForRsFence(ctx, ctx->mFences[toWaitFrame],10000000ull);
+
+        cmdbufMgr->beginFrame(ctx,newRenderFrame);
+        descriptorSetMgr->beginFrame(ctx, newRenderFrame);
+
+        return 0;
+    }
+
+    uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* SemaphoreToSignal, rs_fence_vk* fenceToSignal)
+    {
+        uint32_t swapImageIdx;
+        VkSemaphore sem = SemaphoreToSignal == 0 ? VK_NULL_HANDLE : (VkSemaphore)SemaphoreToSignal->native;
+        VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : (VkFence)fenceToSignal->native;
+        vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , fence, &swapImageIdx);
+        return swapImageIdx;
+    }
+
+    void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> semsToWait)
+    {
+        std::vector<VkSemaphore> semphoresToWait;
+        for (auto&& semRs : semsToWait) {
+            semphoresToWait.push_back((VkSemaphore)semRs->native);
+        }
+        VkPresentInfoKHR presentInfo{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+        presentInfo.waitSemaphoreCount;
+        presentInfo.pWaitSemaphores = semphoresToWait.data();
+        presentInfo.swapchainCount = semphoresToWait.size();
+        presentInfo.pSwapchains = (VkSwapchainKHR*)&ctx->swapchain->native;
+        presentInfo.pImageIndices = &presentImgIdx;
+        vkQueuePresentKHR(ctx->presentQueue->queue, &presentInfo);
+    }
 
     void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, uint32_t dstMip, uint32_t layer)
     {

@@ -100,4 +100,7 @@ namespace Render::Vulkan {
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer,uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> waitSemaphores,std::vector<rs_semaphore_vk*> signalSemaphores,rs_fence_vk* fence);
 	//-------------------------------------------------------------------------------------//     
+	uint64_t beginRsFrameVk(rs_context_vk* ctx);
+	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* SemaphoreToSignal,rs_fence_vk* fenceToSignal);
+	void submitToPresentImage(rs_context_vk* ctx,uint32_t presentImgIdx,std::vector<rs_semaphore_vk*> semsToWait);
 }

@@ -69,6 +69,7 @@ namespace Render {
         // 8-bit sRGB color formats
         SRGB8,              // 8-bit sRGB             
         SRGB8_ALPHA8,       // 8-bit sRGB + alpha       
+        SBGR8_ALPHA8,       // 8-bit sBGR + alpha       
 
         // 16-bit normalized or float color formats
         R16_UNORM,          // 16-bit R                

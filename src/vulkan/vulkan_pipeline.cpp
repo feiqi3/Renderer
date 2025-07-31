@@ -137,11 +137,12 @@ namespace Render::Vulkan {
         
         uint32_t maxSets = 0;
         
-        for (auto&& [binding, setLayout] : setLayouts) {
+        for (auto&& [setidx, setLayout] : setLayouts) {
             setLayout->accquir();
-            maxSets = std::max(uint32_t(binding), maxSets);
+            maxSets = std::max(uint32_t(setidx) + 1, maxSets);
         }
         std::vector<VkDescriptorSetLayout> setlayout_vks;
+        setlayout_vks.resize(maxSets);
         std::fill(setlayout_vks.begin(), setlayout_vks.end(), context->descriptorSetMgr->getEmptyDescriptorSetLayout(context));
 
         for (auto&& [binding, setLayout] : setLayouts) {
@@ -184,7 +185,7 @@ namespace Render::Vulkan {
         vkAttachments.reserve(attachments.size());
 
         for (int i = 0; i < rt->m_attachments.size(); ++i) {
-            VkAttachmentDescription ad;
+            VkAttachmentDescription ad = {};
             auto image = attachments[i];
             auto& attPassDesc = rpDesc.attachments[i];
             ad.format = toVkFormat(image->format);
@@ -236,6 +237,13 @@ namespace Render::Vulkan {
             colorRefs.push_back(ref);
         }
         
+        sd.colorAttachmentCount = colorRefs.size();
+        sd.pColorAttachments = colorRefs.data();
+
+        if (hasDepthRef) {
+            sd.pDepthStencilAttachment = &deepRef;
+        }
+
         VkRenderPassCreateInfo rpci{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
         rpci.attachmentCount = uint32_t(vkAttachments.size());
         rpci.pAttachments = vkAttachments.data();
@@ -544,7 +552,11 @@ namespace Render::Vulkan {
         ci.layout = (VkPipelineLayout)pipelineLayout->native;
         ci.renderPass = (VkRenderPass)renderPass->native;
 
-        //TODO:
+        VkPipelineMultisampleStateCreateInfo multiSampleStateCi{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+        multiSampleStateCi.                    rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multiSampleStateCi.                                 sampleShadingEnable = VK_FALSE;
+        multiSampleStateCi.                                    minSampleShading = 1.0f;
+        ci.pMultisampleState = &multiSampleStateCi;
         ci.subpass = 0;
         VkPipeline pipeline;
 

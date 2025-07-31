@@ -141,8 +141,10 @@ namespace Render::Vulkan {
         void returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
         VkDescriptorSetLayout getEmptyDescriptorSetLayout(rs_context_vk* ctx);
 
-        rs_descriptorSet_vk AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
-        
+        rs_descriptorSet_vk* AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_pipeline_vk* pipeline,uint32_t setIdx);
+        rs_descriptorSet_vk* AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
+        void ReturnDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet);
+
         void beginFrame(rs_context_vk* ctx, uint64_t frame);
 
         void endFrame(rs_context_vk* ctx, uint64_t frame);

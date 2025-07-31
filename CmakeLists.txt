@@ -28,9 +28,9 @@ target_include_directories(Renderer PUBLIC include)
 # Link libraries if required
 
 target_include_directories(Renderer PRIVATE 3rd/vma)
+target_include_directories(Renderer PRIVATE 3rd/volk)
 target_link_libraries(Renderer PRIVATE spirv-reflect-static)
 target_link_libraries(Renderer PRIVATE shaderc)
 target_link_libraries(Renderer PRIVATE glfw)
 target_link_libraries(Renderer PRIVATE volk::volk)
-
 # target_link_libraries(Renderer <libname>)

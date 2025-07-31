@@ -96,15 +96,32 @@ namespace Render::Vulkan {
         return desSet;
     }
 
-    rs_descriptorSet_vk DescriptorSetManager::AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs) {
+    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_pipeline_vk* pipeline, uint32_t setIdx)
+    {
+        auto pipelineLayout = pipeline->layout;
+        rs_descriptorset_layout_vk* setlayout = nullptr;
+        for (const auto& [idx, layout] : pipelineLayout->setLayouts) {
+            if (idx == setIdx) {
+                setlayout = layout;
+            }
+        }
+
+        if (!setlayout) {
+            assert(0);
+        }
+
+        return AllocateDescriptorSet(frame, ctx, setlayout);
+    }
+
+    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs) {
         int frame_idx = frame / m_maxFrame;
         for (auto&& i : this->m_pools[frame_idx]) {
             auto desSet = tryAllocateFromPool(frame,ctx, i, rs);
             if (desSet != VK_NULL_HANDLE) {
                 i.lastActiveFrame = 0;
-                rs_descriptorSet_vk ret{};
-                ret.native = desSet;
-                ret.layout = rs;
+                rs_descriptorSet_vk* ret = new rs_descriptorSet_vk;
+                ret->native = desSet;
+                ret->layout = rs;
                 return ret;
             }
         }
@@ -112,10 +129,16 @@ namespace Render::Vulkan {
         auto pool = m_pools[frame_idx].back();
         auto desSet = tryAllocateFromPool(frame,ctx, pool, rs);
         assert(desSet != VK_NULL_HANDLE);
-        rs_descriptorSet_vk ret{};
-        ret.native = desSet;
-        ret.layout = rs;
+        rs_descriptorSet_vk* ret = new rs_descriptorSet_vk;
+        ret->native = desSet;
+        ret->layout = rs;
         return ret;
+    }
+
+    void DescriptorSetManager::ReturnDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet)
+    {
+        delete descriptorSet;
+        descriptorSet = 0;
     }
 
     DescriptorPoolBlock DescriptorSetManager::createNewPool(rs_context_vk* ctx)
@@ -353,10 +376,6 @@ namespace Render::Vulkan {
 
     void DescriptorSetManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
     {  
-    }
-
-    void DescriptorSetManager::endFrame(rs_context_vk* ctx, uint64_t frame)
-    {
         int curframeIdx = frame % m_maxFrame;
         for (auto i = m_pools[curframeIdx].begin(); i != m_pools[frame].end(); ) {
             vkResetDescriptorPool(ctx->device, i->pool, 0);
@@ -379,6 +398,11 @@ namespace Render::Vulkan {
                 ++i;
             }
         }
+    }
+
+    void DescriptorSetManager::endFrame(rs_context_vk* ctx, uint64_t frame)
+    {
+
     }
 
     void DescriptorSetManager::returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs)

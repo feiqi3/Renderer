@@ -28,6 +28,7 @@ namespace Render::Vulkan {
 		
 		rs_swapchain_vk* swapchain = nullptr;
 		uint32_t maxSwapChainImages;
+		uint32_t currentSwapchainImage = 0;
 		VkDebugUtilsMessengerEXT validationObject;
 
 		bool mIsValidationLayerEnabled = false;
@@ -36,6 +37,7 @@ namespace Render::Vulkan {
 		//For Pipeline 
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
+
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 		class DeferredDestroyer* destroyer = 0;

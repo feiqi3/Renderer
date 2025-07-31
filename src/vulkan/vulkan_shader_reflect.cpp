@@ -260,9 +260,21 @@ namespace Render::Vulkan {
 
         //---------------------------------------------//
 
+        //Bug: If any '\0' exist, shader compile will fail;
+        int remove_char_cnt = 0;
+        for (auto inv_it = desc.shaderSrcCode.crbegin(); inv_it != desc.shaderSrcCode.crend(); ++inv_it) {
+            if (*inv_it != '\0') {
+                break;
+            }
+            else {
+                ++remove_char_cnt;
+            }
+        }
 
+        std::string newCode = desc.shaderSrcCode;
+        newCode.resize(newCode.size() - remove_char_cnt);
         shaderc::SpvCompilationResult module =
-            compiler.CompileGlslToSpv(desc.shaderSrcCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str());
+            compiler.CompileGlslToSpv(newCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str());
 
         if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
             Render::Log::error("Shader Compile Error: " + desc.shaderName + " \nError Reason: " + module.GetErrorMessage());
@@ -275,7 +287,7 @@ namespace Render::Vulkan {
         VkShaderModule vkModule;
         VkShaderModuleCreateInfo ci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
 
-        ci.codeSize = module.end() - module.begin();
+        ci.codeSize = sizeof(uint32_t) * (module.end() - module.begin() );
         ci.pCode = module.begin();
         VK_CHECK(vkCreateShaderModule(ctx->device, &ci, 0, &vkModule), { return nullptr; });
         rs_shader_module_vk* shaderModule = new rs_shader_module_vk;
@@ -339,6 +351,8 @@ namespace Render::Vulkan {
             bindingInfo.count = binding->count;
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
             bindingInfo.size = binding->block.size;
+            bindingInfo.shaderVisibleStage = (uint16_t)shader->shaderStage;
+            info.mInfo.push_back(bindingInfo);
         }
         shader->reflectInfo = std::move(bindings);
         shader->inputAttributes = std::move(attributes);

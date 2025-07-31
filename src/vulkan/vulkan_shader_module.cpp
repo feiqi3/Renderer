@@ -48,6 +48,7 @@ namespace Render::Vulkan {
         for (auto&& [setid, perShaderSetInfo] : mSets) {
             infos.push_back({});
             auto& info = infos[infos.size() - 1];
+            info.setIdx = setid;
             info.layoutHash.mDescriptors = perShaderSetInfo;
             info.layoutHash.init();
         }
