@@ -165,15 +165,15 @@ namespace Render {
     };
 
     struct RenderInfo {
-        struct rs_pipeline* pipeline;                                         //pipeline
+        struct rs_pipeline* pipeline = nullptr;                                         //pipeline
         std::vector<VertexBindingInfo > bindingBuffers;                      //in buffers
         struct rs_buffer* indexBuffer = 0;
         IndexType indexType = IndexType::Uint32;
         std::vector < std::pair<uint16_t, struct rs_descriptorSet*> > descriptors; //binding,descriptor
-        uint32_t idxOffset;
-        uint32_t idxCount;
-        uint32_t vtxoffset;
-        uint32_t instanceCount;
+        uint32_t idxOffset = 0;
+        uint32_t idxCount = 0;
+        uint32_t vtxoffset = 0;
+        uint32_t instanceCount = 1;
         bool isIndirect = false;
     };
 

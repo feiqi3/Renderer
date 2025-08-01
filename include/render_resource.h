@@ -63,10 +63,11 @@ namespace Render {
 	struct rs_renderpass : rs_base {
 		std::string passName;
 		PassDesc passDesc;
-		uint32_t height;
-		uint32_t width;
-		bool haveDepth;
-		bool writeDepth;
+		uint32_t height = 0;
+		uint32_t width = 0;
+		bool haveDepth = false;
+		bool writeDepth = false;
+		struct rs_rendertarget* renderTarget = 0;
 	};
 
 	struct rs_fence : rs_base {};

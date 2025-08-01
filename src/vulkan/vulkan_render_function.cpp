@@ -1,6 +1,6 @@
 #define VK_NO_PROTOTYPES
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #define VMA_IMPLEMENTATION
 #include "volk.h"
 #include "vk_mem_alloc.h"
@@ -12,12 +12,103 @@
 #include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_command.h"
 #include "vulkan/vulkan_deferred_destroy.h"
-
+#include "vulkan/vulkan_pipeline.h"
 
 #include "render_log.h"
 #include <set>
 #include <iostream>
 namespace {
+    inline const uint32_t VulkanVersion = VK_API_VERSION_1_3;
+
+    void TransitionImageLayout(
+        VkCommandBuffer commandBuffer,
+        VkImage image,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
+        VkImageSubresourceRange subresourceRange,
+        VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+    ) {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange = subresourceRange;
+
+        // 默认 access mask
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = 0;
+
+        // 自动适配 layout 组合
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.dstAccessMask = 0;
+            srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+        }
+        else {
+            // fallback，用户可以手动指定stage
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = 0;
+        }
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            srcStage,
+            dstStage,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+    }
+
     //validation callback
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
@@ -419,6 +510,17 @@ namespace Render::Vulkan {
         createVkPhysicalDevice(ctx, -1);
         createVkDevice(ctx);
         createSwapchain(ctx, window, 0);
+        VmaVulkanFunctions vkFuncs{};
+        vkFuncs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        vkFuncs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+        VmaAllocatorCreateInfo vmaCi{};
+        vmaCi.device = ctx->device;
+        vmaCi.instance = ctx->instance;
+        vmaCi.physicalDevice = ctx->physicalDevice;
+        vmaCi.vulkanApiVersion = VulkanVersion;
+        vmaCi.pVulkanFunctions = &vkFuncs;
+        vmaCreateAllocator(&vmaCi, &ctx->allocator);
+
         auto maxFif = ctx->maxFrameInFlight;
         ctx->descriptorSetMgr = new DescriptorSetManager(maxFif);
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
@@ -971,7 +1073,7 @@ namespace Render::Vulkan {
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.pEngineName = context->initDesc.engineName.c_str();
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_3; // 或 VK_API_VERSION_1_0
+        appInfo.apiVersion = VulkanVersion; // 或 VK_API_VERSION_1_0
 
         auto extension = getExtensionEnableInstance(context);
         auto layers = getLayerEnableInstance(context);
@@ -1441,11 +1543,30 @@ namespace Render::Vulkan {
 
     void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs)
     {
+        auto& atts = renderpass->passDesc.attachments;
+        int idx = 0;
+        for (auto&& att : atts) {
+            auto layoutNeedWhenRpBegin = pickLayout(att.isHDR, att.loadOp);
+            if (layoutNeedWhenRpBegin != VK_IMAGE_LAYOUT_UNDEFINED && layoutNeedWhenRpBegin != ((rs_image_vk*)renderpass->renderTarget->m_attachments[idx])->currentLayout)
+            {
+                bool isDepthAtt = false;
+                auto rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
+                VkImageSubresourceRange range{};
+                range.aspectMask = rtImage->usage & ImageUsage_DepthStencilAttachment ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+                range.baseMipLevel = 0;
+                range.levelCount = 1;
+                range.baseArrayLayer = 0;
+                range.layerCount = rtImage->arrayLayers;
+                TransitionImageLayout((VkCommandBuffer)cb->native, (VkImage)rtImage->native, rtImage->currentLayout, layoutNeedWhenRpBegin, range);
+            }
+            idx++;
+        }
+
         std::vector< VkClearValue> clearValues;
         clearValues.reserve(renderpass->passDesc.attachments.size());
         
         //The last desc is depthAndStencil
-        for (int i = 0; i < clearColor.size() - 1; ++i) {
+        for (int i = 0; i < clearColor.size() - (renderpass->haveDepth ? 1 : 0); ++i) {
             auto& c = clearColor[i];
             VkClearValue clr{};
             auto& passDesc = renderpass->passDesc.attachments[i];
@@ -1477,7 +1598,7 @@ namespace Render::Vulkan {
 
         auto& extent = info.renderArea.extent;
         extent.width = renderpass->width;
-        extent.width = renderpass->height;
+        extent.height = renderpass->height;
         info.               clearValueCount = clearValues.size();
         info.               pClearValues = clearValues.data();
 
@@ -1491,7 +1612,7 @@ namespace Render::Vulkan {
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
     }
 
-    void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect)
+    void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx)
     {
         assert(cb->currentRenderPass != nullptr);
         VkViewport viewport{};
@@ -1499,10 +1620,10 @@ namespace Render::Vulkan {
         viewport.y = rect.t * cb->currentRenderPass->height;
         viewport.width = (rect.r - rect.l) * cb->currentRenderPass->width;
         viewport.height = (rect.b - rect.t) * cb->currentRenderPass->height;
-        vkCmdSetViewport((VkCommandBuffer)cb->native, 0, 1, &viewport);
+        vkCmdSetViewport((VkCommandBuffer)cb->native, idx, 1, &viewport);
     }
 
-    void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect)
+    void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx)
     {
         assert(cb->currentRenderPass != nullptr);
         VkRect2D scissor{};
@@ -1511,7 +1632,7 @@ namespace Render::Vulkan {
         scissor.offset.x = rect.l * cb->currentRenderPass->width;
         scissor.offset.y = rect.t * cb->currentRenderPass->height;
 
-        vkCmdSetScissor((VkCommandBuffer)cb->native, 0, 1, &scissor);
+        vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
 
     void cmdDrawIndexed(rs_commandbuffer_vk* cb, const RenderInfo& info, bool isInstanced)
@@ -1528,7 +1649,7 @@ namespace Render::Vulkan {
         }
         vkCmdBindPipeline((VkCommandBuffer)cb->native, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)info.pipeline->native);
 
-        vkCmdBindIndexBuffer((VkCommandBuffer)(cb->native), (VkBuffer)info.indexBuffer, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer((VkCommandBuffer)(cb->native), (VkBuffer)info.indexBuffer->native, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
         std::vector<VkBuffer> bindingBuffers;
         std::vector<VkDeviceSize> bufferoffsets;
         for (int i = 0; i < info.bindingBuffers.size(); ++i) {
@@ -1754,6 +1875,7 @@ namespace Render::Vulkan {
 
     void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore_vk*> waitSemaphores, std::vector<rs_semaphore_vk*> signalSemaphores, rs_fence_vk* fence)
     {
+
         std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
         for (auto&& sem : waitSemaphores) {
             ntvwaitSemaphores.push_back((VkSemaphore)sem->native);
@@ -1761,6 +1883,29 @@ namespace Render::Vulkan {
         for (auto&& sem : signalSemaphores) {
             ntvsignalSemaphores.push_back((VkSemaphore)sem->native);
         }
+
+
+        VkPipelineStageFlags toWaitFlag;
+
+        switch (queue)
+        {
+        case Render::QueueType_Graphics:
+            toWaitFlag = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+            break;
+        case Render::QueueType_Compute:
+            toWaitFlag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            break;
+        case Render::QueueType_Transfer:
+            toWaitFlag = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        case Render::QueueType_Present:
+        default:
+            toWaitFlag = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+            break;
+        }
+
+        std::vector< VkPipelineStageFlags> waitStageFlags(waitSemaphores.size(),toWaitFlag);
+
         VkSubmitInfo info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 
         info.                       waitSemaphoreCount = ntvwaitSemaphores.size();
@@ -1769,7 +1914,7 @@ namespace Render::Vulkan {
         info.pCommandBuffers = (VkCommandBuffer*)&cb->native;
         info.signalSemaphoreCount = ntvsignalSemaphores.size();
         info.pSignalSemaphores = ntvsignalSemaphores.data();
-
+        info.pWaitDstStageMask = waitStageFlags.data();
         rs_queue_vk* rsQueue;
 
         switch (queue)
@@ -1792,6 +1937,18 @@ namespace Render::Vulkan {
         }
 
         vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? (VkFence)fence->native : VK_NULL_HANDLE);
+    }
+
+    void cmdBeginRecord(rs_commandbuffer_vk* cb)
+    {
+        VkCommandBufferBeginInfo beginCi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        beginCi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer((VkCommandBuffer)cb->native, &beginCi);
+    }
+
+    void cmdEndRecord(rs_commandbuffer_vk* cb)
+    {
+        vkEndCommandBuffer((VkCommandBuffer)cb->native);
     }
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)

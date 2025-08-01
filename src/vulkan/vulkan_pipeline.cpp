@@ -11,26 +11,22 @@ namespace Render::Vulkan {
         VK_DYNAMIC_STATE_VIEWPORT,
     };
 
-    namespace {
-        VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op) {
-            using namespace Render;
+    VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op) {
+        using namespace Render;
 
-            if (usage & ImageUsage_ColorAttachment) {
-                return (op == StorageOp::DontCare)
-                    ? VK_IMAGE_LAYOUT_UNDEFINED
-                    : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            }
-            // 深度/模板附件
-            if (usage & ImageUsage_DepthStencilAttachment) {
-                return (op == StorageOp::DontCare)
-                    ? VK_IMAGE_LAYOUT_UNDEFINED
-                    : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            }
-            return VK_IMAGE_LAYOUT_UNDEFINED;
+        if (usage & ImageUsage_ColorAttachment) {
+            return (op != StorageOp::Cached)
+                ? VK_IMAGE_LAYOUT_UNDEFINED
+                : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         }
-
+        // 深度/模板附件
+        if (usage & ImageUsage_DepthStencilAttachment) {
+            return (op != StorageOp::Cached)
+                ? VK_IMAGE_LAYOUT_UNDEFINED
+                : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        }
+        return VK_IMAGE_LAYOUT_UNDEFINED;
     }
-
 
     VkShaderStageFlags toVkShaderStageFlags(uint32_t stage)
     {
@@ -138,7 +134,6 @@ namespace Render::Vulkan {
         uint32_t maxSets = 0;
         
         for (auto&& [setidx, setLayout] : setLayouts) {
-            setLayout->accquir();
             maxSets = std::max(uint32_t(setidx) + 1, maxSets);
         }
         std::vector<VkDescriptorSetLayout> setlayout_vks;
@@ -204,7 +199,8 @@ namespace Render::Vulkan {
             ad.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             // 布局
             ad.initialLayout = pickLayout(image->usage, attPassDesc.loadOp);
-            ad.finalLayout = pickLayout(image->usage, attPassDesc.storeOp);
+            ad.finalLayout = image->usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(image->usage, attPassDesc.storeOp);
+            ((rs_image_vk*)image)->currentLayout = ad.finalLayout;
             vkAttachments.push_back(ad);
             imgViews.push_back(((rs_image_vk*)image)->view);
         }
@@ -279,6 +275,7 @@ namespace Render::Vulkan {
         rp->height = attachments[0]->height;
         rp->haveDepth = rt->m_depthStencilAttachment != nullptr;
         rp->writeDepth = rpDesc.writeDepth;
+        rp->renderTarget = rt;
         return rp;
     }
 

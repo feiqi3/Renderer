@@ -66,6 +66,36 @@ namespace Render::Vulkan {
         m_maxFrame = maxFrame;
         this->m_pools.resize(maxFrame);
         this->m_frameBuffers.resize(maxFrame);
+        VkDescriptorPoolSize poolFactor{};
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_SAMPLER;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
+
     }
 
     VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx, DescriptorPoolBlock& block, rs_descriptorset_layout_vk* layout) {
@@ -126,7 +156,7 @@ namespace Render::Vulkan {
             }
         }
         this->m_pools[frame_idx].push_back(createNewPool(ctx));
-        auto pool = m_pools[frame_idx].back();
+        auto& pool = m_pools[frame_idx].back();
         auto desSet = tryAllocateFromPool(frame,ctx, pool, rs);
         assert(desSet != VK_NULL_HANDLE);
         rs_descriptorSet_vk* ret = new rs_descriptorSet_vk;
@@ -203,7 +233,7 @@ namespace Render::Vulkan {
                 newBuffer
             );
 
-            auto it = dyBuffersFrame.end()--;
+            auto it = --dyBuffersFrame.end();
             targetBuffer = &(*it);
         }
         VkWriteDescriptorSet info{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };

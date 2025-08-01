@@ -13,6 +13,7 @@ namespace Render::Vulkan {
 		//It is promised that all operation have done when this frame begins.
 		{
 			std::lock_guard<std::mutex> lock(mCmdBufferLock);
+			ThreadVector& threadVec = mPools[frame % m_maxFrameInFlight];
 
 			int pos = -1;
 			auto thisThreadId = std::this_thread::get_id();
@@ -24,9 +25,14 @@ namespace Render::Vulkan {
 				}
 			}
 
+			if (pos == -1) {
+				mThreadToPoolPos.push_back(thisThreadId);
+				threadVec.push_back({});
+				pos = mThreadToPoolPos.size() - 1;
+			}
+			
 			assert(pos >= 0);
 
-			ThreadVector& threadVec = mPools[frame % m_maxFrameInFlight];
 			QueueVector& queueVec = threadVec[pos];
 
 			for (auto&& pool : queueVec) {
@@ -47,18 +53,6 @@ namespace Render::Vulkan {
 
 	void CommandBufferManager::submitFrame(rs_context_vk* ctx, uint64_t frame)
 	{
-		//TODO
-		std::lock_guard<std::mutex> lock(mCmdBufferLock);
-		for (auto&& [queue, cmds] : mCmdsToSubmit) {
-			VkSubmitInfo info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-			uint32_t                       waitSemaphoreCount;
-			const VkSemaphore* pWaitSemaphores;
-			const VkPipelineStageFlags* pWaitDstStageMask;
-			uint32_t                       commandBufferCount;
-			const VkCommandBuffer* pCommandBuffers;
-			uint32_t                       signalSemaphoreCount;
-			const VkSemaphore* pSignalSemaphores;
-		}
 	}
 
 	rs_commandbuffer_vk* CommandBufferManager::getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType)
@@ -97,13 +91,13 @@ namespace Render::Vulkan {
 			if (ctx->graphicQueue->queueType & queueType) {
 				pool->queue = ctx->graphicQueue ;
 			}
-			if (ctx->computeQueue->queueType & queueType) {
+			if (ctx->computeQueue && ctx->computeQueue->queueType & queueType) {
 				pool->queue = ctx->computeQueue ;
 			}
-			if (ctx->presentQueue->queueType & queueType) {
+			if (ctx->presentQueue && ctx->presentQueue->queueType & queueType) {
 				pool->queue = ctx->presentQueue ;
 			}
-			if (ctx->transferQueue->queueType & queueType) {
+			if (ctx->transferQueue && ctx->transferQueue->queueType & queueType) {
 				pool->queue = ctx->transferQueue ;
 			}
 			

@@ -92,13 +92,16 @@ namespace Render::Vulkan {
 	//-------------------------------------------------------------------------------------//     
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
-	void cmdSetViewport(rs_commandbuffer_vk* cb,Rect2D& rect);
-	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect);
+	void cmdSetViewport(rs_commandbuffer_vk* cb,Rect2D& rect,uint32_t idx);
+	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, uint32_t mip, uint32_t layer);
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer,uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> waitSemaphores,std::vector<rs_semaphore_vk*> signalSemaphores,rs_fence_vk* fence);
+	
+	void cmdBeginRecord(rs_commandbuffer_vk* cb);
+	void cmdEndRecord(rs_commandbuffer_vk* cb);
 	//-------------------------------------------------------------------------------------//     
 	uint64_t beginRsFrameVk(rs_context_vk* ctx);
 	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* SemaphoreToSignal,rs_fence_vk* fenceToSignal);
