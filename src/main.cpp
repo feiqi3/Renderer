@@ -165,9 +165,11 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 	viewportSize.b = 1.f;
 	while (!window->shouldClose()) {
 		window->pollEvents();
-		auto nxtRenderFrame = render_context->nextRenderFrame;
-		auto curFif = nxtRenderFrame % maxFif;
 		beginRsFrameVk(render_context);
+		auto nxtRenderFrame = render_context->curRenderFrame;
+		auto curFif = nxtRenderFrame % maxFif;
+		auto curImg = nxtRenderFrame % render_context->maxSwapChainImages;
+		auto nxtImg = waitForNextPresentImage(render_context, semphoresToWait[curFif], 0);
 		auto descriptorSet = descriptorSetMgr->AllocateDescriptorSet(render_context->nextRenderFrame, render_context, pipelines[curFif],0);
 		descriptorSetMgr->updateBufferData(nxtRenderFrame, render_context, descriptorSet, 0, setData, sizeof(float) * 4, QueueType_Graphics);
 		renderInfo.pipeline = pipelines[curFif];
@@ -175,17 +177,17 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 		renderInfo.descriptors[0] = { 0,descriptorSet };
 		auto cmdbuffer = cmdBufferMgr->getCmdBufferLocalThread(render_context, nxtRenderFrame, QueueType_Graphics);
 		cmdBeginRecord(cmdbuffer);
-		cmdBeginRenderPass(cmdbuffer, renderPasses[curFif], clrCol, clrDep);
-		cmdSetViewport(cmdbuffer, viewportSize, 0);
+		cmdBeginRenderPass(cmdbuffer, renderPasses[curImg], clrCol, clrDep);
+		cmdSetViewport(cmdbuffer, viewportSize,0.f,1.f, 0);
 		cmdSetScissor(cmdbuffer, viewportSize, 0);
 		cmdDrawIndexed(cmdbuffer, renderInfo, false);
 		cmdEndRenderPass(cmdbuffer);
 		cmdEndRecord(cmdbuffer);
 		cmdSubmitCmdBuffer(render_context, cmdbuffer, QueueType_Graphics, { semphoresToWait[curFif] }, { semphoresToSignal[curFif] }, render_context->mFences[curFif]);
 		//render_context->cmdBufferMgr->submitFrame(render_context, render_context->nextRenderFrame);
-		auto nxtImg = waitForNextPresentImage(render_context, semphoresToWait[curFif], 0);
 		submitToPresentImage(render_context, nxtImg, { semphoresToSignal[curFif] });
 		descriptorSetMgr->ReturnDescriptorSet(nxtRenderFrame, render_context, descriptorSet);
+		endRsFrameVk(render_context);
 	};
 }
 
