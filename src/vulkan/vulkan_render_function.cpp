@@ -531,7 +531,6 @@ namespace Render::Vulkan {
 
         for (auto&& fence : fences) {
             fence = createRsFence(ctx);
-            resetRsFence(ctx, fence);
         }
         ctx->currentSwapchainImage = ctx->maxSwapChainImages;
         return ctx;
@@ -908,6 +907,7 @@ namespace Render::Vulkan {
     rs_fence_vk* createRsFence(rs_context_vk* ctx)
     {
         VkFenceCreateInfo ci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        ci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         rs_fence_vk* fence = new rs_fence_vk;
 
         vkCreateFence(ctx->device, &ci, 0, (VkFence*)&fence->native);
@@ -1612,7 +1612,7 @@ namespace Render::Vulkan {
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
     }
 
-    void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx)
+    void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect, float minDepth, float maxDepth, uint32_t idx)
     {
         assert(cb->currentRenderPass != nullptr);
         VkViewport viewport{};
@@ -1620,6 +1620,8 @@ namespace Render::Vulkan {
         viewport.y = rect.t * cb->currentRenderPass->height;
         viewport.width = (rect.r - rect.l) * cb->currentRenderPass->width;
         viewport.height = (rect.b - rect.t) * cb->currentRenderPass->height;
+        viewport.minDepth = minDepth;
+        viewport.maxDepth = maxDepth;
         vkCmdSetViewport((VkCommandBuffer)cb->native, idx, 1, &viewport);
     }
 
@@ -1873,14 +1875,14 @@ namespace Render::Vulkan {
         image->currentLayout = newlayout;
     }
 
-    void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore_vk*> waitSemaphores, std::vector<rs_semaphore_vk*> signalSemaphores, rs_fence_vk* fence)
+    void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore_vk*> imageAvailableWaitSemaphores, std::vector<rs_semaphore_vk*> renderFinishSignalSemphores, rs_fence_vk* fence)
     {
 
         std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
-        for (auto&& sem : waitSemaphores) {
+        for (auto&& sem : imageAvailableWaitSemaphores) {
             ntvwaitSemaphores.push_back((VkSemaphore)sem->native);
         }
-        for (auto&& sem : signalSemaphores) {
+        for (auto&& sem : renderFinishSignalSemphores) {
             ntvsignalSemaphores.push_back((VkSemaphore)sem->native);
         }
 
@@ -1890,7 +1892,7 @@ namespace Render::Vulkan {
         switch (queue)
         {
         case Render::QueueType_Graphics:
-            toWaitFlag = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+            toWaitFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
             break;
         case Render::QueueType_Compute:
             toWaitFlag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -1904,7 +1906,7 @@ namespace Render::Vulkan {
             break;
         }
 
-        std::vector< VkPipelineStageFlags> waitStageFlags(waitSemaphores.size(),toWaitFlag);
+        std::vector< VkPipelineStageFlags> waitStageFlags(imageAvailableWaitSemaphores.size(),toWaitFlag);
 
         VkSubmitInfo info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 
@@ -1955,6 +1957,7 @@ namespace Render::Vulkan {
     {
         uint64_t renderFrame = ctx->nextRenderFrame;
         uint64_t newRenderFrame = renderFrame++;
+        ctx->curRenderFrame = newRenderFrame;
         uint64_t maxFif = ctx->maxFrameInFlight;
         auto cmdbufMgr = ctx->cmdBufferMgr;
         auto descriptorSetMgr = ctx->descriptorSetMgr;
@@ -1962,7 +1965,8 @@ namespace Render::Vulkan {
         //Wait newRenderFrame % maxFif finish
         uint64_t toWaitFrame = newRenderFrame % maxFif;
 
-        waitForRsFence(ctx, ctx->mFences[toWaitFrame],10000000ull);
+        waitForRsFence(ctx, ctx->mFences[toWaitFrame],UINT64_MAX);
+        resetRsFence(ctx, ctx->mFences[toWaitFrame]);
 
         cmdbufMgr->beginFrame(ctx,newRenderFrame);
         descriptorSetMgr->beginFrame(ctx, newRenderFrame);
@@ -1970,25 +1974,32 @@ namespace Render::Vulkan {
         return 0;
     }
 
-    uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* SemaphoreToSignal, rs_fence_vk* fenceToSignal)
+    uint64_t endRsFrameVk(rs_context_vk* ctx)
+    {
+        ctx->nextRenderFrame++;
+        return ctx->nextRenderFrame;
+    }
+
+    uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* imageAvailableSignalSemaphore, rs_fence_vk* fenceToSignal)
     {
         uint32_t swapImageIdx;
-        VkSemaphore sem = SemaphoreToSignal == 0 ? VK_NULL_HANDLE : (VkSemaphore)SemaphoreToSignal->native;
+        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : (VkSemaphore)imageAvailableSignalSemaphore->native;
         VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : (VkFence)fenceToSignal->native;
         vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , fence, &swapImageIdx);
         return swapImageIdx;
     }
 
-    void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> semsToWait)
+    void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> renderFinishWaitSemaphore)
     {
         std::vector<VkSemaphore> semphoresToWait;
-        for (auto&& semRs : semsToWait) {
+        for (auto&& semRs : renderFinishWaitSemaphore) {
             semphoresToWait.push_back((VkSemaphore)semRs->native);
         }
         VkPresentInfoKHR presentInfo{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         presentInfo.waitSemaphoreCount;
         presentInfo.pWaitSemaphores = semphoresToWait.data();
-        presentInfo.swapchainCount = semphoresToWait.size();
+        presentInfo.waitSemaphoreCount = semphoresToWait.size();
+        presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = (VkSwapchainKHR*)&ctx->swapchain->native;
         presentInfo.pImageIndices = &presentImgIdx;
         vkQueuePresentKHR(ctx->presentQueue->queue, &presentInfo);

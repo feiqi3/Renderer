@@ -9,6 +9,7 @@ namespace Render {
 		BackEndInitDesc initDesc;
 		std::vector<std::string> physicalDevices;
 		uint64_t nextRenderFrame = 0;
+		uint64_t curRenderFrame = 0;
 		uint32_t maxFrameInFlight = 2;
 		std::vector<struct rs_fence*> mFences;
 	};

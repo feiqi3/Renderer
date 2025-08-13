@@ -144,7 +144,7 @@ namespace Render::Vulkan {
     }
 
     rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs) {
-        int frame_idx = frame / m_maxFrame;
+        int frame_idx = frame % m_maxFrame;
         for (auto&& i : this->m_pools[frame_idx]) {
             auto desSet = tryAllocateFromPool(frame,ctx, i, rs);
             if (desSet != VK_NULL_HANDLE) {
@@ -213,8 +213,8 @@ namespace Render::Vulkan {
             assert(0 && "Wrong binding type");
             return;
         }
-
-        auto& dyBuffersFrame = m_frameBuffers[frame];
+        auto curFif = frame % ctx->maxFrameInFlight;
+        auto& dyBuffersFrame = m_frameBuffers[curFif];
         dyUBuffer* targetBuffer = 0;
         auto itor = dyBuffersFrame.begin();
         while (itor != dyBuffersFrame.end()) {
@@ -407,7 +407,7 @@ namespace Render::Vulkan {
     void DescriptorSetManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
     {  
         int curframeIdx = frame % m_maxFrame;
-        for (auto i = m_pools[curframeIdx].begin(); i != m_pools[frame].end(); ) {
+        for (auto i = m_pools[curframeIdx].begin(); i != m_pools[curframeIdx].end(); ) {
             vkResetDescriptorPool(ctx->device, i->pool, 0);
             if (i->lastActiveFrame - frame >= Max_Vacant_Frame) {
                 vkDestroyDescriptorPool(ctx->device, i->pool, 0);
@@ -418,7 +418,7 @@ namespace Render::Vulkan {
             }
         }
 
-        for (auto i = this->m_frameBuffers[curframeIdx].begin(); i != m_frameBuffers[frame].end(); ) {
+        for (auto i = this->m_frameBuffers[curframeIdx].begin(); i != m_frameBuffers[curframeIdx].end(); ) {
             i->freeSize = i->maxSize;
             if (i->lastActiveFrame - frame >= Max_Vacant_Frame) {
                 destroyRsBuffer(ctx, i->buffer);

@@ -27,10 +27,11 @@ namespace Render::Vulkan {
 
 			if (pos == -1) {
 				mThreadToPoolPos.push_back(thisThreadId);
-				threadVec.push_back({});
 				pos = mThreadToPoolPos.size() - 1;
 			}
-			
+			if (threadVec.size() < pos + 1) {
+				threadVec.resize(pos + 1, {});
+			}
 			assert(pos >= 0);
 
 			QueueVector& queueVec = threadVec[pos];
@@ -40,10 +41,11 @@ namespace Render::Vulkan {
 			}
 		}
 		for (auto&& [queueType, cmds] : mCmdsToSubmit) {
-			for (auto cb : cmds) {
+			for (auto& cb : cmds) {
 				delete cb;
 				cb = 0;
 			}
+			cmds.resize(0);
 		}
 	}
 
