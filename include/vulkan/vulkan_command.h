@@ -23,6 +23,7 @@ namespace Render::Vulkan {
 	private:
 		std::vector<std::thread::id> mThreadToPoolPos;
 		FrameVector mPools;
+		std::vector<std::vector<rs_commandbuffer_vk*>> mToDestroyCmdBuffers;
 		std::vector<QueueCmdVector> mCmdsToSubmit;
 		int m_maxFrameInFlight;
 		std::mutex mCmdBufferLock;

@@ -83,6 +83,7 @@ namespace Render {
 		bool isSecondary = false;
 		bool isTransitent = false;
 		bool recording = false;
+		uint32_t lastActiveFrames = 0;
 	};
 
 	struct rs_descriptorSetPool : rs_base { };

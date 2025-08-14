@@ -2,18 +2,22 @@
 #include <thread>
 #include <cassert>
 namespace Render::Vulkan {
+
+    int MaxActiveFrames = 10;
 	CommandBufferManager::CommandBufferManager(int maxFrame) :m_maxFrameInFlight(maxFrame)
 	{
 		mPools.resize(m_maxFrameInFlight);
+		mToDestroyCmdBuffers.resize(m_maxFrameInFlight);
 	}
 
 	void CommandBufferManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
 	{
 		//clear.
 		//It is promised that all operation have done when this frame begins.
+		auto curFif = frame % m_maxFrameInFlight;
 		{
 			std::lock_guard<std::mutex> lock(mCmdBufferLock);
-			ThreadVector& threadVec = mPools[frame % m_maxFrameInFlight];
+			ThreadVector& threadVec = mPools[curFif];
 
 			int pos = -1;
 			auto thisThreadId = std::this_thread::get_id();
@@ -40,13 +44,24 @@ namespace Render::Vulkan {
 				vkResetCommandPool(ctx->device, (VkCommandPool)pool->native, 0);
 			}
 		}
-		for (auto&& [queueType, cmds] : mCmdsToSubmit) {
-			for (auto& cb : cmds) {
-				delete cb;
-				cb = 0;
-			}
-			cmds.resize(0);
+
+		auto& needClearCmdLists = mToDestroyCmdBuffers[curFif];
+		for (auto&& cb : needClearCmdLists) {
+			
+			vkFreeCommandBuffers(ctx->device, (VkCommandPool)cb->pool->native, 1, (VkCommandBuffer*)&cb->native);
+			delete cb;
 		}
+		needClearCmdLists.clear();
+		//auto removeItor = std::remove_if(needClearCmdLists.begin(), needClearCmdLists.end(), [ctx,frame](rs_commandbuffer_vk* cmdbuf) {
+		//	if (frame - cmdbuf->lastActiveFrames > MaxActiveFrames) {
+		//		vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmdbuf->pool->native, 1, (VkCommandBuffer*)&cmdbuf->native);
+		//		return true;
+		//	}
+		//	return false;
+		//});
+
+
+		//mToDestroyCmdBuffers[curFif].erase(removeItor, mToDestroyCmdBuffers[curFif].end());
 	}
 
 	void CommandBufferManager::endFrame(rs_context_vk* ctx, uint64_t frame)
@@ -60,6 +75,7 @@ namespace Render::Vulkan {
 	rs_commandbuffer_vk* CommandBufferManager::getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType)
 	{
 		std::lock_guard<std::mutex> lock(mCmdBufferLock);
+		auto curFif = frame % m_maxFrameInFlight;
 		int pos = -1;
 		auto thisThreadId = std::this_thread::get_id();
 		//Find current thread's pools
@@ -77,7 +93,7 @@ namespace Render::Vulkan {
 			pos = mThreadToPoolPos.size() - 1;
 		}
 
-		ThreadVector& threadVec = mPools[frame % m_maxFrameInFlight];
+		ThreadVector& threadVec = mPools[curFif];
 		QueueVector& queueVec = threadVec[pos];
 
 		//Find target pool with identical queueType
@@ -121,21 +137,7 @@ namespace Render::Vulkan {
 		cmdBuffer->isTransitent = true;
 		cmdBuffer->pool = pool;
 		cmdBuffer->queueType = pool->queue->queueType;
-		
-		int queueCmdsPos = -1;
-		for (int i = 0; i < mCmdsToSubmit.size(); ++i) {
-			if (mCmdsToSubmit[i].first == pool->queue->queueType) {
-				queueCmdsPos = i;
-				break;
-			}
-		}
-
-		if (queueCmdsPos == -1) {
-			mCmdsToSubmit.push_back({ pool->queue->queueType,{} });
-			queueCmdsPos = mCmdsToSubmit.size() - 1;
-		}
-
-		mCmdsToSubmit[queueCmdsPos].second.push_back(cmdBuffer);
+		mToDestroyCmdBuffers[curFif].push_back(cmdBuffer);
 		return cmdBuffer;
 	}
 

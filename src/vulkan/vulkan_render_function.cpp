@@ -703,6 +703,10 @@ namespace Render::Vulkan {
             context->destroyer->destroyBuffer(context->nextRenderFrame, buffer);
             return;
         }
+        if (buffer->mappedPtr) {
+            vmaUnmapMemory(context->allocator, buffer->allocation);
+            buffer->mappedPtr = 0;
+        }
         vmaDestroyBuffer(context->allocator, (VkBuffer)buffer->native, buffer->allocation);
         buffer->native = 0;
         delete buffer;
@@ -1967,7 +1971,7 @@ namespace Render::Vulkan {
 
         waitForRsFence(ctx, ctx->mFences[toWaitFrame],UINT64_MAX);
         resetRsFence(ctx, ctx->mFences[toWaitFrame]);
-
+        ctx->destroyer->endFrameDestroy(ctx, newRenderFrame);
         cmdbufMgr->beginFrame(ctx,newRenderFrame);
         descriptorSetMgr->beginFrame(ctx, newRenderFrame);
 

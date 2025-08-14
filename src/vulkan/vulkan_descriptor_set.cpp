@@ -101,7 +101,7 @@ namespace Render::Vulkan {
     VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx, DescriptorPoolBlock& block, rs_descriptorset_layout_vk* layout) {
         auto& type = layout->bindingHash.mDescriptors;
 
-        block.lastActiveFrame = frame;
+        block. lastActiveFrame = frame;
         if (block.maxSets == 0)
             return VK_NULL_HANDLE;
 

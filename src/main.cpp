@@ -165,6 +165,7 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 	viewportSize.b = 1.f;
 	while (!window->shouldClose()) {
 		window->pollEvents();
+		using namespace std::chrono;
 		beginRsFrameVk(render_context);
 		auto nxtRenderFrame = render_context->curRenderFrame;
 		auto curFif = nxtRenderFrame % maxFif;
@@ -184,7 +185,7 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 		cmdEndRenderPass(cmdbuffer);
 		cmdEndRecord(cmdbuffer);
 		cmdSubmitCmdBuffer(render_context, cmdbuffer, QueueType_Graphics, { semphoresToWait[curFif] }, { semphoresToSignal[curFif] }, render_context->mFences[curFif]);
-		//render_context->cmdBufferMgr->submitFrame(render_context, render_context->nextRenderFrame);
+		render_context->cmdBufferMgr->submitFrame(render_context, render_context->nextRenderFrame);
 		submitToPresentImage(render_context, nxtImg, { semphoresToSignal[curFif] });
 		descriptorSetMgr->ReturnDescriptorSet(nxtRenderFrame, render_context, descriptorSet);
 		endRsFrameVk(render_context);
