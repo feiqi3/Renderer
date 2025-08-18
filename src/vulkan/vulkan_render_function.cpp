@@ -522,7 +522,7 @@ namespace Render::Vulkan {
         vmaCreateAllocator(&vmaCi, &ctx->allocator);
 
         auto maxFif = ctx->maxFrameInFlight;
-        ctx->descriptorSetMgr = new DescriptorSetManager(maxFif);
+        ctx->descriptorSetMgr = new DescriptorSetManager(ctx,maxFif);
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
 
@@ -1052,6 +1052,7 @@ namespace Render::Vulkan {
     int rateDeviceSuitability(rs_context_vk* context,VkPhysicalDevice device) {
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(device, &props);
+
         VkPhysicalDeviceFeatures feats;
         vkGetPhysicalDeviceFeatures(device, &feats);
 
@@ -1147,7 +1148,8 @@ namespace Render::Vulkan {
             }
             context->physicalDevice = physicalDevices[suitableDevice];
             context->physicalDevices = std::move(deviceInfos);
-            
+            vkGetPhysicalDeviceProperties(context->physicalDevice, &context->physicalDeviceProperties);
+
         }
         else {
             context->physicalDevice = physicalDevices[chooseOne];
@@ -1663,12 +1665,16 @@ namespace Render::Vulkan {
             bufferoffsets.push_back(info.bindingBuffers[i].offset);
         }
         vkCmdBindVertexBuffers((VkCommandBuffer)cb->native, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
-        VkPipelineLayout pLayut = (VkPipelineLayout)(((rs_pipeline_vk*)info.pipeline)->layout->native);
-        for (const auto& [setIdx, bindingData] : info.descriptors) {
-            auto descriptorSet = bindingData;
+        VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)info.pipeline)->layout->native);
+        for (const auto& [setIdx, descriptorSet] : info.descriptors) {
             auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
-            
-            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pLayut, setIdx, 1, &descriptorSetVk, 0, 0);
+            std::vector<uint32_t> dynamicSizes;
+            for (auto&& binding : descriptorSet->mBindingData) {
+                if (binding.type == ResourceType::UniformBuffer) {
+                    dynamicSizes.push_back(binding.uboDyOffset);
+                }
+            }
+            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pLayout, setIdx, 1, &descriptorSetVk, dynamicSizes.size(), dynamicSizes.data());
         }
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
 

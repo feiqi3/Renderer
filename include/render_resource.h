@@ -16,7 +16,6 @@ namespace Render {
 
 	struct rs_base {
 		void* native = 0;
-		void* delfunc = 0;
 	};
 
 
@@ -88,7 +87,14 @@ namespace Render {
 
 	struct rs_descriptorSetPool : rs_base { };
 
-	struct rs_descriptorSet : rs_base { };
+	struct rs_binding_data : rs_base{
+		ResourceType type;
+		uint32_t uboDyOffset;
+	};
+
+	struct rs_descriptorSet : rs_base { 
+		std::vector<rs_binding_data> mBindingData;
+	};
 
 	struct rs_descriptorSetLayout : rs_base { };
 

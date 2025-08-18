@@ -7,7 +7,7 @@ namespace Render::Vulkan {
 	CommandBufferManager::CommandBufferManager(int maxFrame) :m_maxFrameInFlight(maxFrame)
 	{
 		mPools.resize(m_maxFrameInFlight);
-		mToDestroyCmdBuffers.resize(m_maxFrameInFlight);
+		mThreadsCmdBuffersCache.resize(m_maxFrameInFlight);
 	}
 
 	void CommandBufferManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
@@ -35,6 +35,7 @@ namespace Render::Vulkan {
 			}
 			if (threadVec.size() < pos + 1) {
 				threadVec.resize(pos + 1, {});
+				mThreadsCmdBuffersCache[curFif].resize(pos + 1, {});
 			}
 			assert(pos >= 0);
 
@@ -45,23 +46,23 @@ namespace Render::Vulkan {
 			}
 		}
 
-		auto& needClearCmdLists = mToDestroyCmdBuffers[curFif];
-		for (auto&& cb : needClearCmdLists) {
-			
-			vkFreeCommandBuffers(ctx->device, (VkCommandPool)cb->pool->native, 1, (VkCommandBuffer*)&cb->native);
-			delete cb;
+		for (auto& [queueIdx,cmdBuffers] : this->mThreadsCmdBuffersCache[curFif]) {
+			std::vector<VkCommandBuffer> toFrees;
+			rs_commandpool_vk* pool = 0;
+			auto eraseSize = std::erase_if(cmdBuffers, [&pool ,&toFrees,frame](rs_commandbuffer_vk* cmd) {
+				if (frame - cmd->lastActiveFrames > MaxActiveFrames) {
+					pool = cmd->pool;
+					toFrees.push_back((VkCommandBuffer)cmd->native);
+					delete cmd;
+					return true;
+				}
+				return false;
+			});
+			if (pool && eraseSize > 0) {
+				vkFreeCommandBuffers(ctx->device, (VkCommandPool)pool->native, eraseSize, toFrees.data());
+			}
 		}
-		needClearCmdLists.clear();
-		//auto removeItor = std::remove_if(needClearCmdLists.begin(), needClearCmdLists.end(), [ctx,frame](rs_commandbuffer_vk* cmdbuf) {
-		//	if (frame - cmdbuf->lastActiveFrames > MaxActiveFrames) {
-		//		vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmdbuf->pool->native, 1, (VkCommandBuffer*)&cmdbuf->native);
-		//		return true;
-		//	}
-		//	return false;
-		//});
 
-
-		//mToDestroyCmdBuffers[curFif].erase(removeItor, mToDestroyCmdBuffers[curFif].end());
 	}
 
 	void CommandBufferManager::endFrame(rs_context_vk* ctx, uint64_t frame)
@@ -88,6 +89,9 @@ namespace Render::Vulkan {
 		if (pos == -1) {
 			mThreadToPoolPos.push_back(thisThreadId);
 			for (auto&& i : mPools) {
+				i.push_back({});
+			}
+			for (auto&& i : mThreadsCmdBuffersCache) {
 				i.push_back({});
 			}
 			pos = mThreadToPoolPos.size() - 1;
@@ -125,9 +129,18 @@ namespace Render::Vulkan {
 			VK_CHECK(vkCreateCommandPool(ctx->device, &ci, 0, (VkCommandPool*)&pool->native), { std::abort(); });
 			queueVec.push_back(pool);
 		}
+		auto& curThreadQueueCmdVec = mThreadsCmdBuffersCache[curFif][pos].second;
+		rs_commandbuffer_vk* cmdBuffer = 0;
+		for (auto&& cachedBuffer : curThreadQueueCmdVec) {
+			if (cachedBuffer->lastActiveFrames != frame) {
+				cmdBuffer = cachedBuffer;
+				cmdBuffer->lastActiveFrames = frame;
+				return cmdBuffer;
+			}
+		}
 
 		//Creat buffer
-		rs_commandbuffer_vk* cmdBuffer = new rs_commandbuffer_vk;
+		cmdBuffer = new rs_commandbuffer_vk;
 		VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 		allocInfo.           commandPool = (VkCommandPool)pool->native;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -137,7 +150,8 @@ namespace Render::Vulkan {
 		cmdBuffer->isTransitent = true;
 		cmdBuffer->pool = pool;
 		cmdBuffer->queueType = pool->queue->queueType;
-		mToDestroyCmdBuffers[curFif].push_back(cmdBuffer);
+		mThreadsCmdBuffersCache[curFif][pos].second.push_back(cmdBuffer);
+		cmdBuffer->lastActiveFrames = frame;
 		return cmdBuffer;
 	}
 

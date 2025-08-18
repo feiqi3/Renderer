@@ -13,7 +13,7 @@ int main() {
 	using namespace Render::Vulkan;
 	using namespace Render;
 	BackEndInitDesc backEndDesc;
-	Window::rs_window_glfw* window = new Window::rs_window_glfw("Hello world", 1920, 1080);
+	Window::rs_window_glfw* window = new Window::rs_window_glfw("Hello world", 800, 600);
 	backEndDesc.appName = "Test";
 	backEndDesc.engineName = "Test";
 	backEndDesc.enableValidation = true;
@@ -171,7 +171,7 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 		auto curFif = nxtRenderFrame % maxFif;
 		auto curImg = nxtRenderFrame % render_context->maxSwapChainImages;
 		auto nxtImg = waitForNextPresentImage(render_context, semphoresToWait[curFif], 0);
-		auto descriptorSet = descriptorSetMgr->AllocateDescriptorSet(render_context->nextRenderFrame, render_context, pipelines[curFif],0);
+		auto descriptorSet = descriptorSetMgr->AllocateDescriptorSet(nxtRenderFrame, render_context, pipelines[curFif],0);
 		descriptorSetMgr->updateBufferData(nxtRenderFrame, render_context, descriptorSet, 0, setData, sizeof(float) * 4, QueueType_Graphics);
 		renderInfo.pipeline = pipelines[curFif];
 		renderInfo.descriptors.resize(1);
@@ -190,9 +190,4 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 		descriptorSetMgr->ReturnDescriptorSet(nxtRenderFrame, render_context, descriptorSet);
 		endRsFrameVk(render_context);
 	};
-}
-
-void initSomeThing(Render::Vulkan::rs_context_vk* render_context)
-{
-
 }

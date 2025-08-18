@@ -20,6 +20,7 @@ namespace Render::Vulkan {
 		VkInstance instance;
 		VkDevice device;
 		VkPhysicalDevice physicalDevice;
+		VkPhysicalDeviceProperties physicalDeviceProperties;
 		rs_queue_vk* presentQueue;
 		rs_queue_vk* graphicQueue;
 		rs_queue_vk* computeQueue;
@@ -104,6 +105,7 @@ namespace Render::Vulkan {
 
 	struct rs_descriptorSet_vk :rs_descriptorSet{
 		rs_descriptorset_layout_vk* layout;
+		struct DescriptorPoolBlock* pool;
 	};
 
 	struct rs_validation_vk :rs_base {

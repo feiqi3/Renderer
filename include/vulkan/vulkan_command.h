@@ -7,7 +7,6 @@ namespace Render::Vulkan {
 
 	class CommandBufferManager {
 	public:
-	
 		using QueueVector = std::vector<rs_commandpool_vk*>;
 		using ThreadVector = std::vector<QueueVector>;
 		using FrameVector = std::vector<ThreadVector>;
@@ -18,13 +17,13 @@ namespace Render::Vulkan {
 		void endFrame(rs_context_vk* ctx, uint64_t frame);
 		void submitFrame(rs_context_vk* ctx, uint64_t frame);
 		rs_commandbuffer_vk* getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType);
-		
 		~CommandBufferManager();
 	private:
+
 		std::vector<std::thread::id> mThreadToPoolPos;
 		FrameVector mPools;
-		std::vector<std::vector<rs_commandbuffer_vk*>> mToDestroyCmdBuffers;
 		std::vector<QueueCmdVector> mCmdsToSubmit;
+		std::vector< std::vector<QueueCmdVector>> mThreadsCmdBuffersCache; //For each thread/ each queue/ each 
 		int m_maxFrameInFlight;
 		std::mutex mCmdBufferLock;
 	};
