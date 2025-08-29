@@ -255,6 +255,7 @@ namespace Render::Vulkan {
         uint32_t                  maxSets = 0;
         uint64_t lastActiveFrame = 0;
         uint32_t mInUseNum = 0;
+        uint32_t mReturnedNum = 0;
     };
 
     //TODO: per layout allocator

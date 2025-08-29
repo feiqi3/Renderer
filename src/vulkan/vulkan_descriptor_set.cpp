@@ -106,7 +106,6 @@ namespace Render::Vulkan {
     VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx, DescriptorPoolBlock* block, rs_descriptorset_layout_vk* layout) {
         auto& type = layout->bindingHash.mDescriptors;
 
-        block->lastActiveFrame = frame;
         if (block->maxSets == 0)
             return VK_NULL_HANDLE;
 
@@ -129,6 +128,7 @@ namespace Render::Vulkan {
         VkDescriptorSet desSet;
         vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
         block->mInUseNum++;
+        block->lastActiveFrame = frame;
         return desSet;
     }
 
@@ -184,7 +184,8 @@ namespace Render::Vulkan {
     void DescriptorSetManager::ReturnDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet)
     {
         if (descriptorSet->pool) {
-            descriptorSet->pool->mInUseNum--;
+            //For Descriptor Set Pool, You can only reset entire pool   
+            descriptorSet->pool->mReturnedNum++;
         }
         else {
             assert(0);
@@ -477,7 +478,7 @@ namespace Render::Vulkan {
         for (auto i = m_pools[curframeIdx].begin(); i != m_pools[curframeIdx].end(); ) {
             auto poolBlock = (*i);
             vkResetDescriptorPool(ctx->device, poolBlock->pool, 0);
-            if (poolBlock->mInUseNum == 0 && frame - poolBlock->lastActiveFrame >= Max_Vacant_Frame) {
+            if (poolBlock->mReturnedNum == poolBlock->mInUseNum && frame - poolBlock->lastActiveFrame > Max_Vacant_Frame) {
                 vkDestroyDescriptorPool(ctx->device, poolBlock->pool, 0);
                 delete poolBlock;
                 i = m_pools[curframeIdx].erase(i);
