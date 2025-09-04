@@ -59,8 +59,8 @@ namespace Render::Vulkan {
             return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
         case ResourceType::Sampler:
             return VK_DESCRIPTOR_TYPE_SAMPLER;
-        case ResourceType::AccelerationStructure:
-            return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        //case ResourceType::AccelerationStructure:
+        //    return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         default:
             return VK_DESCRIPTOR_TYPE_MAX_ENUM; // or handle error
         }
@@ -97,9 +97,9 @@ namespace Render::Vulkan {
         poolFactor.descriptorCount = 10;
         this->m_defaultSize.push_back(poolFactor);
 
-        poolFactor.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        poolFactor.descriptorCount = 10;
-        this->m_defaultSize.push_back(poolFactor);
+        //poolFactor.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        //poolFactor.descriptorCount = 10;
+        //this->m_defaultSize.push_back(poolFactor);
 
     }
 
@@ -206,7 +206,7 @@ namespace Render::Vulkan {
             case      Render::ResourceType::Texture:
             case        Render::ResourceType::InputAttachment:
             case  Render::ResourceType::Sampler:
-            case Render::ResourceType::AccelerationStructure:
+            //case Render::ResourceType::AccelerationStructure:
             default:
                 break;
             }
@@ -224,8 +224,8 @@ namespace Render::Vulkan {
 
         VkDescriptorPoolCreateInfo ci{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
         ci.                       maxSets = m_maxSet;
-        ci.                       poolSizeCount = m_defaultPoolAllocSize.size();
-        ci. pPoolSizes = m_defaultPoolAllocSize.data();
+        ci.                       poolSizeCount = m_defaultSize.size();
+        ci. pPoolSizes = m_defaultSize.data();
         VK_CHECK(vkCreateDescriptorPool(ctx->device, &ci, 0, &block->pool), {
          });
 

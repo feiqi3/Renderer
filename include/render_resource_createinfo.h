@@ -1,7 +1,7 @@
 #ifndef RENDER_RESOURCE_CREATE_INFO
 #define RENDER_RESOURCE_CREATE_INFO
 #include "render_resource_def.h"
-#include <Vector>
+#include <vector>
 #include <functional>
 namespace Render {
 
