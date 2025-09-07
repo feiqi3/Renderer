@@ -32,8 +32,8 @@ namespace {
         case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
             return ResourceType::InputAttachment;
 
-        case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
-            return ResourceType::AccelerationStructure;
+        //case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+        //    return ResourceType::AccelerationStructure;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
             return ResourceType::StorageBuffer;

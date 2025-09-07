@@ -221,7 +221,6 @@ namespace Render::Vulkan {
         //TODO: create
         //Per pool
         PoolSizeInfo        m_defaultSize;
-        std::vector<VkDescriptorPoolSize> m_defaultPoolAllocSize;
         uint32_t m_maxSet = 50;
         
         VkDescriptorSetLayout mEmptyDescriptorSet = VK_NULL_HANDLE;
