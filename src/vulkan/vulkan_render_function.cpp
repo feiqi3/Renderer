@@ -501,7 +501,7 @@ namespace Render::Vulkan {
         return flags;
     }
 
-    rs_context_vk* initVulkanBackEnd(BackEndInitDesc& desc, Window::rs_window* window)
+    rs_context_vk* initVulkanBackEnd(const BackEndInitDesc& desc, Window::rs_window* window)
     {
         rs_context_vk* ctx = new rs_context_vk;
         ctx->initDesc = desc;
@@ -536,7 +536,7 @@ namespace Render::Vulkan {
         return ctx;
     }
 
-    void deinitVulkanBackEnd(rs_context_vk* ctx, Window::rs_window* window)
+    void deinitVulkanBackEnd(rs_context_vk* ctx)
     {
         if (ctx->computeQueue)
             vkQueueWaitIdle(ctx->computeQueue->queue);
@@ -1949,6 +1949,33 @@ namespace Render::Vulkan {
         }
 
         vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? (VkFence)fence->native : VK_NULL_HANDLE);
+    }
+
+    void cmdBeginMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a)
+    {
+        VkDebugUtilsLabelEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
+        debugInfo.color[0] = r;
+        debugInfo.color[1] = g;
+        debugInfo.color[2] = b;
+        debugInfo.color[3] = a;
+        debugInfo.pLabelName = mark.c_str();
+        vkCmdBeginDebugUtilsLabelEXT((VkCommandBuffer)cb->native, &debugInfo);
+    }
+
+    void cmdEndMark(rs_commandbuffer_vk* cb)
+    {
+        vkCmdEndDebugUtilsLabelEXT((VkCommandBuffer)cb->native);
+    }
+
+    void cmdInsertMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a)
+    {
+        VkDebugMarkerMarkerInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT};
+        debugInfo.color[0] = r;
+        debugInfo.color[1] = g;
+        debugInfo.color[2] = b;
+        debugInfo.color[3] = a;
+        debugInfo.pMarkerName = mark.c_str();
+        vkCmdDebugMarkerInsertEXT((VkCommandBuffer)cb->native, &debugInfo);
     }
 
     void cmdBeginRecord(rs_commandbuffer_vk* cb)

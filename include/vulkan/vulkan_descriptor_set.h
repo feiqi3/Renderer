@@ -1,7 +1,6 @@
 #ifndef VULKAN_DESCRIPTOR_SET_H
 #define VULKAN_DESCRIPTOR_SET_H
 
-#include "vulkan_render_resource.h"
 #include <set>
 #include <vector>
 #include <map>
@@ -10,157 +9,52 @@
 #include <algorithm>
 #include <atomic>
 #include <mutex>
+#include "vulkan_render_resource.h"
+#include "common/RingBuffer.h"
 namespace Render::Vulkan {
 
     constexpr int BITS_PER_BINDING = 11;
     constexpr int MAX_BINDINGS = 256 / BITS_PER_BINDING; // 21
 
-
     struct UniformBufferObject :rs_base {
+    public:
+        UniformBufferObject( uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize);
+        void releaseFrame(uint32_t frameInFlight);
+        bool allocateInFrame(void* data, uint32_t size, uint32_t frameInFlight,uint64_t frame,uint32_t& offsetInBuffer);
 
-        struct FrameAllocateInfo {
-            uint32_t beginPos = 0;
-            uint32_t endPos = 0;
-            uint32_t allocateSize = 0;
-        };
-        QueueType queue = QueueType_Graphics;
-        uint32_t mMaxSize = 0;
-        uint32_t mHead = 0;
-        uint32_t mTail = 0;
-        uint32_t mAlignedSize = 32;
-        std::atomic_uint32_t mUsingNum = 0;
-        uint64_t mLastActive = 0;
-        std::vector< FrameAllocateInfo> mAllocatePerFrame;
+    public:
+        rs_buffer_vk* mBuffer = 0;
+        uint64_t mLastActiveFrame = 0;
+        std::atomic_int32_t mInUsedNum = 0;
+        QueueType mQueue;
 
-        UniformBufferObject(uint32_t maxFrameInFlight) {
-            mAllocatePerFrame.resize(maxFrameInFlight);
-        }
-
-        inline uint32_t usedBytes() const {
-            if (mMaxSize == 0) return 0;
-            if (mHead >= mTail) return mHead - mTail;
-            return mMaxSize - (mTail - mHead);
-        }
-
-        inline uint32_t freeBytes() const {
-            if (mMaxSize == 0) return 0;
-            return mMaxSize - usedBytes();
-        }
-
-        static inline uint32_t alignUp(uint32_t v, uint32_t align) {
-            if (align == 0) return v;
-            uint32_t rem = v % align;
-            return rem == 0 ? v : v + (align - rem);
-        }
-
-        inline bool pushBytes(void* data, uint32_t bytes, uint32_t frameInFlight, uint64_t frame,uint32_t& outOffset) {
-            auto& frameAllocateInfo = mAllocatePerFrame[frameInFlight];
-            if (frameAllocateInfo.allocateSize == 0) {
-                frameAllocateInfo.beginPos = mHead;
-            }
-
-            uint32_t beginOffsetPos = 0;
-            bool canAllocate = pushBytes(bytes, beginOffsetPos);
-            if (!canAllocate)return false;
-            auto buffer = (rs_buffer_vk*)native;
-            memcpy((uint8_t*)(buffer->mappedPtr) + beginOffsetPos, data, bytes);
-            frameAllocateInfo.endPos = mHead;
-            frameAllocateInfo.allocateSize += bytes;
-            mLastActive = frame;
-            outOffset = beginOffsetPos;
-            return true;
-        }
-
-        inline bool releaseFrameBytes(uint32_t frameInFlight) {
-            FrameAllocateInfo& frameAllocateInfo = mAllocatePerFrame[frameInFlight];
-            if (frameAllocateInfo.beginPos != mTail) {
-                assert(0);
-                return false;
-            }
-            mTail = frameAllocateInfo.endPos;
-            frameAllocateInfo = {};
-            return true;
-        }
     private:
-
-        inline bool pushBytes(uint32_t bytes, uint32_t& outOffset) {
-            if (bytes == 0) return false;
-            if (mMaxSize == 0) return false;
-            if (bytes > mMaxSize) return false; // 请求超过总容量，必失败
-
-            // 计算两种情形：head >= tail（空或尾在前），head < tail（中间有可连续空间）
-            if (mHead >= mTail) {
-                // 末尾到 buffer 末尾的连续空间
-                uint32_t spaceAtEnd = mMaxSize - mHead;
-
-                // 先尝试在末尾分配（需要对齐 padding）
-                uint32_t alignedHead = alignUp(mHead, mAlignedSize);
-                uint32_t pad = (alignedHead >= mHead) ? (alignedHead - mHead) : 0;
-
-                // 若对齐后位置超出 buffer 末尾，则等同于末尾空间不足，尝试环回到 0
-                if (pad > spaceAtEnd) {
-                    // 环回到前端(从 0 开始分配)
-                }
-                else {
-                    // 检查末尾是否能容纳（pad + bytes）
-                    if (pad + bytes <= spaceAtEnd) {
-                        outOffset = alignedHead;
-                        // new head = outOffset + bytes (mod mMaxSize)
-                        uint32_t newHead = alignedHead + bytes;
-                        if (newHead == mMaxSize) newHead = 0; // exactly at end -> wrap to 0
-                        mHead = newHead;
-                        return true;
-                    }
-                    // 否则尝试环回到 0
-                }
-
-                // 尝试从 0 开始（因为尾部不足），分配在开头
-                // 在 0 处对齐总是 0（因为 0 % align == 0）
-                // 可用前端空间 = mTail (tail 开始处被占用，因此可用到 tail-1)
-                uint32_t spaceAtFront = mTail; // note: if tail == 0, spaceAtFront == 0
-                if (bytes <= spaceAtFront) {
-                    outOffset = 0;
-                    mHead = bytes; // 因为从 0 开始分配，head 挪到 bytes 处
-                    return true;
-                }
-
-                // 仍然不够，失败
-                return false;
-            }
-            else { // mHead < mTail, 可用的连续空间在 head..tail-1
-                uint32_t contiguousFree = mTail - mHead;
-                uint32_t alignedHead = alignUp(mHead, mAlignedSize);
-                uint32_t pad = alignedHead - mHead; // alignedHead > mHead, pad < contiguousFree maybe
-
-                if (pad + bytes <= contiguousFree) {
-                    outOffset = alignedHead;
-                    mHead = alignedHead + bytes; // 这里不会超出 mMaxSize，因为 alignedHead + bytes < mTail <= mMaxSize-1
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            }
-        }
-
+        Render::Common::RingBufferAllocator mRingBufferAllocator;
+        struct FrameAllocateInfo {
+            uint32_t headOffset = 0;
+            uint32_t totalAllocateSize = 0;
+        };
+        std::vector<FrameAllocateInfo> mFrameAllocateInfo;
+        uint32_t mAlignment = 0;
     };
 
     struct rs_vk_descriporset_layout_hash {
 
         struct AllocateHint {
-            std::vector<uint16_t> hint;
+            std::vector<uint16_t> hint; //How many descriptors should be allocated?   
         } mAllocaHint;
 
         std::vector< rs_descriptor> mDescriptors;
         uint64_t layoutHash = 0;
-        uint8_t maxBinding = 0;
+        uint16_t maxBinding = 0;
         inline bool checkValid() {
-            std::set<uint8_t> bindings;
+            std::set<uint16_t> bindings;
             for (auto&& i : mDescriptors) {
-                if (bindings.find(i.binding) != bindings.end()) {
+                auto vk_binding_pos = toVkBindingPos(i.bindingPos);
+                if (bindings.find((vk_binding_pos.bindingIdx)) != bindings.end()) {
                     return false;
                 }
-                bindings.insert(i.binding);
+                bindings.insert(vk_binding_pos.bindingIdx);
             }
             return true;
         }
@@ -169,16 +63,26 @@ namespace Render::Vulkan {
             assert(checkValid());
             std::map<int, rs_descriptor> mapSet;
             for (auto&& set : mDescriptors) {
-                maxBinding = std::max(maxBinding, set.binding);
+                auto vk_binding_pos = toVkBindingPos(set.bindingPos);
+                vk_binding_pos.setIdx = -1;
+                set.bindingPos = toRsBindingPos(vk_binding_pos);
+                maxBinding = std::max(maxBinding,uint16_t(vk_binding_pos.bindingIdx));
             }
             std::sort(mDescriptors.begin(), mDescriptors.end(), [](const auto& a, const auto& b) {
-                return a.binding > b.binding;
+                vk_binding_pos A = toVkBindingPos(a.bindingPos);
+                vk_binding_pos B = toVkBindingPos(b.bindingPos);
+                return A.bindingIdx > B.bindingIdx;
              });
-            union
-            {
-                uint64_t _ = 0;
-                rs_descriptor des;
-            };
+
+
+            struct {
+                uint32_t binding = 0;
+                uint16_t shaderVisibleStage = 0; //shader stage
+                uint16_t count = 0;
+                uint16_t size = 0;
+                ResourceType type;
+            }descripor;
+
             const uint64_t FNV_offset = 0xcbf29ce484222325ULL;
             const uint64_t FNV_prime = 0x100000001b3ULL;
 
@@ -187,9 +91,16 @@ namespace Render::Vulkan {
             mAllocaHint.hint.resize((int)ResourceType::Count);
 
             for (auto&& i : mDescriptors) {
-                des = i;
-                h ^= _;
-                h *= FNV_prime;
+                descripor.binding = i.bindingPos;
+                descripor.shaderVisibleStage = i.shaderVisibleStage;
+                descripor.count = i.count;
+                descripor.size = i.size;
+                descripor.type = i.type;
+                uint8_t* data = (uint8_t*) & descripor;
+                for (auto byteNum = 0; byteNum < sizeof(descripor); ++byteNum) {
+                    h ^= data[byteNum];
+                    h *= FNV_prime;
+                }
                 
                 mAllocaHint.hint[(int)i.type]++;
             }
@@ -212,6 +123,7 @@ namespace Render::Vulkan {
 
         std::atomic_uint32_t ref = 0;
         rs_vk_descriporset_layout_hash bindingHash;
+
     };
 
     VkDescriptorType toVkDescriptorType(ResourceType resType);
@@ -235,7 +147,10 @@ namespace Render::Vulkan {
             for (size_t i = 0; i < A.mDescriptors.size(); ++i) {
                 auto const& a = A.mDescriptors[i];
                 auto const& b = B.mDescriptors[i];
-                if (a.binding != b.binding ||
+                auto bindingInfoA = toVkBindingPos(a.bindingPos);
+                auto bindingInfoB = toVkBindingPos(b.bindingPos);
+
+                if (bindingInfoA.bindingIdx != bindingInfoB.bindingIdx ||
                     a.type != b.type ||
                     a.shaderVisibleStage != b.shaderVisibleStage ||
                     a.count != b.count)
@@ -320,6 +235,7 @@ namespace Render::Vulkan {
         std::list< UniformBufferObject* > mUniformBufferLists;
         std::mutex mAllocateUniformBufferLock;
         UniformBufferObject* createUBO(rs_context_vk* ctx, uint64_t createSize,uint32_t alignedSize,QueueType queue);
+        void destroyUBO(rs_context_vk* ctx, UniformBufferObject* ubo);
         void updateDynamicBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet,int binding, void* data, uint64_t size, QueueType queue);
     };
 

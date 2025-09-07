@@ -14,37 +14,6 @@ namespace Render::Vulkan {
         */
     }
 
-
-    std::optional<std::vector<rs_descriptor>> toDescriptors(const std::vector<std::vector<rs_descriptor>>& desc)
-    {
-        std::map<uint16_t,rs_descriptor> bindings;
-        for (auto&& des : desc) {
-            for (auto&& descriptor : des) {
-                auto itor = bindings.find(descriptor.binding);
-                if (itor == bindings.end()) {
-                    bindings.insert({ descriptor.binding,descriptor });
-                }
-                else {
-                    auto& oldDesc = itor->second;
-                    if (oldDesc.count == descriptor.count
-                        && oldDesc.type == descriptor.type
-                        ) {
-                        oldDesc.shaderVisibleStage |= descriptor.shaderVisibleStage;
-                    }
-                    else {
-                        return std::nullopt;
-                    }
-                }
-            }
-        }
-        std::vector<rs_descriptor> ret;
-        ret.reserve(bindings.size());
-        for (auto&& [_, descriptor] : bindings) {
-            ret.push_back(descriptor);
-        }
-        return ret;
-    }
-
     VkDescriptorType toVkDescriptorType(ResourceType type) {
         switch (type) {
         case ResourceType::UniformBuffer:
@@ -150,9 +119,10 @@ namespace Render::Vulkan {
         
         rs_binding_data binding{};
         binding.type = ResourceType::Count;
+        ret->mBindingData.resize(setlayout->bindingHash.maxBinding + 1, binding);
         for (auto& bindingSlot : setlayout->bindingHash.mDescriptors) {
-            ret->mBindingData.resize(bindingSlot.binding + 1, binding);
-            ret->mBindingData[bindingSlot.binding].type = bindingSlot.type;
+            auto vkBindingPos = toVkBindingPos(bindingSlot.bindingPos);
+            ret->mBindingData[vkBindingPos.bindingIdx].type = bindingSlot.type;
         }
         return ret;
     }
@@ -197,7 +167,7 @@ namespace Render::Vulkan {
             {
                 UniformBufferObject* ubo = (UBO*)bindingData.native;
                 if (ubo) {
-                    ubo->mUsingNum--;
+                    ubo->mInUsedNum.fetch_sub(1);
                 }
             }
             break;
@@ -242,14 +212,19 @@ namespace Render::Vulkan {
         createBufferDesc.queueType = queue;
         createBufferDesc.mappable = true;
         auto buffer= createRsBuffer(ctx, createBufferDesc);
-        UBO* ret = new UBO(ctx->maxFrameInFlight);
-        ret->mLastActive = 0;
-        ret->mAlignedSize = alignedSize;
-        ret->native = buffer;
-        ret->queue = queue;
-        ret->mMaxSize = createSizeNew;
         mapRsBuffer(ctx, buffer);
+        UBO* ret = new UBO(ctx->maxFrameInFlight,createSizeNew,alignedSize);
+        ret->mLastActiveFrame = 0;
+        ret->mQueue = queue;
+        ret->mBuffer = buffer;
         return ret;
+    }
+
+    void DescriptorSetManager::destroyUBO(rs_context_vk* ctx, UniformBufferObject* ubo)
+    {
+        rs_buffer_vk* buffer = (rs_buffer_vk*)ubo->mBuffer;
+        destroyRsBuffer(ctx, buffer);
+        delete ubo;
     }
 
     void DescriptorSetManager::updateDynamicBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, void* data, uint64_t size,QueueType queue)
@@ -287,8 +262,8 @@ namespace Render::Vulkan {
         if (descriptorSet->mBindingData[binding].native) {
             std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
             choosenUBO = (UBO*)bindingSlot.native;
-            if (!choosenUBO->pushBytes(data, size, fif, frame, offsetPos)) {
-                choosenUBO->mUsingNum--;
+            if (!choosenUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
+                choosenUBO->mInUsedNum.fetch_sub(1);
                 choosenUBO = 0;
             }
         }
@@ -296,9 +271,9 @@ namespace Render::Vulkan {
         if(!choosenUBO){
             std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
             for (auto&& ubo : mUniformBufferLists) {
-                if (ubo->queue == queue && ubo->pushBytes(data, size, fif, frame, offsetPos)) {
+                if (ubo->mQueue == queue && ubo->allocateInFrame(data, size, fif, frame, offsetPos)) {
                     choosenUBO = ubo;
-                    choosenUBO->mUsingNum++;
+                    choosenUBO->mInUsedNum.fetch_add(1);
                     break;
                 }
             }
@@ -307,16 +282,16 @@ namespace Render::Vulkan {
             std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
             choosenUBO = createUBO(ctx, RingBufferSize, RingBufferAlignedSize,queue);
             mUniformBufferLists.push_back(choosenUBO);
-            if (!choosenUBO->pushBytes(data, size, fif, frame, offsetPos)) {
+            if (!choosenUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
                 assert("ERROR");
                 return;
             }
             else {
-                choosenUBO->mUsingNum++;
+                choosenUBO->mInUsedNum.fetch_add(1);
             }
         }
         if (choosenUBO != bindingSlot.native) {
-            updateBufferBind(frame, ctx, descriptorSet, binding, (rs_buffer_vk*)choosenUBO->native);
+            updateBufferBind(frame, ctx, descriptorSet, binding, (rs_buffer_vk*)choosenUBO->mBuffer);
         }
         bindingSlot.native = choosenUBO;
         bindingSlot.uboDyOffset = offsetPos;
@@ -351,47 +326,10 @@ namespace Render::Vulkan {
 
     rs_pipeline_layout_vk* DescriptorSetManager::createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders)
     {
-        std::vector<rs_vk_descriporset_layout_hash> hash;
-        std::map<int, std::map<int,BindingInfo>> setsBindings;
-        for (auto&&shader: shaders) {
-            for (const auto& set : shader->reflectInfo) {
-                for (const auto& binding : set.mInfo) {
-                    auto& sets = setsBindings[set.setIdx];
-                    auto itor = sets.find(binding.binding);
-                    if (itor != sets.end()) {
-                        BindingInfo info = binding;
-                        info. shaderVisibleStage = (uint16_t)shader->shaderStage; //shader stage
-                        sets.insert({ binding.binding,info });
-                    }
-                    else {
-                        auto& curInfo = itor->second;
-                        if (curInfo.count == binding.count &&
-                            curInfo.size == binding.size &&
-                            curInfo.type == binding.type
-                            ) {
-                            curInfo.shaderVisibleStage |= (uint16_t)shader->shaderStage;
-                        }
-                        else {
-                            Log::error("MisMatch duplicate Descriptor in Shader: " + shader->shaderName + " set: " + std::to_string(set.setIdx) + " binding: " + std::to_string(binding.binding));
-                            continue;
-                        }
-                    
-                    }
-                }
-            }
-        }
 
-        std::vector< DescritporSetInfo> setLayouts;
-        for (auto&& [setId, set] : setsBindings) {
-            hash.push_back({});
-            auto& tar = hash[hash.size() - 1];
-            for (auto&& binding : set) {
-                tar.mDescriptors.push_back(binding.second);
-            }
-            tar.init();
-            setLayouts.push_back({ setId,tar });
-            assert(tar.checkValid() == true);
-        }
+        std::vector< DescritporSetInfo> setLayouts =
+            getPipelineShaderInfo(shaders.data(), shaders.size());
+
         return createRsPipelineLayout(ctx, setLayouts);
     }
 
@@ -492,11 +430,9 @@ namespace Render::Vulkan {
             std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
             for (auto i = this->mUniformBufferLists.begin(); i != mUniformBufferLists.end(); ) {
                 auto UBO = *i;
-                UBO->releaseFrameBytes(curframeIdx);
-                if (UBO->mUsingNum == 0 && frame - UBO->mLastActive >= Max_Vacant_Frame) {
-                    rs_buffer_vk* buffer = (rs_buffer_vk*)UBO->native;
-                    destroyRsBuffer(ctx, buffer);
-                    delete UBO;
+                UBO->releaseFrame(curframeIdx);
+                if (UBO->mInUsedNum == 0 && frame - UBO->mLastActiveFrame >= Max_Vacant_Frame) {
+                    destroyUBO(ctx, UBO);
                     i = mUniformBufferLists.erase(i);
                 }
                 else {
@@ -564,7 +500,8 @@ namespace Render::Vulkan {
 
         for (auto&& binding : bindings) {
             VkDescriptorSetLayoutBinding b{};
-            b.binding = binding.binding;
+            auto vkBinding = toVkBindingPos(binding.bindingPos);
+            b.binding = vkBinding.bindingIdx;
             b.descriptorCount = binding.count;
             b.descriptorType = toVkDescriptorType(binding.type);
             b.stageFlags = toVkShaderStageFlags(binding.shaderVisibleStage);
@@ -603,5 +540,34 @@ namespace Render::Vulkan {
         vkDestroyDescriptorSetLayout(ctx->device, setLayout, 0);
         delete rs;
         rs = 0;
+    }
+    UniformBufferObject::UniformBufferObject(uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize)
+        :mRingBufferAllocator(bufferSize, alignedSize,false,true),mFrameAllocateInfo(maxFrameInFlight),mAlignment(alignedSize)
+    {
+    }
+    void UniformBufferObject::releaseFrame(uint32_t frameInFlight)
+    {
+        auto& FrameAllocInfo = mFrameAllocateInfo[frameInFlight];
+        auto tail = mRingBufferAllocator.tail_offset();
+        assert(tail == FrameAllocInfo.headOffset && ("Broken Ring Buffer"));
+        mRingBufferAllocator.release(FrameAllocInfo.totalAllocateSize);
+        FrameAllocInfo = { };
+    }
+    bool UniformBufferObject::allocateInFrame(void* data, uint32_t size, uint32_t frameInFlight, uint64_t frame, uint32_t& offsetInBuffer)
+    {
+
+        auto reverseData = mRingBufferAllocator.reserve_and_commit(size);
+        if (reverseData.count != 1) {
+            return false;
+        }
+        auto& FrameAllocInfo = mFrameAllocateInfo[frameInFlight];
+        offsetInBuffer = reverseData.parts[0].offset;
+        if (FrameAllocInfo.totalAllocateSize == 0) {
+            FrameAllocInfo.headOffset = offsetInBuffer;
+            mLastActiveFrame = frame;
+        }
+        char* dataPtr = (char*)mBuffer->mappedPtr;
+        memcpy(dataPtr + offsetInBuffer, (char*)data,size);
+        FrameAllocInfo.totalAllocateSize += reverseData.total_advance;
     }
 }

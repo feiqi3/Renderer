@@ -310,7 +310,7 @@ namespace Render::Vulkan {
         }
         uint32_t input_count = 0;
         std::vector<InputAttribute> attributes;
-        std::vector<ShaderModuleDescriptorsInfo> bindings;
+        std::vector<BindingInfo> bindings;
 
 
         spvReflectEnumerateInputVariables(&shaderModule, &input_count, nullptr);
@@ -322,6 +322,7 @@ namespace Render::Vulkan {
             InputAttribute attr{};
             attr.location = var->location;
             attr.format = ToImageFormat( SpvReflectFormatToVkFormat(var->format));
+            attributes.push_back(attr);
         }
 
         uint32_t binding_count = 0;
@@ -330,29 +331,21 @@ namespace Render::Vulkan {
         spvReflectEnumerateDescriptorBindings(&shaderModule, &binding_count, rflbindings.data());
 
         for (const auto* binding : rflbindings) {
-            
-            int tarsetIdx = -1;
-            for (int i = 0; i < bindings.size();++i) {
-                if (bindings[i].setIdx == binding->set) {
-                    tarsetIdx = i;
-                    break;
-                }
-            }
-
-            if (tarsetIdx == -1) {
-                bindings.push_back(ShaderModuleDescriptorsInfo{ binding->set, {} });
-                tarsetIdx = bindings.size() - 1;
-            }
-
-            auto& info = bindings[tarsetIdx];
-
             BindingInfo bindingInfo{};
-            bindingInfo.binding = binding->binding;
+
+
+            {
+                vk_binding_pos pos{ .setIdx = int16_t(binding->set),.bindingIdx = int16_t(binding->binding) };
+                auto rsBindingPos = toRsBindingPos(pos);
+                bindingInfo.bindingPos = rsBindingPos;
+            }
+
+            bindingInfo.bindingItemName = std::string(binding->name);
             bindingInfo.count = binding->count;
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
             bindingInfo.size = binding->block.size;
             bindingInfo.shaderVisibleStage = (uint16_t)shader->shaderStage;
-            info.mInfo.push_back(bindingInfo);
+            bindings.emplace_back(std::move(bindingInfo));
         }
         shader->reflectInfo = std::move(bindings);
         shader->inputAttributes = std::move(attributes);

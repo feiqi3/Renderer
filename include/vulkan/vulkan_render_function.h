@@ -33,8 +33,8 @@ namespace Render::Vulkan {
 
 	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
-	rs_context_vk* initVulkanBackEnd(BackEndInitDesc& desc,Window::rs_window* window);
-	void deinitVulkanBackEnd(rs_context_vk* ctx, Window::rs_window* window);
+	rs_context_vk* initVulkanBackEnd(const BackEndInitDesc& desc,Window::rs_window* window);
+	void deinitVulkanBackEnd(rs_context_vk* ctx);
 	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk*>& images, rs_image_vk* depthStencil);
 	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);
 	
@@ -99,7 +99,9 @@ namespace Render::Vulkan {
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, uint32_t mip, uint32_t layer);
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer,uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> imageAvailableWaitSemaphores,std::vector<rs_semaphore_vk*> renderFinishSignalSemphores,rs_fence_vk* fence);
-	
+	void cmdBeginMark(rs_commandbuffer_vk* cb,const std::string& mark,float r,float g, float b, float a);
+	void cmdEndMark(rs_commandbuffer_vk* cb);
+	void cmdInsertMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a);
 	void cmdBeginRecord(rs_commandbuffer_vk* cb);
 	void cmdEndRecord(rs_commandbuffer_vk* cb);
 	//-------------------------------------------------------------------------------------//     

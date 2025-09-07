@@ -1,6 +1,7 @@
 #ifndef RENDER_RESOURCE_CREATE_INFO
 #define RENDER_RESOURCE_CREATE_INFO
 #include "render_resource_def.h"
+#include <string>
 #include <Vector>
 #include <functional>
 namespace Render {
@@ -141,18 +142,14 @@ namespace Render {
         VertexInputDescription vertexInputDesc;
     };
 
+    using rs_binding_pos = uint32_t;
     struct BindingInfo {
+        std::string bindingItemName;
+        rs_binding_pos bindingPos; //Platform related
         uint16_t shaderVisibleStage = 0; //shader stage
         uint16_t count = 0; 
         uint16_t size = 0; 
-        uint8_t binding = 0;
         ResourceType type;
-    };
-
-
-    struct ShaderModuleDescriptorsInfo {
-        uint32_t setIdx = -1;
-        std::vector<BindingInfo> mInfo;
     };
 
     struct Rect2D {

@@ -147,8 +147,6 @@ namespace Render::Vulkan {
         VkPipelineLayoutCreateInfo plcInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         plcInfo.setLayoutCount = setlayout_vks.size();
         plcInfo.pSetLayouts = setlayout_vks.data();
-        plcInfo.pushConstantRangeCount = pushConstants.size();
-        plcInfo.pPushConstantRanges = pushConstants.data();
         VkPipelineLayout res;
         VK_CHECK(vkCreatePipelineLayout(context->device, &plcInfo, 0, &res), {
             return nullptr;
@@ -157,11 +155,10 @@ namespace Render::Vulkan {
            
         auto layout = new rs_pipeline_layout_vk();
         layout->setLayouts = setLayouts;
-        layout->pushConstants = pushConstants;
         layout->native = res;
         return layout;
     }
-    rs_renderpass_vk* createRsRenderPass(rs_context_vk* ctx,
+    rs_renderpass_vk* createRsRenderPassVk(rs_context_vk* ctx,
         rs_rendertarget_vk* rt,
         const PassDesc& rpDesc)
     {
@@ -170,8 +167,7 @@ namespace Render::Vulkan {
             assert(0);
             return nullptr;
         }
-        std::vector<VkImageView> imgViews;
-        auto attachments = rt->m_attachments;
+        auto& attachments = rt->m_attachments;
         if (rt->m_depthStencilAttachment) {
             attachments.push_back(rt->m_depthStencilAttachment);
         }
@@ -202,7 +198,6 @@ namespace Render::Vulkan {
             ad.finalLayout = image->usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(image->usage, attPassDesc.storeOp);
             ((rs_image_vk*)image)->currentLayout = ad.finalLayout;
             vkAttachments.push_back(ad);
-            imgViews.push_back(((rs_image_vk*)image)->view);
         }
 
         // VkSubpassDescription (+ AttachmentReference)
@@ -253,30 +248,55 @@ namespace Render::Vulkan {
             }
         );
 
-
-
-        VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        fbCi.                renderPass = rdpass;
-        fbCi.                attachmentCount = imgViews.size();
-        fbCi.                pAttachments = imgViews.data();
-        fbCi.                width = rt->m_attachments[0]->width;
-        fbCi.                height = rt->m_attachments[0]->height;
-        fbCi.                layers = rt->m_attachments[0]->arrayLayers;
-        
-        VkFramebuffer fb;
-
-        VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, 0, &fb), { vkDestroyRenderPass(ctx->device,rdpass,0); return nullptr; });
-        
         auto* rp = new rs_renderpass_vk();
         rp->passDesc = rpDesc;  // 复制描述
         rp->native = rdpass;
-        rp->frameBuffer = fb;
         rp->width = attachments[0]->width;
         rp->height = attachments[0]->height;
         rp->haveDepth = rt->m_depthStencilAttachment != nullptr;
         rp->writeDepth = rpDesc.writeDepth;
         rp->renderTarget = rt;
+
+        changeRsRenderPassRtVk(ctx, rp, rt);
+
         return rp;
+    }
+
+    void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass)
+    {
+        vkDestroyFramebuffer(ctx->device, renderpass->frameBuffer, 0);
+        vkDestroyRenderPass(ctx->device, (VkRenderPass)renderpass->native, 0);
+        delete renderpass;
+        renderpass = 0;
+    }
+
+    bool changeRsRenderPassRtVk(rs_context_vk* ctx, rs_renderpass_vk* rp,rs_rendertarget_vk* rt)
+    {
+        auto originFrameBuffer = rp->frameBuffer;
+        auto renderPass = (VkRenderPass)rp->native;
+
+        std::vector<VkImageView> imgViews;
+        auto& attachments = rt->m_attachments;
+        for (int i = 0; i < rt->m_attachments.size(); ++i) {
+            auto image = attachments[i];
+            imgViews.push_back(((rs_image_vk*)image)->view);
+        }
+
+        VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        fbCi.renderPass = renderPass;
+        fbCi.attachmentCount = imgViews.size();
+        fbCi.pAttachments = imgViews.data();
+        fbCi.width = rt->m_attachments[0]->width;
+        fbCi.height = rt->m_attachments[0]->height;
+        fbCi.layers = rt->m_attachments[0]->arrayLayers;
+
+        VkFramebuffer fb;
+
+        VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, 0, &fb),
+            { assert(0 && "Error when create framebuffer."); return false; });
+        rp->frameBuffer = fb;
+        vkDestroyFramebuffer(ctx->device, originFrameBuffer, 0);
+        return true;
     }
 
     VkPrimitiveTopology toVkTopology(Topology topo)
@@ -536,7 +556,7 @@ namespace Render::Vulkan {
         dyStateCi.pDynamicStates = s_pipelineDynamicStates.data();
         ci. pDynamicState = &dyStateCi;
 
-        auto descritporSetInfos = getPipelineShaderInfo(desc.shaders);
+        auto descritporSetInfos = getPipelineShaderInfo((rs_shader_module_vk**)desc.shaders.data(), desc.shaders.size());
 
         auto pipelineLayout = createRsPipelineLayout(ctx, descritporSetInfos);
 
@@ -567,6 +587,20 @@ namespace Render::Vulkan {
         ret->type = PipelineType::Graphics;
         ret->vtxInput = desc.vertexInputDesc;
         ret->layout = pipelineLayout;
+
+        auto& bindingInfo = ret->bindingInfo;
+        //Build binding info   
+        for (auto&& setLayout : pipelineLayout->setLayouts) {
+            for (auto&& descriptor : setLayout.second->bindingHash.mDescriptors) {
+                rs_descriptor descriptorNew = descriptor;
+                auto vkBindingpos = toVkBindingPos(descriptorNew.bindingPos);
+                vkBindingpos.setIdx = setLayout.first;
+                auto rsBindingPos = toRsBindingPos(vkBindingpos);
+                descriptorNew.bindingPos = rsBindingPos;
+                bindingInfo.push_back(descriptorNew);
+            }
+        }
+
         return ret;
     }
 

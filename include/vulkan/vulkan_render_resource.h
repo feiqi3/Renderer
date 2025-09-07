@@ -68,7 +68,6 @@ namespace Render::Vulkan {
 
 	struct rs_pipeline_layout_vk : rs_base {
 		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;
-		std::vector<VkPushConstantRange>       pushConstants;
 	};
 
 	struct rs_rendertarget_vk : rs_rendertarget {};
@@ -101,8 +100,6 @@ namespace Render::Vulkan {
 		std::vector<rs_image_vk*> swapchainImgs;
 	};
 
-	VK_RS_DEF(rs_descriptorSetPool);
-
 	struct rs_descriptorSet_vk :rs_descriptorSet{
 		rs_descriptorset_layout_vk* layout;
 		struct DescriptorPoolBlock* pool;
@@ -111,6 +108,28 @@ namespace Render::Vulkan {
 	struct rs_validation_vk :rs_base {
 		
 	};
+
+	struct vk_binding_pos {
+		int16_t setIdx = -1;
+		int16_t bindingIdx = -1;
+	};
+
+	inline vk_binding_pos toVkBindingPos(rs_binding_pos pos) {
+		const uint32_t HIGH_SETID_MASK = 0xFFFFFFFF00000000;
+		const uint32_t LOW_BINDINGID_MASK = 0x00000000FFFFFFFF;
+		vk_binding_pos bindingPos{
+			.setIdx = int16_t((pos & HIGH_SETID_MASK) >> 16),
+			.bindingIdx = int16_t(pos & LOW_BINDINGID_MASK)
+		};
+		return bindingPos;
+	}
+
+	inline rs_binding_pos toRsBindingPos(vk_binding_pos bindingPos) {
+		uint32_t bindingPosRs = (uint16_t)bindingPos.setIdx;
+		bindingPosRs = bindingPosRs << 16;
+		bindingPosRs = bindingPosRs | (uint16_t)bindingPos.bindingIdx;
+		return bindingPosRs;
+	}
 
 };
 

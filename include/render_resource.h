@@ -24,7 +24,7 @@ namespace Render {
 		std::string entryPoint = "main";
 		std::string shaderName = "shader";
 		uint64_t shaderHash = 0;
-		std::vector<ShaderModuleDescriptorsInfo> reflectInfo;
+		std::vector<BindingInfo> reflectInfo;
 		std::vector<InputAttribute> inputAttributes;
 		std::string shaderCode;
 	};
@@ -51,13 +51,10 @@ namespace Render {
 	struct rs_sampler : rs_base {
 	};
 
-	struct rs_binding_info {
-		std::vector<BindingInfo> mInfo;
-	};
-
 	struct rs_pipeline : rs_base {
 		VertexInputDescription vtxInput;
 		RenderState renderState;
+		std::vector<BindingInfo> bindingInfo;
 	};
 
 	struct rs_renderpass : rs_base {
@@ -85,8 +82,6 @@ namespace Render {
 		uint32_t lastActiveFrames = 0;
 	};
 
-	struct rs_descriptorSetPool : rs_base { };
-
 	struct rs_binding_data : rs_base{
 		ResourceType type;
 		uint32_t uboDyOffset;
@@ -95,8 +90,6 @@ namespace Render {
 	struct rs_descriptorSet : rs_base { 
 		std::vector<rs_binding_data> mBindingData;
 	};
-
-	struct rs_descriptorSetLayout : rs_base { };
 
 	struct rs_swapchain : rs_base {};
 

@@ -19,7 +19,7 @@ int main() {
 	backEndDesc.enableValidation = true;
 	auto ctx = initVulkanBackEnd(backEndDesc, window);
 	renderLoop(ctx, window);
-	deinitVulkanBackEnd(ctx, window);
+	deinitVulkanBackEnd(ctx);
 }
 
 void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::rs_window_glfw* window)
@@ -116,7 +116,7 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 	auto renderPasses = std::vector <rs_renderpass_vk*>(mainRts.size());
 	auto pipelines = std::vector < rs_pipeline_vk*>(mainRts.size());
 	for (int i = 0; i < mainRts.size(); ++i) {
-		renderPasses[i] = createRsRenderPass(render_context, mainRts[i], passDesc);
+		renderPasses[i] = createRsRenderPassVk(render_context, mainRts[i], passDesc);
 		pipelines[i] = createRsPipeline(render_context, renderPasses[i], pipelineDesc);
 	}
 
