@@ -16,14 +16,15 @@ namespace Render::Vulkan {
 		void beginFrame(rs_context_vk* ctx, uint64_t frame);
 		void endFrame(rs_context_vk* ctx, uint64_t frame);
 		void submitFrame(rs_context_vk* ctx, uint64_t frame);
-		rs_commandbuffer_vk* getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType);
+		rs_commandbuffer_vk* getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType,bool singleTime);
+		void clearAll(rs_context_vk* ctx);
 		~CommandBufferManager();
 	private:
 
 		std::vector<std::thread::id> mThreadToPoolPos;
 		FrameVector mPools;
-		std::vector<QueueCmdVector> mCmdsToSubmit;
 		std::vector< std::vector<QueueCmdVector>> mThreadsCmdBuffersCache; //For each thread/ each queue/ each 
+		std::vector<std::vector<rs_commandbuffer_vk*>> mSingleTimeCmd;
 		int m_maxFrameInFlight;
 		std::mutex mCmdBufferLock;
 	};

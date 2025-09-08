@@ -3,6 +3,7 @@
 #include <memory>
 #include "render_resource_createinfo.h"
 #include "common/NoCopyable.h"
+#include <render_resource.h>
 namespace Render{
 	namespace Window {
 		class rs_window;
@@ -10,6 +11,7 @@ namespace Render{
 	namespace Vulkan {
 		struct rs_context_vk;
 	}
+
 	class RenderSystemPrivate;
 	class RenderSystem:public Common::NonCopyable {
 	public:
@@ -21,6 +23,14 @@ namespace Render{
 		inline Vulkan::rs_context_vk* getRenderContext()const {
 			return (Vulkan::rs_context_vk*)mBackEndContext;
 		}
+
+		rs_renderpass* createRenderPass(rs_rendertarget* renderTarget,PassDesc& passDescription);
+		void destoyRenderPass(rs_renderpass* renderPass);
+
+		rs_pipeline* createRenderPipeline(rs_renderpass* renderpass,PipelineDesc& pipelineDescription);
+		void destroyRenderPipeline(rs_pipeline* pipeline);
+
+		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int layersize, int mipmap);
 
 		void beginFrame();
 

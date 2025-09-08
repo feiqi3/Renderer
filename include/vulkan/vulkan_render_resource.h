@@ -15,7 +15,6 @@
 namespace Render::Vulkan {
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;
-
 	struct rs_context_vk : rs_context{
 		VkInstance instance;
 		VkDevice device;
@@ -42,6 +41,7 @@ namespace Render::Vulkan {
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 		class DeferredDestroyer* destroyer = 0;
+		class ImageDataManager* imageDataMgr = 0;
 
 	};
 

@@ -59,7 +59,7 @@ namespace Render {
 
     struct CommandBufferDesc {
         QueueType queueType;
-        bool transient = true; //Will buffers be used multiTimes?
+        bool transient = false; //Will buffers be used multiTimes in oneframe?
         bool isSecondary = false;
     };
 

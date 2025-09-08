@@ -7,6 +7,7 @@ namespace Render::Vulkan {
 	CommandBufferManager::CommandBufferManager(int maxFrame) :m_maxFrameInFlight(maxFrame)
 	{
 		mPools.resize(m_maxFrameInFlight);
+		mSingleTimeCmd.resize(m_maxFrameInFlight);
 		mThreadsCmdBuffersCache.resize(m_maxFrameInFlight);
 	}
 
@@ -18,6 +19,12 @@ namespace Render::Vulkan {
 		{
 			std::lock_guard<std::mutex> lock(mCmdBufferLock);
 			ThreadVector& threadVec = mPools[curFif];
+
+			for (auto cmd : mSingleTimeCmd[curFif]) {
+				vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, (VkCommandBuffer*)&cmd->native);
+				delete cmd;
+			}
+			mSingleTimeCmd[curFif].clear();
 
 			int pos = -1;
 			auto thisThreadId = std::this_thread::get_id();
@@ -73,7 +80,7 @@ namespace Render::Vulkan {
 	{
 	}
 
-	rs_commandbuffer_vk* CommandBufferManager::getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType)
+	rs_commandbuffer_vk* CommandBufferManager::getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType, bool singleTime)
 	{
 		std::lock_guard<std::mutex> lock(mCmdBufferLock);
 		auto curFif = frame % m_maxFrameInFlight;
@@ -131,14 +138,15 @@ namespace Render::Vulkan {
 		}
 		auto& curThreadQueueCmdVec = mThreadsCmdBuffersCache[curFif][pos].second;
 		rs_commandbuffer_vk* cmdBuffer = 0;
-		for (auto&& cachedBuffer : curThreadQueueCmdVec) {
-			if (cachedBuffer->lastActiveFrames != frame) {
-				cmdBuffer = cachedBuffer;
-				cmdBuffer->lastActiveFrames = frame;
-				return cmdBuffer;
+		if (!singleTime) {
+			for (auto&& cachedBuffer : curThreadQueueCmdVec) {
+				if (cachedBuffer->lastActiveFrames != frame) {
+					cmdBuffer = cachedBuffer;
+					cmdBuffer->lastActiveFrames = frame;
+					return cmdBuffer;
+				}
 			}
 		}
-
 		//Creat buffer
 		cmdBuffer = new rs_commandbuffer_vk;
 		VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
@@ -147,12 +155,51 @@ namespace Render::Vulkan {
 		allocInfo.commandBufferCount = 1;
 		vkAllocateCommandBuffers(ctx->device, &allocInfo, (VkCommandBuffer*)&cmdBuffer->native);
 		cmdBuffer->isSecondary = false;
-		cmdBuffer->isTransitent = true;
+		cmdBuffer->isTransitent = singleTime;
 		cmdBuffer->pool = pool;
 		cmdBuffer->queueType = pool->queue->queueType;
-		mThreadsCmdBuffersCache[curFif][pos].second.push_back(cmdBuffer);
 		cmdBuffer->lastActiveFrames = frame;
+
+		if (singleTime) {
+			mSingleTimeCmd[curFif].push_back(cmdBuffer);
+		}
+		else {
+			mThreadsCmdBuffersCache[curFif][pos].second.push_back(cmdBuffer);
+		}
+
 		return cmdBuffer;
+	}
+
+	void CommandBufferManager::clearAll(rs_context_vk* ctx) {
+		for (auto&& frameCmdVec : mThreadsCmdBuffersCache) {
+			for (auto&& queueCmdVec : frameCmdVec) {
+				for (auto&& cmd : queueCmdVec.second) {
+					auto cmdN = (VkCommandBuffer)cmd->native;
+					vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, &cmdN);
+					delete cmd;
+				}
+			}
+		}
+		mThreadsCmdBuffersCache.clear();
+		for (auto&& threadCmds : mSingleTimeCmd) {
+			for (auto&& cmd : threadCmds) {
+				auto cmdN = (VkCommandBuffer)cmd->native;
+				vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, &cmdN);
+				delete cmdN;
+			}
+		}
+		mSingleTimeCmd.clear();
+		for (auto&& framePools : mPools) {
+			for (auto&& threadPools : framePools) {
+				for (auto&& queuePool : threadPools) {
+					vkDestroyCommandPool(
+						ctx->device, (VkCommandPool)queuePool->native,0
+					);
+					delete queuePool;
+				}
+			}
+		}
+		mPools.clear();
 	}
 
 	CommandBufferManager::~CommandBufferManager()

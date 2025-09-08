@@ -87,6 +87,7 @@ namespace Render::Vulkan {
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
+	void updateImage(rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff,uint32_t layerSize,bool imm);
 
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
@@ -96,7 +97,8 @@ namespace Render::Vulkan {
 	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
-	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size, uint32_t mip, uint32_t layer);
+	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size,int x,int y,int z,int width,int height,int depth, uint32_t mip, int layeroff, int layerSize);
+	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* pendingBuffer, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer,uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> imageAvailableWaitSemaphores,std::vector<rs_semaphore_vk*> renderFinishSignalSemphores,rs_fence_vk* fence);
 	void cmdBeginMark(rs_commandbuffer_vk* cb,const std::string& mark,float r,float g, float b, float a);

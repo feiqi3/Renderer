@@ -1,5 +1,6 @@
 #include "Renderer/RenderDataAreana.h"
 #include <cassert>
+#include "vulkan_image_data.h"
 
 namespace Render {
 
