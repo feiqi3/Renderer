@@ -1,7 +1,6 @@
 #include "vulkan_render_resource.h"
 #include "render_resource_createinfo.h"
 #include "render_resource_window.h"
-
 #include <vector>
 namespace Render::Vulkan {
 
@@ -88,7 +87,12 @@ namespace Render::Vulkan {
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
 	void updateImage(rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff,uint32_t layerSize,bool imm);
-
+	void updateBuffer(rs_context_vk* context, rs_buffer_vk* buffer, void* data, uint64_t size,uint32_t offsetDst,bool imm = false);
+	rs_drawdata_vk* createDrawData(rs_context_vk* context, rs_pipeline_vk* pipeline);
+	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
@@ -97,10 +101,11 @@ namespace Render::Vulkan {
 	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
+	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size,int x,int y,int z,int width,int height,int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* pendingBuffer, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
-	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer,uint32_t aspect);
-	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore_vk*> imageAvailableWaitSemaphores,std::vector<rs_semaphore_vk*> renderFinishSignalSemphores,rs_fence_vk* fence);
+	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layeroff, uint32_t layersize,uint32_t aspect);
+	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore*> imageAvailableWaitSemaphores,std::vector<rs_semaphore*> renderFinishSignalSemphores,rs_fence_vk* fence);
 	void cmdBeginMark(rs_commandbuffer_vk* cb,const std::string& mark,float r,float g, float b, float a);
 	void cmdEndMark(rs_commandbuffer_vk* cb);
 	void cmdInsertMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a);
@@ -108,7 +113,11 @@ namespace Render::Vulkan {
 	void cmdEndRecord(rs_commandbuffer_vk* cb);
 	//-------------------------------------------------------------------------------------//     
 	uint64_t beginRsFrameVk(rs_context_vk* ctx);
+	uint64_t beginRsRenderFrameVk(rs_context_vk* ctx);
 	uint64_t endRsFrameVk(rs_context_vk* ctx);
 	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);
 	void submitToPresentImage(rs_context_vk* ctx,uint32_t presentImgIdx,std::vector<rs_semaphore_vk*> renderFinishWaitSemaphore);
+	void WaitForDeviceIdel(rs_context_vk* ctx);
+
+
 }

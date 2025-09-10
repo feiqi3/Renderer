@@ -131,6 +131,14 @@ namespace Render::Vulkan {
 		return bindingPosRs;
 	}
 
+	struct rs_drawdata_vk : rs_drawdata {
+		std::vector <			//For each Frame
+			std::vector<		//Each Descriptorset
+				std::pair<uint16_t, rs_descriptorSet_vk*>
+			>
+		> DescriptorSets;
+	};
+
 };
 
 #endif

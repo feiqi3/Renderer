@@ -1544,8 +1544,96 @@ namespace Render::Vulkan {
 
     void updateImage(rs_context_vk* ctx, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff, uint32_t layerSize, bool imm)
     {
-        auto curFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
+        auto curFif = ctx->LogicFrameFif;
         ctx->imageDataMgr->updateImageData(curFif, ctx, image, data, size, x, y, z, width, height, depth, layeroff,layerSize, mip, imm);
+    }
+
+    void updateBuffer(rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, uint64_t size, uint32_t offsetDst,bool imm)
+    {
+        auto curFif = ctx->LogicFrameFif;
+        ctx->imageDataMgr->updateBufferData(curFif, ctx, buffer, data, size, offsetDst, imm);
+    }
+
+    rs_drawdata_vk* createDrawData(rs_context_vk* context, rs_pipeline_vk* pipeline)
+    {
+        auto drawData = new rs_drawdata_vk;
+        drawData->DescriptorSets.resize(context->maxFrameInFlight);
+        return drawData;
+    }
+
+    void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata)
+    {
+        for (auto&& frame : drawdata->DescriptorSets) {
+            for (auto& [idx, descriptor] : frame) {
+                context->descriptorSetMgr->ReturnDescriptorSet(context, descriptor);
+            }
+        }
+        delete drawdata;
+    }
+    inline rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
+        auto& frameSets = drawdata->DescriptorSets[fif];
+        rs_descriptorSet_vk* targetSet = 0;
+        for (auto& [idx, descriptor] : frameSets) {
+            if (idx == vkSet) {
+                targetSet = descriptor;
+                break;
+            }
+        }
+
+        if (!targetSet) {
+            rs_descriptorset_layout_vk* targetSetLayout = 0;
+            for (auto& [id, layout] : pipeline->layout->setLayouts) {
+                if (id == vkSet) {
+                    targetSetLayout = layout;
+                    break;
+                }
+            }
+            if (!targetSetLayout)return 0;
+            targetSet = context->descriptorSetMgr->AllocateDescriptorSet(frame, context, targetSetLayout);
+        }
+
+        return targetSet;
+
+    }
+
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size)
+    {
+        auto vkPos = toVkBindingPos(pos);
+        auto fif = context->LogicFrameFif;
+
+        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+        if (descriptorSet) {
+            context->descriptorSetMgr->updateBufferData(frame, context, descriptorSet, vkPos.bindingIdx, data, size, QueueType_Graphics);
+        }
+        else {
+            Log::error("Update descripotSet error");
+        }
+
+    }
+
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* image)
+    {
+        auto vkPos = toVkBindingPos(pos);
+        auto fif = context->LogicFrameFif;
+        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+        if (descriptorSet) {
+            context->descriptorSetMgr->updateImage(frame, context, descriptorSet, vkPos.bindingIdx, image, QueueType_Graphics);
+        }else {
+            Log::error("Update descripotSet error");
+        }
+    }
+
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk)
+    {
+        auto vkPos = toVkBindingPos(pos);
+        auto fif = context->LogicFrameFif;
+        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+        if (descriptorSet) {
+            context->descriptorSetMgr->updateBuffer(frame, context, descriptorSet, vkPos.bindingIdx, vk, QueueType_Graphics);
+        }
+        else {
+            Log::error("Update descripotSet error");
+        }
     }
 
     rs_buffer_vk* createStageBufferTemp(rs_context_vk* context, uint64_t size)
@@ -1721,7 +1809,7 @@ namespace Render::Vulkan {
         assert(buffer && data);
         uint64_t cpSize = std::min((uint64_t)buffer->byteSize, size);
         if (buffer->mappedPtr) {
-            memcpy(buffer->mappedPtr, data, size);
+            memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, size);
             return;
         }
 
@@ -1775,6 +1863,55 @@ namespace Render::Vulkan {
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 1, &barrierAfter, 0, 0);
         destroyRsBuffer(ctx,tempBuffer);
 
+    }
+
+    void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc, rs_buffer_vk* bufferDst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
+    {
+        VkCopyBufferInfo2 cpInfo{
+    VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2
+        };
+
+        cpInfo.srcBuffer = (VkBuffer)bufferSrc->native;
+        cpInfo.dstBuffer = (VkBuffer)bufferDst->native;
+        cpInfo.regionCount = 1;
+        VkBufferCopy2 bufferCopy{
+            VK_STRUCTURE_TYPE_BUFFER_COPY_2
+        };
+        cpInfo.pRegions = &bufferCopy;
+
+        bufferCopy.srcOffset = srcOffset;
+        bufferCopy.dstOffset = dstOffset;
+        bufferCopy.size = size;
+
+        VkBufferMemoryBarrier barrierBefore = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT & VK_ACCESS_TRANSFER_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = (VkBuffer)bufferSrc->native,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+        };
+
+        VkBufferMemoryBarrier barrierAfter = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = bufferBarrierTransferDstCalc(bufferDst),
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = (VkBuffer)bufferDst->native,
+        .offset = dstOffset,
+        .size = VK_WHOLE_SIZE,
+        };
+
+        auto cmd = (VkCommandBuffer)cb->native;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
+        vkCmdCopyBuffer2(cmd, &cpInfo);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 1, &barrierAfter, 0, 0);
     }
 
 
@@ -1872,7 +2009,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layer, uint32_t aspect)
+    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layeroff,uint32_t layersize, uint32_t aspect)
     {
         VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1887,8 +2024,8 @@ namespace Render::Vulkan {
             .aspectMask = aspect,
             .baseMipLevel = mip,   // 只针对你要写入的 mip 级
             .levelCount = 1,
-            .baseArrayLayer = layer,   // 只针对你要写入的那一层
-            .layerCount = 1,
+            .baseArrayLayer = layeroff,   // 只针对你要写入的那一层
+            .layerCount = layersize,
         },
 
         };
@@ -1896,7 +2033,7 @@ namespace Render::Vulkan {
         image->currentLayout = newlayout;
     }
 
-    void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore_vk*> imageAvailableWaitSemaphores, std::vector<rs_semaphore_vk*> renderFinishSignalSemphores, rs_fence_vk* fence)
+    void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore*> imageAvailableWaitSemaphores, std::vector<rs_semaphore*> renderFinishSignalSemphores, rs_fence_vk* fence)
     {
 
         std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
@@ -2003,28 +2140,36 @@ namespace Render::Vulkan {
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)
     {
-        uint64_t renderFrame = ctx->nextRenderFrame;
-        uint64_t newRenderFrame = renderFrame++;
-        ctx->curRenderFrame = newRenderFrame;
+        ctx->curRenderFrame = ctx->nextRenderFrame;
+        ctx->nextRenderFrame++;
         uint64_t maxFif = ctx->maxFrameInFlight;
         auto cmdbufMgr = ctx->cmdBufferMgr;
         auto descriptorSetMgr = ctx->descriptorSetMgr;
         auto imageDataMgr = ctx->imageDataMgr;
         //Wait newRenderFrame % maxFif finish
-        uint64_t toWaitFrame = newRenderFrame % maxFif;
-
+        uint64_t toWaitFrame = ctx->nextRenderFrame % maxFif;
         waitForRsFence(ctx, ctx->mFences[toWaitFrame],UINT64_MAX);
         resetRsFence(ctx, ctx->mFences[toWaitFrame]);
-        ctx->destroyer->endFrameDestroy(ctx, newRenderFrame);
-        cmdbufMgr->beginFrame(ctx,newRenderFrame);
-        descriptorSetMgr->beginFrame(ctx, newRenderFrame);
+        ctx->LogicFrameFif = toWaitFrame;
+        ctx->RenderFrameFif = ctx->curRenderFrame % maxFif;
+        ctx->canRenderNextFrame = true;
+        ctx->destroyer->endFrameDestroy(ctx, ctx->curRenderFrame);
+        cmdbufMgr->beginFrame(ctx, ctx->nextRenderFrame);
+        descriptorSetMgr->beginFrame(ctx, ctx->nextRenderFrame);
         imageDataMgr->beginRenderFrame(toWaitFrame, ctx);
+        return 0;
+    }
+
+    uint64_t beginRsRenderFrameVk(rs_context_vk* ctx)
+    {
+        auto imageDataMgr = ctx->imageDataMgr;
+        auto curRenderFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
+        imageDataMgr->beginRenderFrame(curRenderFif, ctx);
         return 0;
     }
 
     uint64_t endRsFrameVk(rs_context_vk* ctx)
     {
-        ctx->nextRenderFrame++;
         return ctx->nextRenderFrame;
     }
 
@@ -2051,6 +2196,11 @@ namespace Render::Vulkan {
         presentInfo.pSwapchains = (VkSwapchainKHR*)&ctx->swapchain->native;
         presentInfo.pImageIndices = &presentImgIdx;
         vkQueuePresentKHR(ctx->presentQueue->queue, &presentInfo);
+    }
+
+    void WaitForDeviceIdel(rs_context_vk* ctx)
+    {
+        vkDeviceWaitIdle(ctx->device);
     }
 
     void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t dstMip, int layeroff, int layerSize)
@@ -2096,7 +2246,7 @@ namespace Render::Vulkan {
 
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
         auto layoutSave = image->currentLayout;
-        cmdImageLayoutTo(cb, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstMip, layer, VK_IMAGE_ASPECT_COLOR_BIT);
+        cmdImageLayoutTo(cb, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstMip, layeroff,layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
         VkCopyBufferToImageInfo2 cpInfo{ VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2 };
         cpInfo.srcBuffer = (VkBuffer)pendingBuffer->native;
         cpInfo.dstImage = (VkImage)image->native;
@@ -2104,7 +2254,7 @@ namespace Render::Vulkan {
         cpInfo.regionCount = 1;
         cpInfo.pRegions = &imageCpy;
         vkCmdCopyBufferToImage2(cmd, &cpInfo);
-        cmdImageLayoutTo(cb, image, layoutSave, dstMip, layer, VK_IMAGE_ASPECT_COLOR_BIT);
+        cmdImageLayoutTo(cb, image, layoutSave, dstMip, layeroff, layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
 
     }
 

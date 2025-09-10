@@ -138,13 +138,11 @@ namespace Render::Vulkan {
 		}
 		auto& curThreadQueueCmdVec = mThreadsCmdBuffersCache[curFif][pos].second;
 		rs_commandbuffer_vk* cmdBuffer = 0;
-		if (!singleTime) {
-			for (auto&& cachedBuffer : curThreadQueueCmdVec) {
-				if (cachedBuffer->lastActiveFrames != frame) {
-					cmdBuffer = cachedBuffer;
-					cmdBuffer->lastActiveFrames = frame;
-					return cmdBuffer;
-				}
+		for (auto&& cachedBuffer : curThreadQueueCmdVec) {
+			if (cachedBuffer->lastActiveFrames != frame) {
+				cmdBuffer = cachedBuffer;
+				cmdBuffer->lastActiveFrames = frame;
+				return cmdBuffer;
 			}
 		}
 		//Creat buffer

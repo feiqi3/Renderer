@@ -176,7 +176,7 @@ void renderLoop(Render::Vulkan::rs_context_vk* render_context, Render::Window::r
 		renderInfo.pipeline = pipelines[curFif];
 		renderInfo.descriptors.resize(1);
 		renderInfo.descriptors[0] = { 0,descriptorSet };
-		auto cmdbuffer = cmdBufferMgr->getCmdBufferLocalThread(render_context, nxtRenderFrame, QueueType_Graphics);
+		auto cmdbuffer = cmdBufferMgr->getCmdBufferLocalThread(render_context, nxtRenderFrame, QueueType_Graphics,true);
 		cmdBeginRecord(cmdbuffer);
 		cmdBeginRenderPass(cmdbuffer, renderPasses[curImg], clrCol, clrDep);
 		cmdSetViewport(cmdbuffer, viewportSize,0.f,1.f, 0);

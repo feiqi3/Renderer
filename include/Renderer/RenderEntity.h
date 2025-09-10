@@ -29,7 +29,6 @@ namespace Render {
 		//TODO: Write every thing into descriptor
 		Material* mMaterial = 0;
 		RenderInfo mRenderInfo;
-		std::map<rs_binding_pos, RenderPendingData> mPendingData;
 	};
 };
 

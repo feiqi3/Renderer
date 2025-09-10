@@ -151,7 +151,7 @@ namespace Render::Vulkan {
         return ret;
     }
 
-    void DescriptorSetManager::ReturnDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet)
+    void DescriptorSetManager::ReturnDescriptorSet(rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet)
     {
         if (descriptorSet->pool) {
             //For Descriptor Set Pool, You can only reset entire pool   
