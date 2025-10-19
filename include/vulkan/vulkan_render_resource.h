@@ -38,6 +38,8 @@ namespace Render::Vulkan {
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
 
+		//
+
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 		class DeferredDestroyer* destroyer = 0;

@@ -587,7 +587,7 @@ namespace Render::Vulkan {
         }
     }
 
-    rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk*>& images, rs_image_vk* depthStencil)
+    rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,rs_image_vk** images,int imageNum, rs_image_vk* depthStencil)
     {
         int iw = images[0]->width;
         int ih = images[0]->height;
@@ -597,7 +597,7 @@ namespace Render::Vulkan {
 
         int depthAttPos = -1;
 
-        for (int i = 0; i < images.size(); ++i) {
+        for (int i = 0; i < imageNum; ++i) {
             auto& img = *(images[i]);
             if (!(img.usage & ImageUsage_ColorAttachment)) {
                 assert(0 && "Image usage not match");
@@ -654,7 +654,7 @@ namespace Render::Vulkan {
         }
     }
 
-    rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc)
+    rs_buffer_vk* createRsBuffer(rs_context_vk* context,const BufferDesc& desc)
     {
         VkBuffer buffer;
         VmaAllocation allocation;
@@ -737,6 +737,7 @@ namespace Render::Vulkan {
     {
         assert(isRsBufferMappable(context,buffer));
         vmaUnmapMemory(context->allocator, buffer->allocation);
+        buffer->mappedPtr = 0;
     }
 
     bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer)
@@ -820,7 +821,7 @@ namespace Render::Vulkan {
         image = 0;
     }
 
-    rs_sampler_vk* createRsSampler(rs_context_vk* ctx, SamplerDesc& desc)
+    rs_sampler_vk* createRsSampler(rs_context_vk* ctx,const SamplerDesc& desc)
     {
         VkSamplerCreateInfo sci{};
         sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1554,11 +1555,25 @@ namespace Render::Vulkan {
         ctx->imageDataMgr->updateBufferData(curFif, ctx, buffer, data, size, offsetDst, imm);
     }
 
-    rs_drawdata_vk* createDrawData(rs_context_vk* context, rs_pipeline_vk* pipeline)
+    rs_drawdata_vk* createDrawData(rs_context_vk* context)
     {
         auto drawData = new rs_drawdata_vk;
         drawData->DescriptorSets.resize(context->maxFrameInFlight);
         return drawData;
+    }
+
+    void clearDrawData(rs_context_vk* ctx, rs_drawdata_vk* drawdata)
+    {
+        std::vector <			//For each Frame
+            std::vector<		//Each Descriptorset
+            std::pair<uint16_t, rs_descriptorSet_vk*>
+            >
+        > DescriptorSets;
+        for (auto& frame : drawdata->DescriptorSets) {
+            for (auto& [setIdx, descriptorset] : frame) {
+                ctx->descriptorSetMgr->ReturnDescriptorSet(ctx,descriptorset);
+            }
+        }
     }
 
     void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata)
@@ -1590,6 +1605,7 @@ namespace Render::Vulkan {
             }
             if (!targetSetLayout)return 0;
             targetSet = context->descriptorSetMgr->AllocateDescriptorSet(frame, context, targetSetLayout);
+            frameSets.push_back({ vkSet,targetSet });
         }
 
         return targetSet;
@@ -1619,6 +1635,19 @@ namespace Render::Vulkan {
         if (descriptorSet) {
             context->descriptorSetMgr->updateImage(frame, context, descriptorSet, vkPos.bindingIdx, image, QueueType_Graphics);
         }else {
+            Log::error("Update descripotSet error");
+        }
+    }
+
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk)
+    {
+        auto vkPos = toVkBindingPos(pos);
+        auto fif = context->LogicFrameFif;
+        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+        if (descriptorSet) {
+            context->descriptorSetMgr->updateSampler(frame, context, descriptorSet, vkPos.bindingIdx, vk, QueueType_Graphics);
+        }
+        else {
             Log::error("Update descripotSet error");
         }
     }
@@ -1663,6 +1692,7 @@ namespace Render::Vulkan {
                 range.baseArrayLayer = 0;
                 range.layerCount = rtImage->arrayLayers;
                 TransitionImageLayout((VkCommandBuffer)cb->native, (VkImage)rtImage->native, rtImage->currentLayout, layoutNeedWhenRpBegin, range);
+                rtImage->currentLayout = layoutNeedWhenRpBegin;
             }
             idx++;
         }
@@ -1713,8 +1743,24 @@ namespace Render::Vulkan {
 
     void cmdEndRenderPass(rs_commandbuffer_vk* cb)
     {
-        cb->currentRenderPass = 0;
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
+
+        auto currentRenderPass = cb->currentRenderPass;
+        auto rt = currentRenderPass->renderTarget;
+        auto& images = rt->m_attachments;
+        for (auto image : images) {
+            if (image->usage & ImageUsage_Sampled) {
+                cmdImageLayoutTo(cb, 
+                    (rs_image_vk*)image, 
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    0, image->mipLevels,
+                    0, image->arrayLayers,
+                    (uint32_t)((image->usage & ImageUsage_DepthStencilAttachment) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT)
+                );
+            }
+        }
+
+        cb->currentRenderPass = 0;
     }
 
     void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect, float minDepth, float maxDepth, uint32_t idx)
@@ -1742,42 +1788,98 @@ namespace Render::Vulkan {
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, const RenderInfo& info, bool isInstanced)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*, 3> drawDatas, uint32_t curFif, bool isInstanced)
     {
-        if (info.pipeline == 0) {
+        if (pipeline == 0) {
             assert(0);
             return;
         }
-        rs_pipeline_vk* pipeline = (rs_pipeline_vk*)info.pipeline;
+        
+        auto cmd = (VkCommandBuffer)cb->native;
+
         auto& bufferBinding = pipeline->vtxInput.bindings;
         if (bufferBinding.size() != info.bindingBuffers.size()) {
             assert(0);
             return;
         }
-        vkCmdBindPipeline((VkCommandBuffer)cb->native, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)info.pipeline->native);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->native);
 
-        vkCmdBindIndexBuffer((VkCommandBuffer)(cb->native), (VkBuffer)info.indexBuffer->native, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(cmd, (VkBuffer)info.indexBuffer->native, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        
         std::vector<VkBuffer> bindingBuffers;
         std::vector<VkDeviceSize> bufferoffsets;
         for (int i = 0; i < info.bindingBuffers.size(); ++i) {
             bindingBuffers.push_back((VkBuffer)(info.bindingBuffers[i].buffer->native));
             bufferoffsets.push_back(info.bindingBuffers[i].offset);
         }
-        vkCmdBindVertexBuffers((VkCommandBuffer)cb->native, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
-        VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)info.pipeline)->layout->native);
-        for (const auto& [setIdx, descriptorSet] : info.descriptors) {
-            auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
-            std::vector<uint32_t> dynamicSizes;
-            for (auto&& binding : descriptorSet->mBindingData) {
-                if (binding.type == ResourceType::UniformBuffer) {
-                    dynamicSizes.push_back(binding.uboDyOffset);
-                }
+
+        vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)pipeline)->layout->native);
+
+        for (auto&& drawdata : drawDatas) {
+            if (drawdata) {
+                cmdBindDrawData(cb, pLayout, drawdata, curFif);
             }
-            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pLayout, setIdx, 1, &descriptorSetVk, dynamicSizes.size(), dynamicSizes.data());
         }
+
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
 
-        vkCmdDrawIndexed((VkCommandBuffer)cb->native, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+        vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+
+    }
+
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced)
+    {
+        if (pipeline == 0) {
+            assert(0);
+            return;
+        }
+        auto& bufferBinding = pipeline->vtxInput.bindings;
+        if (bufferBinding.size() != info.bindingBuffers.size()) {
+            assert(0);
+            return;
+        }
+        auto cmd = (VkCommandBuffer)cb->native;
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->native);
+        VkBuffer idxBuf = nullptr;
+        //It's ok to draw with out index buffer
+        if (info.indexBuffer) {
+            idxBuf = (VkBuffer)info.indexBuffer->native;
+        }
+
+        vkCmdBindIndexBuffer(cmd, idxBuf, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        std::vector<VkBuffer> bindingBuffers;
+        std::vector<VkDeviceSize> bufferoffsets;
+        for (int i = 0; i < info.bindingBuffers.size(); ++i) {
+            bindingBuffers.push_back((VkBuffer)(info.bindingBuffers[i].buffer->native));
+            bufferoffsets.push_back(info.bindingBuffers[i].offset);
+        }
+        vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)pipeline)->layout->native);
+        
+        cmdBindDrawData(cb, pLayout, drawData,curFif);
+
+        uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
+
+        vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+    }
+
+    void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif)
+    {
+        static const int maxDynamicSize = 32;
+        std::array<uint32_t, maxDynamicSize> dynamics;
+        int dyNum = 0;
+        auto& curFrameDescriptors = ((rs_drawdata_vk*)drawData)->DescriptorSets[curFif];
+        for (const auto& [setIdx, descriptorSet] : curFrameDescriptors) {
+            auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
+            for (auto&& binding : descriptorSet->mBindingData) {
+                if (binding.type == ResourceType::UniformBuffer) {
+                    dynamics[dyNum] = (binding.uboDyOffset);
+                    dyNum += 1;
+                }
+            }
+            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIdx, 1, &descriptorSetVk,dyNum, dynamics.data());
+        }
     }
 
     uint32_t bufferBarrierTransferDstCalc(rs_buffer_vk* buffer) {
@@ -1858,7 +1960,7 @@ namespace Render::Vulkan {
 
         auto cmd = (VkCommandBuffer)cb->native;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
         vkCmdCopyBuffer2(cmd,&cpInfo);
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 1, &barrierAfter, 0, 0);
         destroyRsBuffer(ctx,tempBuffer);
@@ -2009,13 +2111,19 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layeroff,uint32_t layersize, uint32_t aspect)
+    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect)
+    {
+        cmdImageLayoutTo(cb, image, image->currentLayout, newlayout, mip, mipSize, layeroff, layersize, aspect);
+        image->currentLayout = newlayout;
+    }
+
+    void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout fromlayout, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect)
     {
         VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = calcSrcImageLayoutAccessStage(image->currentLayout),  // 前一个布局带来的访问屏障
+        .srcAccessMask = calcSrcImageLayoutAccessStage(fromlayout),  // 前一个布局带来的访问屏障
         .dstAccessMask = calcDstImageLayoutAccessStage(newlayout),
-        .oldLayout = image->currentLayout,                             // 比如：VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        .oldLayout = fromlayout,                             // 比如：VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         .newLayout = newlayout,  // 要切到 transfer dst
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -2023,14 +2131,14 @@ namespace Render::Vulkan {
         .subresourceRange = {
             .aspectMask = aspect,
             .baseMipLevel = mip,   // 只针对你要写入的 mip 级
-            .levelCount = 1,
+            .levelCount = mipSize,
             .baseArrayLayer = layeroff,   // 只针对你要写入的那一层
             .layerCount = layersize,
         },
 
         };
-        vkCmdPipelineBarrier((VkCommandBuffer)cb->native, getSrcStageForLayout(image->currentLayout), getDstStageForLayout(newlayout), 0, 0, 0, 0, 0,1 , &barrier);
-        image->currentLayout = newlayout;
+        vkCmdPipelineBarrier((VkCommandBuffer)cb->native, getSrcStageForLayout(image->currentLayout), getDstStageForLayout(newlayout), 0, 0, 0, 0, 0, 1, &barrier);
+
     }
 
     void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore*> imageAvailableWaitSemaphores, std::vector<rs_semaphore*> renderFinishSignalSemphores, rs_fence_vk* fence)
@@ -2246,7 +2354,7 @@ namespace Render::Vulkan {
 
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
         auto layoutSave = image->currentLayout;
-        cmdImageLayoutTo(cb, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstMip, layeroff,layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
+        cmdImageLayoutTo(cb, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstMip,1, layeroff,layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
         VkCopyBufferToImageInfo2 cpInfo{ VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2 };
         cpInfo.srcBuffer = (VkBuffer)pendingBuffer->native;
         cpInfo.dstImage = (VkImage)image->native;
@@ -2254,7 +2362,7 @@ namespace Render::Vulkan {
         cpInfo.regionCount = 1;
         cpInfo.pRegions = &imageCpy;
         vkCmdCopyBufferToImage2(cmd, &cpInfo);
-        cmdImageLayoutTo(cb, image, layoutSave, dstMip, layeroff, layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
+        cmdImageLayoutTo(cb, image, layoutSave, dstMip,1, layeroff, layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
 
     }
 

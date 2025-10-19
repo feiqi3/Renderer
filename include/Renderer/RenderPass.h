@@ -9,15 +9,28 @@ namespace Render {
 	class RenderPass {
 	public:
 		RenderPass(const std::string& passName, const PassDesc& desc);
+		virtual void init() {}
 		virtual ~RenderPass();
+		rs_renderpass* getRaw()const { return mRenderPass; }
 		void setRenderTarget(rs_rendertarget* renderTarget);
 		void draw(rs_commandbuffer* cmdbuffer);
+		void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
+			mClrColor = clrColor;
+			mDsClear = dsClear;
+		}
+
+		virtual void beginFrame(uint64_t frame) {};
+		const std::string& getPassName() { return mPassName; }
 	protected: 
+		friend class RenderPassManager;
+
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer) = 0;
 	protected:
 		std::string mPassName;
 		rs_renderpass* mRenderPass;
 		PassDesc mPassDesc;
+		std::vector<ClearColor> mClrColor;
+		ClearDepthStencil mDsClear;
 	};
 }
 

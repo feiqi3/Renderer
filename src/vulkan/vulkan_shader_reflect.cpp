@@ -207,13 +207,10 @@ namespace Render::Vulkan {
 		shaderc::CompileOptions options;
 		shaderc::Compiler compiler;
         options.SetIncluder(std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(new FunctionalIncluder(desc.shaderIncludeDirectories, desc.shaderIncludeFindFunc)));
-        
         shaderc_optimization_level lvl = desc.enableOptimize ? shaderc_optimization_level_performance : shaderc_optimization_level_zero;
 
         options.SetOptimizationLevel(lvl);
-        for (auto&& [name, key] : desc.macros) {
-            options.AddMacroDefinition(name, key);
-        }
+
         if (desc.generateDebugInfo) {
             options.SetGenerateDebugInfo();
         }
@@ -257,7 +254,6 @@ namespace Render::Vulkan {
         }
 
         options.SetSourceLanguage(lang);
-
         //---------------------------------------------//
 
         //Bug: If any '\0' exist, shader compile will fail;
@@ -343,6 +339,11 @@ namespace Render::Vulkan {
             bindingInfo.bindingItemName = std::string(binding->name);
             bindingInfo.count = binding->count;
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
+
+            if (bindingInfo.type == ResourceType::UniformBuffer && bindingInfo.bindingItemName.starts_with("CBUFFER_")) {
+                bindingInfo.type = ResourceType::ConstantBuffer;
+            }
+
             bindingInfo.size = binding->block.size;
             bindingInfo.shaderVisibleStage = (uint16_t)shader->shaderStage;
             bindings.emplace_back(std::move(bindingInfo));

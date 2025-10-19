@@ -1,0 +1,12 @@
+#version 450
+// set=0 binding=0 -> sampler (VkDescriptorType: VK_DESCRIPTOR_TYPE_SAMPLER)
+// set=0 binding=1 -> texture2D (VkDescriptorType: VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+layout(set = 0, binding = 0) uniform sampler u_sampler;
+layout(set = 0, binding = 1) uniform texture2D u_prevRT;
+
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+    outColor = texture(sampler2D(u_prevRT, u_sampler), v_uv);
+}

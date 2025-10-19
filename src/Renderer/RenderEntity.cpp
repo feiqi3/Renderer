@@ -1,33 +1,21 @@
 #include "Renderer/RenderEntity.h"
 #include "Renderer/RenderSystem.h"
 namespace Render {
-	void RenderEntity::updateUniformBufferData(rs_binding_pos pos, void* data, uint32_t size)
+	RenderEntity::~RenderEntity()
 	{
-		auto& pendingData = mPendingData[pos];
-		pendingData.type = ResourceType::UniformBuffer;
-		pendingData.dataPtr = RenderSystem::instance()->placeFramePendingData(data, size);
-		pendingData.size = size;
+		for (auto&& [passName, pass] : mPasses) {
+			destroyPass(pass);
+		}
+		mPasses.clear();
 	}
-	void RenderEntity::updateBindingBuffer(rs_binding_pos pos, rs_buffer* buffer)
-	{
-		auto& pendingData = mPendingData[pos];
-		pendingData.type = ResourceType::StorageBuffer;
-		pendingData.resourcePtr = buffer;
-	}
-	void RenderEntity::updateBindingImage(rs_binding_pos pos, rs_image* image)
-	{
-		auto& pendingData = mPendingData[pos];
-		pendingData.type = ResourceType::Texture;
-		pendingData.resourcePtr = image;
-	}
-	Material* RenderEntity::getMaterial()
+	MaterialTemplate* RenderEntity::getMaterial()
 	{
 		return mMaterial;
 	}
-	void RenderEntity::setMaterial(Material* material)
+	void RenderEntity::setMaterialTemplate(MaterialTemplate* material)
 	{
 		mMaterial = material;
-		mPendingData.clear();
+		init();
 	}
 	rs_buffer* RenderEntity::getIndexBuffer()
 	{
@@ -46,4 +34,66 @@ namespace Render {
 	{
 		return mRenderInfo.bindingBuffers;
 	}
+
+	rs_drawdata* RenderEntity::getDrawData(const std::string& passName)
+	{
+		auto itor = this->mPasses.find(passName);
+		if (itor == mPasses.end()) {
+			return nullptr;
+		}
+		auto pass = itor->second;
+		return pass->mDrawData;
+	}
+
+	Pass* RenderEntity::createPass(const std::string& passName)
+	{
+		if (this->mPasses.find(passName) != mPasses.end()) {
+			return mPasses[passName];
+		}
+		if (mMaterial) {
+			auto Variant = mMaterial->getVarient(passName);
+			if (Variant) {
+				auto pass = new Pass;
+				pass->mDrawData = RenderSystem::instance()->createDrawData();
+				pass->mMaterial = Variant;
+				this->mPasses.insert({ passName,pass });
+				return pass;
+			}
+		}
+		return nullptr;
+	}
+
+	void RenderEntity::destroyPass(const std::string& passName)
+	{
+		auto renderSys = RenderSystem::instance();
+		auto pass = getPass(passName);
+		if (pass) {
+			destroyPass(pass);
+			mPasses.erase(passName);
+		}
+		
+	}
+
+	Pass* RenderEntity::getPass(const std::string& passName)
+	{
+		auto itor = this->mPasses.find(passName);
+		if (itor == mPasses.end()) {
+			return nullptr;
+		}
+		return itor->second;
+	}
+
+	void RenderEntity::destroyPass(Pass* pass)
+	{
+		auto renderSys = RenderSystem::instance();
+		renderSys->destroyDrawData(pass->mDrawData);
+		delete pass;
+		pass = 0;
+	}
+
+	void RenderEntity::init() {
+		RenderSystem::instance()->clearRenderEntity(this);
+	}
+
+	
 }

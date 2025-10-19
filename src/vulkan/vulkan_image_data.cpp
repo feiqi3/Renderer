@@ -58,7 +58,9 @@ namespace Render::Vulkan {
             CommandBufferDesc desc{ .queueType = QueueType_Graphics,.transient = true };
 
             auto cmd = createRsCommand(ctx, desc);
+            cmdBeginRecord(cmd);
             Vulkan::cmdUpdateBufferData(cmd, ctx, buffer, data, byteSize, offsetDst);
+            cmdEndRecord(cmd);
             Vulkan::cmdSubmitCmdBuffer(ctx, cmd, QueueType_Graphics, {}, {}, 0);
         }
         else {

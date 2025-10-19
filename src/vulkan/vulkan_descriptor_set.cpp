@@ -16,6 +16,8 @@ namespace Render::Vulkan {
 
     VkDescriptorType toVkDescriptorType(ResourceType type) {
         switch (type) {
+        case ResourceType::ConstantBuffer:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case ResourceType::UniformBuffer:
             return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         case ResourceType::StorageBuffer:
@@ -41,6 +43,10 @@ namespace Render::Vulkan {
         m_maxFrame = maxFrame;
         this->m_pools.resize(maxFrame);
         VkDescriptorPoolSize poolFactor{};
+
+        poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        poolFactor.descriptorCount = 10;
+        this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         poolFactor.descriptorCount = 10;
@@ -171,6 +177,7 @@ namespace Render::Vulkan {
                 }
             }
             break;
+            case      Render::ResourceType::ConstantBuffer:
             case      Render::ResourceType::StorageBuffer:
             case       Render::ResourceType::StorageImage:
             case      Render::ResourceType::Texture:
@@ -319,7 +326,7 @@ namespace Render::Vulkan {
         VkDescriptorImageInfo iInfo{};
         iInfo.sampler = (VkSampler)sampler->native;
         writeSet.pImageInfo = &iInfo;
-
+        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
         vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
 
     }
@@ -353,6 +360,7 @@ namespace Render::Vulkan {
         iInfo.imageView = (VkImageView)image->view;
         iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         writeSet.pImageInfo = &iInfo;
+        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
 
         vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
 
@@ -405,6 +413,7 @@ namespace Render::Vulkan {
         bInfo.offset = 0;
         bInfo.range = buffer->byteSize;
         writeSet.pBufferInfo = &bInfo;
+        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
 
         vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
 
@@ -569,5 +578,6 @@ namespace Render::Vulkan {
         char* dataPtr = (char*)mBuffer->mappedPtr;
         memcpy(dataPtr + offsetInBuffer, (char*)data,size);
         FrameAllocInfo.totalAllocateSize += reverseData.total_advance;
+        return true;
     }
 }

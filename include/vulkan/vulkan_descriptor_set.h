@@ -71,7 +71,7 @@ namespace Render::Vulkan {
             std::sort(mDescriptors.begin(), mDescriptors.end(), [](const auto& a, const auto& b) {
                 vk_binding_pos A = toVkBindingPos(a.bindingPos);
                 vk_binding_pos B = toVkBindingPos(b.bindingPos);
-                return A.bindingIdx > B.bindingIdx;
+                return A.bindingIdx < B.bindingIdx;
              });
 
 

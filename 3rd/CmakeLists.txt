@@ -47,3 +47,5 @@ add_library(spirv-reflect-static STATIC
 target_include_directories(spirv-reflect-static PUBLIC
     spirv-reflect
 )
+
+add_subdirectory(glm)

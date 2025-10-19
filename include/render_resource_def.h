@@ -219,6 +219,7 @@ namespace Render {
     };
 
     enum class ResourceType : uint8_t {
+        ConstantBuffer,
         UniformBuffer,
         StorageBuffer,
         StorageImage,

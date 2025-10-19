@@ -34,10 +34,10 @@ namespace Render::Vulkan {
 
 	rs_context_vk* initVulkanBackEnd(const BackEndInitDesc& desc,Window::rs_window* window);
 	void deinitVulkanBackEnd(rs_context_vk* ctx);
-	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,const std::vector<rs_image_vk*>& images, rs_image_vk* depthStencil);
+	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx, rs_image_vk** images, int imageNum, rs_image_vk* depthStencil);
 	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);
 	
-	rs_buffer_vk* createRsBuffer(rs_context_vk* context, BufferDesc& desc);
+	rs_buffer_vk* createRsBuffer(rs_context_vk* context,const BufferDesc& desc);
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
@@ -46,7 +46,7 @@ namespace Render::Vulkan {
 	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
 	void destroyRsImage(rs_context_vk* context, rs_image_vk*& image,bool immediately = false);
 
-	rs_sampler_vk* createRsSampler(rs_context_vk* context, SamplerDesc& desc);
+	rs_sampler_vk* createRsSampler(rs_context_vk* context,const SamplerDesc& desc);
 	void destroyRsSampler(rs_context_vk* context, rs_sampler_vk*& sampler, bool immediately = false);
 
 	rs_shader_module_vk* createRsShader(rs_context_vk* context, ShaderDesc& desc);
@@ -88,10 +88,12 @@ namespace Render::Vulkan {
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
 	void updateImage(rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff,uint32_t layerSize,bool imm);
 	void updateBuffer(rs_context_vk* context, rs_buffer_vk* buffer, void* data, uint64_t size,uint32_t offsetDst,bool imm = false);
-	rs_drawdata_vk* createDrawData(rs_context_vk* context, rs_pipeline_vk* pipeline);
+	rs_drawdata_vk* createDrawData(rs_context_vk* context);
+	void clearDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
@@ -99,12 +101,15 @@ namespace Render::Vulkan {
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx);
-	void cmdDrawIndexed(rs_commandbuffer_vk* cb,const RenderInfo& info,bool isInstanced = false);
+	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*,3> drawDatas, uint32_t curFif, bool isInstanced = false);
+	void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false);
+	void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size,int x,int y,int z,int width,int height,int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* pendingBuffer, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
-	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t layeroff, uint32_t layersize,uint32_t aspect);
+	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize,uint32_t aspect);
+	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout fromlayout, VkImageLayout newlayout, uint32_t mip,uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore*> imageAvailableWaitSemaphores,std::vector<rs_semaphore*> renderFinishSignalSemphores,rs_fence_vk* fence);
 	void cmdBeginMark(rs_commandbuffer_vk* cb,const std::string& mark,float r,float g, float b, float a);
 	void cmdEndMark(rs_commandbuffer_vk* cb);

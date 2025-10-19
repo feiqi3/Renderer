@@ -1,6 +1,7 @@
 #ifndef RENDER_RESOURCE_H_
 #define RENDER_RESOURCE_H_
 #include <string>
+#include <atomic>
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
 namespace Render {
@@ -14,7 +15,7 @@ namespace Render {
 
 		uint32_t LogicFrameFif = 0;
 		uint32_t RenderFrameFif = 0;
-		std::atomic_bool canRenderNextFrame = false;
+		std::atomic<bool> canRenderNextFrame = false;
 		std::vector<struct rs_fence*> mFences;
 	};
 

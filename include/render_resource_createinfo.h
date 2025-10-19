@@ -4,6 +4,7 @@
 #include <string>
 #include <Vector>
 #include <functional>
+#include "limits.h"
 namespace Render {
 
 
@@ -49,7 +50,7 @@ namespace Render {
     };
 
     struct ShaderDesc {
-        char* shaderCode;
+        const char* shaderCode;
         const char* entryPoint = "main";
         size_t codeSizeByte = 0;
         ShaderStage   stage;       // 阶段
@@ -108,10 +109,10 @@ namespace Render {
 
         std::vector<BlendState> blendStates;
         
-        Topology topology;
-        FillMode fillMode;
-        CullMode cullMode;
-        FrontFace frontFace;
+        Topology topology = Topology::TriangleList;
+        FillMode fillMode = FillMode::Fill;
+        CullMode cullMode = CullMode::None;
+        FrontFace frontFace = FrontFace::ClockWise;
 
         // 多重采样
         uint32_t    rasterizationSamples = 1;
@@ -143,6 +144,7 @@ namespace Render {
     };
 
     using rs_binding_pos = uint32_t;
+#define INVALID_BINDING_POS UINT_MAX
     struct BindingInfo {
         std::string bindingItemName;
         rs_binding_pos bindingPos; //Platform related
@@ -162,8 +164,6 @@ namespace Render {
     };
 
     struct RenderInfo {
-        struct rs_pipeline* pipeline = nullptr;     //pipeline
-        struct rs_drawdata* drawData = 0;
         std::vector<VertexBindingInfo > bindingBuffers;                      //in buffers
         struct rs_buffer* indexBuffer = 0;
         IndexType indexType = IndexType::Uint32;
@@ -183,8 +183,7 @@ namespace Render {
     
     struct ShaderCompileDesc {
         ShaderStage stage;
-        ShaderLang langType = ShaderLang::HLSL;
-        std::vector<std::pair<std::string, std::string>> macros;
+        ShaderLang langType = ShaderLang::GLSL;
         std::string shaderName;
         std::string shaderSrcCode;
         bool enableOptimize = false;
