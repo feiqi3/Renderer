@@ -12,14 +12,17 @@ namespace Render::Vulkan {
         CommandBufferDesc desc{ .queueType = QueueType_Graphics,.transient = true };
 
         auto cmd = createRsCommand(ctx, desc);
+        cmd->hasCommands = true;
         auto& pendingInfo = mPendingDataInfo[fif];
         auto& pendingBufferInfo = mPendingBufferDataInfo[fif];
+        cmdBeginRecord(cmd);
         for (auto&& info : pendingInfo) {
             recordUpdateCmd(ctx, cmd, info);
         }
         for (auto&& info : pendingBufferInfo) {
             recordUpdateCmd(ctx, cmd, info);
         }
+        cmdEndRecord(cmd);
         cmdSubmitCmdBuffer(ctx, cmd, QueueType_Graphics, {}, {}, 0);
         pendingInfo.clear();
     }
@@ -29,7 +32,10 @@ namespace Render::Vulkan {
             CommandBufferDesc desc{.queueType = QueueType_Graphics,.transient = true };
 
             auto cmd = createRsCommand(ctx, desc);
+            cmd->hasCommands = true;
+            cmdBeginRecord(cmd);
             cmdUpdateImage(cmd, ctx, image, data, byteSize, x, y, z, width, height, depth, mip, layeroff,layerSize);
+            cmdEndRecord(cmd);
             cmdSubmitCmdBuffer(ctx, cmd, QueueType_Graphics, {}, {}, 0);
         }
         else {
@@ -58,6 +64,7 @@ namespace Render::Vulkan {
             CommandBufferDesc desc{ .queueType = QueueType_Graphics,.transient = true };
 
             auto cmd = createRsCommand(ctx, desc);
+            cmd->hasCommands = true;
             cmdBeginRecord(cmd);
             Vulkan::cmdUpdateBufferData(cmd, ctx, buffer, data, byteSize, offsetDst);
             cmdEndRecord(cmd);

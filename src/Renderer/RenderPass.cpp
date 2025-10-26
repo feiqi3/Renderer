@@ -25,6 +25,7 @@ namespace Render {
 	{
 		RenderMarker Marker(cmdbuffer, mPassName, 1.f, 0.f, 0.f, 1.f);
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
+		updateViewportAndScissor(cmdbuffer);
 		drawImpl(cmdbuffer);
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
 	}
@@ -37,5 +38,26 @@ namespace Render {
 		auto pass = (rs_renderpass_vk*)mRenderPass;
 		destroyRsRenderPassVk(ctx, pass);
 		mRenderPass = 0;
+	}
+	void RenderPass::updateViewportAndScissor(rs_commandbuffer* cmdbuffer)
+	{
+		Rect2D rect{};
+		rect.l = 0.f;
+		rect.t = 0.f;
+		rect.b = 1.f;
+		rect.r = 1.f;
+
+		if (this->mRenderPass) {
+			auto rt = this->mRenderPass->renderTarget;
+			auto renderSys = RenderSystem::instance();
+			for (auto i = 0; i < rt->m_attachments.size(); i++) {
+				renderSys->cmdSetViewport(cmdbuffer, i, 0.0f, 1.f, rect);
+				renderSys->cmdSetScissor(cmdbuffer, i, rect);
+			}
+			if(rt->m_depthStencilAttachment){
+				renderSys->cmdSetViewport(cmdbuffer, rt->m_attachments.size(), 0.0f, 1.f, rect);
+				renderSys->cmdSetScissor(cmdbuffer, rt->m_attachments.size(), rect);
+			}
+		}
 	}
 };

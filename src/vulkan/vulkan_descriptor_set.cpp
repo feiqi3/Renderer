@@ -346,7 +346,7 @@ namespace Render::Vulkan {
             return;
         }
         auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
-        if (bindingInfo.type != ResourceType::StorageBuffer) {
+        if (bindingInfo.type != ResourceType::Texture) {
             assert(0 && "Wrong binding type");
             return;
         }

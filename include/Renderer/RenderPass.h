@@ -11,6 +11,7 @@ namespace Render {
 		RenderPass(const std::string& passName, const PassDesc& desc);
 		virtual void init() {}
 		virtual ~RenderPass();
+		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer);
 		rs_renderpass* getRaw()const { return mRenderPass; }
 		void setRenderTarget(rs_rendertarget* renderTarget);
 		void draw(rs_commandbuffer* cmdbuffer);

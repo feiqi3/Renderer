@@ -99,8 +99,8 @@ namespace Render::Vulkan {
 	//-------------------------------------------------------------------------------------//     
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
-	void cmdSetViewport(rs_commandbuffer_vk* cb,Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
-	void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx);
+	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
+	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*,3> drawDatas, uint32_t curFif, bool isInstanced = false);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif);

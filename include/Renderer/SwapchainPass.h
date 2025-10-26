@@ -24,7 +24,6 @@ namespace Render {
 		rs_drawdata* BlitDrawData = 0;
 		rs_binding_pos BlitTarget = INVALID_BINDING_POS;
 		rs_binding_pos BlitSampler = INVALID_BINDING_POS;
-
 	};
 
 };

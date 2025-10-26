@@ -72,18 +72,28 @@ namespace Render{
 	void RenderSystem::BeginRenderFrame()
 	{
 		using namespace Vulkan;
-		while (1 && mUseRenderThread) {
-			auto ctx = getRenderContext();
-			//Wait For Logic Frame Ready
-			while (!getRenderContext()->canRenderNextFrame);
+		auto ctx = getRenderContext();
+		auto curFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
+		if (mUseRenderThread) {
+			while (1) {
+				//Wait For Logic Frame Ready
+				while (!getRenderContext()->canRenderNextFrame);
+				beginRsRenderFrameVk(ctx);
+				auto nxtImg = waitForNextPresentImage(ctx, mDp->semphoresToWait[curFif], 0);
+				for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
+					Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics, cmd.wait, cmd.singal, cmd.fence);
+				}
+				submitToPresentImage(ctx, nxtImg, { mDp->semphoresToSignal[curFif] });
+				ctx->canRenderNextFrame = false;
+			}
+		}
+		else {
 			beginRsRenderFrameVk(ctx);
-			auto curFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
 			auto nxtImg = waitForNextPresentImage(ctx, mDp->semphoresToWait[curFif], 0);
 			for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics, cmd.wait, cmd.singal, cmd.fence);
 			}
 			submitToPresentImage(ctx, nxtImg, { mDp->semphoresToSignal[curFif] });
-			ctx->canRenderNextFrame = false;
 		}
 
 
@@ -121,6 +131,17 @@ namespace Render{
 	{
 		Vulkan::cmdEndRenderPass((Vulkan::rs_commandbuffer_vk*)cmdbuf);
 	}
+
+	void RenderSystem::cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect)
+	{
+		Vulkan::cmdSetScissor((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect, framebufferIdx);
+	}
+
+	void RenderSystem::cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth, const Rect2D& rect)
+	{
+		Vulkan::cmdSetViewport((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect,minDepth,maxDepth,framebufferIdx);
+	}
+
 	rs_buffer* RenderSystem::createBuffer(void* data, uint32_t size, const BufferDesc& desc)
 	{
 		rs_buffer* buffer = Vulkan::createRsBuffer(getRenderContext(), desc);
@@ -337,6 +358,10 @@ namespace Render{
 	}
 	void RenderSystem::submitCmdBuffer(rs_commandbuffer* cmdBuffer, std::vector<rs_semaphore*> wait, std::vector<rs_semaphore*> singal, rs_fence* fence)
 	{
+		if (cmdBuffer->hasCommands == false) {
+			return;
+		}
+		cmdBuffer->hasCommands = false;
 		CommandPair pair{
 			.commandBuffer = cmdBuffer,
 			.wait = wait,
@@ -354,6 +379,7 @@ namespace Render{
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
 	{
+		cmdBuffer->hasCommands = true;
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawData, getCurFif());

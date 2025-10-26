@@ -167,7 +167,7 @@ namespace Render::Vulkan {
             assert(0);
             return nullptr;
         }
-        auto& attachments = rt->m_attachments;
+        std::vector<rs_image*> attachments = rt->m_attachments;
         if (rt->m_depthStencilAttachment) {
             attachments.push_back(rt->m_depthStencilAttachment);
         }
@@ -175,7 +175,7 @@ namespace Render::Vulkan {
         std::vector<VkAttachmentDescription> vkAttachments;
         vkAttachments.reserve(attachments.size());
 
-        for (int i = 0; i < rt->m_attachments.size(); ++i) {
+        for (int i = 0; i < attachments.size(); ++i) {
             VkAttachmentDescription ad = {};
             auto image = attachments[i];
             auto& attPassDesc = rpDesc.attachments[i];
@@ -280,6 +280,10 @@ namespace Render::Vulkan {
         for (int i = 0; i < rt->m_attachments.size(); ++i) {
             auto image = attachments[i];
             imgViews.push_back(((rs_image_vk*)image)->view);
+        }
+
+        if (rt->m_depthStencilAttachment) {
+            imgViews.push_back(((rs_image_vk*)rt->m_depthStencilAttachment)->view);
         }
 
         VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };

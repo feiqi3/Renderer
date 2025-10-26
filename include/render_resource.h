@@ -85,6 +85,7 @@ namespace Render {
 		bool isTransitent = false;
 		bool recording = false;
 		uint32_t lastActiveFrames = 0;
+		bool hasCommands = false;
 	};
 
 	struct rs_binding_data : rs_base{

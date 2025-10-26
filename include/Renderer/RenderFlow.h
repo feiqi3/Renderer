@@ -18,7 +18,7 @@ namespace Render {
 		void initPostEffectPass();
 
 		void initMainCamPass() {
-			mMainCamRenderTexture = RenderSystem::instance()->createRTTexture(Render::ImageFormat::BGRA8_UNORM, 1920, 1080, 1, 1, false);
+			mMainCamRenderTexture = RenderSystem::instance()->createRTTexture(Render::ImageFormat::BGRA8_UNORM, 1920, 1080, 1, 1, true);
 			mRenderTarget = RenderSystem::instance()->createRendertarget({ mMainCamRenderTexture }, 0);
 			mMainCamPass->setRenderTarget(mRenderTarget);
 			mMainCamPass->init();
@@ -58,7 +58,9 @@ namespace Render {
 				mMainCamPass->addToDraw(entity);
 			}
 			mMainCamPass->draw(cmdbuf);
-			mSwapchainPass->setRenderTarget(RenderSys->getNextSwapchainRendertarget());
+			auto nxtRTImg = RenderSys->getNextSwapchainRendertarget();
+			mSwapchainPass->setRenderTarget(nxtRTImg);
+			mSwapchainPass->setBlitRT(mMainCamRenderTexture);
 			mSwapchainPass->draw(cmdbuf);
 			RenderSys->cmdEnd(cmdbuf);
 		}

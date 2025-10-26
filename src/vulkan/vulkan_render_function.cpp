@@ -1679,12 +1679,19 @@ namespace Render::Vulkan {
     {
         auto& atts = renderpass->passDesc.attachments;
         int idx = 0;
+        auto depthIdx = -1;
+        if (renderpass->renderTarget->m_depthStencilAttachment) {
+            depthIdx = renderpass->renderTarget->m_attachments.size();
+        }
         for (auto&& att : atts) {
             auto layoutNeedWhenRpBegin = pickLayout(att.isHDR, att.loadOp);
             if (layoutNeedWhenRpBegin != VK_IMAGE_LAYOUT_UNDEFINED && layoutNeedWhenRpBegin != ((rs_image_vk*)renderpass->renderTarget->m_attachments[idx])->currentLayout)
             {
                 bool isDepthAtt = false;
                 auto rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
+                if (depthIdx == idx) {
+                    rtImage = (rs_image_vk*)renderpass->renderTarget->m_depthStencilAttachment;
+                }
                 VkImageSubresourceRange range{};
                 range.aspectMask = rtImage->usage & ImageUsage_DepthStencilAttachment ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
                 range.baseMipLevel = 0;
@@ -1700,7 +1707,7 @@ namespace Render::Vulkan {
         std::vector< VkClearValue> clearValues;
         clearValues.reserve(renderpass->passDesc.attachments.size());
         
-        //The last desc is depthAndStencil
+        //The last is for depthAndStencil
         for (int i = 0; i < clearColor.size() - (renderpass->haveDepth ? 1 : 0); ++i) {
             auto& c = clearColor[i];
             VkClearValue clr{};
@@ -1755,7 +1762,20 @@ namespace Render::Vulkan {
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     0, image->mipLevels,
                     0, image->arrayLayers,
-                    (uint32_t)((image->usage & ImageUsage_DepthStencilAttachment) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT)
+                    (uint32_t)(VK_IMAGE_ASPECT_COLOR_BIT)
+                );
+            }
+        }
+
+        if (rt->m_depthStencilAttachment) {
+            auto& image = rt->m_depthStencilAttachment;
+            if (image->usage & ImageUsage_Sampled) {
+                cmdImageLayoutTo(cb,
+                    (rs_image_vk*)image,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    0, image->mipLevels,
+                    0, image->arrayLayers,
+                    (uint32_t)(VK_IMAGE_ASPECT_DEPTH_BIT)
                 );
             }
         }
@@ -1763,7 +1783,7 @@ namespace Render::Vulkan {
         cb->currentRenderPass = 0;
     }
 
-    void cmdSetViewport(rs_commandbuffer_vk* cb, Rect2D& rect, float minDepth, float maxDepth, uint32_t idx)
+    void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect, float minDepth, float maxDepth, uint32_t idx)
     {
         assert(cb->currentRenderPass != nullptr);
         VkViewport viewport{};
@@ -1776,7 +1796,7 @@ namespace Render::Vulkan {
         vkCmdSetViewport((VkCommandBuffer)cb->native, idx, 1, &viewport);
     }
 
-    void cmdSetScissor(rs_commandbuffer_vk* cb, Rect2D& rect, uint32_t idx)
+    void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx)
     {
         assert(cb->currentRenderPass != nullptr);
         VkRect2D scissor{};
@@ -1803,17 +1823,23 @@ namespace Render::Vulkan {
             return;
         }
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->native);
-
-        vkCmdBindIndexBuffer(cmd, (VkBuffer)info.indexBuffer->native, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
-        
+        //It's ok to draw with out index buffer
+        bool donotuseidxdraw = false;
+        if (info.indexBuffer) {
+            vkCmdBindIndexBuffer(cmd, (VkBuffer)info.indexBuffer->native, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        }
+        else {
+            donotuseidxdraw = true;
+        }
         std::vector<VkBuffer> bindingBuffers;
         std::vector<VkDeviceSize> bufferoffsets;
         for (int i = 0; i < info.bindingBuffers.size(); ++i) {
             bindingBuffers.push_back((VkBuffer)(info.bindingBuffers[i].buffer->native));
             bufferoffsets.push_back(info.bindingBuffers[i].offset);
         }
-
-        vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        if (bufferBinding.size() > 0) {
+            vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        }
         VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)pipeline)->layout->native);
 
         for (auto&& drawdata : drawDatas) {
@@ -1823,9 +1849,12 @@ namespace Render::Vulkan {
         }
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
-
-        vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
-
+        if (donotuseidxdraw) {
+            vkCmdDraw(cmd, instanceCnt, 0, info.vtxoffset, 0);
+        }
+        else {
+            vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+        }
     }
 
     void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced)
@@ -1841,27 +1870,36 @@ namespace Render::Vulkan {
         }
         auto cmd = (VkCommandBuffer)cb->native;
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->native);
-        VkBuffer idxBuf = nullptr;
-        //It's ok to draw with out index buffer
+
+
+        bool donotuseidxdraw = false;
         if (info.indexBuffer) {
-            idxBuf = (VkBuffer)info.indexBuffer->native;
+            vkCmdBindIndexBuffer(cmd, (VkBuffer)info.indexBuffer->native, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+        }
+        else {
+            donotuseidxdraw = true;
         }
 
-        vkCmdBindIndexBuffer(cmd, idxBuf, info.idxOffset, info.indexType == IndexType::Uint16 ? VkIndexType::VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
         std::vector<VkBuffer> bindingBuffers;
         std::vector<VkDeviceSize> bufferoffsets;
         for (int i = 0; i < info.bindingBuffers.size(); ++i) {
             bindingBuffers.push_back((VkBuffer)(info.bindingBuffers[i].buffer->native));
             bufferoffsets.push_back(info.bindingBuffers[i].offset);
         }
-        vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        if (bufferBinding.size() > 0) {
+            vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
+        }
         VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)pipeline)->layout->native);
-        
-        cmdBindDrawData(cb, pLayout, drawData,curFif);
+
+        cmdBindDrawData(cb, pLayout, drawData, curFif);
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
-
-        vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+        if (donotuseidxdraw) {
+            vkCmdDraw(cmd, instanceCnt, 0, info.vtxoffset,0);
+        }
+        else {
+            vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
+        }
     }
 
     void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif)
@@ -1909,6 +1947,7 @@ namespace Render::Vulkan {
     void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset)
     {
         assert(buffer && data);
+        cb->hasCommands = true;
         uint64_t cpSize = std::min((uint64_t)buffer->byteSize, size);
         if (buffer->mappedPtr) {
             memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, size);
@@ -1959,7 +1998,6 @@ namespace Render::Vulkan {
         };
 
         auto cmd = (VkCommandBuffer)cb->native;
-
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
         vkCmdCopyBuffer2(cmd,&cpInfo);
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 1, &barrierAfter, 0, 0);
@@ -1969,6 +2007,7 @@ namespace Render::Vulkan {
 
     void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc, rs_buffer_vk* bufferDst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
     {
+        cb->hasCommands = true;
         VkCopyBufferInfo2 cpInfo{
     VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2
         };

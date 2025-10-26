@@ -34,6 +34,9 @@ namespace Render{
 		void cmdBeginRenderPass(rs_commandbuffer* cmdbuf,rs_renderpass* pass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs);
 		void cmdEndRenderPass(rs_commandbuffer* cmdbuf);
 
+		void cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect);
+		void cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth,const Rect2D& rect);
+
 		rs_buffer* createBuffer(void* data, uint32_t size, const BufferDesc& desc);
 		void destroyBuffer(rs_buffer* buffer);
 
