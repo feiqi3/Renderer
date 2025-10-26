@@ -10,3 +10,6 @@
 [submodule "3rd/spirv-reflect"]
 	path = 3rd/spirv-reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "3rd/glm"]
+	path = 3rd/glm
+	url = https://github.com/g-truc/glm.git
