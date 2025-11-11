@@ -115,6 +115,8 @@ namespace Render::Vulkan {
 				break;
 			}
 		}
+
+		//If Cannot find target pool, compute one
 		if (!pool) {
 			pool = new rs_commandpool_vk;
 			if (ctx->graphicQueue->queueType & queueType) {
@@ -136,6 +138,7 @@ namespace Render::Vulkan {
 			VK_CHECK(vkCreateCommandPool(ctx->device, &ci, 0, (VkCommandPool*)&pool->native), { std::abort(); });
 			queueVec.push_back(pool);
 		}
+
 		auto& curThreadQueueCmdVec = mThreadsCmdBuffersCache[curFif][pos].second;
 		rs_commandbuffer_vk* cmdBuffer = 0;
 		for (auto&& cachedBuffer : curThreadQueueCmdVec) {

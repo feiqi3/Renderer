@@ -19,7 +19,7 @@ namespace Render {
 	{
 		auto renderSys = RenderSystem::instance();
 		for (auto&& render : mSceneEntity) {
-			renderSys->drawIndexed(cmdbuffer, render, "MainCam");
+			renderSys->drawIndexed(cmdbuffer, render, this->getPassName());
 		}
 	}
 	void MainCamPass::addToDraw(RenderEntity* Entity)

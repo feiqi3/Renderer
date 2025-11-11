@@ -7,11 +7,12 @@ namespace Render::Vulkan {
         mPendingDataInfo.resize(maxFrameInFlight);
         mPendingBufferDataInfo.resize(maxFrameInFlight);
     }
-    void ImageDataManager::beginRenderFrame(uint32_t fif, rs_context_vk* ctx)
+    void ImageDataManager::beginRenderFrame(uint64_t targetFrame, rs_context_vk* ctx)
     {
         CommandBufferDesc desc{ .queueType = QueueType_Graphics,.transient = true };
 
-        auto cmd = createRsCommand(ctx, desc);
+        auto cmd = createRsCommandTargetFrame(ctx, desc, targetFrame);
+        uint32_t fif = targetFrame % ctx->maxFrameInFlight;
         cmd->hasCommands = true;
         auto& pendingInfo = mPendingDataInfo[fif];
         auto& pendingBufferInfo = mPendingBufferDataInfo[fif];

@@ -13,7 +13,7 @@ namespace Render {
 		virtual ~RenderPass();
 		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer);
 		rs_renderpass* getRaw()const { return mRenderPass; }
-		void setRenderTarget(rs_rendertarget* renderTarget);
+		void setRenderTarget(rs_rendertarget* renderTarget,bool compatible = false);
 		void draw(rs_commandbuffer* cmdbuffer);
 		void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
 			mClrColor = clrColor;
@@ -29,7 +29,7 @@ namespace Render {
 	protected:
 		std::string mPassName;
 		rs_renderpass* mRenderPass;
-		PassDesc mPassDesc;
+		const PassDesc mPassDesc;
 		std::vector<ClearColor> mClrColor;
 		ClearDepthStencil mDsClear;
 	};

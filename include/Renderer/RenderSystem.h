@@ -20,6 +20,7 @@ namespace Render{
 		static void createRenderSystem(const BackEndInitDesc& backEndDesc, Window::rs_window* window);
 		static void destroyRenderSystem();
 		static RenderSystem* instance();
+		void EndLogicFrame();
 		void BeginRenderFrame();
 	public:
 		inline Vulkan::rs_context_vk* getRenderContext()const {
@@ -29,7 +30,7 @@ namespace Render{
 		class RenderPassManager* getRenderPassManager()const;
 		RenderPass* getRenderPass(const std::string& pass);
 		rs_commandbuffer* GetCommandBufferCurFrameCurThread();
-		rs_renderpass* createRenderPass(rs_rendertarget* renderTarget,PassDesc& passDescription);
+		rs_renderpass* createRenderPass(rs_rendertarget* renderTarget,const PassDesc& passDescription);
 		void destoyRenderPass(rs_renderpass* renderPass);
 		void cmdBeginRenderPass(rs_commandbuffer* cmdbuf,rs_renderpass* pass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs);
 		void cmdEndRenderPass(rs_commandbuffer* cmdbuf);
@@ -67,10 +68,10 @@ namespace Render{
 		void updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip);
 		void updateBufferData(rs_buffer* buffer,void* data,size_t byteSize,size_t dstOffset);
 		void* placeFramePendingData(void* data, uint32_t size);
-		void submitCmdBuffer(rs_commandbuffer* cmdBuffer,std::vector<rs_semaphore*> wait,std::vector<rs_semaphore*> singal,rs_fence* fence);
+		void submitCmdBuffer(rs_commandbuffer* cmdBuffer,const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal,rs_fence* fence);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const std::string& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
-
+		void waitForFence(rs_fence* fence);
 		void clearRenderEntity(RenderEntity* entity);
 
 		uint64_t getNextRenderFrame()const;
@@ -85,17 +86,39 @@ namespace Render{
 		void cmdBegin(rs_commandbuffer* cmdBuffer);
 		void cmdEnd(rs_commandbuffer* cmdBuffer);
 
+		rs_semaphore* createSemphore();
+		void destroySemphore(rs_semaphore* semphore);
+
+		rs_fence* createFence();
+		void destroyFence(rs_fence* fence);
+		void resetFence(rs_fence* fence);
+
+		void setSignalCanRenderToPresentImageSemaphore(rs_semaphore*semaphores) {
+			SignalCanRenderToPresentImageSemaphore = semaphores;
+		}
+		void setSignalCanPresentToPresentImageSemaphore(rs_semaphore* semaphores) {
+			SignalCanPresentToPresentImageSemaphore = semaphores;
+		}
+
+		void setRenderFence(rs_fence* fence) {
+			FenceToWaitForRender = fence;
+		}
+
 	private:
 		RenderSystem();
 		~RenderSystem();
 
 	private:
 		uint64_t mCurLogicFrameInFlight = 0;
-		uint64_t currentLogicFrame = -1;
+		uint64_t currentLogicFrame = 0;
 		Vulkan::rs_context_vk* mBackEndContext;
 		Window::rs_window* mWindow;
 		std::unique_ptr<RenderSystemPrivate> mDp;
-		bool mUseRenderThread = true;
+		bool mUseRenderThread = false;
+
+		rs_semaphore* SignalCanRenderToPresentImageSemaphore ;
+		rs_semaphore* SignalCanPresentToPresentImageSemaphore ;
+		rs_fence* FenceToWaitForRender = 0;
 	private: 
 		static RenderSystem* sRenderSystem;
 	};

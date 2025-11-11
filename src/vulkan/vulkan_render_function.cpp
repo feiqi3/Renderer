@@ -526,12 +526,6 @@ namespace Render::Vulkan {
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
         ctx->imageDataMgr = new ImageDataManager(maxFif);
-        auto& fences = ctx->mFences;
-        fences.resize(ctx->maxFrameInFlight);
-
-        for (auto&& fence : fences) {
-            fence = createRsFence(ctx);
-        }
         ctx->currentSwapchainImage = ctx->maxSwapChainImages;
         return ctx;
     }
@@ -903,13 +897,22 @@ namespace Render::Vulkan {
     {
         VkSemaphoreCreateInfo ci{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
         rs_semaphore_vk* sem = new rs_semaphore_vk;
-        vkCreateSemaphore(ctx->device, &ci, 0, (VkSemaphore*)( & sem->native));
+        auto semNative = new VkSemaphore[ctx->maxFrameInFlight];
+        sem->native = semNative;
+        sem->cnt = ctx->maxFrameInFlight;
+        for (int i = 0; i < sem->cnt; ++i) {
+            vkCreateSemaphore(ctx->device, &ci, 0, &semNative[i]);
+        }
         return sem;
     }
 
     void destroyRsSemaphore(rs_context_vk* ctx, rs_semaphore_vk*& sem)
     {
-        vkDestroySemaphore(ctx->device, (VkSemaphore)sem->native, 0);
+        auto semNative = (VkSemaphore*)sem->native;
+        for (int i = 0; i < sem->cnt; ++i) {
+            vkDestroySemaphore(ctx->device, semNative[i], 0);
+        }
+        delete[] semNative;
         delete sem;
         sem = 0;
     }
@@ -919,33 +922,55 @@ namespace Render::Vulkan {
         VkFenceCreateInfo ci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
         ci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         rs_fence_vk* fence = new rs_fence_vk;
-
-        vkCreateFence(ctx->device, &ci, 0, (VkFence*)&fence->native);
-
+        fence->cnt = ctx->maxFrameInFlight;
+        VkFence* fenceNative = new VkFence[ctx->maxFrameInFlight];
+        fence->native = fenceNative;
+        for (int i = 0; i < fence->cnt; ++i) {
+            vkCreateFence(ctx->device, &ci, 0, &fenceNative[i]);
+        }
         return fence;
     }
 
     void destroyRsFence(rs_context_vk* ctx, rs_fence_vk*& fence)
     {
-        vkDestroyFence(ctx->device, (VkFence)fence->native, 0);
+        for (int i = 0; i < fence->cnt; ++i) {
+            vkDestroyFence(ctx->device, ((VkFence*)(fence->native))[i], 0);
+        }
+        delete[] (VkFence*)(fence->native);
         delete fence;
         fence = 0;
     }
 
-    void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence)
+    void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence,int frameInFlight)
     {
-        vkResetFences(ctx->device, 1, (VkFence*)&fence->native);
+        auto fenceNative = (VkFence*)fence->native;
+        vkResetFences(ctx->device, 1, &(fenceNative[frameInFlight]));
     }
 
-    void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence, uint64_t timeout)
+    void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence)
     {
-        vkWaitForFences(ctx->device, 1, (VkFence*)&fence->native, VK_TRUE, timeout);
+        auto fenceNative = (VkFence*)fence->native;
+        vkResetFences(ctx->device, fence->cnt, fenceNative);
+    }
+
+    void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence, uint64_t timeout, int frameInFlight)
+    {
+        auto fenceNative = (VkFence*)fence->native;
+        vkWaitForFences(ctx->device, 1, &(fenceNative[frameInFlight]), VK_TRUE, timeout);
     }
 
     rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
     {
         auto cmdMgr = ctx->cmdBufferMgr;
         return cmdMgr->getCmdBufferLocalThread(ctx, ctx->nextRenderFrame, desc.queueType,desc.transient);
+    }
+
+    rs_commandbuffer_vk* createRsCommandTargetFrame(rs_context_vk* ctx, const CommandBufferDesc& desc, uint64_t frame)
+    {
+        //this function might be called in the render thread, which may have a latency in ctx->maxFrameInFlight frames
+        assert( frame >= std::min(0ull, ctx->nextRenderFrame - ctx->maxFrameInFlight));
+        auto cmdMgr = ctx->cmdBufferMgr;
+        return cmdMgr->getCmdBufferLocalThread(ctx, frame, desc.queueType, desc.transient);
     }
 
     void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain)
@@ -1675,7 +1700,7 @@ namespace Render::Vulkan {
         return createRsBuffer(context, stageBufferDesc);
     }
 
-    void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs)
+    void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass,const std::vector<ClearColor>& clearColor,const ClearDepthStencil& clearDs)
     {
         auto& atts = renderpass->passDesc.attachments;
         int idx = 0;
@@ -1685,10 +1710,10 @@ namespace Render::Vulkan {
         }
         for (auto&& att : atts) {
             auto layoutNeedWhenRpBegin = pickLayout(att.isHDR, att.loadOp);
+            auto rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
             if (layoutNeedWhenRpBegin != VK_IMAGE_LAYOUT_UNDEFINED && layoutNeedWhenRpBegin != ((rs_image_vk*)renderpass->renderTarget->m_attachments[idx])->currentLayout)
             {
                 bool isDepthAtt = false;
-                auto rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
                 if (depthIdx == idx) {
                     rtImage = (rs_image_vk*)renderpass->renderTarget->m_depthStencilAttachment;
                 }
@@ -1701,6 +1726,9 @@ namespace Render::Vulkan {
                 TransitionImageLayout((VkCommandBuffer)cb->native, (VkImage)rtImage->native, rtImage->currentLayout, layoutNeedWhenRpBegin, range);
                 rtImage->currentLayout = layoutNeedWhenRpBegin;
             }
+            else {
+                rtImage->currentLayout = layoutNeedWhenRpBegin;
+            }
             idx++;
         }
 
@@ -1708,7 +1736,7 @@ namespace Render::Vulkan {
         clearValues.reserve(renderpass->passDesc.attachments.size());
         
         //The last is for depthAndStencil
-        for (int i = 0; i < clearColor.size() - (renderpass->haveDepth ? 1 : 0); ++i) {
+        for (int i = 0; i < clearColor.size(); ++i) {
             auto& c = clearColor[i];
             VkClearValue clr{};
             auto& passDesc = renderpass->passDesc.attachments[i];
@@ -1755,8 +1783,20 @@ namespace Render::Vulkan {
         auto currentRenderPass = cb->currentRenderPass;
         auto rt = currentRenderPass->renderTarget;
         auto& images = rt->m_attachments;
+        int idx = 0;
         for (auto image : images) {
-            if (image->usage & ImageUsage_Sampled) {
+            //Get Current Real Image layout
+            auto imgVk = (rs_image_vk*)image;
+            auto& rpDesc = currentRenderPass->passDesc;
+
+            imgVk->currentLayout = pickLayout(imgVk->usage, rpDesc.attachments[idx].storeOp);
+            //patch for present src, it will always be transfer into present src layout by renderpass.
+            if ((image->usage & ImageUsage_PresentSrc)) {
+                imgVk->currentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            }
+
+            //patch for present src, it will always be transfer into present src layout by renderpass.
+            if (image->usage & ImageUsage_Sampled && ((image->usage & ImageUsage_PresentSrc) == 0)) {
                 cmdImageLayoutTo(cb, 
                     (rs_image_vk*)image, 
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1765,6 +1805,7 @@ namespace Render::Vulkan {
                     (uint32_t)(VK_IMAGE_ASPECT_COLOR_BIT)
                 );
             }
+            idx++;
         }
 
         if (rt->m_depthStencilAttachment) {
@@ -2152,6 +2193,7 @@ namespace Render::Vulkan {
 
     void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect)
     {
+        if (image->currentLayout == newlayout)return;
         cmdImageLayoutTo(cb, image, image->currentLayout, newlayout, mip, mipSize, layeroff, layersize, aspect);
         image->currentLayout = newlayout;
     }
@@ -2183,14 +2225,14 @@ namespace Render::Vulkan {
     void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore*> imageAvailableWaitSemaphores, std::vector<rs_semaphore*> renderFinishSignalSemphores, rs_fence_vk* fence)
     {
 
+        auto curFif = ctx->LogicFrameFif;
         std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
         for (auto&& sem : imageAvailableWaitSemaphores) {
-            ntvwaitSemaphores.push_back((VkSemaphore)sem->native);
+            ntvwaitSemaphores.push_back( ((VkSemaphore*)sem->native)[curFif]);
         }
         for (auto&& sem : renderFinishSignalSemphores) {
-            ntvsignalSemaphores.push_back((VkSemaphore)sem->native);
+            ntvsignalSemaphores.push_back(((VkSemaphore*)sem->native)[curFif]);
         }
-
 
         VkPipelineStageFlags toWaitFlag;
 
@@ -2243,7 +2285,7 @@ namespace Render::Vulkan {
             break;
         }
 
-        vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? (VkFence)fence->native : VK_NULL_HANDLE);
+        vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? ((VkFence*)fence->native)[curFif] : VK_NULL_HANDLE);
     }
 
     void cmdBeginMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a)
@@ -2288,15 +2330,12 @@ namespace Render::Vulkan {
     uint64_t beginRsFrameVk(rs_context_vk* ctx)
     {
         ctx->curRenderFrame = ctx->nextRenderFrame;
-        ctx->nextRenderFrame++;
         uint64_t maxFif = ctx->maxFrameInFlight;
         auto cmdbufMgr = ctx->cmdBufferMgr;
         auto descriptorSetMgr = ctx->descriptorSetMgr;
         auto imageDataMgr = ctx->imageDataMgr;
         //Wait newRenderFrame % maxFif finish
         uint64_t toWaitFrame = ctx->nextRenderFrame % maxFif;
-        waitForRsFence(ctx, ctx->mFences[toWaitFrame],UINT64_MAX);
-        resetRsFence(ctx, ctx->mFences[toWaitFrame]);
         ctx->LogicFrameFif = toWaitFrame;
         ctx->RenderFrameFif = ctx->curRenderFrame % maxFif;
         ctx->canRenderNextFrame = true;
@@ -2310,21 +2349,23 @@ namespace Render::Vulkan {
     uint64_t beginRsRenderFrameVk(rs_context_vk* ctx)
     {
         auto imageDataMgr = ctx->imageDataMgr;
+        auto curRenderFrame = ctx->curRenderFrame;
         auto curRenderFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
-        imageDataMgr->beginRenderFrame(curRenderFif, ctx);
+        imageDataMgr->beginRenderFrame(ctx->curRenderFrame, ctx);
         return 0;
     }
 
     uint64_t endRsFrameVk(rs_context_vk* ctx)
     {
+        ctx->nextRenderFrame++;
         return ctx->nextRenderFrame;
     }
 
     uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* imageAvailableSignalSemaphore, rs_fence_vk* fenceToSignal)
     {
         uint32_t swapImageIdx;
-        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : (VkSemaphore)imageAvailableSignalSemaphore->native;
-        VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : (VkFence)fenceToSignal->native;
+        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[ctx->LogicFrameFif];
+        VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : ((VkFence*)fenceToSignal->native)[ctx->LogicFrameFif];
         vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , fence, &swapImageIdx);
         return swapImageIdx;
     }
@@ -2333,7 +2374,7 @@ namespace Render::Vulkan {
     {
         std::vector<VkSemaphore> semphoresToWait;
         for (auto&& semRs : renderFinishWaitSemaphore) {
-            semphoresToWait.push_back((VkSemaphore)semRs->native);
+            semphoresToWait.push_back( ((VkSemaphore*)semRs->native)[ctx->LogicFrameFif]);
         }
         VkPresentInfoKHR presentInfo{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         presentInfo.waitSemaphoreCount;

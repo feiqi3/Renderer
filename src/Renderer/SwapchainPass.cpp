@@ -2,7 +2,7 @@
 #include <Renderer/MaterialTemplate.h>
 #include "Renderer/RenderEntity.h"
 #include <Renderer/RenderSystem.h>
-
+#include "Renderer/RenderPassManager.h"
 
 namespace Render {
 
@@ -22,6 +22,7 @@ namespace Render {
 	}
 	void SwapchainPass::init()
 	{
+		RenderSystem::instance()->getRenderPassManager()->markSwapchainRenderPass(this);
 		initBlitData();
 	}
 	SwapchainPass::~SwapchainPass()
@@ -30,7 +31,8 @@ namespace Render {
 		RenderSys->destroyRsSampler(BlitRTSampler);
 		delete BlitEntity;
 		delete BlitMaterial;
-		
+		RenderSys->getRenderPassManager()->unMarkSwapchainRenderPass(this);
+
 	}
 
 	void SwapchainPass::initBlitData()

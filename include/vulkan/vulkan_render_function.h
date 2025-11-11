@@ -56,10 +56,13 @@ namespace Render::Vulkan {
 	void destroyRsSemaphore(rs_context_vk* ctx, rs_semaphore_vk*& sem);
 	rs_fence_vk* createRsFence(rs_context_vk* ctx);
 	void destroyRsFence(rs_context_vk* ctx, rs_fence_vk*& fence);
+	void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence, int frameInFlight);
 	void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence);
-	void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence,uint64_t timeoutNs);
+	void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence,uint64_t timeoutNs, int frameInFlight);
 
 	rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc);
+	//this function might be called in the render thread, which may have a latency in ctx->maxFrameInFlight frames
+	rs_commandbuffer_vk* createRsCommandTargetFrame(rs_context_vk* ctx, const CommandBufferDesc& desc,uint64_t frame);
 
 	uint32_t findQueueFamily(rs_context_vk* ctx, QueueType type);
 	void createSwapchain(rs_context_vk* context, ::Render::Window::rs_window* window, rs_swapchain* oldSwapchain = nullptr);
@@ -97,7 +100,7 @@ namespace Render::Vulkan {
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
-	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass, std::vector<ClearColor>& color,ClearDepthStencil& clearDs);
+	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass,const std::vector<ClearColor>& color,const ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);

@@ -22,12 +22,13 @@ int main() {
 	while (!glfwWindow->shouldClose()) {
 		Render::RenderSystem::instance()->beginFrame();
 
-		if (Render::RenderSystem::instance()->getNextRenderFrame() == 0) {
+		if (Render::RenderSystem::instance()->getNextRenderFrame() == 1) {
 			auto Cube = new Render::CubeEntity();
 			renderFlow->AddEntity(Cube);
 		}
 
 		renderFlow->Excute();
+		renderSystem->EndLogicFrame();
 		renderSystem->BeginRenderFrame();
 	}
 

@@ -16,8 +16,8 @@ namespace Render {
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
 
 	private:
-		class RenderEntity* BlitEntity;
-		class MaterialTemplate* BlitMaterial;
+		class RenderEntity* BlitEntity = 0;
+		class MaterialTemplate* BlitMaterial = 0;
 		class Material* BlitMatVarient = 0;
 		class rs_sampler* BlitRTSampler = 0;
 		class Pass* BlitPass = 0;

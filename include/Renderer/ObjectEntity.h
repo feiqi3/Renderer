@@ -171,7 +171,7 @@ namespace Render {
 			renderInfo.indexBuffer = RenderSystem::instance()->createBuffer(cubeIndices.data(), bufferSize, desc);
 		
 			this->setMaterialTemplate(ObjectMaterialTemplateFactory::instance()->getNormalMaterial());
-
+			this->createPass("MainPass");
 
 		}
 			

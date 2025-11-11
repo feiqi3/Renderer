@@ -21,9 +21,6 @@ namespace Render{
 		std::unique_ptr<RenderDataArena> mArena;
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
-		std::vector<rs_semaphore*> semphoresToWait;
-		std::vector<rs_semaphore*> semphoresToSignal;
-		std::vector<rs_fence*> fenceToWait;
 		std::vector<rs_rendertarget*> mSwapchainRT;
 	public:
 		void* updateFramePendingData(uint32_t fif, uint64_t frame, void* data, uint32_t size);
@@ -43,16 +40,10 @@ namespace Render{
 		sRenderSystem->mBackEndContext = initVulkanBackEnd(backEndDesc, window);
 		for (int i = 0; i < sRenderSystem->getRenderContext()->maxFrameInFlight; ++i) {
 			auto render_context = sRenderSystem->getRenderContext();
-			sRenderSystem->mDp->fenceToWait.push_back(createRsFence(render_context));
-			sRenderSystem->mDp->fenceToWait.push_back(createRsFence(render_context));
-			sRenderSystem->mDp->fenceToWait.push_back(createRsFence(render_context));
-			resetRsFence(render_context, sRenderSystem->mDp->fenceToWait[i]);
-			sRenderSystem->mDp->semphoresToWait.push_back(createRsSemaphore(render_context));
-			sRenderSystem->mDp->semphoresToSignal.push_back(createRsSemaphore(render_context));
 		}
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024 * 64, sRenderSystem->mBackEndContext->maxSwapChainImages);
-		sRenderSystem->mCurLogicFrameInFlight = sRenderSystem->mBackEndContext->maxFrameInFlight;
+		sRenderSystem->mCurLogicFrameInFlight = 0;
 	}
 	void RenderSystem::destroyRenderSystem()
 	{
@@ -69,31 +60,39 @@ namespace Render{
 	{
 		return sRenderSystem;
 	}
+	void RenderSystem::EndLogicFrame()
+	{
+		Vulkan::endRsFrameVk(getRenderContext());
+		currentLogicFrame++;
+	}
 	void RenderSystem::BeginRenderFrame()
 	{
 		using namespace Vulkan;
 		auto ctx = getRenderContext();
 		auto curFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
+		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
 		if (mUseRenderThread) {
 			while (1) {
 				//Wait For Logic Frame Ready
 				while (!getRenderContext()->canRenderNextFrame);
 				beginRsRenderFrameVk(ctx);
-				auto nxtImg = waitForNextPresentImage(ctx, mDp->semphoresToWait[curFif], 0);
+
+
+				auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SignalCanRenderToPresentImageSemaphore, 0);
 				for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
-					Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics, cmd.wait, cmd.singal, cmd.fence);
+					Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait ,  cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence );
 				}
-				submitToPresentImage(ctx, nxtImg, { mDp->semphoresToSignal[curFif] });
+				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
 				ctx->canRenderNextFrame = false;
 			}
 		}
 		else {
 			beginRsRenderFrameVk(ctx);
-			auto nxtImg = waitForNextPresentImage(ctx, mDp->semphoresToWait[curFif], 0);
+			auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SignalCanRenderToPresentImageSemaphore, 0);
 			for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
-				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics, cmd.wait, cmd.singal, cmd.fence);
+				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait , cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence);
 			}
-			submitToPresentImage(ctx, nxtImg, { mDp->semphoresToSignal[curFif] });
+			submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
 		}
 
 
@@ -113,7 +112,7 @@ namespace Render{
 		auto ctx = getRenderContext();
 		return ctx->cmdBufferMgr->getCmdBufferLocalThread(ctx, getNextRenderFrame(), QueueType_Graphics, false);
 	}
-	rs_renderpass* RenderSystem::createRenderPass(rs_rendertarget* renderTarget, PassDesc& passDescription)
+	rs_renderpass* RenderSystem::createRenderPass(rs_rendertarget* renderTarget,const PassDesc& passDescription)
 	{
 		return Vulkan::createRsRenderPassVk(this->getRenderContext(), (Render::Vulkan::rs_rendertarget_vk*)renderTarget, passDescription);
 	}
@@ -286,12 +285,16 @@ namespace Render{
 	}
 	void RenderSystem::beginFrame()
 	{
+		if (this->FenceToWaitForRender)
+		{
+			waitForFence(FenceToWaitForRender);
+			resetFence(FenceToWaitForRender);
+		}
 		Vulkan::beginRsFrameVk(getRenderContext());
-		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
 		mDp->mLogicThreadCommandBuffers.clear();
-		currentLogicFrame++;
 		mCurLogicFrameInFlight = currentLogicFrame % getRenderContext()->maxFrameInFlight;
 		mDp->cleanUpFramesPendingData(currentLogicFrame % mBackEndContext->maxFrameInFlight, currentLogicFrame);
+		getRenderPassManager()->onFrameBegin();
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, Material* material)
@@ -356,12 +359,13 @@ namespace Render{
 		auto fif = currentLogicFrame % mBackEndContext->maxFrameInFlight;
 		return mDp->updateFramePendingData(fif, currentLogicFrame, data, size);
 	}
-	void RenderSystem::submitCmdBuffer(rs_commandbuffer* cmdBuffer, std::vector<rs_semaphore*> wait, std::vector<rs_semaphore*> singal, rs_fence* fence)
+	void RenderSystem::submitCmdBuffer(rs_commandbuffer* cmdBuffer, const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal, rs_fence* fence)
 	{
 		if (cmdBuffer->hasCommands == false) {
-			return;
+			//return;
 		}
 		cmdBuffer->hasCommands = false;
+		
 		CommandPair pair{
 			.commandBuffer = cmdBuffer,
 			.wait = wait,
@@ -383,6 +387,10 @@ namespace Render{
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawData, getCurFif());
+	}
+	void RenderSystem::waitForFence(rs_fence* fence)
+	{
+		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence);
 	}
 	void RenderSystem::clearRenderEntity(RenderEntity* entity)
 	{
@@ -434,6 +442,33 @@ namespace Render{
 	void RenderSystem::cmdEnd(rs_commandbuffer* cmdBuffer)
 	{
 		Vulkan::cmdEndRecord((Vulkan::rs_commandbuffer_vk*)cmdBuffer);
+	}
+
+	rs_semaphore* RenderSystem::createSemphore()
+	{
+		return Vulkan::createRsSemaphore(getRenderContext());
+	}
+
+	void RenderSystem::destroySemphore(rs_semaphore* semphore)
+	{
+		auto vkSem = (Vulkan::rs_semaphore_vk*)semphore;
+		Vulkan::destroyRsSemaphore(getRenderContext(), vkSem);
+	}
+
+	rs_fence* RenderSystem::createFence()
+	{
+		return Vulkan::createRsFence(this->getRenderContext());
+	}
+
+	void RenderSystem::destroyFence(rs_fence* fence)
+	{
+		auto fenceVk = (Vulkan::rs_fence_vk*) fence;
+		Vulkan::destroyRsFence(getRenderContext(), fenceVk);
+	}
+
+	void RenderSystem::resetFence(rs_fence* fence)
+	{
+		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,mCurLogicFrameInFlight);
 	}
 
 	RenderSystem::RenderSystem()

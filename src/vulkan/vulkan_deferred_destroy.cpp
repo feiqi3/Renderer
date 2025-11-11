@@ -36,6 +36,11 @@ namespace Render::Vulkan {
 
 	void DeferredDestroyer::endFrameDestroy(rs_context_vk* ctx,uint64_t frame)
 	{
+		
+		if (ctx->nextRenderFrame < ctx->maxFrameInFlight) {
+			//Special case for first two frame. for some init case.
+			return;
+		}
 		int f = frame % mMaxFrameInFlight;
 		auto& buffers = mFrameBuffers[f];
 		for (auto&& buffer : buffers) {

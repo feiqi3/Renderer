@@ -13,9 +13,19 @@ namespace Render {
 			mSwapchainPass = new SwapchainPass;
 			initMainCamPass();
 			initSwapChainPass();
-		}
+			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemphore();
+			this->mAccquireImgSemaphore = RenderSystem::instance()->createSemphore();
+			this->mPresentToScreenSemaphore = RenderSystem::instance()->createSemphore();
+			mWaitForRenderEndFence = RenderSystem::instance()->createFence();
 
-		void initPostEffectPass();
+			auto RenderSys = RenderSystem::instance();
+			RenderSys->setRenderFence(mWaitForRenderEndFence);
+			//Is Present image accquired?  
+			RenderSys->setSignalCanPresentToPresentImageSemaphore(mPresentToScreenSemaphore);
+			//Is Rendered to present image finished?
+			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
+
+		}
 
 		void initMainCamPass() {
 			mMainCamRenderTexture = RenderSystem::instance()->createRTTexture(Render::ImageFormat::BGRA8_UNORM, 1920, 1080, 1, 1, true);
@@ -30,6 +40,9 @@ namespace Render {
 			mSwapchainPass->setRenderTarget(renderSys->getNextSwapchainRendertarget());
 			mSwapchainPass->init();
 		};
+		void deinitSwapchainPass() {
+			delete mSwapchainPass;
+		}
 
 		void deinitMainCamPass() {
 			delete mMainCamPass;
@@ -44,6 +57,12 @@ namespace Render {
 
 		void deinit() {
 			deinitMainCamPass();
+			deinitSwapchainPass();
+
+			RenderSystem::instance()->destroySemphore(mOffscreenFinishSemaphore);
+			RenderSystem::instance()->destroySemphore(mAccquireImgSemaphore);
+			RenderSystem::instance()->destroySemphore(mPresentToScreenSemaphore);
+			RenderSystem::instance()->destroyFence(mWaitForRenderEndFence);
 		}
 
 		void AddEntity(RenderEntity* entity) {
@@ -52,17 +71,23 @@ namespace Render {
 
 		void Excute(){
 			auto RenderSys = RenderSystem::instance();
-			auto cmdbuf = RenderSys->GetCommandBufferCurFrameCurThread();
-			RenderSys->cmdBegin(cmdbuf);
+			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
+			RenderSys->cmdBegin(cmdbufOffscreen);
 			for (auto&& entity : mRenderEntities) {
 				mMainCamPass->addToDraw(entity);
 			}
-			mMainCamPass->draw(cmdbuf);
-			auto nxtRTImg = RenderSys->getNextSwapchainRendertarget();
-			mSwapchainPass->setRenderTarget(nxtRTImg);
+			mMainCamPass->draw(cmdbufOffscreen);
+			RenderSys->cmdEnd(cmdbufOffscreen);
+			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);
+
+			auto cmdbufSwapchain = RenderSys->GetCommandBufferCurFrameCurThread();
+
+			RenderSys->cmdBegin(cmdbufSwapchain);
 			mSwapchainPass->setBlitRT(mMainCamRenderTexture);
-			mSwapchainPass->draw(cmdbuf);
-			RenderSys->cmdEnd(cmdbuf);
+			mSwapchainPass->draw(cmdbufSwapchain);
+			RenderSys->cmdEnd(cmdbufSwapchain);
+			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
+
 		}
 	private:
 		MainCamPass* mMainCamPass = 0;
@@ -72,6 +97,10 @@ namespace Render {
 		std::vector<RenderEntity*> mRenderEntities;
 		std::vector<RenderEntity*> mPostEffectEntities;
 		
+		rs_semaphore* mOffscreenFinishSemaphore;
+		rs_semaphore* mAccquireImgSemaphore;
+		rs_semaphore* mPresentToScreenSemaphore;
+		rs_fence* mWaitForRenderEndFence;
 		RenderEntity* BlitEntity;
 		MaterialTemplate* BlitMaterial;
 	};

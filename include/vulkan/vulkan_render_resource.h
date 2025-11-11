@@ -83,9 +83,13 @@ namespace Render::Vulkan {
 		VkFramebuffer frameBuffer;
 	};
 
-	VK_RS_DEF(rs_fence);
+	struct rs_fence_vk : rs_fence {
+		int cnt = 0;
+	};
 
-	VK_RS_DEF(rs_semaphore);
+	struct rs_semaphore_vk : rs_semaphore {
+		int cnt = 0;
+	};
 
 	VK_RS_DEF(rs_event);
 

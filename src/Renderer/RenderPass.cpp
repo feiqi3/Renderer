@@ -9,8 +9,14 @@ namespace Render {
 	{
 		auto mgr = RenderSystem::instance()->getRenderPassManager();
 		mgr->addRenderPass(passName, this);
+		ClearColor SwapchainImgClrColor = {};
+		SwapchainImgClrColor.rgba[0] = 0.f;
+		SwapchainImgClrColor.rgba[1] = 0.f;
+		SwapchainImgClrColor.rgba[2] = 0.f;
+		SwapchainImgClrColor.rgba[3] = 1.f;
+		mClrColor.push_back(SwapchainImgClrColor);
 	}
-	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget)
+	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget, bool compatible)
 	{
 		using namespace Vulkan;
 		auto ctx = RenderSystem::instance()->getRenderContext();
