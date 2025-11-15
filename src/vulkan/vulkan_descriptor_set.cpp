@@ -424,8 +424,8 @@ namespace Render::Vulkan {
         int curframeIdx = frame % m_maxFrame;
         for (auto i = m_pools[curframeIdx].begin(); i != m_pools[curframeIdx].end(); ) {
             auto poolBlock = (*i);
-            vkResetDescriptorPool(ctx->device, poolBlock->pool, 0);
             if (poolBlock->mReturnedNum == poolBlock->mInUseNum && frame - poolBlock->lastActiveFrame > Max_Vacant_Frame) {
+                vkResetDescriptorPool(ctx->device, poolBlock->pool, 0);
                 vkDestroyDescriptorPool(ctx->device, poolBlock->pool, 0);
                 delete poolBlock;
                 i = m_pools[curframeIdx].erase(i);

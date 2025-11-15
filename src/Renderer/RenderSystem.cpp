@@ -63,13 +63,17 @@ namespace Render{
 	void RenderSystem::EndLogicFrame()
 	{
 		Vulkan::endRsFrameVk(getRenderContext());
+		if (this->FenceToWaitForRender && this->currentLogicFrame > 0)
+		{
+			waitForFence(FenceToWaitForRender);
+			resetFence(FenceToWaitForRender);
+		}
 		currentLogicFrame++;
 	}
 	void RenderSystem::BeginRenderFrame()
 	{
 		using namespace Vulkan;
 		auto ctx = getRenderContext();
-		auto curFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
 		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
 		if (mUseRenderThread) {
 			while (1) {
@@ -163,7 +167,7 @@ namespace Render{
 			memcpy(buffer->mappedPtr, data, size);
 			return;
 		}
-		Vulkan::updateBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer, data, size, offset, imm);
+		Vulkan::updateBuffer(getRenderContext(),nullptr, (Vulkan::rs_buffer_vk*)buffer, data, size, offset, imm);
 	}
 	rs_pipeline* RenderSystem::createRenderPipeline(rs_renderpass* renderpass, PipelineDesc& pipelineDescription)
 	{
@@ -220,7 +224,7 @@ namespace Render{
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
 		if (data) {
-			Vulkan::updateImage(getRenderContext(), ret, data, byteSize, 0, 0, 0, x, y, z,0, 0,layer,true );
+			Vulkan::updateImage(getRenderContext(),nullptr, ret, data, byteSize, 0, 0, 0, x, y, z,0, 0,layer,true );
 		}
 		return ret;
 
@@ -285,11 +289,6 @@ namespace Render{
 	}
 	void RenderSystem::beginFrame()
 	{
-		if (this->FenceToWaitForRender)
-		{
-			waitForFence(FenceToWaitForRender);
-			resetFence(FenceToWaitForRender);
-		}
 		Vulkan::beginRsFrameVk(getRenderContext());
 		mDp->mLogicThreadCommandBuffers.clear();
 		mCurLogicFrameInFlight = currentLogicFrame % getRenderContext()->maxFrameInFlight;
@@ -347,12 +346,12 @@ namespace Render{
 	void RenderSystem::updateImageData(rs_image* image, void* data,size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip)
 	{
 		auto ctx = getRenderContext();
-		Vulkan::updateImage(ctx, (Vulkan::rs_image_vk*)image, data, byteSize, x, y, z, width, height, depth, mip, layerOffset, layerSize, false);
+		Vulkan::updateImage(ctx,nullptr, (Vulkan::rs_image_vk*)image, data, byteSize, x, y, z, width, height, depth, mip, layerOffset, layerSize, false);
 	}
 	void RenderSystem::updateBufferData(rs_buffer* buffer, void* data, size_t byteSize, size_t dstOffset)
 	{
 		auto ctx = getRenderContext();
-		Vulkan::updateBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer, data, byteSize, dstOffset, false);
+		Vulkan::updateBuffer(getRenderContext(),nullptr, (Vulkan::rs_buffer_vk*)buffer, data, byteSize, dstOffset, false);
 	}
 	void* RenderSystem::placeFramePendingData(void* data, uint32_t size)
 	{
@@ -390,7 +389,7 @@ namespace Render{
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{
-		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence);
+		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,-1,getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
 	}
 	void RenderSystem::clearRenderEntity(RenderEntity* entity)
 	{
@@ -457,7 +456,8 @@ namespace Render{
 
 	rs_fence* RenderSystem::createFence()
 	{
-		return Vulkan::createRsFence(this->getRenderContext());
+		auto ret = Vulkan::createRsFence(this->getRenderContext());
+		return ret;
 	}
 
 	void RenderSystem::destroyFence(rs_fence* fence)
@@ -468,7 +468,7 @@ namespace Render{
 
 	void RenderSystem::resetFence(rs_fence* fence)
 	{
-		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,mCurLogicFrameInFlight);
+		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
 	}
 
 	RenderSystem::RenderSystem()

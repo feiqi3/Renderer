@@ -17,7 +17,6 @@ namespace Render {
 			this->mAccquireImgSemaphore = RenderSystem::instance()->createSemphore();
 			this->mPresentToScreenSemaphore = RenderSystem::instance()->createSemphore();
 			mWaitForRenderEndFence = RenderSystem::instance()->createFence();
-
 			auto RenderSys = RenderSystem::instance();
 			RenderSys->setRenderFence(mWaitForRenderEndFence);
 			//Is Present image accquired?  

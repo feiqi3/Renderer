@@ -41,6 +41,8 @@ namespace Render::Vulkan {
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
+	uint64_t getOffsetAllocation(decltype(rs_buffer_vk::allocation) allocation);
+	VkDeviceMemory getDeviceMemory(decltype(rs_buffer_vk::allocation) allocation);
 	bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer);
 
 	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
@@ -89,8 +91,8 @@ namespace Render::Vulkan {
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
-	void updateImage(rs_context_vk* context, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff,uint32_t layerSize,bool imm);
-	void updateBuffer(rs_context_vk* context, rs_buffer_vk* buffer, void* data, uint64_t size,uint32_t offsetDst,bool imm = false);
+	void updateImage(rs_context_vk* context,rs_commandbuffer_vk* cmd, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff,uint32_t layerSize,bool imm);
+	void updateBuffer(rs_context_vk* context, rs_commandbuffer_vk* cmd, rs_buffer_vk* buffer, void* data, uint64_t size,uint32_t offsetDst,bool imm = false);
 	rs_drawdata_vk* createDrawData(rs_context_vk* context);
 	void clearDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);

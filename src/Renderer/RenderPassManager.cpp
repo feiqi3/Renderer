@@ -4,7 +4,7 @@
 namespace Render {
 
 	class SwapchainRenderPassHelper {
-	public:
+	public:  
 		std::vector<rs_renderpass*> swapchainRenderPass;
 		std::string RenderPassName;
 		RenderPass* TargetRenderPass = 0;

@@ -6,8 +6,12 @@ namespace Render::Vulkan {
 	public:
 		ImageDataManager(uint32_t maxFrameInFlight);
 		void beginRenderFrame(uint64_t targetFrame, rs_context_vk* ctx);
-		void updateImageData(uint32_t fif,rs_context_vk* ctx,rs_image_vk* image,void* data, size_t byteSize,int x,int y,int z,int width,int height,int depth, int layeroff, int layerSize,int mip,bool imm);
-		void updateBufferData(uint32_t fif, rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, size_t byteSize,size_t offsetDst,bool imm);
+		void updateImageData(uint32_t fif,rs_context_vk* ctx,rs_image_vk* image,void* data, size_t byteSize,int x,int y,int z,int width,int height,int depth, int layeroff, int layerSize,int mip);
+		void updateBufferData(uint32_t fif, rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, size_t byteSize,size_t offsetDst);
+		
+		void cmdUpdateImageData(uint32_t fif, rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_image_vk* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layeroff, int layerSize, int mip);
+		void cmdUpdateBufferData(uint32_t fif, rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_buffer_vk* buffer, void* data, size_t byteSize, size_t offsetDst);
+		
 		void clearAll(rs_context_vk* ctx);
 		~ImageDataManager();
 
@@ -32,11 +36,6 @@ namespace Render::Vulkan {
 		void recordUpdateCmd(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, PendingUpdateInfo& pendingInfo);
 		void recordUpdateCmd(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, PendingBufferUpdateInfo& pendingInfo);
 		uint32_t mMaxFrameInFlight;
-		std::vector<
-			std::list< PendingUpdateInfo>
-		> mPendingDataInfo;
-		std::vector<
-			std::list< PendingBufferUpdateInfo>
-		> mPendingBufferDataInfo;
+		rs_fence_vk* fence = nullptr;
 	};
 }

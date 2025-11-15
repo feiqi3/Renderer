@@ -734,6 +734,16 @@ namespace Render::Vulkan {
         buffer->mappedPtr = 0;
     }
 
+    uint64_t getOffsetAllocation(decltype(rs_buffer_vk::allocation) allocation)
+    {
+        return allocation->GetOffset();
+    }
+
+    VkDeviceMemory getDeviceMemory(decltype(rs_buffer_vk::allocation) allocation)
+    {
+        return allocation->GetMemory();
+    }
+
     bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer)
     {
         VkMemoryPropertyFlags memFlags;
@@ -928,6 +938,7 @@ namespace Render::Vulkan {
         for (int i = 0; i < fence->cnt; ++i) {
             vkCreateFence(ctx->device, &ci, 0, &fenceNative[i]);
         }
+        vkResetFences(ctx->device, fence->cnt, fenceNative);
         return fence;
     }
 
@@ -955,8 +966,8 @@ namespace Render::Vulkan {
 
     void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence, uint64_t timeout, int frameInFlight)
     {
-        auto fenceNative = (VkFence*)fence->native;
-        vkWaitForFences(ctx->device, 1, &(fenceNative[frameInFlight]), VK_TRUE, timeout);
+        auto fenceNative = ((VkFence*)fence->native)[frameInFlight];
+        vkWaitForFences(ctx->device, 1, &fenceNative, VK_TRUE, timeout);
     }
 
     rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
@@ -1568,16 +1579,26 @@ namespace Render::Vulkan {
         return requiredLayerNames;
     }
 
-    void updateImage(rs_context_vk* ctx, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff, uint32_t layerSize, bool imm)
+    void updateImage(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff, uint32_t layerSize, bool imm)
     {
         auto curFif = ctx->LogicFrameFif;
-        ctx->imageDataMgr->updateImageData(curFif, ctx, image, data, size, x, y, z, width, height, depth, layeroff,layerSize, mip, imm);
+        if (imm) {
+            ctx->imageDataMgr->updateImageData(curFif, ctx, image, data, size, x, y, z, width, height, depth, layeroff, layerSize, mip);
+        }
+        else {
+            ctx->imageDataMgr->cmdUpdateImageData(curFif, ctx, cmd, image, data, size, x, y, z, width, height, depth, layeroff, layerSize, mip);
+        }
     }
 
-    void updateBuffer(rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, uint64_t size, uint32_t offsetDst,bool imm)
+    void updateBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_buffer_vk* buffer, void* data, uint64_t size, uint32_t offsetDst, bool imm)
     {
         auto curFif = ctx->LogicFrameFif;
-        ctx->imageDataMgr->updateBufferData(curFif, ctx, buffer, data, size, offsetDst, imm);
+        if (imm) {
+            ctx->imageDataMgr->updateBufferData(curFif, ctx, buffer, data, size, offsetDst);
+        }
+        else {
+            ctx->imageDataMgr->cmdUpdateBufferData(curFif, ctx, cmd, buffer, data, size, offsetDst);
+        }
     }
 
     rs_drawdata_vk* createDrawData(rs_context_vk* context)
@@ -2225,7 +2246,7 @@ namespace Render::Vulkan {
     void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore*> imageAvailableWaitSemaphores, std::vector<rs_semaphore*> renderFinishSignalSemphores, rs_fence_vk* fence)
     {
 
-        auto curFif = ctx->LogicFrameFif;
+        auto curFif = ctx->RenderFrameFif;
         std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
         for (auto&& sem : imageAvailableWaitSemaphores) {
             ntvwaitSemaphores.push_back( ((VkSemaphore*)sem->native)[curFif]);
@@ -2284,8 +2305,11 @@ namespace Render::Vulkan {
             rsQueue = ctx->graphicQueue;
             break;
         }
-
-        vkQueueSubmit(rsQueue->queue,1, &info, fence != nullptr ? ((VkFence*)fence->native)[curFif] : VK_NULL_HANDLE);
+        VkFence fencevk = VK_NULL_HANDLE;
+        if (fence) {
+            fencevk = ((VkFence*)fence->native)[curFif];
+        }
+        vkQueueSubmit(rsQueue->queue, 1, &info, fencevk);
     }
 
     void cmdBeginMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a)
@@ -2329,35 +2353,32 @@ namespace Render::Vulkan {
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)
     {
-        ctx->curRenderFrame = ctx->nextRenderFrame;
+        ctx->nextRenderFrame++;
         uint64_t maxFif = ctx->maxFrameInFlight;
         auto cmdbufMgr = ctx->cmdBufferMgr;
         auto descriptorSetMgr = ctx->descriptorSetMgr;
-        auto imageDataMgr = ctx->imageDataMgr;
         //Wait newRenderFrame % maxFif finish
         uint64_t toWaitFrame = ctx->nextRenderFrame % maxFif;
         ctx->LogicFrameFif = toWaitFrame;
-        ctx->RenderFrameFif = ctx->curRenderFrame % maxFif;
         ctx->canRenderNextFrame = true;
         ctx->destroyer->endFrameDestroy(ctx, ctx->curRenderFrame);
         cmdbufMgr->beginFrame(ctx, ctx->nextRenderFrame);
         descriptorSetMgr->beginFrame(ctx, ctx->nextRenderFrame);
-        imageDataMgr->beginRenderFrame(toWaitFrame, ctx);
         return 0;
     }
 
     uint64_t beginRsRenderFrameVk(rs_context_vk* ctx)
     {
+        ctx->curRenderFrame = ctx->nextRenderFrame;
+        uint64_t maxFif = ctx->maxFrameInFlight;
+        ctx->RenderFrameFif = ctx->curRenderFrame % maxFif;
         auto imageDataMgr = ctx->imageDataMgr;
-        auto curRenderFrame = ctx->curRenderFrame;
-        auto curRenderFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
         imageDataMgr->beginRenderFrame(ctx->curRenderFrame, ctx);
         return 0;
     }
 
     uint64_t endRsFrameVk(rs_context_vk* ctx)
     {
-        ctx->nextRenderFrame++;
         return ctx->nextRenderFrame;
     }
 
