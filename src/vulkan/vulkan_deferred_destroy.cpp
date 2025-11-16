@@ -9,6 +9,7 @@ namespace Render::Vulkan {
 		this->mFrameImages.resize(mMaxFrameInFlight);
 		this->mFrameSamplers.resize(mMaxFrameInFlight);
 		this->mFramePipelines.resize(mMaxFrameInFlight);
+		this->mFrameRenderPasses.resize(mMaxFrameInFlight);
 	}
 	void DeferredDestroyer::destroyBuffer(uint64_t frame, rs_buffer_vk* buffer)
 	{
@@ -32,6 +33,12 @@ namespace Render::Vulkan {
 	{
 		int f = frame % mMaxFrameInFlight;
 		mFramePipelines[f].push_back(pipeline);
+	}
+
+	void DeferredDestroyer::destroyRenderPass(uint64_t frame, rs_renderpass_vk* renderpass)
+	{
+		int f = frame % mMaxFrameInFlight;
+		mFrameRenderPasses[f].push_back(renderpass);
 	}
 
 	void DeferredDestroyer::endFrameDestroy(rs_context_vk* ctx,uint64_t frame)
@@ -68,7 +75,13 @@ namespace Render::Vulkan {
 			if (!pipeline)continue;
 			destroyRsPipeline(ctx, pipeline, true);
 		}
-		pipelines.clear();
+
+		auto& renderpasses = mFrameRenderPasses[f];
+		for (auto&& renderpass : renderpasses) {
+			if (!renderpass)continue;
+			destroyRsRenderPassVk(ctx, renderpass, true);
+		}
+		renderpasses.clear();
 	}
 
 	void DeferredDestroyer::clearAll(rs_context_vk* ctx)

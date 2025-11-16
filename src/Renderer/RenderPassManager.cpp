@@ -8,7 +8,6 @@ namespace Render {
 		std::vector<rs_renderpass*> swapchainRenderPass;
 		std::string RenderPassName;
 		RenderPass* TargetRenderPass = 0;
-
 		void clearRenderPass() {
 			for (auto&& rp : swapchainRenderPass) {
 				RenderSystem::instance()->destoyRenderPass(rp);
@@ -111,6 +110,11 @@ namespace Render {
 		mSwapchainRpHelper->RenderPassName = "";
 		mSwapchainRpHelper->TargetRenderPass->mRenderPass = nullptr;
 		mSwapchainRpHelper->TargetRenderPass = nullptr;
+	}
+
+	void RenderPassManager::onSwapchainRebuild()
+	{
+		this->mSwapchainRpHelper->rebuildAll();
 	}
 
 	void RenderPassManager::addRenderPass(const std::string& passName, RenderPass* pass)

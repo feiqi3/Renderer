@@ -8,6 +8,11 @@
 #include "Renderer/RenderPassManager.h"
 namespace Render{
 
+	struct EngineEvent {
+		bool WindowResize = false;
+		std::atomic_bool EngineIdle = false;
+	};
+
 	struct CommandPair {
 		rs_commandbuffer* commandBuffer;
 		std::vector<rs_semaphore*> wait;
@@ -22,6 +27,7 @@ namespace Render{
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
+		EngineEvent mEngineEvent;
 	public:
 		void* updateFramePendingData(uint32_t fif, uint64_t frame, void* data, uint32_t size);
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
@@ -44,6 +50,7 @@ namespace Render{
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024 * 64, sRenderSystem->mBackEndContext->maxSwapChainImages);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
+		sRenderSystem->initSwapchainRT();
 	}
 	void RenderSystem::destroyRenderSystem()
 	{
@@ -69,12 +76,13 @@ namespace Render{
 			resetFence(FenceToWaitForRender);
 		}
 		currentLogicFrame++;
+		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
+		getRenderContext()->canRenderNextFrame = true;
 	}
 	void RenderSystem::BeginRenderFrame()
 	{
 		using namespace Vulkan;
 		auto ctx = getRenderContext();
-		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
 		if (mUseRenderThread) {
 			while (1) {
 				//Wait For Logic Frame Ready
@@ -87,6 +95,11 @@ namespace Render{
 					Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait ,  cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence );
 				}
 				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
+				ctx->currentSwapchainImage = (ctx->currentSwapchainImage + 1) % ctx->maxSwapChainImages;
+				if (mDp->mEngineEvent.EngineIdle) {
+					Vulkan::WaitForDeviceIdel(getRenderContext());
+					mDp->mEngineEvent.EngineIdle = false;
+				}
 				ctx->canRenderNextFrame = false;
 			}
 		}
@@ -97,6 +110,11 @@ namespace Render{
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait , cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence);
 			}
 			submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
+			ctx->currentSwapchainImage = (ctx->currentSwapchainImage + 1) % ctx->maxSwapChainImages;
+			if (mDp->mEngineEvent.EngineIdle) {
+				Vulkan::WaitForDeviceIdel(getRenderContext());
+				mDp->mEngineEvent.EngineIdle = false;
+			}
 		}
 
 
@@ -289,6 +307,18 @@ namespace Render{
 	}
 	void RenderSystem::beginFrame()
 	{
+		if (mUseRenderThread) {
+			while (mDp->mEngineEvent.EngineIdle);
+		}
+		//Before frame event
+		if (mDp->mEngineEvent.WindowResize) {
+			getRenderContext()->currentSwapchainImage = 0;
+			Vulkan::createSwapchain(getRenderContext(), this->mWindow, getRenderContext()->swapchain);
+			mDp->mPassManager->onSwapchainRebuild();
+			mDp->mEngineEvent.WindowResize = false;
+			deinitSwapchainRT();
+			initSwapchainRT();
+		}
 		Vulkan::beginRsFrameVk(getRenderContext());
 		mDp->mLogicThreadCommandBuffers.clear();
 		mCurLogicFrameInFlight = currentLogicFrame % getRenderContext()->maxFrameInFlight;
@@ -413,13 +443,14 @@ namespace Render{
 	rs_rendertarget* RenderSystem::getNextSwapchainRendertarget()
 	{
 		auto ctx = getRenderContext();
-		uint32_t NxtImageIdx = this->getNextRenderFrame() % ctx->maxSwapChainImages;
+		uint32_t NxtImageIdx = ctx->currentSwapchainImage;
 		return mDp->mSwapchainRT[NxtImageIdx];
 	}
 
 	void RenderSystem::initSwapchainRT()
 	{
 		auto ctx = getRenderContext();
+
 		for (int i = 0; i < ctx->maxSwapChainImages; ++i) {
 			mDp->mSwapchainRT.push_back(createRendertarget({ getSwapchainImage(i) }, 0));
 		}
@@ -469,6 +500,22 @@ namespace Render{
 	void RenderSystem::resetFence(rs_fence* fence)
 	{
 		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
+	}
+
+	void RenderSystem::setEngineIdle()
+	{
+		mDp->mEngineEvent.EngineIdle = true;
+	}
+
+	void RenderSystem::waitForEngineIdle()
+	{
+		Vulkan::WaitForDeviceIdel(getRenderContext());
+	}
+
+	void RenderSystem::onWindowResize()
+	{
+		setEngineIdle();
+		mDp->mEngineEvent.WindowResize = true;
 	}
 
 	RenderSystem::RenderSystem()

@@ -22,7 +22,7 @@ namespace Render::Vulkan {
 		rs_rendertarget_vk* rt,
 		const PassDesc& rpDesc
 	);
-	void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass);
+	void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass, bool immediately = false);
 	bool changeRsRenderPassRtVk(rs_context_vk* ctx, rs_renderpass_vk* rp, rs_rendertarget_vk* rt);
 
 	VkPrimitiveTopology toVkTopology(Topology topo);

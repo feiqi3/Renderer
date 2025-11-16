@@ -4,18 +4,19 @@
 #include "Renderer/ObjectEntity.h"
 #include <chrono>
 #include <iostream>
+
+void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
+
 int main() {
 	Render::BackEndInitDesc backEndInit{};
 	backEndInit.appName = "Test";
 	backEndInit.engineName = "Feigen";
 
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
-
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
-
+	setWindowEventsCallbacks(glfwWindow);
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
-	renderSystem->initSwapchainRT();
 	renderFlow->init();
 
 	float FrameTime = 0.f;
@@ -24,7 +25,6 @@ int main() {
 	float TargetFrameTime = 1000. / TargetFps;
 
 	while (!glfwWindow->shouldClose()) {
-		glfwWindow->pollEvents();
 		auto frameBegin = std::chrono::system_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
 
@@ -35,6 +35,7 @@ int main() {
 
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();
+		glfwWindow->pollEvents();
 		renderSystem->BeginRenderFrame();
 		auto frameEnd = std::chrono::system_clock::now();
 		auto frameDuration = frameEnd - frameBegin;
@@ -50,9 +51,16 @@ int main() {
 		CurrentFPS = int(1000. / frameNewTime);
 		std::cout << "Current FPS:" << CurrentFPS << "\n";
 	}
-
 	renderFlow->deinit();
-
 	Render::RenderSystem::destroyRenderSystem();
 }
 
+void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window)
+{
+	//1. OnResize
+	window->ResizeEvent += [](int x, int y) {
+		std::cout << "Window Resize: x:" << x << " y:" << y << "\n";
+		Render::RenderSystem::instance()->onWindowResize();
+		return true;
+		};
+}

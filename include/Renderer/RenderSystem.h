@@ -14,6 +14,7 @@ namespace Render{
 		struct rs_context_vk;
 	}
 
+
 	class RenderSystemPrivate;
 	class RenderSystem:public Common::NonCopyable {
 	public:
@@ -104,6 +105,11 @@ namespace Render{
 			FenceToWaitForRender = fence;
 		}
 
+
+		void setEngineIdle();
+		void waitForEngineIdle();
+	public:
+		void onWindowResize();
 	private:
 		RenderSystem();
 		~RenderSystem();

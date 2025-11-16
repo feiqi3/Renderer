@@ -10,6 +10,7 @@ namespace Render {
 		void onFrameBegin();
 		void markSwapchainRenderPass(RenderPass* pass);
 		void unMarkSwapchainRenderPass(RenderPass* pass);
+		void onSwapchainRebuild();
 	private:
 		friend class RenderPass;
 		void addRenderPass(const std::string& passName, RenderPass* pass);

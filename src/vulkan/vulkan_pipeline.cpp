@@ -262,12 +262,17 @@ namespace Render::Vulkan {
         return rp;
     }
 
-    void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass)
+    void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass, bool immediately)
     {
-        vkDestroyFramebuffer(ctx->device, renderpass->frameBuffer, 0);
-        vkDestroyRenderPass(ctx->device, (VkRenderPass)renderpass->native, 0);
-        delete renderpass;
-        renderpass = 0;
+        if (immediately) {
+            vkDestroyFramebuffer(ctx->device, renderpass->frameBuffer, 0);
+            vkDestroyRenderPass(ctx->device, (VkRenderPass)renderpass->native, 0);
+            delete renderpass;
+            renderpass = 0;
+        }
+        else {
+            ctx->destroyer->destroyRenderPass(ctx->nextRenderFrame, renderpass);
+        }
     }
 
     bool changeRsRenderPassRtVk(rs_context_vk* ctx, rs_renderpass_vk* rp,rs_rendertarget_vk* rt)

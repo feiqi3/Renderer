@@ -28,7 +28,7 @@ namespace Render::Window {
         }
 
         CallbackID operator +=(std::function<void(Args...)> const& fn) {
-            add(fn);
+            return add(fn);
         }
 
         void operator -=(CallbackID id) {

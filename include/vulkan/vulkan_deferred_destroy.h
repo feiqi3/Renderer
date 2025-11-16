@@ -7,6 +7,7 @@ namespace Render::Vulkan {
 	struct rs_image_vk;
 	struct rs_sampler_vk;
 	struct rs_pipeline_vk;
+	struct rs_renderpass_vk;
 	struct rs_context_vk;
 }
 
@@ -20,7 +21,7 @@ namespace Render::Vulkan {
 		void destroyImage(uint64_t frame, rs_image_vk* image);
 		void destroySampler(uint64_t frame, rs_sampler_vk* sampler);
 		void destroyPipeline(uint64_t frame, rs_pipeline_vk* pipeline);
-
+		void destroyRenderPass(uint64_t frame, rs_renderpass_vk* renderpass);
 		void endFrameDestroy(rs_context_vk* ctx ,uint64_t frame);
 
 		void clearAll(rs_context_vk* ctx);
@@ -33,6 +34,7 @@ namespace Render::Vulkan {
 
 		std::vector<std::vector<rs_pipeline_vk*>> mFramePipelines;
 
+		std::vector<std::vector<rs_renderpass_vk*>> mFrameRenderPasses;
 		int mMaxFrameInFlight = 3;
 	};
 

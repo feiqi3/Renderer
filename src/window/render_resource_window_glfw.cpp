@@ -23,6 +23,7 @@ namespace Render::Window
             }
             s_glfwInitialized = true;
             s_glfwInstanceNum++;
+            initCallback();
         }
     }
     rs_window_glfw::~rs_window_glfw()

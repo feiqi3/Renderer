@@ -526,7 +526,6 @@ namespace Render::Vulkan {
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
         ctx->imageDataMgr = new ImageDataManager(maxFif);
-        ctx->currentSwapchainImage = ctx->maxSwapChainImages;
         return ctx;
     }
 
@@ -586,7 +585,6 @@ namespace Render::Vulkan {
         int iw = images[0]->width;
         int ih = images[0]->height;
         int il = images[0]->arrayLayers;
-        VkFramebufferCreateInfo ci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
         std::vector<rs_image*> localimages;
 
         int depthAttPos = -1;
@@ -1030,7 +1028,9 @@ namespace Render::Vulkan {
             uint64_t _ = 0;
             (void)*((int*)_);
         });
-
+        if (oldSwapchain) {
+            destroySwapChain(context);
+        }
         uint32_t swapImgCount = 0;
         vkGetSwapchainImagesKHR(context->device, swapchain, &swapImgCount, nullptr);
         std::vector<VkImage> swapImages(swapImgCount);
@@ -1081,6 +1081,14 @@ namespace Render::Vulkan {
     {
         VkSwapchainKHR swapchain = (VkSwapchainKHR)context->swapchain->native;
         vkDestroySwapchainKHR(context->device,swapchain,0);
+        //DestroyViews 
+        //Images are created by swapchai  
+        auto& views = context->swapchain->swapchainImgs;
+        for (auto image : views) {
+            vkDestroyImageView(context->device, image->view, 0);
+            delete image;
+        }
+        views.resize(0);
     }
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
