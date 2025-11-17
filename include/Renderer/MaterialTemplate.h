@@ -10,7 +10,6 @@ namespace Render {
 	class MaterialTemplate {
 	public:
 		MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc):mRenderState(state),mShaderInfo(shaderInfo), mInputDesc(inputDesc){
-			
 		}
 		const RenderState& getRenderState()const { return mRenderState; }
 		const ShaderStageInfo& getShaderStageInfo()const { return mShaderInfo; }

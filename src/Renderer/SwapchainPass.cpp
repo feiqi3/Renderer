@@ -9,7 +9,7 @@ namespace Render {
 	static PassDesc SwapchainPassDesc{
 		.attachments = {
 			PassAttachment{
-				.loadOp = StorageOp::DontCare,
+				.loadOp = StorageOp::Clear,
 				.storeOp = StorageOp::Cached
 			}
 		},
@@ -44,6 +44,7 @@ namespace Render {
 		VertexInputDescription vtxIA{};
 		MaterialTemplate* BlitMaterial = new MaterialTemplate(stageInfo, state, vtxIA);
 		BlitEntity->setMaterialTemplate(BlitMaterial);
+		BlitEntity->getRenderInfo().idxCount = 6;
 		BlitMatVarient = BlitMaterial->createVarient(this, {});
 		BlitPass = BlitEntity->createPass(this->getPassName());
 

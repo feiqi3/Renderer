@@ -39,6 +39,7 @@ namespace Render {
 		}
 
 	private:
+
 		void destroyPass(Pass* pass);
 
 		friend class RenderSystem;

@@ -1920,7 +1920,7 @@ namespace Render::Vulkan {
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
         if (donotuseidxdraw) {
-            vkCmdDraw(cmd, instanceCnt, 0, info.vtxoffset, 0);
+            vkCmdDraw(cmd, info.idxCount, instanceCnt, info.vtxoffset, 0);
         }
         else {
             vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);
@@ -1965,7 +1965,7 @@ namespace Render::Vulkan {
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
         if (donotuseidxdraw) {
-            vkCmdDraw(cmd, instanceCnt, 0, info.vtxoffset,0);
+            vkCmdDraw(cmd, info.idxCount, instanceCnt, info.vtxoffset,0);
         }
         else {
             vkCmdDrawIndexed(cmd, info.idxCount, instanceCnt, 0, info.vtxoffset, 0);

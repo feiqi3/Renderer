@@ -9,7 +9,7 @@ layout(location = 1) out vec2 fragTexCoord;
 
 void main()
 {
-    gl_Position = vec4(inPosition, 1.0);
+    gl_Position = vec4(inPosition / 5.0, 1.0);
 
     fragNormal = inNormal;
     fragTexCoord = inTexCoord;

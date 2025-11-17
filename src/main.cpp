@@ -28,7 +28,7 @@ int main() {
 		auto frameBegin = std::chrono::system_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
 
-		if (Render::RenderSystem::instance()->getNextRenderFrame() == 1) {
+		if (Render::RenderSystem::instance()->getNextRenderFrame() == 0) {
 			auto Cube = new Render::CubeEntity();
 			renderFlow->AddEntity(Cube);
 		}
