@@ -1,31 +1,101 @@
+#include "Renderer/RenderSystem.h"
 #include "Renderer/CameraManager.h"
 #include "Renderer/Camera.h"
-void Render::CameraManager::RegisterCamera(Camera* camera, uint32_t priority)
-{
-	if (camera == nullptr) {
-		assert(0);
-		return;
-	}
-	mPriorityCameras.insert({ priority,camera });
-}
+#include "Renderer/RenderPassManager.h"
+#include "render_resource_createinfo.h"
+#include "Renderer/RenderEntity.h"
+#include "common/CommonMath.h"
+namespace Render {
 
-void Render::CameraManager::UnregisterCamera(Camera* camera)
-{
-	for (auto&& itor = mPriorityCameras.begin();itor != mPriorityCameras.end();) {
-		Camera* cam = itor->second;
-		if (cam == camera || cam->getName() == camera->getName()) {
-			itor = mPriorityCameras.erase(itor);
+	struct alignas(16) CameraDataCommon {
+		mat4 MatView;
+		mat4 MatProj;
+		mat4 MatViewProj;
+		mat4 MatInvView;
+		mat4 MatInvProj;
+		vec4 CameraPosition;
+		vec4 CameraUp;
+		vec4 CameraFront;
+	};
+
+	void updateCameraDataCommon(Camera* cam,CameraDataCommon& common) {
+		common.MatView = cam->getViewMatrix();
+		common.MatProj = cam->getProjectionMatrix();
+		common.MatViewProj =common.MatInvProj * common.MatView;
+		common.MatInvView = inverse(common.MatView);
+		common.MatInvProj = inverse(common.MatProj);
+		common.CameraPosition = vec4(cam->getPosition(),1.f);
+		common.CameraUp =vec4(cam->getUp(),0.f);
+		common.CameraFront = vec4(cam->getTarget(), 0.f);
+	}
+
+	class CameraManagerPrivate {
+	public:
+		MaterialTemplate* VirtualCameraTemplate = nullptr;
+		Material* MainPassCameraMaterial = nullptr;
+		rs_binding_pos CameraCommonDataBindingPos;
+	};
+
+	void CameraManager::RegisterCamera(Camera* camera, uint32_t priority)
+	{
+		if (camera == nullptr) {
+			assert(0);
+			return;
 		}
-		else {
-			++itor;
+		mPriorityCameras.insert({ priority,camera });
+	}
+
+	void CameraManager::UnregisterCamera(Camera* camera)
+	{
+		for (auto&& itor = mPriorityCameras.begin();itor != mPriorityCameras.end();) {
+			Camera* cam = itor->second;
+			if (cam == camera || cam->getName() == camera->getName()) {
+				itor = mPriorityCameras.erase(itor);
+			}
+			else {
+				++itor;
+			}
 		}
 	}
-}
 
-void Render::CameraManager::TraversalCameras(const std::function<void(Camera*)>& func)
-{
-	for (auto&& itor = mPriorityCameras.begin();itor != mPriorityCameras.end();++itor) {
-		func(itor->second);
+	void CameraManager::TraversalCameras(const std::function<void(Camera*)>& func)
+	{
+		for (auto&& itor = mPriorityCameras.begin();itor != mPriorityCameras.end();++itor) {
+			func(itor->second);
+		}
 	}
-}
 
+	void CameraManager::InitCameraDrawData()
+	{
+		static const char* PathToVirtualPipelineVs = "../shader/VirtualPipeline.vs";
+		static const char* PathToVirtualPipelinePs = "../shader/VirtualPipeline.ps";
+		ShaderStageInfo VirtualCameraShaderStageInfo{
+			{ShaderStage::Vertex, PathToVirtualPipelineVs },
+			{ShaderStage::Fragment, PathToVirtualPipelinePs }
+		};
+		VertexInputDescription vtxIA{};
+		RenderState renderState{};
+
+		RenderSystem* pSys = RenderSystem::instance();
+		//1. create a pipeline 
+		auto pass = pSys->getRenderPass("MainCam");
+		mDp->VirtualCameraTemplate = new MaterialTemplate(VirtualCameraShaderStageInfo, renderState, vtxIA);
+		mDp->MainPassCameraMaterial = mDp->VirtualCameraTemplate->createVarient(pass, {});
+		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassCameraMaterial);
+	}
+
+	rs_drawdata* CameraManager::GetCameraDrawData(Camera* camera)
+	{
+		if (camera->mCameraDrawData) {
+			camera->mCameraDrawData = RenderSystem::instance()->createDrawData();
+		}
+		Pass tempPass{};
+		tempPass.mDrawData = camera->mCameraDrawData;
+		tempPass.mMaterial = mDp->MainPassCameraMaterial;
+		CameraDataCommon commonData;
+		updateCameraDataCommon(camera, commonData);
+		RenderSystem::instance()->updateUniformBufferData(mDp->CameraCommonDataBindingPos, &commonData, sizeof(CameraDataCommon), &tempPass);
+		return camera->mCameraDrawData;
+	}
+
+}

@@ -7,6 +7,9 @@
 #include "Renderer/MaterialVarient.h"
 #include <render_resource.h>
 namespace Render{
+
+	class Camera;
+
 	namespace Window {
 		class rs_window;
 	}
@@ -105,6 +108,7 @@ namespace Render{
 			FenceToWaitForRender = fence;
 		}
 
+		void setCurrentCamera(Camera* camera);
 
 		void setEngineIdle();
 		void waitForEngineIdle();
@@ -125,6 +129,7 @@ namespace Render{
 		rs_semaphore* SignalCanRenderToPresentImageSemaphore ;
 		rs_semaphore* SignalCanPresentToPresentImageSemaphore ;
 		rs_fence* FenceToWaitForRender = 0;
+		
 	private: 
 		static RenderSystem* sRenderSystem;
 	};
