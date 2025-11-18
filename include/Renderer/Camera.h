@@ -1,11 +1,15 @@
 #pragma once
+#ifndef CAMERA_H_
+#define CAMERA_H_
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "common/Name.h"
 namespace Render {
     class Camera
     {
     public:
-        Camera(
+        Camera(const Name& name,
             const glm::vec3& position = glm::vec3(0.0f, 0.0f, 3.0f),
             const glm::vec3& target = glm::vec3(0.0f, 0.0f, 0.0f),
             const glm::vec3& up = glm::vec3(0.0f, 1.0f, 0.0f),
@@ -14,7 +18,8 @@ namespace Render {
             float nearPlane = 0.1f,
             float farPlane = 100.0f
         )
-            : m_position(position)
+            : mCamName(name)
+            , m_position(position)
             , m_target(target)
             , m_up(up)
             , m_fov(fovDegrees)
@@ -59,7 +64,7 @@ namespace Render {
         // 直接设置矩阵（如果你想自己传入）
         void setViewMatrix(const glm::mat4& view) { m_view = view; }
         void setProjectionMatrix(const glm::mat4& proj) { m_projection = proj; }
-
+        const Name& getName() const { return mCamName; }
     private:
         void updateView() {
             m_view = glm::lookAt(m_position, m_target, m_up);
@@ -70,6 +75,8 @@ namespace Render {
         }
 
     private:
+        Name mCamName;
+
         glm::vec3 m_position;
         glm::vec3 m_target;
         glm::vec3 m_up;
@@ -83,3 +90,5 @@ namespace Render {
         glm::mat4 m_projection;
     };
 }
+
+#endif

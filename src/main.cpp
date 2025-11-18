@@ -4,6 +4,7 @@
 #include "Renderer/ObjectEntity.h"
 #include <chrono>
 #include <iostream>
+#include <string>
 
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
@@ -41,18 +42,22 @@ int main() {
 		auto frameDuration = frameEnd - frameBegin;
 		FrameTime = (std::chrono::duration_cast<std::chrono::microseconds>(frameDuration).count()) / 1000.f;
 		float sleepTime = TargetFrameTime - FrameTime;
-		if (sleepTime > 0.5) {
-			std::chrono::duration<float, std::milli> ms_dur(sleepTime);
-			std::this_thread::sleep_for(ms_dur);
+		while (true) {
+			auto nowTime = std::chrono::system_clock::now();
+			float elapsedTimeSinceFrameBegin = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - frameBegin).count();
+			if (elapsedTimeSinceFrameBegin >= sleepTime)break;
 		}
+
 		auto frameNewEnd = std::chrono::system_clock::now();
 		auto frameNewDuration = frameNewEnd - frameBegin;
 		float frameNewTime = (std::chrono::duration_cast<std::chrono::microseconds>(frameNewDuration).count()) / 1000.f;
-		CurrentFPS = int(1000. / frameNewTime);
-		std::cout << "Current FPS:" << CurrentFPS << "\n";
+		CurrentFPS = int(1000.f / frameNewTime);
+		glfwWindow->setTitle((std::string("fps: ") + std::to_string(CurrentFPS)).c_str());
 	}
 	renderFlow->deinit();
 	Render::RenderSystem::destroyRenderSystem();
+	delete glfwWindow;
+	glfwWindow = 0;
 }
 
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window)
