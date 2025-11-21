@@ -1,10 +1,10 @@
+#include "common/Name.h"
 #include "RenderPass.h"
-
 namespace Render {
 	class SwapchainRenderPassHelper;
 	class RenderPassManager {
 	public:
-		RenderPass* getRenderPass(const std::string& passName);
+		RenderPass* getRenderPass(const Name& passName);
 		~RenderPassManager();
 		RenderPassManager();
 		void onFrameBegin();
@@ -13,9 +13,9 @@ namespace Render {
 		void onSwapchainRebuild();
 	private:
 		friend class RenderPass;
-		void addRenderPass(const std::string& passName, RenderPass* pass);
-		void removeRenderPass(const std::string& name);
-		std::unordered_map<std::string, RenderPass*> mRenderPasses;
+		void addRenderPass(const Name& passName, RenderPass* pass);
+		void removeRenderPass(const Name& name);
+		std::unordered_map<Name, RenderPass*> mRenderPasses;
 		void destroyRenderPass(RenderPass* pass);
 		SwapchainRenderPassHelper* mSwapchainRpHelper = 0;
 	};

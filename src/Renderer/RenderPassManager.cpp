@@ -6,7 +6,7 @@ namespace Render {
 	class SwapchainRenderPassHelper {
 	public:  
 		std::vector<rs_renderpass*> swapchainRenderPass;
-		std::string RenderPassName;
+		Name RenderPassName;
 		RenderPass* TargetRenderPass = 0;
 		void clearRenderPass() {
 			for (auto&& rp : swapchainRenderPass) {
@@ -39,7 +39,7 @@ namespace Render {
 	};
 
 
-	RenderPass* RenderPassManager::getRenderPass(const std::string& passName)
+	RenderPass* RenderPassManager::getRenderPass(const Name& passName)
 	{
 		auto itor = mRenderPasses.find(passName);
 		if (itor != mRenderPasses.end()) {
@@ -48,7 +48,7 @@ namespace Render {
 		return nullptr;
 	}
 
-	void RenderPassManager::removeRenderPass(const std::string& name)
+	void RenderPassManager::removeRenderPass(const Name& name)
 	{
 		auto pass = getRenderPass(name);
 		if (pass) {
@@ -117,7 +117,7 @@ namespace Render {
 		this->mSwapchainRpHelper->rebuildAll();
 	}
 
-	void RenderPassManager::addRenderPass(const std::string& passName, RenderPass* pass)
+	void RenderPassManager::addRenderPass(const Name& passName, RenderPass* pass)
 	{
 		auto itor = mRenderPasses.find(passName);
 		if (itor == mRenderPasses.end()) {

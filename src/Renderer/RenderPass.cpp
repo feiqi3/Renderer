@@ -5,7 +5,7 @@
 #include "Renderer/RenderDebuger.h"
 #include "Renderer/RenderPassManager.h"
 namespace Render {
-	RenderPass::RenderPass(const std::string& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
+	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
 	{
 		auto mgr = RenderSystem::instance()->getRenderPassManager();
 		mgr->addRenderPass(passName, this);

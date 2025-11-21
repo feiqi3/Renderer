@@ -6,6 +6,7 @@
 #include "Renderer/MaterialVarient.h"
 #include "vulkan/vulkan_command.h"
 #include "Renderer/RenderPassManager.h"
+#include "Renderer/CameraManager.h"
 namespace Render{
 
 	struct EngineEvent {
@@ -27,6 +28,7 @@ namespace Render{
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
+		rs_drawdata* mCurrentCameraData = nullptr;
 		EngineEvent mEngineEvent;
 	public:
 		void* updateFramePendingData(uint32_t fif, uint64_t frame, void* data, uint32_t size);
@@ -323,6 +325,7 @@ namespace Render{
 		mDp->mLogicThreadCommandBuffers.clear();
 		mCurLogicFrameInFlight = currentLogicFrame % getRenderContext()->maxFrameInFlight;
 		mDp->cleanUpFramesPendingData(currentLogicFrame % mBackEndContext->maxFrameInFlight, currentLogicFrame);
+		mDp->mCurrentCameraData = nullptr;
 		getRenderPassManager()->onFrameBegin();
 	}
 
@@ -414,8 +417,11 @@ namespace Render{
 	{
 		cmdBuffer->hasCommands = true;
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
-		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawData, getCurFif());
+		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
+		std::array<Vulkan::rs_drawdata_vk*,3> drawDataArr{};
+		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityDrawData;
+		drawDataArr[2] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{
@@ -500,6 +506,15 @@ namespace Render{
 	void RenderSystem::resetFence(rs_fence* fence)
 	{
 		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
+	}
+
+	void RenderSystem::setCurrentCamera(Camera* camera)
+	{
+		if (camera == nullptr) {
+			mDp->mCurrentCameraData = nullptr;
+			return;
+		}
+		mDp->mCurrentCameraData = CameraManager::instance()->GetCameraDrawData(camera);
 	}
 
 	void RenderSystem::setEngineIdle()

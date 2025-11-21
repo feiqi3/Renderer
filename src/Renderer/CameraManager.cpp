@@ -84,9 +84,9 @@ namespace Render {
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassCameraMaterial);
 	}
 
-	rs_drawdata* CameraManager::GetCameraDrawData(Camera* camera)
+	rs_drawdata* CameraManager::UpdateCameraDrawData(Camera* camera)
 	{
-		if (camera->mCameraDrawData) {
+		if (!camera->mCameraDrawData) {
 			camera->mCameraDrawData = RenderSystem::instance()->createDrawData();
 		}
 		Pass tempPass{};

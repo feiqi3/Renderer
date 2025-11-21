@@ -112,6 +112,8 @@ namespace Render{
 
 		void setEngineIdle();
 		void waitForEngineIdle();
+
+		void bindCurrentCamera(Camera* camera);
 	public:
 		void onWindowResize();
 	private:

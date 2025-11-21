@@ -1,5 +1,6 @@
 #ifndef RENDER_PASS_H
 #define RENDER_PASS_H
+#include "common/Name.h"
 #include "render_resource_createinfo.h"  
 #include <string>
 namespace Render {
@@ -8,7 +9,7 @@ namespace Render {
 	struct rs_commandbuffer;
 	class RenderPass {
 	public:
-		RenderPass(const std::string& passName, const PassDesc& desc);
+		RenderPass(const Name& passName, const PassDesc& desc);
 		virtual void init() {}
 		virtual ~RenderPass();
 		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer);
@@ -21,13 +22,12 @@ namespace Render {
 		}
 
 		virtual void beginFrame(uint64_t frame) {};
-		const std::string& getPassName() { return mPassName; }
+		const Name& getPassName() { return mPassName; }
 	protected: 
 		friend class RenderPassManager;
-
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer) = 0;
 	protected:
-		std::string mPassName;
+		Name mPassName;
 		rs_renderpass* mRenderPass;
 		const PassDesc mPassDesc;
 		std::vector<ClearColor> mClrColor;
