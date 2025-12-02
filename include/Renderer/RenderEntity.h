@@ -27,10 +27,10 @@ namespace Render {
 		void setIndexBuffer(rs_buffer* buffer,IndexType type);
 		void init();
 		std::vector<VertexBindingInfo >& getBindingBuffers();
-		rs_drawdata* getDrawData(const std::string& passName);
-		Pass* createPass(const std::string& passName);
-		void destroyPass(const std::string& passName);
-		Pass* getPass(const std::string& passName);
+		rs_drawdata* getDrawData(const Name& passName);
+		Pass* createPass(const Name& passName);
+		void destroyPass(const Name& passName);
+		Pass* getPass(const Name& passName);
 		const RenderInfo& getRenderInfo()const {
 			return mRenderInfo;
 		}
@@ -44,7 +44,7 @@ namespace Render {
 
 		friend class RenderSystem;
 		//TODO: Write every thing into descriptor
-		std::map<std::string, Pass*> mPasses;
+		std::map<Name, Pass*> mPasses;
 		MaterialTemplate* mMaterial = 0;
 		RenderInfo mRenderInfo;
 	};

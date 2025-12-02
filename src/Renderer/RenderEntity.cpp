@@ -35,7 +35,7 @@ namespace Render {
 		return mRenderInfo.bindingBuffers;
 	}
 
-	rs_drawdata* RenderEntity::getDrawData(const std::string& passName)
+	rs_drawdata* RenderEntity::getDrawData(const Name& passName)
 	{
 		auto itor = this->mPasses.find(passName);
 		if (itor == mPasses.end()) {
@@ -45,7 +45,7 @@ namespace Render {
 		return pass->mDrawData;
 	}
 
-	Pass* RenderEntity::createPass(const std::string& passName)
+	Pass* RenderEntity::createPass(const Name& passName)
 	{
 		if (this->mPasses.find(passName) != mPasses.end()) {
 			return mPasses[passName];
@@ -63,7 +63,7 @@ namespace Render {
 		return nullptr;
 	}
 
-	void RenderEntity::destroyPass(const std::string& passName)
+	void RenderEntity::destroyPass(const Name& passName)
 	{
 		auto renderSys = RenderSystem::instance();
 		auto pass = getPass(passName);
@@ -74,7 +74,7 @@ namespace Render {
 		
 	}
 
-	Pass* RenderEntity::getPass(const std::string& passName)
+	Pass* RenderEntity::getPass(const Name& passName)
 	{
 		auto itor = this->mPasses.find(passName);
 		if (itor == mPasses.end()) {

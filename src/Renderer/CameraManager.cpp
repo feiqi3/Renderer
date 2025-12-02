@@ -58,10 +58,12 @@ namespace Render {
 		}
 	}
 
-	void CameraManager::TraversalCameras(const std::function<void(Camera*)>& func)
+	void CameraManager::TraversalCameras(const std::function<bool(Camera*)>& func)
 	{
 		for (auto&& itor = mPriorityCameras.begin();itor != mPriorityCameras.end();++itor) {
-			func(itor->second);
+			if (!func(itor->second)) {
+				break;
+			}
 		}
 	}
 
@@ -84,7 +86,42 @@ namespace Render {
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassCameraMaterial);
 	}
 
-	rs_drawdata* CameraManager::UpdateCameraDrawData(Camera* camera)
+	void CameraManager::deactiveCamera(Camera* cam)
+	{
+		this->TraversalCameras([cam](Camera* icam) {
+			if (cam == icam) {
+				cam->m_active = false;
+				return false;
+			}
+		});
+	}
+
+	void CameraManager::activeCamera(Camera* cam)
+	{
+		this->TraversalCameras([cam](Camera* icam) {
+			if (cam == icam) {
+				cam->m_active = true;
+				return false;
+			}
+			});
+	}
+
+	void CameraManager::updateAllCamera()
+	{
+		TraversalCameras([this](Camera* cam) {
+			if (cam->getCameraActive()) {
+				updateCameraDrawData(cam);
+			}
+			return true;
+		});
+	}
+
+	Render::rs_drawdata* CameraManager::getCameraDrawData(Camera* cam)
+	{
+		return cam->getDrawData();
+	}
+
+	rs_drawdata* CameraManager::updateCameraDrawData(Camera* camera)
 	{
 		if (!camera->mCameraDrawData) {
 			camera->mCameraDrawData = RenderSystem::instance()->createDrawData();

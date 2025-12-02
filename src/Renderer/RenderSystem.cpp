@@ -406,7 +406,7 @@ namespace Render{
 		};
 		mDp->mLogicThreadCommandBuffers.push_back(pair);
 	}
-	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity,const std::string& passName)
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity,const Name& passName)
 	{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
@@ -510,11 +510,11 @@ namespace Render{
 
 	void RenderSystem::setCurrentCamera(Camera* camera)
 	{
-		if (camera == nullptr) {
-			mDp->mCurrentCameraData = nullptr;
-			return;
+		if (camera->getCameraActive() == false) {
+			assert(0 && "Camera not active");
+
 		}
-		mDp->mCurrentCameraData = CameraManager::instance()->GetCameraDrawData(camera);
+		mDp->mCurrentCameraData = CameraManager::instance()->updateCameraDrawData(camera);
 	}
 
 	void RenderSystem::setEngineIdle()

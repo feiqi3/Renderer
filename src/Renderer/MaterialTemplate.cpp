@@ -71,7 +71,7 @@ namespace Render {
 
 		return mat;
 	}
-	Material* MaterialTemplate::getVarient(const std::string& name)
+	Material* MaterialTemplate::getVarient(const Name& name)
 	{
 		auto itor = mVarientMap.find(name);
 		if (itor != mVarientMap.end()) {

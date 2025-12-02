@@ -12,7 +12,7 @@ namespace Render {
 		}
 	};
 
-	MainCamPass::MainCamPass():RenderPass("MainPass", MainCamPassDesc)
+	MainCamPass::MainCamPass():RenderPass(Name("MainPass"), MainCamPassDesc)
 	{
 	}
 	void MainCamPass::drawImpl(rs_commandbuffer* cmdbuffer)

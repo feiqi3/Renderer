@@ -5,6 +5,7 @@
 #include "common/NoCopyable.h"
 #include "Renderer/RenderEntity.h"
 #include "Renderer/MaterialVarient.h"
+#include "Common/Name.h"
 #include <render_resource.h>
 namespace Render{
 
@@ -73,7 +74,7 @@ namespace Render{
 		void updateBufferData(rs_buffer* buffer,void* data,size_t byteSize,size_t dstOffset);
 		void* placeFramePendingData(void* data, uint32_t size);
 		void submitCmdBuffer(rs_commandbuffer* cmdBuffer,const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal,rs_fence* fence);
-		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const std::string& passName);
+		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
 		void waitForFence(rs_fence* fence);
 		void clearRenderEntity(RenderEntity* entity);
@@ -97,6 +98,8 @@ namespace Render{
 		void destroyFence(rs_fence* fence);
 		void resetFence(rs_fence* fence);
 
+		void setCurrentCamera(Camera* camera);
+
 		void setSignalCanRenderToPresentImageSemaphore(rs_semaphore*semaphores) {
 			SignalCanRenderToPresentImageSemaphore = semaphores;
 		}
@@ -108,12 +111,9 @@ namespace Render{
 			FenceToWaitForRender = fence;
 		}
 
-		void setCurrentCamera(Camera* camera);
-
 		void setEngineIdle();
 		void waitForEngineIdle();
 
-		void bindCurrentCamera(Camera* camera);
 	public:
 		void onWindowResize();
 	private:

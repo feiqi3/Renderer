@@ -2,6 +2,7 @@
 #define MATERIAL_TEMPLATE_H
 #include <vector>
 #include <map>
+#include "common/Name.h"
 #include "render_resource_createinfo.h"
 namespace Render {
 	using ShaderStageInfo = std::vector<std::pair<ShaderStage, std::string>>;
@@ -18,12 +19,12 @@ namespace Render {
 		}
 
 		Material* createVarient(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco);
-		Material* getVarient(const std::string& passName);
+		Material* getVarient(const Name& passName);
 	
 		~MaterialTemplate();
 	private:
 		void destroyVarient(Material* material);
-		std::map<std::string, Material*> mVarientMap;
+		std::map<const Name&, Material*> mVarientMap;
 
 		RenderState mRenderState;
 		ShaderStageInfo mShaderInfo;

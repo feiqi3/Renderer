@@ -2,19 +2,19 @@
 
 namespace Render::Common
 {
-uint32_t murmur3_32(const void* key, size_t len, uint32_t seed)
+u32 murmur3_32(const void* key, size_t len, u32 seed)
 {
     const uint8_t* data = static_cast<const uint8_t*>(key);
     const int nblocks = len / 4;
 
-    uint32_t h1 = seed;
-    const uint32_t c1 = 0xcc9e2d51;
-    const uint32_t c2 = 0x1b873593;
+    u32 h1 = seed;
+    const u32 c1 = 0xcc9e2d51;
+    const u32 c2 = 0x1b873593;
 
     // body
-    const uint32_t* blocks = reinterpret_cast<const uint32_t*>(data);
+    const u32* blocks = reinterpret_cast<const u32*>(data);
     for (int i = 0; i < nblocks; ++i) {
-        uint32_t k1 = blocks[i];
+        u32 k1 = blocks[i];
         k1 *= c1;
         k1 = (k1 << 15) | (k1 >> 17);
         k1 *= c2;
@@ -25,12 +25,12 @@ uint32_t murmur3_32(const void* key, size_t len, uint32_t seed)
     }
 
     // tail
-    const uint8_t* tail = data + nblocks * 4;
-    uint32_t k1 = 0;
+    const u8* tail = data + nblocks * 4;
+    u32 k1 = 0;
     switch (len & 3) {
-    case 3: k1 ^= uint32_t(tail[2]) << 16;
-    case 2: k1 ^= uint32_t(tail[1]) << 8;
-    case 1: k1 ^= uint32_t(tail[0]);
+    case 3: k1 ^= u32(tail[2]) << 16;
+    case 2: k1 ^= u32(tail[1]) << 8;
+    case 1: k1 ^= u32(tail[0]);
         k1 *= c1;
         k1 = (k1 << 15) | (k1 >> 17);
         k1 *= c2;
@@ -49,11 +49,11 @@ uint32_t murmur3_32(const void* key, size_t len, uint32_t seed)
     return h1;
 }
 
-uint32_t fnv1a_hash(const void* data, size_t len)
+u32 fnv1a_hash(const void* data, size_t len)
 {
-    const uint8_t* bytes = static_cast<const uint8_t*>(data);
-    uint32_t hash = 0x811C9DC5u;             // FNV offset basis
-    const uint32_t prime = 0x01000193u;      // FNV prime
+    const u8* bytes = static_cast<const u8*>(data);
+    u32 hash = 0x811C9DC5u;             // FNV offset basis
+    const u32 prime = 0x01000193u;      // FNV prime
 
     for (size_t i = 0; i < len; ++i) {
         hash ^= bytes[i];
@@ -62,6 +62,25 @@ uint32_t fnv1a_hash(const void* data, size_t len)
     return hash;
 }
 
+Render::u64 fnv1a_64(const char* str, size_t len)
+{
+	uint64_t hash = 14695981039346656037ULL;  // FNV offset_basis 64
 
+	for (size_t i = 0; i < len; ++i) {
+		hash ^= static_cast<uint8_t>(str[i]);
+		hash *= 1099511628211ULL;             // FNV prime 64
+	}
+	return hash;
+}
+
+Render::u64 fnv1a_64_cstr(const char* str)
+{
+	u64 hash = 14695981039346656037ULL;
+	while (*str) {
+		hash ^= static_cast<uint8_t>(*str++);
+		hash *= 1099511628211ULL;
+	}
+	return hash;
+}
 
 }

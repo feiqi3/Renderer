@@ -16,7 +16,7 @@ namespace Render {
 		.writeDepth = false
 	};
 
-	SwapchainPass::SwapchainPass():RenderPass("Swapchain", SwapchainPassDesc)
+	SwapchainPass::SwapchainPass():RenderPass(Name("Swapchain"), SwapchainPassDesc)
 	{
 
 	}
@@ -67,6 +67,6 @@ namespace Render {
 		auto RenderSys = RenderSystem::instance();
 
 		RenderSys->updateUniform(BlitSampler, this->BlitRTSampler, BlitPass);
-		RenderSys->drawIndexed(cmdbuffer, BlitEntity, "Swapchain");
+		RenderSys->drawIndexed(cmdbuffer, BlitEntity, getPassName());
 	}
 }

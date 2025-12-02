@@ -64,6 +64,15 @@ namespace Render {
         void setViewMatrix(const mat4& view) { m_view = view; }
         void setProjectionMatrix(const mat4& proj) { m_projection = proj; }
         const Name& getName() const { return mCamName; }
+
+        bool getCameraActive()const {
+            return m_active;
+        }
+
+        rs_drawdata* getDrawData()const {
+            return mCameraDrawData;
+        }
+
 		~Camera();
     private:
         void updateView() {
@@ -88,6 +97,8 @@ namespace Render {
 
         mat4 m_view;
         mat4 m_projection;
+
+        bool m_active = true;
 
         friend class CameraManager;
 		rs_drawdata* mCameraDrawData = nullptr;

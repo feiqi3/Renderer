@@ -16,9 +16,15 @@ namespace Render {
 	public:
 		void RegisterCamera(Camera* camera,uint32_t priority);
 		void UnregisterCamera(Camera* camera);
-		void TraversalCameras(const std::function<void(Camera*)>& func);
+		void TraversalCameras(const std::function<bool(Camera*)>& func);
 		void InitCameraDrawData();
-		rs_drawdata* UpdateCameraDrawData(Camera* camera);
+		void deactiveCamera(Camera* cam);
+		void activeCamera(Camera* cam);
+		void updateAllCamera();
+		rs_drawdata* getCameraDrawData(Camera* cam);
+
+	private:
+		rs_drawdata* updateCameraDrawData(Camera* camera);
 	private:
 		std::multimap<uint32_t, Camera*> mPriorityCameras;
 		std::unique_ptr<CameraManagerPrivate> mDp;
