@@ -32,7 +32,7 @@ namespace Render {
 
 		~SwapchainRenderPassHelper() {
 			TargetRenderPass = 0;
-			RenderPassName = "";
+			RenderPassName = Name("");
 			clearRenderPass();
 			swapchainRenderPass.clear();
 		}
@@ -107,7 +107,7 @@ namespace Render {
 			return;
 		}
 		mSwapchainRpHelper->clearRenderPass();
-		mSwapchainRpHelper->RenderPassName = "";
+		mSwapchainRpHelper->RenderPassName = Name("");
 		mSwapchainRpHelper->TargetRenderPass->mRenderPass = nullptr;
 		mSwapchainRpHelper->TargetRenderPass = nullptr;
 	}

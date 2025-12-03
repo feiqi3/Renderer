@@ -59,7 +59,7 @@ namespace Render {
 			binding.stride = offset;
 			VtxIA.bindings.push_back(binding);
 			mNormalTemplate = new MaterialTemplate(NomralTemplateInfo, normalState, VtxIA);
-			mMainPass = mNormalTemplate->createVarient(RenderSystem::instance()->getRenderPass("MainPass"), {});
+			mMainPass = mNormalTemplate->createVarient(RenderSystem::instance()->getRenderPass(Name("MainPass")), {});
 		}
 		MaterialTemplate* mNormalTemplate = 0;
 		Material* mMainPass = 0;
@@ -145,7 +145,7 @@ namespace Render {
 			renderInfo.indexType = IndexType::Uint32;
 		
 			this->setMaterialTemplate(ObjectMaterialTemplateFactory::instance()->getNormalMaterial());
-			this->createPass("MainPass");
+			this->createPass(Name("MainPass"));
 
 		}
 			

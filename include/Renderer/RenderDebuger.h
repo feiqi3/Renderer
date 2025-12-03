@@ -6,13 +6,13 @@ namespace Render {
 	class rs_commandbuffer;
 	class RenderMarker : public Common::NonCopyable{
 	public:
-		RenderMarker(rs_commandbuffer* cmd,const std::string& label,float r,float g,float b,float a);
+		RenderMarker(rs_commandbuffer* cmd, const char* label,float r,float g,float b,float a);
 		~RenderMarker();
 	private:
 		rs_commandbuffer* mCommandBuffer;
 	
 	public:
-		void insertMarker(rs_commandbuffer* cmd, const std::string& label, float r, float g, float b, float a);
+		void insertMarker(rs_commandbuffer* cmd, const char* label, float r, float g, float b, float a);
 	};
 }
 

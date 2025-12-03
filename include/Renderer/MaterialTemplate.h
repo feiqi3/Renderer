@@ -24,7 +24,7 @@ namespace Render {
 		~MaterialTemplate();
 	private:
 		void destroyVarient(Material* material);
-		std::map<const Name&, Material*> mVarientMap;
+		std::map<Name, Material*> mVarientMap;
 
 		RenderState mRenderState;
 		ShaderStageInfo mShaderInfo;

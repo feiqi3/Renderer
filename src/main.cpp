@@ -5,14 +5,14 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-
+#include "common/StringPool.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
 	Render::BackEndInitDesc backEndInit{};
 	backEndInit.appName = "Test";
 	backEndInit.engineName = "Feigen";
-
+	new Render::StringPool();
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
 	setWindowEventsCallbacks(glfwWindow);

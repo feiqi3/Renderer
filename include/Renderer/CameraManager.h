@@ -22,7 +22,7 @@ namespace Render {
 		void activeCamera(Camera* cam);
 		void updateAllCamera();
 		rs_drawdata* getCameraDrawData(Camera* cam);
-
+		friend class RenderSystem;
 	private:
 		rs_drawdata* updateCameraDrawData(Camera* camera);
 	private:

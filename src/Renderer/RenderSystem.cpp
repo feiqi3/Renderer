@@ -7,6 +7,7 @@
 #include "vulkan/vulkan_command.h"
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/CameraManager.h"
+#include "Renderer/Camera.h"
 namespace Render{
 
 	struct EngineEvent {
@@ -126,7 +127,7 @@ namespace Render{
 		return mDp->mPassManager.get();
 	}
 
-	RenderPass* RenderSystem::getRenderPass(const std::string& pass) 
+	RenderPass* RenderSystem::getRenderPass(const Name& pass) 
 	{
 		return getRenderPassManager()->getRenderPass(pass);
 	}
@@ -338,7 +339,7 @@ namespace Render{
 		return INVALID_BINDING_POS;
 	}
 
-	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialTemplate* matTemplate, const std::string& passName)
+	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialTemplate* matTemplate, const Name& passName)
 	{
 		auto varient = matTemplate->getVarient(passName);
 		if (varient) {

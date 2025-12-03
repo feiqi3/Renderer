@@ -15,22 +15,22 @@ namespace Render {
 
 	public:
 		explicit Name(const char* str, u32 strLength)
-			: data_(StringPool::instance()->getOrGenStringData(str, strLength)),hash_(data_->mHash) {
+			: data_(StringPool::instance()->getOrGenStringData(str, strLength)),hash_(data_ != nullptr ? data_->mHash : 0) {
 		}
 
 		explicit Name(const char* str)
-			: Name(str,strlen(str)) {
+			: Name(str, str != nullptr ? strlen(str) : 0) {
 		}
 
 		explicit Name(const ::std::string& str)
 			: Name(str.data(),str.size()){
 		}
 
-
+		bool isEmpty()const { return data_ == nullptr; }
 
 		Name(::std::string_view sv) : Name(sv.data(),sv.size()) {}
-		Name() = delete;
-
+		Name() :Name(nullptr, 0) {}
+		~Name() {}
 		Name(const Name& other) = default;
 		Name(Name&& other) noexcept = default;
 		Name& operator=(const Name& other) = default;

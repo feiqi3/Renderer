@@ -33,7 +33,7 @@ namespace Render{
 		}
 
 		class RenderPassManager* getRenderPassManager()const;
-		RenderPass* getRenderPass(const std::string& pass);
+		RenderPass* getRenderPass(const Name& pass);
 		rs_commandbuffer* GetCommandBufferCurFrameCurThread();
 		rs_renderpass* createRenderPass(rs_rendertarget* renderTarget,const PassDesc& passDescription);
 		void destoyRenderPass(rs_renderpass* renderPass);
@@ -65,7 +65,7 @@ namespace Render{
 
 		//In Logic Frame only
 		rs_binding_pos getBindingPos(const std::string& bindingName, Material* material);
-		rs_binding_pos getBindingPos(const std::string& bindingName,MaterialTemplate* matTemplate,const std::string& passName);
+		rs_binding_pos getBindingPos(const std::string& bindingName,MaterialTemplate* matTemplate,const Name& passName);
 		void updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_image* image, Pass* pass);

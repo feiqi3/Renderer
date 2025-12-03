@@ -104,7 +104,7 @@ namespace Render {
 		rs_drawdata* mCameraDrawData = nullptr;
 	};
 
-	Camera::~Camera()
+	inline Camera::~Camera()
 	{
         if (mCameraDrawData) {
             RenderSystem::instance()->destroyDrawData(mCameraDrawData);

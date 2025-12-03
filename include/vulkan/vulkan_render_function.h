@@ -116,9 +116,9 @@ namespace Render::Vulkan {
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize,uint32_t aspect);
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout fromlayout, VkImageLayout newlayout, uint32_t mip,uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore*> imageAvailableWaitSemaphores,std::vector<rs_semaphore*> renderFinishSignalSemphores,rs_fence_vk* fence);
-	void cmdBeginMark(rs_commandbuffer_vk* cb,const std::string& mark,float r,float g, float b, float a);
+	void cmdBeginMark(rs_commandbuffer_vk* cb,const char* mark,float r,float g, float b, float a);
 	void cmdEndMark(rs_commandbuffer_vk* cb);
-	void cmdInsertMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a);
+	void cmdInsertMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a);
 	void cmdBeginRecord(rs_commandbuffer_vk* cb);
 	void cmdEndRecord(rs_commandbuffer_vk* cb);
 	//-------------------------------------------------------------------------------------//     

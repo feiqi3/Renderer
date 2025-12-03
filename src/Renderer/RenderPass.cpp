@@ -29,7 +29,7 @@ namespace Render {
 	}
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer)
 	{
-		RenderMarker Marker(cmdbuffer, mPassName, 1.f, 0.f, 0.f, 1.f);
+		RenderMarker Marker(cmdbuffer, mPassName.c_str(), 1.f, 0.f, 0.f, 1.f);
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
 		updateViewportAndScissor(cmdbuffer);
 		drawImpl(cmdbuffer);

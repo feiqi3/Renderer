@@ -2320,14 +2320,14 @@ namespace Render::Vulkan {
         vkQueueSubmit(rsQueue->queue, 1, &info, fencevk);
     }
 
-    void cmdBeginMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a)
+    void cmdBeginMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a)
     {
         VkDebugUtilsLabelEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
         debugInfo.color[0] = r;
         debugInfo.color[1] = g;
         debugInfo.color[2] = b;
         debugInfo.color[3] = a;
-        debugInfo.pLabelName = mark.c_str();
+        debugInfo.pLabelName = mark;
         vkCmdBeginDebugUtilsLabelEXT((VkCommandBuffer)cb->native, &debugInfo);
     }
 
@@ -2336,14 +2336,14 @@ namespace Render::Vulkan {
         vkCmdEndDebugUtilsLabelEXT((VkCommandBuffer)cb->native);
     }
 
-    void cmdInsertMark(rs_commandbuffer_vk* cb, const std::string& mark, float r, float g, float b, float a)
+    void cmdInsertMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a)
     {
         VkDebugMarkerMarkerInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT};
         debugInfo.color[0] = r;
         debugInfo.color[1] = g;
         debugInfo.color[2] = b;
         debugInfo.color[3] = a;
-        debugInfo.pMarkerName = mark.c_str();
+        debugInfo.pMarkerName = mark;
         vkCmdDebugMarkerInsertEXT((VkCommandBuffer)cb->native, &debugInfo);
     }
 

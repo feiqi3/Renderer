@@ -2,6 +2,8 @@
 #include "common/HashFunction.h"
 #include <cassert>
 #include <unordered_map>
+#include <memory>
+#include <mutex>
 namespace Render {
 	using StringDataHashTable = std::vector<std::unique_ptr<_StringData>>;
 	StringDataHashTable& hashTable(StringDataHashTable* table, size_t buckets, u32 hash)
@@ -32,7 +34,7 @@ namespace Render {
 
 	StringPoolPrivate::StringPoolPrivate(u64 StringPoolSize,u32 alignment):mAlignment(alignment),mBufferSize(StringPoolSize), mStringBuffer(new u8[StringPoolSize])
 	{
-		assert(mAlignment > 0 && (mAlignment & (mAlignment - 1) == 0));
+		assert(mAlignment > 0 && ((mAlignment & (mAlignment - 1)) == 0));
 		mStringTable = new StringDataHashTable[mBuckets];
 	}
 
@@ -46,11 +48,13 @@ namespace Render {
 
 	_StringData* StringPoolPrivate::getOrCreate(const char* str, u32 length)
 	{
+		if (!str || length == 0)return NULL;
 		auto hash = Common::fnv1a_hash(str,(size_t)length);
 		auto& bucket = hashTable(mStringTable, mBuckets, hash);
+		std::lock_guard<std::mutex> guard(mutex_);
+
 		//get existed string data
 		{
-			std::lock_guard<std::mutex> guard(mutex_);
 			for (auto&& sd : bucket) {
 				if (sd->mHash != hash || sd->mStringLen != length || strcmp(str, sd->mStringVal) != 0) {
 					continue;
@@ -61,10 +65,8 @@ namespace Render {
 			}
 		}
 		//else create one
-
 		u64 addrEnd = (u64)mStringBuffer + mBufferSize;
 		{
-			std::lock_guard<std::mutex> guard(mutex_);
 			
 			u8* posToStoreStr = mStringBuffer + mBufferOffset;
 			u64 addr = (u64)posToStoreStr;
@@ -73,14 +75,14 @@ namespace Render {
 			}
 			posToStoreStr = (u8*)addr;
 			if (addrEnd < addr + length + 1) {
-				assert("String buffer full");
+				assert(0 && "String buffer full");
 				return nullptr;
 			}
 			memcpy(posToStoreStr, str, (size_t)(length + 1));
 			posToStoreStr[length] = '\0';
 
 			std::unique_ptr<_StringData> sd = std::make_unique<_StringData>(
-				posToStoreStr, length, hash
+				(char*)posToStoreStr, length, hash
 			);
 			auto ret = sd.get();
 
