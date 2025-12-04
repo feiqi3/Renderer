@@ -613,7 +613,7 @@ namespace Render::Vulkan {
         return ret;
     }
 
-    inline void destroyPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
+    inline void destroySetLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
     {
         if (!layout) {
             assert(0 && "Null layout!");
@@ -622,14 +622,15 @@ namespace Render::Vulkan {
         for (auto&& i : layout->setLayouts) {
             ctx->descriptorSetMgr->returnDescriptorSetLayout(ctx, i.second);
         }
-        delete layout;
-        layout = 0;
     }
 
     void destroyRsPipeline(rs_context_vk* ctx, rs_pipeline_vk*& pipeline, bool immediately)
     {
-        if(!immediately)
+        if (!immediately)
+        {
             ctx->destroyer->destroyPipeline(ctx->nextRenderFrame, pipeline);
+            return;
+        }
         vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->native, 0);
         destroyRsPipelineLayout(ctx, pipeline->layout);
         delete pipeline;
@@ -638,7 +639,7 @@ namespace Render::Vulkan {
     void destroyRsPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
     {
         if (!layout)return;
-        destroyPipelineLayout(ctx, layout);
+        destroySetLayout(ctx, layout);
         vkDestroyPipelineLayout(
             ctx->device, (VkPipelineLayout)layout->native, 0
         );

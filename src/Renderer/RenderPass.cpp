@@ -4,6 +4,7 @@
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderDebuger.h"
 #include "Renderer/RenderPassManager.h"
+#include "Renderer/MaterialTemplateManager.h"
 namespace Render {
 	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
 	{
@@ -20,11 +21,22 @@ namespace Render {
 	{
 		using namespace Vulkan;
 		auto ctx = RenderSystem::instance()->getRenderContext();
+		if (!renderTarget) {
+			auto pass = (rs_renderpass_vk*)mRenderPass;
+			destroyRsRenderPassVk(ctx, pass);
+			mRenderPass = 0;
+			return;
+		}
+
 		if (!this->mRenderPass) {
 			mRenderPass = createRsRenderPassVk(ctx, (rs_rendertarget_vk*)renderTarget, mPassDesc);
 		}
 		else {
+			bool needrebuild = needRebuildPipeline(mRenderPass->renderTarget, renderTarget);
 			changeRsRenderPassRtVk(ctx, (rs_renderpass_vk*)mRenderPass, (rs_rendertarget_vk*)renderTarget);
+			if (needrebuild) {
+				MaterialTemplateManager::instance()->broadcastPipelineRebuild(this);
+			}
 		}
 	}
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer)
@@ -35,6 +47,48 @@ namespace Render {
 		drawImpl(cmdbuffer);
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
 	}
+
+	bool RenderPass::needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt)
+	{
+		auto oldrtVk = (Vulkan::rs_rendertarget_vk*)oldrt;
+		auto newrtVk = (Vulkan::rs_rendertarget_vk*)newrt;
+
+		auto imageCompatibleTest = [](const rs_image& a, const rs_image& b) {
+			if (a.format != b.format) {
+				return true;
+			}
+
+			if (a.sampleCount != b.sampleCount) {
+				return true;
+			}
+
+			if (a.usage != b.usage) {
+				return true;
+			}
+			return false;
+			};
+
+		if (oldrt->m_attachments.size() != newrt->m_attachments.size() || ((oldrt->m_depthStencilAttachment == nullptr) ^ (newrt->m_depthStencilAttachment != nullptr))){		return true;
+			return true;
+		}
+		for (int i = 0;i < oldrt->m_attachments.size();++i) {
+			auto attOld = oldrt->m_attachments[i];
+			auto attNew = newrt->m_attachments[i];
+			if (imageCompatibleTest(*attOld,*attNew)) {
+				return true;
+			}
+
+		}
+
+		if (
+			oldrt->m_depthStencilAttachment && newrt->m_depthStencilAttachment &&
+			imageCompatibleTest(*oldrt->m_depthStencilAttachment, *newrt->m_depthStencilAttachment)) {
+			return true;
+		}
+
+		return false;
+	}
+
 	RenderPass::~RenderPass()
 	{
 		using namespace Vulkan;

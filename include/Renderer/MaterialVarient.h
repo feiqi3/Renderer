@@ -6,21 +6,24 @@
 #include <optional>
 
 namespace Render {
+	class RenderPass;
 	class Material {
 	public:
 		inline bool isValid()const {
-			return mRsPipeline && mRsRenderPass;
+			return mRsPipeline && mRenderPass;
 		}
+
+		inline const ShaderStageInfo& getShaderStageInfo()const { return mShaderMacro; }
 
 		inline rs_pipeline* getRsPipeline()const { return mRsPipeline; }
 		
-		inline rs_renderpass* getRsRenderPass()const { return mRsRenderPass; }
-		
+		inline RenderPass* getRenderPass()const { return mRenderPass; }
+
 		inline const std::vector<BindingInfo>& getBindingInfo()const {
 			return mRsPipeline->bindingInfo;
 		}
 
-		inline const std::optional<BindingInfo> getBindinginfoByName(const std::string& name) {
+		inline const std::optional<BindingInfo> getBindingInfoByName(const std::string& name) {
 			auto itor = mBindingTable.find(name);
 			if (itor == mBindingTable.end()) {
 				return std::nullopt;
@@ -29,21 +32,13 @@ namespace Render {
 		}
 
 	private:
-		Material() {}
-		inline void setPipelineAndRenderPass(rs_pipeline* pipeline, rs_renderpass* renderpass) {
-			mRsPipeline = pipeline;
-			mRsRenderPass = renderpass;
-			//Construct a binding table
-			for (auto&& binding : mRsPipeline->bindingInfo) {
-				mBindingTable.insert({ binding.bindingItemName,binding });
-			}
-		}
-	
+		Material(RenderPass* renderpass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const ShaderStageInfo& stageInfo);
 	private:
 		friend class MaterialTemplate;
+		RenderPass* mRenderPass;
+		MaterialTemplate* mMaterialTemplate = nullptr;
 		rs_pipeline* mRsPipeline = 0;
-		rs_renderpass* mRsRenderPass = 0;
-		std::atomic_int32_t mUsedNum = 0;
+		ShaderStageInfo mShaderMacro;
 		std::map<std::string, BindingInfo> mBindingTable;
 	};
 

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include "common/StringPool.h"
+#include "Renderer/MaterialTemplateManager.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -13,6 +14,7 @@ int main() {
 	backEndInit.appName = "Test";
 	backEndInit.engineName = "Feigen";
 	new Render::StringPool();
+	new Render::MaterialTemplateManager();
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
 	setWindowEventsCallbacks(glfwWindow);
@@ -55,6 +57,7 @@ int main() {
 		glfwWindow->setTitle((std::string("fps: ") + std::to_string(CurrentFPS)).c_str());
 	}
 	renderFlow->deinit();
+	delete Render::MaterialTemplateManager::instance();
 	Render::RenderSystem::destroyRenderSystem();
 	delete glfwWindow;
 	glfwWindow = 0;

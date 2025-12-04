@@ -4,6 +4,7 @@
 #include "Renderer/RenderEntity.h"
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderPass.h"
+#include "Renderer/MaterialTemplateManager.h"
 namespace Render {
 
 	class ObjectMaterialTemplateFactory {
@@ -58,8 +59,9 @@ namespace Render {
 			binding.perInstance = false;
 			binding.stride = offset;
 			VtxIA.bindings.push_back(binding);
-			mNormalTemplate = new MaterialTemplate(NomralTemplateInfo, normalState, VtxIA);
-			mMainPass = mNormalTemplate->createVarient(RenderSystem::instance()->getRenderPass(Name("MainPass")), {});
+
+			mNormalTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("NormalTemplate"),NomralTemplateInfo, normalState, VtxIA);
+			mMainPass = mNormalTemplate->createVariant(RenderSystem::instance()->getRenderPass(Name("MainPass")), {});
 		}
 		MaterialTemplate* mNormalTemplate = 0;
 		Material* mMainPass = 0;

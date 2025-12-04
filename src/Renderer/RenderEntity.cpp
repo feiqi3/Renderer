@@ -51,7 +51,7 @@ namespace Render {
 			return mPasses[passName];
 		}
 		if (mMaterial) {
-			auto Variant = mMaterial->getVarient(passName);
+			auto Variant = getMaterial()->getVarient(passName);
 			if (Variant) {
 				auto pass = new Pass;
 				pass->mDrawData = RenderSystem::instance()->createDrawData();

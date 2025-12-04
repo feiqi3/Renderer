@@ -192,6 +192,8 @@ namespace Render {
         ShaderIncFindFunc shaderIncludeFindFunc = nullptr;
     };
 
+	using ShaderStageInfo = std::vector<std::pair<ShaderStage, std::string>>;
+
 };
 
 #endif

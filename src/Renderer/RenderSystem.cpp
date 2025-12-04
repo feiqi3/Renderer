@@ -332,18 +332,9 @@ namespace Render{
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, Material* material)
 	{
-		auto data = material->getBindinginfoByName(bindingName);
+		auto data = material->getBindingInfoByName(bindingName);
 		if (data.has_value()) {
 			return (*data).bindingPos;
-		}
-		return INVALID_BINDING_POS;
-	}
-
-	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialTemplate* matTemplate, const Name& passName)
-	{
-		auto varient = matTemplate->getVarient(passName);
-		if (varient) {
-			return getBindingPos(bindingName, varient);
 		}
 		return INVALID_BINDING_POS;
 	}

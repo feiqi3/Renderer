@@ -5,6 +5,7 @@
 #include "render_resource_createinfo.h"
 #include "Renderer/RenderEntity.h"
 #include "common/CommonMath.h"
+#include "Renderer/MaterialTemplateManager.h"
 namespace Render {
 
 	struct alignas(16) CameraDataCommon {
@@ -81,8 +82,8 @@ namespace Render {
 		RenderSystem* pSys = RenderSystem::instance();
 		//1. create a pipeline 
 		auto pass = pSys->getRenderPass(Name("MainCam"));
-		mDp->VirtualCameraTemplate = new MaterialTemplate(VirtualCameraShaderStageInfo, renderState, vtxIA);
-		mDp->MainPassCameraMaterial = mDp->VirtualCameraTemplate->createVarient(pass, {});
+		mDp->VirtualCameraTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("VirtualCamera"), VirtualCameraShaderStageInfo, renderState, vtxIA);
+		mDp->MainPassCameraMaterial = mDp->VirtualCameraTemplate->createVariant(pass, {});
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassCameraMaterial);
 	}
 

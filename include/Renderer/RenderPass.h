@@ -26,6 +26,7 @@ namespace Render {
 	protected: 
 		friend class RenderPassManager;
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer) = 0;
+		bool needRebuildPipeline(rs_rendertarget* oldrt,rs_rendertarget* newrt);
 	protected:
 		Name mPassName;
 		rs_renderpass* mRenderPass;

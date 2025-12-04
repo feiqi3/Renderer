@@ -9,7 +9,25 @@
 #include <cassert>
 namespace Render {
 
-	Material* MaterialTemplate::createVarient(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
+	void MaterialTemplate::onRenderPassRTChangedNeedRebuild(RenderPass* pass)
+	{
+		if (!pass)return;
+
+		auto ctx = RenderSystem::instance()->getRenderContext();
+		//Rebuild all variant with target pass.
+		for (auto&& [name, matVariant] : this->mVarientMap) {
+			if (matVariant->getRenderPass() == pass) {
+				//1. destroy old pipeline.
+				auto pipeline = (Vulkan::rs_pipeline_vk*)matVariant->getRsPipeline();
+				Vulkan::destroyRsPipeline(ctx, pipeline);
+				matVariant->mRsPipeline = createVariantPipeline(pass, matVariant->getShaderStageInfo());
+			}
+		}
+
+
+	}
+
+	Material* MaterialTemplate::createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 
@@ -17,7 +35,34 @@ namespace Render {
 		if (itor != mVarientMap.end()) {
 			destroyVarient(itor->second);
 		}
+		auto pipeline = createVariantPipeline(pass,shaderMarco);
+		Material* mat = new Material(pass,this,pipeline,shaderMarco);
 
+		mVarientMap[pass->getPassName()] = mat;
+
+		return mat;
+	}
+	Material* MaterialTemplate::getVarient(const Name& name)
+	{
+		auto itor = mVarientMap.find(name);
+		if (itor != mVarientMap.end()) {
+			return itor->second;
+		}
+
+		return nullptr;
+	}
+	MaterialTemplate::~MaterialTemplate()
+	{
+		for (auto& [name, varient] : mVarientMap) {
+			destroyVarient(varient);
+		}
+		mVarientMap.clear();
+	}
+
+	rs_pipeline* MaterialTemplate::createVariantPipeline(RenderPass* pass,const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
+	{
+
+		auto ctx = RenderSystem::instance()->getRenderContext();
 		std::vector<rs_shader_module*> modules;
 		ShaderCompileDesc compileDesc{};
 		ShaderDesc sd{};
@@ -62,35 +107,16 @@ namespace Render {
 			auto mod = (Vulkan::rs_shader_module_vk*)sdm;
 			Vulkan::destroyRsShader(ctx, mod);
 		}
+		return pipeline;
 
-		Material* mat = new Material();
-		mat->setPipelineAndRenderPass(pipeline, pass->getRaw());
-		mat->mUsedNum = 1;
-
-		mVarientMap[pass->getPassName()] = mat;
-
-		return mat;
 	}
-	Material* MaterialTemplate::getVarient(const Name& name)
-	{
-		auto itor = mVarientMap.find(name);
-		if (itor != mVarientMap.end()) {
-			return itor->second;
-		}
 
-		return nullptr;
-	}
-	MaterialTemplate::~MaterialTemplate()
-	{
-		for (auto& [name, varient] : mVarientMap) {
-			destroyVarient(varient);
-		}
-		mVarientMap.clear();
-	}
 	void MaterialTemplate::destroyVarient(Material* mat)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		auto pipeline = (Vulkan::rs_pipeline_vk*)mat->getRsPipeline();
 		Vulkan::destroyRsPipeline(ctx, pipeline);
+		delete mat;
 	}
+
 }

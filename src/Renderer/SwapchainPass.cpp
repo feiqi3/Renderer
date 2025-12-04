@@ -3,7 +3,7 @@
 #include "Renderer/RenderEntity.h"
 #include <Renderer/RenderSystem.h>
 #include "Renderer/RenderPassManager.h"
-
+#include "Renderer/MaterialTemplateManager.h"
 namespace Render {
 
 	static PassDesc SwapchainPassDesc{
@@ -30,7 +30,7 @@ namespace Render {
 		auto RenderSys = RenderSystem::instance();
 		RenderSys->destroyRsSampler(BlitRTSampler);
 		delete BlitEntity;
-		delete BlitMaterial;
+		MaterialTemplateManager::instance()->destroyMaterialTemplate(BlitMaterial->getName());
 		RenderSys->getRenderPassManager()->unMarkSwapchainRenderPass(this);
 
 	}
@@ -42,10 +42,10 @@ namespace Render {
 		RenderState state{};
 		state.depthTestEnable = false;
 		VertexInputDescription vtxIA{};
-		MaterialTemplate* BlitMaterial = new MaterialTemplate(stageInfo, state, vtxIA);
+		BlitMaterial = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"),stageInfo, state, vtxIA);
 		BlitEntity->setMaterialTemplate(BlitMaterial);
 		BlitEntity->getRenderInfo().idxCount = 6;
-		BlitMatVarient = BlitMaterial->createVarient(this, {});
+		BlitMatVarient = BlitMaterial->createVariant(this, {});
 		BlitPass = BlitEntity->createPass(this->getPassName());
 
 

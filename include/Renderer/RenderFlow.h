@@ -35,8 +35,6 @@ namespace Render {
 
 		void initSwapChainPass() {
 			RenderSystem* renderSys = RenderSystem::instance();
-			auto SwapImg = renderSys->getSwapchainImage(renderSys->getCurFif());
-			mSwapchainPass->setRenderTarget(renderSys->getNextSwapchainRendertarget());
 			mSwapchainPass->init();
 		};
 		void deinitSwapchainPass() {

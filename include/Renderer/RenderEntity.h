@@ -31,6 +31,9 @@ namespace Render {
 		Pass* createPass(const Name& passName);
 		void destroyPass(const Name& passName);
 		Pass* getPass(const Name& passName);
+		virtual MaterialTemplate* getMaterial()const {
+			return mMaterial;
+		}
 		const RenderInfo& getRenderInfo()const {
 			return mRenderInfo;
 		}
