@@ -18,22 +18,15 @@ namespace Render {
 		virtual bool isRenderReady() { return true; }
 		virtual ~RenderEntity() ;
 
-		virtual void update() {}
-
-		virtual MaterialTemplate* getMaterial();
-		void setMaterialTemplate(MaterialTemplate* material);
+		virtual MaterialTemplate* getMaterialTemplate() = 0;
 		rs_buffer* getIndexBuffer();
 		IndexType getIndexType()const;
 		void setIndexBuffer(rs_buffer* buffer,IndexType type);
-		void init();
 		std::vector<VertexBindingInfo >& getBindingBuffers();
 		rs_drawdata* getDrawData(const Name& passName);
 		Pass* createPass(const Name& passName);
 		void destroyPass(const Name& passName);
 		Pass* getPass(const Name& passName);
-		virtual MaterialTemplate* getMaterial()const {
-			return mMaterial;
-		}
 		const RenderInfo& getRenderInfo()const {
 			return mRenderInfo;
 		}
@@ -41,6 +34,8 @@ namespace Render {
 			return mRenderInfo;
 		}
 
+		//Call this when change render entity.
+		void clear();
 	private:
 
 		void destroyPass(Pass* pass);
@@ -48,7 +43,6 @@ namespace Render {
 		friend class RenderSystem;
 		//TODO: Write every thing into descriptor
 		std::map<Name, Pass*> mPasses;
-		MaterialTemplate* mMaterial = 0;
 		RenderInfo mRenderInfo;
 	};
 };

@@ -19,7 +19,7 @@ namespace Render {
 		StringPoolPrivate(u64 StringPoolSize = 1024 * 256, u32 alignment = 1);
 		~StringPoolPrivate();
 		_StringData* getOrCreate(const char* str, u32 length);
-
+		_StringData* getOrCreateByHash(const char* str, u32 length,u32 hash);
 
 	public:
 
@@ -49,7 +49,12 @@ namespace Render {
 	_StringData* StringPoolPrivate::getOrCreate(const char* str, u32 length)
 	{
 		if (!str || length == 0)return NULL;
-		auto hash = Common::fnv1a_hash(str,(size_t)length);
+		auto hash = StringPool::getStringHash(str,(size_t)length);
+		return getOrCreateByHash(str, length, hash);
+	}
+
+	_StringData* StringPoolPrivate::getOrCreateByHash(const char* str, u32 length, u32 hash)
+	{
 		auto& bucket = hashTable(mStringTable, mBuckets, hash);
 		std::lock_guard<std::mutex> guard(mutex_);
 
@@ -67,7 +72,7 @@ namespace Render {
 		//else create one
 		u64 addrEnd = (u64)mStringBuffer + mBufferSize;
 		{
-			
+
 			u8* posToStoreStr = mStringBuffer + mBufferOffset;
 			u64 addr = (u64)posToStoreStr;
 			if (addr % mAlignment) {
@@ -103,9 +108,9 @@ namespace Render {
 		Dp = nullptr;
 	}
 
-	Render::_StringData* StringPool::getOrGenStringData(const char* stringPtr, u32 stringLen)
+	_StringData* StringPool::getOrGenStringData(const char* stringPtr, u32 stringLen, u32 hash)
 	{
-		return Dp->getOrCreate(stringPtr, stringLen);
+		return Dp->getOrCreateByHash(stringPtr, stringLen,hash);
 	}
 
 }

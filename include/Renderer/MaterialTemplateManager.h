@@ -11,6 +11,7 @@ namespace Render {
 	class MaterialTemplateManager :public Singleton< MaterialTemplateManager> {
 	public:
 		MaterialTemplate* createMaterialTemplate(const Name& templateName, const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc);
+		MaterialTemplate* getMaterialTemplate(const Name& templateName);
 		~MaterialTemplateManager();
 		void destroyMaterialTemplate(const Name& templateName);
 		void broadcastPipelineRebuild(RenderPass* passChanged);

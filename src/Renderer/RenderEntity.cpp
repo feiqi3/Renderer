@@ -8,14 +8,9 @@ namespace Render {
 		}
 		mPasses.clear();
 	}
-	MaterialTemplate* RenderEntity::getMaterial()
+	MaterialTemplate* RenderEntity::getMaterialTemplate()
 	{
-		return mMaterial;
-	}
-	void RenderEntity::setMaterialTemplate(MaterialTemplate* material)
-	{
-		mMaterial = material;
-		init();
+		return nullptr;
 	}
 	rs_buffer* RenderEntity::getIndexBuffer()
 	{
@@ -50,8 +45,9 @@ namespace Render {
 		if (this->mPasses.find(passName) != mPasses.end()) {
 			return mPasses[passName];
 		}
-		if (mMaterial) {
-			auto Variant = getMaterial()->getVarient(passName);
+		auto material = this->getMaterialTemplate();
+		if (material) {
+			auto Variant = getMaterialTemplate()->getVarient(passName);
 			if (Variant) {
 				auto pass = new Pass;
 				pass->mDrawData = RenderSystem::instance()->createDrawData();
@@ -91,9 +87,8 @@ namespace Render {
 		pass = 0;
 	}
 
-	void RenderEntity::init() {
+	void RenderEntity::clear() {
 		RenderSystem::instance()->clearRenderEntity(this);
 	}
-
 	
 }

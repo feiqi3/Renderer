@@ -19,6 +19,15 @@ namespace Render {
 		return mt;
 	}
 
+	MaterialTemplate* MaterialTemplateManager::getMaterialTemplate(const Name& templateName)
+	{
+		auto itor = mMaterialTemplates.find(templateName);
+		if (itor != mMaterialTemplates.end()) {
+			return itor->second;
+		}
+		return nullptr;
+	}
+
 	MaterialTemplateManager::~MaterialTemplateManager()
 	{
 		for (auto& [name, mat] : this->mMaterialTemplates) {

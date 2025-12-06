@@ -6,6 +6,30 @@
 #include "Renderer/MaterialTemplateManager.h"
 namespace Render {
 
+	class NormalEntity :public RenderEntity{
+	public:
+		NormalEntity() {
+		}
+
+		MaterialTemplate* getMaterialTemplate() override{
+			static bool isFirstInit = true;
+			if (isFirstInit) {
+				isFirstInit = false;
+				ShaderStageInfo stageInfo{ {ShaderStage::Vertex,"../shader/Blit.vs"},{ShaderStage::Fragment,"../shader/Blit.ps"} };
+				RenderState state{};
+				state.depthTestEnable = false;
+				VertexInputDescription vtxIA{};
+				this->mMaterial = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"), stageInfo, state, vtxIA);
+			}
+			else if(mMaterial == nullptr){
+				mMaterial = MaterialTemplateManager::instance()->getMaterialTemplate(Name("SwapChain"));
+			}
+			return mMaterial;
+		}
+	private: 
+		MaterialTemplate* mMaterial = 0;
+	};
+
 	static PassDesc SwapchainPassDesc{
 		.attachments = {
 			PassAttachment{
@@ -37,14 +61,9 @@ namespace Render {
 
 	void SwapchainPass::initBlitData()
 	{
-		BlitEntity = new RenderEntity();
-		ShaderStageInfo stageInfo{ {ShaderStage::Vertex,"../shader/Blit.vs"},{ShaderStage::Fragment,"../shader/Blit.ps"} };
-		RenderState state{};
-		state.depthTestEnable = false;
-		VertexInputDescription vtxIA{};
-		BlitMaterial = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"),stageInfo, state, vtxIA);
-		BlitEntity->setMaterialTemplate(BlitMaterial);
+		BlitEntity = new NormalEntity();
 		BlitEntity->getRenderInfo().idxCount = 6;
+		BlitMaterial = BlitEntity->getMaterialTemplate();
 		BlitMatVarient = BlitMaterial->createVariant(this, {});
 		BlitPass = BlitEntity->createPass(this->getPassName());
 

@@ -3,7 +3,7 @@
 #pragma once
 #include "common/CoreDefs.h"
 #include "common/Singleton.h"
-
+#include "common/HashFunction.h"
 namespace Render {
 	
 	struct _StringData {
@@ -19,8 +19,13 @@ namespace Render {
 	class StringPoolPrivate;
 	class StringPool :public Singleton<StringPool>{
 	public:
-
-		_StringData* getOrGenStringData(const char* stringPtr, u32 stringLen);
+		static inline constexpr u32 getStringHash(const char* str, u32 length) {
+			return Common::fnv1a_hash(str, length);
+		}
+		inline _StringData* getOrGenStringData(const char* stringPtr, u32 stringLen) {
+			if (!stringPtr || stringLen == 0)return NULL;
+			return getOrGenStringData(stringPtr, stringLen,getStringHash(stringPtr,stringLen));
+		}
 
 	public:
 		StringPool();
@@ -28,6 +33,7 @@ namespace Render {
 
 
 	private:
+		_StringData* getOrGenStringData(const char* stringPtr, u32 stringLen, u32 hash);
 		StringPoolPrivate* Dp = 0;
 	};
 }

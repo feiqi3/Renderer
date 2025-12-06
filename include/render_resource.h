@@ -108,7 +108,7 @@ namespace Render {
 	};
 
 	struct rs_drawdata {
-
+	
 	};
 
 	using rs_descriptor = BindingInfo;

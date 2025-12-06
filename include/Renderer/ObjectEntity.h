@@ -70,7 +70,7 @@ namespace Render {
 
 	class CubeEntity : public RenderEntity {
 	public:
-		MaterialTemplate* getMaterial() override {
+		MaterialTemplate* getMaterialTemplate() override {
 			return ObjectMaterialTemplateFactory::instance()->getNormalMaterial();
 		}
 
@@ -146,7 +146,6 @@ namespace Render {
 			renderInfo.idxCount = cubeIndices.size();
 			renderInfo.indexType = IndexType::Uint32;
 		
-			this->setMaterialTemplate(ObjectMaterialTemplateFactory::instance()->getNormalMaterial());
 			this->createPass(Name("MainPass"));
 
 		}
