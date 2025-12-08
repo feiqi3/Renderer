@@ -78,6 +78,9 @@ namespace Render{
 		void waitForFence(rs_fence* fence);
 		void clearRenderEntity(RenderEntity* entity);
 
+		ShaderIncFindFunc getShaderIncludeSearchFunc()const;
+		const std::vector<std::string>& getShaderIncludeSearchDir()const;
+
 		uint64_t getNextRenderFrame()const;
 		uint32_t getCurFif()const;
 

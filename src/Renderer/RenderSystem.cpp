@@ -8,7 +8,31 @@
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/CameraManager.h"
 #include "Renderer/Camera.h"
+#include "platform/FileSystem/FileSystem.h"
+#include "platform/FileSystem/WinFileSystem.h"
+#include <set>
 namespace Render{
+
+	ShaderIncludeRes ShaderIncludeFindingFunction(const std::vector<std::string>& findDirectiories, const std::string& name) {
+		auto FileSys = Platform::FileSystem::instance();
+		Platform::FileStreamPtr fileStream = nullptr;
+		std::string shaderFullDir;
+		for (auto&& fileDir : findDirectiories)
+		{
+			shaderFullDir = fileDir + "\\" + name;
+			fileStream = FileSys->openFileStream(shaderFullDir);
+			if (fileStream)break;
+		}
+		if (!fileStream)return ShaderIncludeRes{.FindResult = false};
+
+		auto fileSize = fileStream->getSize();
+		ShaderIncludeRes res;
+		res.FindResult = true;
+		res.ShaderName = std::move(shaderFullDir);
+		res.ShaderContent.reserve(fileSize);
+		fileStream->read(res.ShaderContent.data(), fileSize);
+		return res;
+	}
 
 	struct EngineEvent {
 		bool WindowResize = false;
@@ -29,8 +53,10 @@ namespace Render{
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
+		Render::Platform::Win::WinFileSystem* mWinFileSystem;
 		rs_drawdata* mCurrentCameraData = nullptr;
 		EngineEvent mEngineEvent;
+		ShaderIncFindFunc mShaderIncludeFunction;
 	public:
 		void* updateFramePendingData(uint32_t fif, uint64_t frame, void* data, uint32_t size);
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
@@ -54,6 +80,10 @@ namespace Render{
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024 * 64, sRenderSystem->mBackEndContext->maxSwapChainImages);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
+
+		new Platform::FileSystem;
+		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
+		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
 		new CameraManager;
 		CameraManager::instance()->InitCameraDrawData();
 	}
@@ -62,9 +92,13 @@ namespace Render{
 		using namespace Vulkan;
 		if (!sRenderSystem)return;
 		sRenderSystem->mDp->mPassManager = 0;
+		delete CameraManager::instance();
 		deinitVulkanBackEnd((rs_context_vk*)sRenderSystem->mBackEndContext);
 		sRenderSystem->mWindow = 0;
 		sRenderSystem->mBackEndContext = 0;
+		Platform::FileSystem::instance()->unregisterFileSystem(sRenderSystem->mDp->mWinFileSystem);
+		delete sRenderSystem->mDp->mWinFileSystem;
+		delete Platform::FileSystem::instance();
 		delete sRenderSystem;
 		sRenderSystem = 0;
 	}
@@ -428,6 +462,17 @@ namespace Render{
 			Vulkan::clearDrawData(getRenderContext(),drawDataVk);
 		}
 	}
+	ShaderIncFindFunc RenderSystem::getShaderIncludeSearchFunc() const
+	{
+		return &ShaderIncludeFindingFunction;
+	}
+	
+	const std::vector<std::string>& RenderSystem::getShaderIncludeSearchDir() const
+	{
+		static const std::vector<std::string> ret{ "../shader","shader" };
+		return ret;
+	}
+
 	uint64_t RenderSystem::getNextRenderFrame() const
 	{
 		return currentLogicFrame;

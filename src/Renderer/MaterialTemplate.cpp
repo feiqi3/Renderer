@@ -65,6 +65,8 @@ namespace Render {
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		std::vector<rs_shader_module*> modules;
 		ShaderCompileDesc compileDesc{};
+		compileDesc.shaderIncludeFindFunc = RenderSystem::instance()->getShaderIncludeSearchFunc();
+		compileDesc.shaderIncludeDirectories = RenderSystem::instance()->getShaderIncludeSearchDir();
 		ShaderDesc sd{};
 
 		for (auto& [stage, shader] : getShaderStageInfo()) {

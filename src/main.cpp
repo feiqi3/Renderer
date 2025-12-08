@@ -7,6 +7,7 @@
 #include <string>
 #include "common/StringPool.h"
 #include "Renderer/MaterialTemplateManager.h"
+#include "platform/FileSystem/WinFileSystem.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -21,7 +22,6 @@ int main() {
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
 	renderFlow->init();
-
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;
 	int TargetFps = 60;

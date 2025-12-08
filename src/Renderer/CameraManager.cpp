@@ -105,6 +105,7 @@ namespace Render {
 				cam->m_active = false;
 				return false;
 			}
+			return true;
 		});
 	}
 
@@ -115,6 +116,7 @@ namespace Render {
 				cam->m_active = true;
 				return false;
 			}
+			return true;
 			});
 	}
 

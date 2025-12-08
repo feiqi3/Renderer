@@ -127,6 +127,7 @@ namespace {
             // 调用用户回调，传入搜索路径
 
             ShaderIncludeRes res = find_fn_(search_dirs_, requested_source);
+            if (res.FindResult != true)return nullptr;
             // 分配并填充结果
             auto* result = new shaderc_include_result;
 
@@ -194,10 +195,10 @@ namespace {
                 std::ifstream in(path, std::ios::binary);
                 std::string content((std::istreambuf_iterator<char>(in)),
                     std::istreambuf_iterator<char>());
-                return ShaderIncludeRes{ path.string(), content };
+                return ShaderIncludeRes{true, path.string(), content };
             }
         }
-        return ShaderIncludeRes{ "", "Error: include not found: " + requested_source };
+        return ShaderIncludeRes{false, "", "Error: include not found: " + requested_source };
     }
 }
 
@@ -206,7 +207,8 @@ namespace Render::Vulkan {
 	{
 		shaderc::CompileOptions options;
 		shaderc::Compiler compiler;
-        options.SetIncluder(std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(new FunctionalIncluder(desc.shaderIncludeDirectories, desc.shaderIncludeFindFunc)));
+        auto includer = std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(new FunctionalIncluder(desc.shaderIncludeDirectories, desc.shaderIncludeFindFunc));
+        options.SetIncluder(std::move(includer));
         shaderc_optimization_level lvl = desc.enableOptimize ? shaderc_optimization_level_performance : shaderc_optimization_level_zero;
 
         options.SetOptimizationLevel(lvl);
@@ -270,7 +272,7 @@ namespace Render::Vulkan {
         std::string newCode = desc.shaderSrcCode;
         newCode.resize(newCode.size() - remove_char_cnt);
         shaderc::SpvCompilationResult module =
-            compiler.CompileGlslToSpv(newCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str());
+            compiler.CompileGlslToSpv(newCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str(),options);
 
         if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
             Render::Log::error("Shader Compile Error: " + desc.shaderName + " \nError Reason: " + module.GetErrorMessage());

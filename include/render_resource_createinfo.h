@@ -175,6 +175,7 @@ namespace Render {
     };
 
     struct ShaderIncludeRes {
+        bool FindResult;
         std::string ShaderName;
         std::string ShaderContent;
     };
