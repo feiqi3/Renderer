@@ -54,6 +54,8 @@ namespace Render{
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024 * 64, sRenderSystem->mBackEndContext->maxSwapChainImages);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
+		new CameraManager;
+		CameraManager::instance()->InitCameraDrawData();
 	}
 	void RenderSystem::destroyRenderSystem()
 	{

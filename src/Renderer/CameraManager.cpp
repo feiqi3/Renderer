@@ -37,6 +37,16 @@ namespace Render {
 		rs_binding_pos CameraCommonDataBindingPos;
 	};
 
+	CameraManager::CameraManager():mDp(new CameraManagerPrivate)
+	{
+		InitCameraDrawData();
+	}
+
+	CameraManager::~CameraManager()
+	{
+		mDp = nullptr;
+	}
+
 	void CameraManager::RegisterCamera(Camera* camera, uint32_t priority)
 	{
 		if (camera == nullptr) {
@@ -85,6 +95,7 @@ namespace Render {
 		mDp->VirtualCameraTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("VirtualCamera"), VirtualCameraShaderStageInfo, renderState, vtxIA);
 		mDp->MainPassCameraMaterial = mDp->VirtualCameraTemplate->createVariant(pass, {});
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassCameraMaterial);
+		assert(mDp->CameraCommonDataBindingPos != INVALID_BINDING_POS);
 	}
 
 	void CameraManager::deactiveCamera(Camera* cam)
