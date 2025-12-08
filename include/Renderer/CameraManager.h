@@ -14,6 +14,8 @@ namespace Render {
 
 	class CameraManager : public Singleton<CameraManager> {
 	public:
+		CameraManager();
+		~CameraManager();
 		void RegisterCamera(Camera* camera,uint32_t priority);
 		void UnregisterCamera(Camera* camera);
 		void TraversalCameras(const std::function<bool(Camera*)>& func);
