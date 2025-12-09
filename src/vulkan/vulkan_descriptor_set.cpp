@@ -114,11 +114,13 @@ namespace Render::Vulkan {
         for (const auto& [idx, layout] : pipelineLayout->setLayouts) {
             if (idx == setIdx) {
                 setlayout = layout;
+                break;
             }
         }
 
         if (!setlayout) {
             assert(0);
+            return nullptr;
         }
 
         auto ret = AllocateDescriptorSet(frame, ctx, setlayout);

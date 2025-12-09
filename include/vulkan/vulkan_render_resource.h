@@ -121,8 +121,8 @@ namespace Render::Vulkan {
 	};
 
 	inline vk_binding_pos toVkBindingPos(rs_binding_pos pos) {
-		const uint32_t HIGH_SETID_MASK = 0xFFFFFFFF00000000;
-		const uint32_t LOW_BINDINGID_MASK = 0x00000000FFFFFFFF;
+		const uint32_t HIGH_SETID_MASK = 0xFFFF0000;
+		const uint32_t LOW_BINDINGID_MASK = 0x0000FFFF;
 		vk_binding_pos bindingPos{
 			.setIdx = int16_t((pos & HIGH_SETID_MASK) >> 16),
 			.bindingIdx = int16_t(pos & LOW_BINDINGID_MASK)
@@ -142,7 +142,7 @@ namespace Render::Vulkan {
 			std::vector<		//Each Descriptorset
 				std::pair<uint16_t, rs_descriptorSet_vk*>
 			>
-		> DescriptorSets;
+		> DescriptorSets; //per frame in flight, per descriptor
 	};
 
 };

@@ -1,7 +1,7 @@
 #pragma once
 #ifndef CAMERA_H_
 #define CAMERA_H_
-
+#include "Renderer/RenderSystem.h"
 #include "common/CommonMath.h"
 #include "common/Name.h"
 namespace Render {
@@ -69,7 +69,7 @@ namespace Render {
             return m_active;
         }
 
-        rs_drawdata* getDrawData()const {
+        struct rs_drawdata* getDrawData()const {
             return mCameraDrawData;
         }
 
@@ -101,7 +101,7 @@ namespace Render {
         bool m_active = true;
 
         friend class CameraManager;
-		rs_drawdata* mCameraDrawData = nullptr;
+		struct rs_drawdata* mCameraDrawData = nullptr;
 	};
 
 	inline Camera::~Camera()

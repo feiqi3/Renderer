@@ -9,9 +9,11 @@
 #include "Renderer/MaterialTemplateManager.h"
 #include "platform/FileSystem/WinFileSystem.h"
 #include "Renderer/CameraManager.h"
+#include "Renderer/Camera.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
+	using namespace Render;
 	Render::BackEndInitDesc backEndInit{};
 	backEndInit.appName = "Test";
 	backEndInit.engineName = "Feigen";
@@ -27,13 +29,21 @@ int main() {
 	int CurrentFPS = 0;
 	int TargetFps = 60;
 	float TargetFrameTime = 1000. / TargetFps;
-
+	auto camera = new Render::Camera(Render::Name("Main"));
+	Render::CameraManager::instance()->RegisterCamera(camera,0);
+	auto Cube = new Render::CubeEntity();
 	while (!glfwWindow->shouldClose()) {
 		auto frameBegin = std::chrono::system_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
-
+		mat4 matrix{};
+		matrix = translate(matrix, vec3(0, 0, 0));
+		static auto rotateMat = rotate(mat4(), 0.166666, vec3(1, 1, 1));
+		matrix = rotateMat * matrix;
+		auto pass = Cube->getMaterialTemplate()->getVarient(Name("MainPass"));
+		auto bindingPos = RenderSystem::instance()->getBindingPos("ObjectCommon", pass);
+		RenderSystem::instance()->setCurrentCamera(camera);
+		RenderSystem::instance()->updateUniformBufferData(bindingPos, &matrix, sizeof(mat4), Cube->getPass(Name("MainPass")));
 		if (Render::RenderSystem::instance()->getNextRenderFrame() == 0) {
-			auto Cube = new Render::CubeEntity();
 			renderFlow->AddEntity(Cube);
 		}
 

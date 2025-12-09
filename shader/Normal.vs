@@ -1,4 +1,8 @@
 #version 450
+#include "CommonSets.inl"
+layout(set = 1, binding = 0) uniform UniformBufferObject {
+	mat4 MatTransform;
+} ObjectCommon;
 
 layout(location = 0) in vec3 inPosition;   // pos0
 layout(location = 1) in vec3 inNormal;     // pos1
@@ -9,8 +13,5 @@ layout(location = 1) out vec2 fragTexCoord;
 
 void main()
 {
-    gl_Position = vec4(inPosition / 5.0, 1.0);
-
-    fragNormal = inNormal;
-    fragTexCoord = inTexCoord;
+    gl_Position = CameraCommon.MatProj * CameraCommon.MatView * ObjectCommon.MatTransform * vec4(inPosition, 1.0);
 }

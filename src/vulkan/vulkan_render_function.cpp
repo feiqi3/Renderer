@@ -1650,15 +1650,10 @@ namespace Render::Vulkan {
         }
 
         if (!targetSet) {
-            rs_descriptorset_layout_vk* targetSetLayout = 0;
-            for (auto& [id, layout] : pipeline->layout->setLayouts) {
-                if (id == vkSet) {
-                    targetSetLayout = layout;
-                    break;
-                }
+            targetSet = context->descriptorSetMgr->AllocateDescriptorSet(frame, context, pipeline, vkSet);
+            if (!targetSet) {
+                assert(0);
             }
-            if (!targetSetLayout)return 0;
-            targetSet = context->descriptorSetMgr->AllocateDescriptorSet(frame, context, targetSetLayout);
             frameSets.push_back({ vkSet,targetSet });
         }
 

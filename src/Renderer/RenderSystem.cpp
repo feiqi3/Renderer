@@ -455,7 +455,7 @@ namespace Render{
 		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		std::array<Vulkan::rs_drawdata_vk*,3> drawDataArr{};
 		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityDrawData;
-		drawDataArr[2] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
+		drawDataArr[1] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)
