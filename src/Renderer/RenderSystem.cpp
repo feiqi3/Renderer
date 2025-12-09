@@ -29,7 +29,7 @@ namespace Render{
 		ShaderIncludeRes res;
 		res.FindResult = true;
 		res.ShaderName = std::move(shaderFullDir);
-		res.ShaderContent.reserve(fileSize);
+		res.ShaderContent.resize(fileSize);
 		fileStream->read(res.ShaderContent.data(), fileSize);
 		return res;
 	}
@@ -85,7 +85,6 @@ namespace Render{
 		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
 		new CameraManager;
-		CameraManager::instance()->InitCameraDrawData();
 	}
 	void RenderSystem::destroyRenderSystem()
 	{

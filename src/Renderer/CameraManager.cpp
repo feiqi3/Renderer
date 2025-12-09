@@ -39,7 +39,6 @@ namespace Render {
 
 	CameraManager::CameraManager():mDp(new CameraManagerPrivate)
 	{
-		InitCameraDrawData();
 	}
 
 	CameraManager::~CameraManager()
@@ -91,7 +90,7 @@ namespace Render {
 
 		RenderSystem* pSys = RenderSystem::instance();
 		//1. create a pipeline 
-		auto pass = pSys->getRenderPass(Name("MainCam"));
+		auto pass = pSys->getRenderPass(Name("MainPass"));
 		mDp->VirtualCameraTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("VirtualCamera"), VirtualCameraShaderStageInfo, renderState, vtxIA);
 		mDp->MainPassCameraMaterial = mDp->VirtualCameraTemplate->createVariant(pass, {});
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassCameraMaterial);

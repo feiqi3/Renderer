@@ -8,6 +8,7 @@
 #include "common/StringPool.h"
 #include "Renderer/MaterialTemplateManager.h"
 #include "platform/FileSystem/WinFileSystem.h"
+#include "Renderer/CameraManager.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -22,6 +23,7 @@ int main() {
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
 	renderFlow->init();
+	Render::CameraManager::instance()->InitCameraDrawData();
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;
 	int TargetFps = 60;
