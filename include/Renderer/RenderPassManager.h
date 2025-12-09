@@ -8,6 +8,10 @@ namespace Render {
 		~RenderPassManager();
 		RenderPassManager();
 		void onFrameBegin();
+		
+		void registerRenderPass(RenderPass* pass);
+		void unregisterRenderPass(RenderPass* pass);
+
 		void markSwapchainRenderPass(RenderPass* pass);
 		void unMarkSwapchainRenderPass(RenderPass* pass);
 		void onSwapchainRebuild();
@@ -18,5 +22,7 @@ namespace Render {
 		std::unordered_map<Name, RenderPass*> mRenderPasses;
 		void destroyRenderPass(RenderPass* pass);
 		SwapchainRenderPassHelper* mSwapchainRpHelper = 0;
+	private: 
+		RenderPass* mVirtualRenderPass = nullptr;
 	};
 }

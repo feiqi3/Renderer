@@ -57,6 +57,7 @@ namespace Render{
 		void destroyDrawData(rs_drawdata* data);
 
 		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap);
+		void destroyImage(rs_image* image);
 		rs_image* createRTTexture(ImageFormat format, int x, int y, int z, int layer,bool needSample);
 		rs_image* createDepthStencilTexture(ImageFormat format, int x, int y, bool needSample);
 		rs_rendertarget* createRendertarget(const std::vector<rs_image*>images,rs_image* dsTex);

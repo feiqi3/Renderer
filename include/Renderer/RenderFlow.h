@@ -3,7 +3,7 @@
 #include "MainCameraRenderPass.h"
 #include "SwapchainPass.h"   
 #include "RenderSystem.h"
-
+#include "RenderPassManager.h"
 namespace Render {
 	class RenderFlow {
 	public:
@@ -31,17 +31,23 @@ namespace Render {
 			mRenderTarget = RenderSystem::instance()->createRendertarget({ mMainCamRenderTexture }, 0);
 			mMainCamPass->setRenderTarget(mRenderTarget);
 			mMainCamPass->init();
+			RenderSystem::instance()->getRenderPassManager()->registerRenderPass(mMainCamPass);
 		}
 
 		void initSwapChainPass() {
 			RenderSystem* renderSys = RenderSystem::instance();
 			mSwapchainPass->init();
+			renderSys->getRenderPassManager()->registerRenderPass(mSwapchainPass);
 		};
 		void deinitSwapchainPass() {
+			RenderSystem* renderSys = RenderSystem::instance();
+			renderSys->getRenderPassManager()->unregisterRenderPass(mSwapchainPass);
 			delete mSwapchainPass;
 		}
 
 		void deinitMainCamPass() {
+			RenderSystem* renderSys = RenderSystem::instance();
+			renderSys->getRenderPassManager()->unregisterRenderPass(mMainCamPass);
 			delete mMainCamPass;
 			mMainCamPass = 0;
 

@@ -8,8 +8,6 @@
 namespace Render {
 	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
 	{
-		auto mgr = RenderSystem::instance()->getRenderPassManager();
-		mgr->addRenderPass(passName, this);
 		ClearColor SwapchainImgClrColor = {};
 		SwapchainImgClrColor.rgba[0] = 0.f;
 		SwapchainImgClrColor.rgba[1] = 0.f;
@@ -92,8 +90,6 @@ namespace Render {
 	RenderPass::~RenderPass()
 	{
 		using namespace Vulkan;
-		auto mgr = RenderSystem::instance()->getRenderPassManager();
-		mgr->removeRenderPass(this->mPassName);
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		auto pass = (rs_renderpass_vk*)mRenderPass;
 		destroyRsRenderPassVk(ctx, pass);

@@ -23,7 +23,6 @@ int main() {
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
 	renderFlow->init();
-	Render::CameraManager::instance()->InitCameraDrawData();
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;
 	int TargetFps = 60;

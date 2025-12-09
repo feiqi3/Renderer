@@ -178,6 +178,7 @@ namespace Render{
 	}
 	void RenderSystem::destoyRenderPass(rs_renderpass* renderPass)
 	{
+		if (!renderPass)return;
 		Vulkan::rs_renderpass_vk* rpVk = (Vulkan::rs_renderpass_vk*)renderPass;
 		Vulkan::destroyRsRenderPassVk(this->getRenderContext(), rpVk);
 	}
@@ -285,6 +286,13 @@ namespace Render{
 		return ret;
 
 	}
+
+	void RenderSystem::destroyImage(rs_image* image)
+	{
+		auto imageVk = (Vulkan::rs_image_vk*)image;
+		Vulkan::destroyRsImage(getRenderContext(), imageVk, false);
+	}
+
 	rs_image* RenderSystem::createRTTexture(ImageFormat format, int x, int y, int z, int layer, bool needSample)
 	{
 		ImageDesc desc{};

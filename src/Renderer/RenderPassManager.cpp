@@ -1,5 +1,6 @@
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderPassManager.h"
+#include "Renderer/RenderPass/VirtualRenderPass.h"
 #include "vulkan/vulkan_pipeline.h"
 namespace Render {
 
@@ -58,16 +59,21 @@ namespace Render {
 
 	RenderPassManager::~RenderPassManager()
 	{
+		mVirtualRenderPass = 0;
+
 		for (auto& [name, pass] : mRenderPasses) {
 			destroyRenderPass(pass);
 		}
 		mRenderPasses.clear();
+
 		delete mSwapchainRpHelper;
 	}
 
 	RenderPassManager::RenderPassManager()
 	{
 		mSwapchainRpHelper = new SwapchainRenderPassHelper;
+		mVirtualRenderPass = new VirtualRenderPass();
+		this->registerRenderPass(mVirtualRenderPass);
 	}
 
 	void RenderPassManager::onFrameBegin()
@@ -83,6 +89,16 @@ namespace Render {
 		auto sys = RenderSystem::instance();
 		uint32_t TargetSwapchainImg = sys->getNextRenderFrame() % sys->getRenderContext()->maxSwapChainImages;
 		targettRp->mRenderPass = mSwapchainRpHelper->getCurframeSwapchainRenderPass(targettRp->mPassDesc, TargetSwapchainImg);
+	}
+
+	void RenderPassManager::registerRenderPass(RenderPass* pass)
+	{
+		addRenderPass(pass->getPassName(), pass);
+	}
+
+	void RenderPassManager::unregisterRenderPass(RenderPass* pass)
+	{
+		removeRenderPass(pass->getPassName());
 	}
 
 	void RenderPassManager::markSwapchainRenderPass(RenderPass* pass)
@@ -134,6 +150,7 @@ namespace Render {
 		}
 		if (pass->mRenderPass) {
 			RenderSystem::instance()->destoyRenderPass(pass->mRenderPass);
+			pass->mRenderPass = nullptr;
 		}
 		delete pass;
 	}
