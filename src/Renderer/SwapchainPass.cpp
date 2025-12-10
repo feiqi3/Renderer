@@ -56,7 +56,6 @@ namespace Render {
 		delete BlitEntity;
 		MaterialTemplateManager::instance()->destroyMaterialTemplate(BlitMaterial->getName());
 		RenderSys->getRenderPassManager()->unMarkSwapchainRenderPass(this);
-
 	}
 
 	void SwapchainPass::initBlitData()
@@ -84,7 +83,7 @@ namespace Render {
 	void SwapchainPass::drawImpl(rs_commandbuffer* cmdbuffer)
 	{
 		auto RenderSys = RenderSystem::instance();
-
+		RenderSys->setCurrentCamera(nullptr);
 		RenderSys->updateUniform(BlitSampler, this->BlitRTSampler, BlitPass);
 		RenderSys->drawIndexed(cmdbuffer, BlitEntity, getPassName());
 	}

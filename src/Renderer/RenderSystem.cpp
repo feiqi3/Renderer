@@ -556,9 +556,15 @@ namespace Render{
 
 	void RenderSystem::setCurrentCamera(Camera* camera)
 	{
+		if (!camera) {
+			mDp->mCurrentCameraData = nullptr;
+			return;
+		}
+
 		if (camera->getCameraActive() == false) {
 			assert(0 && "Camera not active");
-
+			mDp->mCurrentCameraData = nullptr;
+			return;
 		}
 		mDp->mCurrentCameraData = CameraManager::instance()->updateCameraDrawData(camera);
 	}

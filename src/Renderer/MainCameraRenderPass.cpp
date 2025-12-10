@@ -6,7 +6,7 @@ namespace Render {
 	static PassDesc MainCamPassDesc{
 		.attachments = {
 			PassAttachment{
-				.loadOp = StorageOp::DontCare,
+				.loadOp = StorageOp::Clear,
 				.storeOp = StorageOp::Cached
 			}
 		}

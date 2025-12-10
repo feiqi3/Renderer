@@ -467,13 +467,13 @@ namespace Render::Vulkan {
                 itor->second->release();
                 if (itor->second->ref == 0) {
                     mLayoutMap.erase(itor);
-                }
+					destroyDescriptorSetLayout(ctx, rs);
+				}
             }
             else {
                 assert(0 && "Not Managered set layout");
             }
 
-            destroyDescriptorSetLayout(ctx,rs);
 
         }
     }
@@ -535,11 +535,13 @@ namespace Render::Vulkan {
                 itor->second->accquir();
                 return itor->second;
             }
-            l->bindingHash = layoutHash;
-            this->mLayoutMap.insert({
-                layoutHash,l
-            });
-            l->accquir();
+            else {
+                l->bindingHash = layoutHash;
+                this->mLayoutMap.insert({
+                    layoutHash,l
+                    });
+                l->accquir();
+            }
         }
 
         return l;
@@ -560,8 +562,10 @@ namespace Render::Vulkan {
     {
         auto& FrameAllocInfo = mFrameAllocateInfo[frameInFlight];
         auto tail = mRingBufferAllocator.tail_offset();
-        assert(tail == FrameAllocInfo.headOffset && ("Broken Ring Buffer"));
-        mRingBufferAllocator.release(FrameAllocInfo.totalAllocateSize);
+        if (FrameAllocInfo.totalAllocateSize != 0) {
+            assert(tail == FrameAllocInfo.headOffset && ("Broken Ring Buffer"));
+            mRingBufferAllocator.release(FrameAllocInfo.totalAllocateSize);
+        }
         FrameAllocInfo = { };
     }
     bool UniformBufferObject::allocateInFrame(void* data, uint32_t size, uint32_t frameInFlight, uint64_t frame, uint32_t& offsetInBuffer)

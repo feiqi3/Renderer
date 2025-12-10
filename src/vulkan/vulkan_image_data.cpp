@@ -7,11 +7,7 @@ namespace Render::Vulkan {
     }
     void ImageDataManager::beginRenderFrame(uint64_t targetFrame, rs_context_vk* ctx)
     {
-        CommandBufferDesc desc{ .queueType = QueueType_Graphics,.transient = true };
-        if (!this->fence) {
-            fence = createRsFence(ctx);
-            resetRsFence(ctx, fence);
-        }
+
     }
     void ImageDataManager::updateImageData(uint32_t fif, rs_context_vk* ctx, rs_image_vk* image, void* data,size_t byteSize, int x, int y, int z, int width, int height, int depth, int layeroff, int layerSize, int mip)
     {
@@ -33,17 +29,18 @@ namespace Render::Vulkan {
     void ImageDataManager::updateBufferData(uint32_t fif, rs_context_vk* ctx, rs_buffer_vk* buffer, void* data, size_t byteSize, size_t offsetDst)
     {
         CommandBufferDesc desc{ .queueType = QueueType_Graphics,.transient = true };
-
+		if (!this->fence) {
+			fence = createRsFence(ctx);
+			resetRsFence(ctx, fence);
+		}
         auto cmd = createRsCommand(ctx, desc);
         cmd->hasCommands = true;
         cmdBeginRecord(cmd);
         Vulkan::cmdUpdateBufferData(cmd, ctx, buffer, data, byteSize, offsetDst);
         cmdEndRecord(cmd);
         Vulkan::cmdSubmitCmdBuffer(ctx, cmd, QueueType_Graphics, {}, {}, (Vulkan::rs_fence_vk*)fence);
-        if (fence) {
-            waitForRsFence(ctx, fence, -1, ctx->RenderFrameFif);
-            resetRsFence(ctx, fence);
-        }
+        waitForRsFence(ctx, fence, -1, ctx->RenderFrameFif);
+        resetRsFence(ctx, fence);
     }
 
     void ImageDataManager::cmdUpdateImageData(uint32_t fif, rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_image_vk* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layeroff, int layerSize, int mip)

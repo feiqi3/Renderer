@@ -35,9 +35,10 @@ int main() {
 	while (!glfwWindow->shouldClose()) {
 		auto frameBegin = std::chrono::system_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
-		mat4 matrix{};
+		mat4 matrix = mat4(1.0);
 		matrix = translate(matrix, vec3(0, 0, 0));
-		static auto rotateMat = rotate(mat4(), 0.166666, vec3(1, 1, 1));
+		static auto rotateMat = mat4(1.0);
+		rotateMat =	rotate(rotateMat, 0.005, vec3(1, 1, 1));
 		matrix = rotateMat * matrix;
 		auto pass = Cube->getMaterialTemplate()->getVarient(Name("MainPass"));
 		auto bindingPos = RenderSystem::instance()->getBindingPos("ObjectCommon", pass);
