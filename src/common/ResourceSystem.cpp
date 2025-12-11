@@ -4,15 +4,22 @@ namespace Render {
 
 	void ResourceSystem::registerSystem(std::unique_ptr<IResourceManager> manager)
 	{
+		for (auto&& sys : mManagers) {
+			if (sys->typeName() == manager->typeName() ) {
+				throw std::runtime_error("Duplicated manager.");
+				return;
+			}
+		}
 		mManagers.push_back(std::move(manager));
 	}
 
-	void ResourceSystem::unregisterSystem(Name& resourceType)
+	void ResourceSystem::unregisterSystem(const Name& resourceType)
 	{
 		int pos = -1;
 		for (int i = 0;i < mManagers.size();i++) {
 			if (mManagers[i]->typeName() == resourceType) {
 				pos = i;
+				break;
 			}
 		}
 		if (pos == -1) {
@@ -22,7 +29,7 @@ namespace Render {
 		mManagers.pop_back();
 	}
 
-	Render::IResourceManager* ResourceSystem::getResourceManager(Name& name)
+	Render::IResourceManager* ResourceSystem::getResourceManager(const Name& name)
 	{
 		for (auto&& resourceMgr : mManagers) {
 			if (resourceMgr->typeName() == name) {
@@ -32,7 +39,7 @@ namespace Render {
 		return nullptr;
 	}
 
-	bool ResourceSystem::isResourceManagerExist(Name& name) const
+	bool ResourceSystem::isResourceManagerExist(const Name& name) const
 	{
 		for (auto&& resourceMgr : mManagers) {
 			if (resourceMgr->typeName() == name) {

@@ -3,15 +3,15 @@
 
 #include "common/CoreDefs.h"
 #include "common/Name.h"
-#include "common/UUID.h"
 #include <string>
 #include <memory>
+#include <mutex>
 namespace Render{
 
 	struct ResourceEntry {
 		Name resourceName;
 		void* resource;
-		size_t refCount = 0;
+		std::atomic<u32> refCount = 0;
 	};
 
 	class IResourceManager {
@@ -29,44 +29,78 @@ namespace Render{
 	public:
 
 
-		explicit ResourceManager(Name& typeName) : m_typeName(typeName) {}
+		explicit ResourceManager(const Name& typeName) : m_typeName(typeName) {}
 		virtual ~ResourceManager() = default;
 
 		const Name& typeName() const override { return m_typeName; }
 
 		ResourceEntry* acquire(const Name& name) override {
-			auto it = m_entries.find(name);
-			if (it == m_entries.end()) {
-				T* res = loadImpl(name);
-				if (!res) return nullptr;
-				auto e = new unique_ptr<ResourceEntry>();
-				e->resourceName = name;
-				e->resource = (res);
-				e->refCount = 1;
-				auto raw = e->get();
-				m_entries.emplace(name, std::move(e));
-				return raw;
+			{
+				std::lock_guard<std::mutex> lock(m_mutex);
+				auto it = m_entries.find(name);
+				if (it == m_entries.end()) {
+					//Do nothing
+				}
+				else {
+					it->second->refCount++;
+					return it->second.get();
+				}
 			}
-			else {
-				it->second->refCount++;
-				return it->second.get();
+			T* res = loadImpl(name);
+			if (!res) return nullptr;
+
+
+
+			auto retRaw = res;
+			bool needRelease = false;
+
+			{
+				std::lock_guard<std::mutex> lock(m_mutex);
+				
+				auto it = m_entries.find(name);
+				if (it != m_entries.end()) {
+					needRelease = true;
+					it->second->refCount++;
+					retRaw = it->second.get();
+				}
+				else {
+					auto e = make_unique<ResourceEntry>();
+					e->resource = (res);
+					e->resourceName = name;
+					e->refCount = 1;
+					m_entries.insert({ name,std::move(e) });
+				}
+
 			}
+
+			if (needRelease) {
+				unloadImpl(res);
+			}
+
+			return retRaw;
 		}
 
 		void release(const Name& id) override {
-			auto it = m_entries.find(id);
-			if (it == m_entries.end()) return;
-			if (it->second.refCount == 0) return; 
-			it->second.refCount--;
-			if (it->second.refCount == 0) {
-				unloadImpl(it->second.resource);
-				m_entries.erase(it);
+			T* res = nullptr;
+			{
+				std::lock_guard<std::mutex> lock(m_mutex);
+				auto it = m_entries.find(id);
+				if (it == m_entries.end()) return;
+				ResourceEntry* entry = it->second.get();
+				if (entry->refCount == 0) return;
+				entry->refCount--;
+				res = entry->resource;
+				if (entry->refCount == 0) {
+					m_entries.erase(it);
+				}
 			}
+
+			unloadImpl(res);
 		}
 
 		size_t debugRefCount(const Name& id) const {
 			auto it = m_entries.find(id);
-			return (it == m_entries.end()) ? 0 : it->second.refCount;
+			return (it == m_entries.end()) ? 0 : it->second->refCount;
 		}
 
 	protected:
@@ -75,6 +109,7 @@ namespace Render{
 		virtual void unloadImpl(T* /*resource*/) {  }
 
 	private:
+		std::mutex m_mutex;
 		std::map<Name, std::unique_ptr<ResourceEntry>> m_entries;
 		Name m_typeName;
 	};
