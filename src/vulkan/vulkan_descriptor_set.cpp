@@ -555,15 +555,17 @@ namespace Render::Vulkan {
         rs = 0;
     }
     UniformBufferObject::UniformBufferObject(uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize)
-        :mRingBufferAllocator(bufferSize, alignedSize,false,true),mFrameAllocateInfo(maxFrameInFlight),mAlignment(alignedSize)
+        :mRingBufferAllocator(bufferSize, alignedSize,true,true),mFrameAllocateInfo(maxFrameInFlight),mAlignment(alignedSize)
     {
     }
     void UniformBufferObject::releaseFrame(uint32_t frameInFlight)
     {
         auto& FrameAllocInfo = mFrameAllocateInfo[frameInFlight];
         auto tail = mRingBufferAllocator.tail_offset();
+        auto head = mRingBufferAllocator.head_offset();
         if (FrameAllocInfo.totalAllocateSize != 0) {
-            assert(tail == FrameAllocInfo.headOffset && ("Broken Ring Buffer"));
+            bool isBroken = (head != ((tail + FrameAllocInfo.totalAllocateSize) % mAlignment));
+            assert(isBroken && ("Broken Ring Buffer"));
             mRingBufferAllocator.release(FrameAllocInfo.totalAllocateSize);
         }
         FrameAllocInfo = { };

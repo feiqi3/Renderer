@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <mutex>
+#include <map>
 namespace Render{
 
 	struct ResourceEntry {
@@ -69,7 +70,7 @@ namespace Render{
 					retRaw = it->second.get();
 				}
 				else {
-					auto e = make_unique<ResourceEntry>();
+					auto e = std::make_unique<ResourceEntry>();
 					e->resource = (res);
 					e->resourceName = name;
 					e->refCount = 1;
