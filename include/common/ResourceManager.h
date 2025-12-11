@@ -19,6 +19,7 @@ namespace Render{
 		virtual ~IResourceManager() = default;
 		virtual const Name& typeName() const = 0;
 
+		virtual ResourceEntry* acquireOrCreate(const Name& id) = 0;
 		virtual ResourceEntry* acquire(const Name& id) = 0;
 		virtual void release(const Name& id) = 0;
 	};
@@ -34,22 +35,26 @@ namespace Render{
 
 		const Name& typeName() const override { return m_typeName; }
 
-		ResourceEntry* acquire(const Name& name) override {
+		inline ResourceEntry* acquire(const Name& name, void* userInfo) {
 			{
 				std::lock_guard<std::mutex> lock(m_mutex);
 				auto it = m_entries.find(name);
 				if (it == m_entries.end()) {
-					//Do nothing
+					return nullptr;
 				}
 				else {
 					it->second->refCount++;
 					return it->second.get();
 				}
 			}
+		}
+
+		inline ResourceEntry* acquireOrCreate(const Name& name,void* userInfo) override {
+			if (ResourceEntry* resource = acquire(name) != nullptr) {
+				return resource;
+			}
 			T* res = loadImpl(name);
 			if (!res) return nullptr;
-
-
 
 			auto retRaw = res;
 			bool needRelease = false;
@@ -80,7 +85,7 @@ namespace Render{
 			return retRaw;
 		}
 
-		void release(const Name& id) override {
+		inline void release(const Name& id) override {
 			T* res = nullptr;
 			{
 				std::lock_guard<std::mutex> lock(m_mutex);
@@ -98,13 +103,13 @@ namespace Render{
 			unloadImpl(res);
 		}
 
-		size_t debugRefCount(const Name& id) const {
+		inline size_t debugRefCount(const Name& id) const {
 			auto it = m_entries.find(id);
 			return (it == m_entries.end()) ? 0 : it->second->refCount;
 		}
 
 	protected:
-		virtual T* loadImpl(const Name& id) = 0;
+		virtual T* loadImpl(const Name& id,void* userInfo) = 0;
 
 		virtual void unloadImpl(T* /*resource*/) {  }
 

@@ -12,6 +12,12 @@ namespace Render {
 		void registerSystem(std::unique_ptr<IResourceManager> manager);
 		void unregisterSystem(const Name& resourceType);
 		IResourceManager* getResourceManager(const Name& name);
+		template<typename T> 
+		inline ResourceHandle<T> getOrCreateResource(const Name& type, const Name& resource, void* userCreateInfo) {
+			auto mgr = getResourceManager(type);
+			if (!mgr)return nullptr;
+			return ResourceHandle<T>(mgr, mgr->acquire(resource), userCreateInfo);
+		}
 		template<typename T>
 		inline ResourceHandle<T> getResource(const Name& type, const Name& resource) {
 			auto mgr = getResourceManager(type);
