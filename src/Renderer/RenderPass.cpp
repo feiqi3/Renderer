@@ -8,12 +8,7 @@
 namespace Render {
 	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
 	{
-		ClearColor SwapchainImgClrColor = {};
-		SwapchainImgClrColor.rgba[0] = 0.f;
-		SwapchainImgClrColor.rgba[1] = 0.f;
-		SwapchainImgClrColor.rgba[2] = 0.f;
-		SwapchainImgClrColor.rgba[3] = 1.f;
-		mClrColor.push_back(SwapchainImgClrColor);
+
 	}
 	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget, bool compatible)
 	{

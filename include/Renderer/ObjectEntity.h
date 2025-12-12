@@ -61,7 +61,7 @@ namespace Render {
 			VtxIA.bindings.push_back(binding);
 
 			mNormalTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("NormalTemplate"),NomralTemplateInfo, normalState, VtxIA);
-			mMainPass = mNormalTemplate->createVariant(RenderSystem::instance()->getRenderPass(Name("MainPass")), {});
+			mMainPass = mNormalTemplate->createVariant(RenderSystem::instance()->getRenderPass(Name("MainCameraPass")), {});
 		}
 		MaterialTemplate* mNormalTemplate = 0;
 		Material* mMainPass = 0;

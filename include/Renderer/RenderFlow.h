@@ -1,6 +1,6 @@
 #ifndef RENDER_FLOW_H
 #define RENDER_FLOW_H
-#include "MainCameraRenderPass.h"
+#include "Renderer/RenderPass/MainCameraPass.h"
 #include "SwapchainPass.h"   
 #include "RenderSystem.h"
 #include "RenderPassManager.h"
@@ -9,7 +9,7 @@ namespace Render {
 	public:
 
 		void init() {
-			mMainCamPass = new MainCamPass;
+			mMainCamPass = new MainCameraPass;
 			mSwapchainPass = new SwapchainPass;
 			initMainCamPass();
 			initSwapChainPass();
@@ -27,11 +27,13 @@ namespace Render {
 		}
 
 		void initMainCamPass() {
-			mMainCamRenderTexture = RenderSystem::instance()->createRTTexture(Render::ImageFormat::BGRA8_UNORM, 1920, 1080, 1, 1, true);
-			mRenderTarget = RenderSystem::instance()->createRendertarget({ mMainCamRenderTexture }, 0);
-			mMainCamPass->setRenderTarget(mRenderTarget);
 			mMainCamPass->init();
-			RenderSystem::instance()->getRenderPassManager()->registerRenderPass(mMainCamPass);
+			auto rsys = RenderSystem::instance();
+			rsys->getRenderPassManager()->registerRenderPass(mMainCamPass);
+			mCol = rsys->createRTTexture(ImageFormat::BGRA8_UNORM, 1000, 1000, 1, 1, true);
+			mDepth = rsys->createDepthStencilTexture(ImageFormat::D32_SFLOAT_S8_UINT, 1000, 1000, false);
+			mRenderTarget = rsys->createRendertarget({ mCol }, mDepth);
+			mMainCamPass->setRenderTarget(mRenderTarget);
 		}
 
 		void initSwapChainPass() {
@@ -50,12 +52,6 @@ namespace Render {
 			renderSys->getRenderPassManager()->unregisterRenderPass(mMainCamPass);
 			delete mMainCamPass;
 			mMainCamPass = 0;
-
-			delete mRenderTarget;
-			mRenderTarget = 0;
-
-			delete mMainCamRenderTexture;
-			mMainCamRenderTexture = 0;
 		}
 
 		void deinit() {
@@ -77,7 +73,7 @@ namespace Render {
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			for (auto&& entity : mRenderEntities) {
-				mMainCamPass->addToDraw(entity);
+				mMainCamPass->addToDrawList(entity);
 			}
 			mMainCamPass->draw(cmdbufOffscreen);
 			RenderSys->cmdEnd(cmdbufOffscreen);
@@ -86,16 +82,14 @@ namespace Render {
 			auto cmdbufSwapchain = RenderSys->GetCommandBufferCurFrameCurThread();
 
 			RenderSys->cmdBegin(cmdbufSwapchain);
-			mSwapchainPass->setBlitRT(mMainCamRenderTexture);
+			mSwapchainPass->setBlitRT(mCol);
 			mSwapchainPass->draw(cmdbufSwapchain);
 			RenderSys->cmdEnd(cmdbufSwapchain);
 			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
 
 		}
 	private:
-		MainCamPass* mMainCamPass = 0;
-		rs_image* mMainCamRenderTexture = 0;
-		rs_rendertarget* mRenderTarget = 0;
+		MainCameraPass* mMainCamPass = 0;
 		SwapchainPass* mSwapchainPass = 0;
 		std::vector<RenderEntity*> mRenderEntities;
 		std::vector<RenderEntity*> mPostEffectEntities;
@@ -106,6 +100,10 @@ namespace Render {
 		rs_fence* mWaitForRenderEndFence;
 		RenderEntity* BlitEntity;
 		MaterialTemplate* BlitMaterial;
+
+		rs_image* mCol = nullptr;
+		rs_image* mDepth = nullptr;
+		rs_rendertarget* mRenderTarget = nullptr;
 	};
 }
 

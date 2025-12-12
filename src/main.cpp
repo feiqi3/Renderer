@@ -10,6 +10,7 @@
 #include "platform/FileSystem/WinFileSystem.h"
 #include "Renderer/CameraManager.h"
 #include "Renderer/Camera.h"
+#include "SimpleScene.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -31,22 +32,12 @@ int main() {
 	float TargetFrameTime = 1000. / TargetFps;
 	auto camera = new Render::Camera(Render::Name("Main"));
 	Render::CameraManager::instance()->RegisterCamera(camera,0);
-	auto Cube = new Render::CubeEntity();
+	auto* scene =new SimpleScene();
 	while (!glfwWindow->shouldClose()) {
 		auto frameBegin = std::chrono::system_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
-		mat4 matrix = mat4(1.0);
-		matrix = translate(matrix, vec3(0, 0, 0));
-		static auto rotateMat = mat4(1.0);
-		rotateMat =	rotate(rotateMat, 0.005, vec3(1, 1, 1));
-		matrix = rotateMat * matrix;
-		auto pass = Cube->getMaterialTemplate()->getVarient(Name("MainPass"));
-		auto bindingPos = RenderSystem::instance()->getBindingPos("ObjectCommon", pass);
-		RenderSystem::instance()->setCurrentCamera(camera);
-		RenderSystem::instance()->updateUniformBufferData(bindingPos, &matrix, sizeof(mat4), Cube->getPass(Name("MainPass")));
-		if (Render::RenderSystem::instance()->getNextRenderFrame() == 0) {
-			renderFlow->AddEntity(Cube);
-		}
+
+		scene->updateScene(0.01666);
 
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();

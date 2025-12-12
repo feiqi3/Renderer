@@ -42,7 +42,12 @@ namespace Render {
 
 	SwapchainPass::SwapchainPass():RenderPass(Name("Swapchain"), SwapchainPassDesc)
 	{
-
+		ClearColor SwapchainImgClrColor = {};
+		SwapchainImgClrColor.rgba[0] = 0.f;
+		SwapchainImgClrColor.rgba[1] = 0.f;
+		SwapchainImgClrColor.rgba[2] = 0.f;
+		SwapchainImgClrColor.rgba[3] = 1.f;
+		this->setClearData({ SwapchainImgClrColor }, {});
 	}
 	void SwapchainPass::init()
 	{
