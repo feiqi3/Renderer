@@ -385,8 +385,8 @@ namespace Render{
 	void RenderSystem::updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass)
 	{	
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
-		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
+		auto pipeline = (Vulkan::rs_pipeline_vk*)(pass->mMaterial->getRsPipeline());
+		auto drawData = (Vulkan::rs_drawdata_vk*)(pass->mDrawData);
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame,pipeline,drawData, binding, data, size);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass)

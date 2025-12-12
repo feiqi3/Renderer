@@ -533,7 +533,12 @@ namespace Render::Vulkan {
         .blendEnable = VK_FALSE
         };
         defaultBlendState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        std::vector<VkPipelineColorBlendAttachmentState> attBlendStates(renderPass->passDesc.attachments.size(),defaultBlendState );
+        int blendAttCnts = renderPass->passDesc.attachments.size();
+        if (renderPass->haveDepth) {
+            //Do not blend depth, cause blend is for color attachments.
+            blendAttCnts--;
+        }
+        std::vector<VkPipelineColorBlendAttachmentState> attBlendStates(blendAttCnts,defaultBlendState );
         for (int i = 0; i < desc.renderState.blendStates.size(); ++i) {
             auto& st = attBlendStates[i];
             auto& _st = desc.renderState.blendStates[i];

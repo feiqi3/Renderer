@@ -1730,17 +1730,23 @@ namespace Render::Vulkan {
         int idx = 0;
         auto depthIdx = -1;
         if (renderpass->renderTarget->m_depthStencilAttachment) {
-            depthIdx = renderpass->renderTarget->m_attachments.size();
+            depthIdx = renderpass->renderTarget->m_attachments.size() - 1;
         }
         for (auto&& att : atts) {
             auto layoutNeedWhenRpBegin = pickLayout(att.isHDR, att.loadOp);
-            auto rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
+            rs_image_vk* rtImage = nullptr;
+			bool isDepthAtt = false;
+            if (renderpass->haveDepth && idx == atts.size() - 1) {
+				isDepthAtt = true;
+				rtImage = (rs_image_vk*)renderpass->renderTarget->m_depthStencilAttachment;
+            }
+            else {
+				rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
+            }
+
+            assert(rtImage != nullptr && "Error!");
             if (layoutNeedWhenRpBegin != VK_IMAGE_LAYOUT_UNDEFINED && layoutNeedWhenRpBegin != ((rs_image_vk*)renderpass->renderTarget->m_attachments[idx])->currentLayout)
             {
-                bool isDepthAtt = false;
-                if (depthIdx == idx) {
-                    rtImage = (rs_image_vk*)renderpass->renderTarget->m_depthStencilAttachment;
-                }
                 VkImageSubresourceRange range{};
                 range.aspectMask = rtImage->usage & ImageUsage_DepthStencilAttachment ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
                 range.baseMipLevel = 0;
