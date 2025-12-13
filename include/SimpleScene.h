@@ -12,6 +12,7 @@ namespace Render {
 	private:
 		Camera* mCam;
 		CubeEntity* mCube;
+		CubeEntity* mCubeB;
 		rs_image* mRtColor = nullptr;
 		rs_image* mRtDepth = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;

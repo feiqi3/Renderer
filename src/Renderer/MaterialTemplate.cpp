@@ -95,6 +95,7 @@ namespace Render {
 			compileDesc.shaderSrcCode = marco + shaderCode;
 			compileDesc.stage = stage;
 			compileDesc.shaderName = shader;
+			compileDesc.generateDebugInfo = true;
 			sd.compileDesc = &compileDesc;
 			modules.push_back(Vulkan::createRsShader(ctx, sd));
 		}

@@ -564,7 +564,7 @@ namespace Render::Vulkan {
         auto tail = mRingBufferAllocator.tail_offset();
         auto head = mRingBufferAllocator.head_offset();
         if (FrameAllocInfo.totalAllocateSize != 0) {
-            bool isBroken = (head != ((tail + FrameAllocInfo.totalAllocateSize) % mAlignment));
+            bool isBroken = (head != ((tail + FrameAllocInfo.totalAllocateSize) % mRingBufferAllocator.capacity()));
             assert(isBroken && ("Broken Ring Buffer"));
             mRingBufferAllocator.release(FrameAllocInfo.totalAllocateSize);
         }

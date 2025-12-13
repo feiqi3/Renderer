@@ -10,8 +10,12 @@ layout(location = 2) in vec2 inTexCoord;   // pos2
 
 layout(location = 0) out vec3 fragNormal;
 layout(location = 1) out vec2 fragTexCoord;
+layout(location = 2) out vec3 worldPos;
 
 void main()
 {
+    fragTexCoord = inTexCoord;
+    worldPos = (ObjectCommon.MatTransform * vec4(inPosition,1.0f)).xyz;
+    fragNormal =  (mat4(mat3(ObjectCommon.MatTransform)) * vec4(inNormal,1.0f)).xyz;
     gl_Position = CameraCommon.MatProj * CameraCommon.MatView * ObjectCommon.MatTransform * vec4(inPosition, 1.0);
 }
