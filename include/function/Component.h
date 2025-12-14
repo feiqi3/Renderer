@@ -1,6 +1,7 @@
 #ifndef COMPONENT_H_
 #define COMPONENT_H_
 
+#include "function/ObjectFwd.h"
 namespace Render {
     class Object;
     class Scene;

@@ -1,6 +1,7 @@
 #ifndef _SCENE_H_
 #define _SCENE_H_
 
+#include "function/ObjectFwd.h"
 #include "common/Name.h"
 #include <vector>
 #include <memory>
@@ -21,7 +22,7 @@ namespace Render {
 
         Object* createObject(const char* name = nullptr);
         void destroyObject(Object* object);
-
+        void destroyObjectByID(ObjectID id);
         const std::list<std::unique_ptr<Object>>& objects() const noexcept;
 
         void update(float deltaTime);

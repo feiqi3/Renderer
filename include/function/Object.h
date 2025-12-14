@@ -1,6 +1,7 @@
 #ifndef _OBJECT_H_
 #define _OBJECT_H_
 
+#include "function/ObjectFwd.h"
 #include "common/CommonMath.h"
 #include "common/Name.h"
 #include "function/Component.h"
@@ -17,7 +18,6 @@ namespace Render {
 
     class Object {
     public:
-        using ObjectID = uint32_t;
 
         // ctor/dtor
         explicit Object(ObjectID id, std::string name = "");

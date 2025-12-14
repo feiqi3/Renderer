@@ -63,6 +63,22 @@ namespace Render {
         m_objects.erase(it);
     }
 
+    void Scene::destroyObjectByID(ObjectID id)
+    {
+        auto itor = m_objects.begin();
+        for (itor; itor != m_objects.end(); ++itor) {
+            if ((*itor)->id() == id) {
+                break;
+            }
+        }
+        if (itor != m_objects.end()) {
+            destroyObject((*itor).get());
+        }
+        else {
+            return;
+        }
+    }
+
     const std::list<std::unique_ptr<Object>>& Scene::objects() const noexcept {
         return m_objects;
     }
