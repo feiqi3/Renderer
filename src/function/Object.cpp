@@ -29,7 +29,7 @@ namespace Render {
         m_components.clear();
     }
 
-    Object::ObjectID Object::id() const noexcept { return m_id; }
+    ObjectID Object::id() const noexcept { return m_id; }
     const std::string& Object::name() const noexcept { return m_name; }
     void Object::setName(const std::string& name) noexcept { m_name = name; }
 
