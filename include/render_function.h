@@ -20,6 +20,7 @@ namespace Render {
 
 	rs_shader_module* createShader(rs_context* context, ShaderDesc& desc);
 	rs_shader_module* destroyShader(rs_context* context, ShaderDesc& desc);
+	bool queryImgFormatCaps(rs_context* ctx, ImageFormat fmt, FormatCapFlag flags);
 };
 
 #endif

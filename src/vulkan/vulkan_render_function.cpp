@@ -308,6 +308,57 @@ namespace Render::Vulkan {
         }
     }
 
+    void queryAllImageFormatCaps(rs_context_vk* ctx)
+    {
+        auto physDev = ctx->physicalDevice;
+
+        for (int i = 0; i < int(ImageFormat::Invalid); ++i)
+        {
+            ImageFormat imgFmt = static_cast<ImageFormat>(i);
+            VkFormat vkFmt = toVkFormat(imgFmt);
+
+            FormatCapFlag caps = 0;
+
+            // Invalid / Unknown 直接跳过
+            if (vkFmt == VK_FORMAT_UNDEFINED)
+            {
+                ctx->ImageFormatCaps[i] = caps;
+                continue;
+            }
+
+            VkFormatProperties props{};
+            vkGetPhysicalDeviceFormatProperties(physDev, vkFmt, &props);
+
+            VkFormatFeatureFlags features = props.optimalTilingFeatures;
+
+            // 至少支持 optimal tiling 才算 Supported
+            if (features != 0)
+            {
+                caps |= ImgFormatCaps::Supported;
+            }
+
+            // Color attachment
+            if (features & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)
+            {
+                caps |= ImgFormatCaps::ColorAtt;
+            }
+
+            // Shader sampling
+            if (features & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)
+            {
+                caps |= ImgFormatCaps::Sample;
+            }
+
+            // Storage image
+            if (features & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)
+            {
+                caps |= ImgFormatCaps::Storage;
+            }
+
+            ctx->ImageFormatCaps[i] = caps;
+        }
+    }
+
     //DXGI_FORMAT toDxgiFormat(ImageFormat fmt) {
     //    switch (fmt) {
     //    case ImageFormat::R8_UNORM:           return DXGI_FORMAT_R8_UNORM;                // :contentReference[oaicite:45]{index=45}

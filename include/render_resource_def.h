@@ -96,6 +96,14 @@ namespace Render {
         Invalid,
     };
 
+    using FormatCapFlag = uint8_t;
+    namespace ImgFormatCaps {
+        FormatCapFlag Supported     = 1 << 0;
+        FormatCapFlag ColorAtt      = 1 << 1;
+        FormatCapFlag Sample        = 1 << 2;
+        FormatCapFlag Storage       = 1 << 3;
+    };
+
     using VertexFormat = ImageFormat;
 
     enum class ImageType : uint8_t {

@@ -9,6 +9,8 @@ namespace Render::Vulkan {
 
 	VkFormat toVkFormat(ImageFormat fmt);
 
+	void queryAllImageFormatCaps(rs_context_vk* ctx);
+
 	VkImageViewType toVkImageViewType(ImageType t);
 	VkImageType toVkImageType(ImageType t);
 

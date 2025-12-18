@@ -2,6 +2,7 @@
 #define RENDER_RESOURCE_H_
 #include <string>
 #include <atomic>
+#include <array>
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
 namespace Render {
@@ -16,6 +17,7 @@ namespace Render {
 		uint32_t LogicFrameFif = 0;
 		uint32_t RenderFrameFif = 0;
 		std::atomic<bool> canRenderNextFrame = false;
+		std::array<FormatCapFlag, int(ImageFormat::Invalid)> ImageFormatCaps;
 	};
 
 	struct rs_base {
