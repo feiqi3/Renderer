@@ -9,7 +9,6 @@ namespace Render::Vulkan {
 
 	VkFormat toVkFormat(ImageFormat fmt);
 
-	void queryAllImageFormatCaps(rs_context_vk* ctx);
 
 	VkImageViewType toVkImageViewType(ImageType t);
 	VkImageType toVkImageType(ImageType t);
@@ -35,6 +34,11 @@ namespace Render::Vulkan {
 	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
 	rs_context_vk* initVulkanBackEnd(const BackEndInitDesc& desc,Window::rs_window* window);
+	void queryAllImageFormatCaps(rs_context_vk* ctx);
+	void initRenderTextureFormatMapping(rs_context_vk* ctx);
+	
+
+
 	void deinitVulkanBackEnd(rs_context_vk* ctx);
 	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx, rs_image_vk** images, int imageNum, rs_image_vk* depthStencil);
 	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);

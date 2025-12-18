@@ -17,13 +17,13 @@ namespace Render::Vulkan {
 	VkShaderStageFlags toVkShaderStageFlags(uint32_t stage);
 	VkShaderStageFlagBits toVkShaderStageBit(ShaderStage stage);
 
+	uint64_t CalcPassDescHash(const PassDesc& desc);
+
 	rs_renderpass_vk* createRsRenderPassVk(
 		rs_context_vk* ctx,
-		rs_rendertarget_vk* rt,
 		const PassDesc& rpDesc
 	);
 	void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass, bool immediately = false);
-	bool changeRsRenderPassRtVk(rs_context_vk* ctx, rs_renderpass_vk* rp, rs_rendertarget_vk* rt);
 
 	VkPrimitiveTopology toVkTopology(Topology topo);
 	VkPolygonMode toVkFillMode(FillMode mode);

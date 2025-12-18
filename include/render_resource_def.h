@@ -100,8 +100,25 @@ namespace Render {
     namespace ImgFormatCaps {
         FormatCapFlag Supported     = 1 << 0;
         FormatCapFlag ColorAtt      = 1 << 1;
-        FormatCapFlag Sample        = 1 << 2;
-        FormatCapFlag Storage       = 1 << 3;
+        FormatCapFlag DepthStencil  = 1 << 2;
+        FormatCapFlag Sample        = 1 << 3;
+        FormatCapFlag Storage       = 1 << 4;
+    };
+
+    enum class RenderTextureFormat : uint8_t
+    {
+        // LDR Color
+        RGBA8,          // 8-8-8-8 UNORM
+
+        // HDR Color
+        R16F,           // 1 channel
+        RG16F,          // 2 channel
+        RGBA16F,        // 4 channel
+        RGBA32F,        // 4 channel
+
+        // Depth / Stencil
+        D24S8,          // packed depth-stencil
+        Invalid
     };
 
     using VertexFormat = ImageFormat;
@@ -133,11 +150,11 @@ namespace Render {
         QueueType_Present = 1 << 3,
     };
 
-    enum class SampleCount : uint32_t {
-        Count1 = 1 << 0,   // No MSAA
-        Count2 = 1 << 1,   // 2x MSAA
-        Count4 = 1 << 2,   // 4x MSAA
-        Count8 = 1 << 3,   // 8x MSAA
+    enum class SampleCount : uint8_t {
+        Count1 = 0,   // No MSAA
+        Count2 = 1,   // 2x MSAA
+        Count4 = 2,   // 4x MSAA
+        Count8 = 3,   // 8x MSAA
     };
 
     enum class BorderColor : uint8_t {

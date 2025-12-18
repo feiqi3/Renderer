@@ -20,6 +20,7 @@ namespace Render::Vulkan {
 		VkDevice device;
 		VkPhysicalDevice physicalDevice;
 		VkPhysicalDeviceProperties physicalDeviceProperties;
+
 		rs_queue_vk* presentQueue;
 		rs_queue_vk* graphicQueue;
 		rs_queue_vk* computeQueue;
@@ -72,7 +73,9 @@ namespace Render::Vulkan {
 		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;
 	};
 
-	struct rs_rendertarget_vk : rs_rendertarget {};
+	struct rs_rendertarget_vk : rs_rendertarget {
+		
+	};
 
 	struct rs_pipeline_vk: rs_pipeline {
 		PipelineType type{};
@@ -80,7 +83,7 @@ namespace Render::Vulkan {
 	};
 	
 	struct rs_renderpass_vk :rs_renderpass {
-		VkFramebuffer frameBuffer;
+		uint64_t passhash;
 	};
 
 	struct rs_fence_vk : rs_fence {

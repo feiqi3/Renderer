@@ -5,6 +5,7 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 #include "GLFW/glfw3.h"
+#include "render_function.h"
 #include "vulkan/vulkan_shader_reflect.h"
 #include "window/render_resource_window_glfw.h"
 #include "vulkan/vulkan_render_function.h"
@@ -14,6 +15,7 @@
 #include "vulkan/vulkan_deferred_destroy.h"
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_image_data.h"
+#include "render_function.h"
 #include "render_log.h"
 #include <set>
 #include <iostream>
@@ -342,7 +344,10 @@ namespace Render::Vulkan {
             {
                 caps |= ImgFormatCaps::ColorAtt;
             }
-
+            if (features & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+            {
+                caps |= ImgFormatCaps::DepthStencil;
+            }
             // Shader sampling
             if (features & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)
             {
@@ -359,6 +364,57 @@ namespace Render::Vulkan {
         }
     }
 
+    void initRenderTextureFormatMapping(rs_context_vk* ctx)
+    {
+        auto& map = ctx->rtFormatMap;
+        for (auto& e : map)
+        {
+            e = ImageFormat::Invalid;
+        }
+
+        auto isColorSupported = [ctx](ImageFormat fmt) -> bool {
+            return Render::queryImgFormatCaps(ctx, fmt, ImgFormatCaps::Supported | ImgFormatCaps::ColorAtt);
+            };
+        auto isDepthStencilSupported = [ctx](ImageFormat fmt) -> bool {
+            return Render::queryImgFormatCaps(ctx, fmt, ImgFormatCaps::Supported | ImgFormatCaps::DepthStencil);
+            };
+        // ------------------------
+        // LDR Color
+        // ------------------------
+        if (isColorSupported(ImageFormat::RGBA8_UNORM))
+            map[(size_t)RenderTextureFormat::RGBA8] = ImageFormat::RGBA8_UNORM;
+        else if (isColorSupported(ImageFormat::BGRA8_UNORM))
+            map[(size_t)RenderTextureFormat::RGBA8] = ImageFormat::BGRA8_UNORM;
+
+        // ------------------------
+        // HDR Color
+        // ------------------------
+        if (isColorSupported(ImageFormat::R16_SFLOAT))
+            map[(size_t)RenderTextureFormat::R16F] = ImageFormat::R16_SFLOAT;
+
+        if (isColorSupported(ImageFormat::RG16_SFLOAT))
+            map[(size_t)RenderTextureFormat::RG16F] = ImageFormat::RG16_SFLOAT;
+
+        if (isColorSupported(ImageFormat::RGBA16_SFLOAT))
+            map[(size_t)RenderTextureFormat::RGBA16F] = ImageFormat::RGBA16_SFLOAT;
+        else if (isColorSupported(ImageFormat::RGBA32_SFLOAT))
+            map[(size_t)RenderTextureFormat::RGBA16F] = ImageFormat::RGBA32_SFLOAT; // fallback
+        
+        if (isColorSupported(ImageFormat::RGBA32_SFLOAT))
+            map[(size_t)RenderTextureFormat::RGBA32F] = ImageFormat::RGBA32_SFLOAT; // fallback
+        else if (isColorSupported(ImageFormat::RGBA16_SFLOAT))
+            map[(size_t)RenderTextureFormat::RGBA32F] = ImageFormat::RGBA16_SFLOAT; // fallback
+        // ------------------------
+        // Depth / Stencil
+        // ------------------------
+        if (isDepthStencilSupported(ImageFormat::D24_UNORM_S8_UINT))
+            map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D24_UNORM_S8_UINT;
+        else if (isDepthStencilSupported(ImageFormat::D32_SFLOAT_S8_UINT))
+            map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D32_SFLOAT_S8_UINT;
+        else if (isDepthStencilSupported(ImageFormat::D32_SFLOAT))
+            map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D32_SFLOAT;
+
+    }
     //DXGI_FORMAT toDxgiFormat(ImageFormat fmt) {
     //    switch (fmt) {
     //    case ImageFormat::R8_UNORM:           return DXGI_FORMAT_R8_UNORM;                // :contentReference[oaicite:45]{index=45}
@@ -636,6 +692,14 @@ namespace Render::Vulkan {
         int iw = images[0]->width;
         int ih = images[0]->height;
         int il = images[0]->arrayLayers;
+
+        for (int i = 0; i < imageNum; ++i) {
+            const auto img = images[i];
+            if (img->width != iw && img->height != ih && img->arrayLayers != il) {
+                return nullptr;
+            }
+        }
+
         std::vector<rs_image*> localimages;
 
         int depthAttPos = -1;
@@ -656,6 +720,14 @@ namespace Render::Vulkan {
         rs_rendertarget_vk* rt = new rs_rendertarget_vk;
         rt->m_attachments = localimages;
         rt->m_depthStencilAttachment = depthStencil;
+        VkFramebufferCreateInfo fbCI{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+        //TODO: inside  pool.
+        fbCI.                   renderPass;
+        uint32_t                    attachmentCount;
+        const VkImageView* pAttachments;
+        uint32_t                    width;
+        uint32_t                    height;
+        uint32_t                    layers;
         return rt;
     }
 
@@ -1780,9 +1852,11 @@ namespace Render::Vulkan {
         auto& atts = renderpass->passDesc.attachments;
         int idx = 0;
         auto depthIdx = -1;
-        if (renderpass->renderTarget->m_depthStencilAttachment) {
-            depthIdx = renderpass->renderTarget->m_attachments.size() - 1;
+        int imgNum = renderpass->passDesc.attachments.size();
+        if (renderpass->passDesc.lastDepth) {
+            depthIdx = imgNum - 1;
         }
+        //TODO:
         for (auto&& att : atts) {
             auto layoutNeedWhenRpBegin = pickLayout(att.isHDR, att.loadOp);
             rs_image_vk* rtImage = nullptr;
@@ -1821,7 +1895,7 @@ namespace Render::Vulkan {
             auto& c = clearColor[i];
             VkClearValue clr{};
             auto& passDesc = renderpass->passDesc.attachments[i];
-            if (passDesc.isHDR) {
+            if (isRtFormatHDRFormat(passDesc.fmt)) {
                 clr.color.float32[0] = c.rgba[0];
                 clr.color.float32[1] = c.rgba[1];
                 clr.color.float32[2] = c.rgba[2];

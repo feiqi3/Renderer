@@ -1,3 +1,4 @@
+#include "render_function.h"
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_render_function.h"
 #include "vulkan/vulkan_descriptor_set.h"
@@ -127,6 +128,40 @@ namespace Render::Vulkan {
             break;
         }
     }
+    uint8_t EncodeSampleCount(SampleCount s)
+    {
+        return static_cast<uint8_t>(s) & 0x3; // 2 bit
+    }
+    uint64_t CalcPassDescHash(const PassDesc& desc)
+    {
+        uint64_t hash = 0;
+        const size_t maxAttachments = 8; 
+        size_t count = std::min(desc.attachments.size(), maxAttachments);
+
+        for (size_t i = 0; i < maxAttachments; ++i)
+        {
+            uint8_t fmtCode = 0;
+            uint8_t sampleCode = 0;
+
+            if (i < count)
+            {
+                const auto& att = desc.attachments[i];
+                fmtCode = static_cast<uint8_t>(att.fmt) & 0x1F;   // 5 bit
+                sampleCode = int(att.SampleCount) & 0x3; // 2 bit
+            }
+            else
+            {
+                // Fill empty with format invalid
+                fmtCode = static_cast<uint8_t>(RenderTextureFormat::Invalid) & 0x1F;
+                sampleCode = 0;
+            }
+
+            uint64_t attCode = (static_cast<uint64_t>(fmtCode) << 2) | sampleCode; // 7 bit
+            hash |= attCode << (i * 7);
+        }
+
+        return hash;
+    }
 
     rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* context, const std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>>& setLayouts, const std::vector<VkPushConstantRange>& pushConstants)
     {
@@ -159,28 +194,22 @@ namespace Render::Vulkan {
         return layout;
     }
     rs_renderpass_vk* createRsRenderPassVk(rs_context_vk* ctx,
-        rs_rendertarget_vk* rt,
         const PassDesc& rpDesc)
     {
 
-        if (!(rt && rt->m_attachments.size() + rt->m_depthStencilAttachment ? 1 : 0 == rpDesc.attachments.size())) {
-            assert(0);
-            return nullptr;
-        }
-        std::vector<rs_image*> attachments = rt->m_attachments;
-        if (rt->m_depthStencilAttachment) {
-            attachments.push_back(rt->m_depthStencilAttachment);
-        }
-
         std::vector<VkAttachmentDescription> vkAttachments;
-        vkAttachments.reserve(attachments.size());
-
-        for (int i = 0; i < attachments.size(); ++i) {
+        int imageNum = rpDesc.attachments.size();
+        vkAttachments.reserve(imageNum);
+        for (int i = 0; i < imageNum; ++i) {
             VkAttachmentDescription ad = {};
-            auto image = attachments[i];
             auto& attPassDesc = rpDesc.attachments[i];
-            ad.format = toVkFormat(image->format);
-            ad.samples = toVkSampleCount(image->sampleCount);
+            bool isDepth = false;
+            ImageUsage usage = ImageUsage_ColorAttachment;
+            if (rpDesc.lastDepth && i == imageNum - 1) {
+                usage = ImageUsage_DepthStencilAttachment;
+            }
+            ad.format = toVkFormat(fromRtFormatToImageFormat(ctx,attPassDesc.fmt));
+            ad.samples = toVkSampleCount(attPassDesc.SampleCount);
             // loadOps
             ad.loadOp = (attPassDesc.loadOp == StorageOp::Clear)
                 ? VK_ATTACHMENT_LOAD_OP_CLEAR
@@ -194,9 +223,8 @@ namespace Render::Vulkan {
             ad.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             ad.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             // 布局
-            ad.initialLayout = pickLayout(image->usage, attPassDesc.loadOp);
-            ad.finalLayout = image->usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(image->usage, attPassDesc.storeOp);
-            ((rs_image_vk*)image)->currentLayout = ad.finalLayout;
+            ad.initialLayout = pickLayout(usage, attPassDesc.loadOp);
+            ad.finalLayout = usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(usage, attPassDesc.storeOp);
             vkAttachments.push_back(ad);
         }
 
@@ -207,19 +235,26 @@ namespace Render::Vulkan {
         // 假设 RenderPassDesc.subpasses.size() == 1
         // 准备颜色 AttachmentReference 数组
         std::vector<VkAttachmentReference> colorRefs;
-        colorRefs.reserve(attachments.size());
+        colorRefs.reserve(imageNum);
         bool hasDepthRef = false;
         VkAttachmentReference deepRef{};
-        for (auto i = 0; i < attachments.size(); ++i) {
+        for (auto i = 0; i < imageNum; ++i) {
+
+            auto& attPassDesc = rpDesc.attachments[i];
+            bool isDepth = false;
+            ImageUsage usage = ImageUsage_ColorAttachment;
+            if (rpDesc.lastDepth && i == imageNum - 1) {
+                usage = ImageUsage_DepthStencilAttachment;
+            }
+
             int idx = i;
-            auto image = attachments[i];
             //auto& att = rpDesc.attachments[i];
             VkAttachmentReference ref{};
             ref.attachment = i;
-            if (image->usage & ImageUsage::ImageUsage_ColorAttachment) {
+            if (usage & ImageUsage::ImageUsage_ColorAttachment) {
                 ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             }
-            else if (image->usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
+            else if (usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
                 hasDepthRef = true;
                 deepRef.attachment = i;
                 deepRef.layout = rpDesc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
@@ -251,21 +286,15 @@ namespace Render::Vulkan {
         auto* rp = new rs_renderpass_vk();
         rp->passDesc = rpDesc;  // 复制描述
         rp->native = rdpass;
-        rp->width = attachments[0]->width;
-        rp->height = attachments[0]->height;
-        rp->haveDepth = rt->m_depthStencilAttachment != nullptr;
+        rp->haveDepth = rpDesc.lastDepth;
         rp->writeDepth = rpDesc.writeDepth;
-        rp->renderTarget = rt;
-
-        changeRsRenderPassRtVk(ctx, rp, rt);
-
+        rp->passhash = CalcPassDescHash(rpDesc);
         return rp;
     }
 
     void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass, bool immediately)
     {
         if (immediately) {
-            vkDestroyFramebuffer(ctx->device, renderpass->frameBuffer, 0);
             vkDestroyRenderPass(ctx->device, (VkRenderPass)renderpass->native, 0);
             delete renderpass;
             renderpass = 0;
@@ -274,10 +303,9 @@ namespace Render::Vulkan {
             ctx->destroyer->destroyRenderPass(ctx->nextRenderFrame, renderpass);
         }
     }
-
+    //delete
     bool changeRsRenderPassRtVk(rs_context_vk* ctx, rs_renderpass_vk* rp,rs_rendertarget_vk* rt)
     {
-        auto originFrameBuffer = rp->frameBuffer;
         auto renderPass = (VkRenderPass)rp->native;
 
         std::vector<VkImageView> imgViews;

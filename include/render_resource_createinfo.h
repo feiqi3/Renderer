@@ -71,13 +71,16 @@ namespace Render {
     };
 
     struct PassAttachment {
-        StorageOp      loadOp;
-        StorageOp     storeOp;
+        RenderTextureFormat fmt;
+        StorageOp       loadOp;
+        StorageOp       storeOp;
+        SampleCount     SampleCount;
         bool isHDR = false; //float rt is HDR
     };
 
     struct PassDesc {
         std::vector<PassAttachment> attachments;
+        bool lastDepth = false;
         bool writeDepth = true;
     };
 

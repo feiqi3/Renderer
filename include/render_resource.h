@@ -18,6 +18,7 @@ namespace Render {
 		uint32_t RenderFrameFif = 0;
 		std::atomic<bool> canRenderNextFrame = false;
 		std::array<FormatCapFlag, int(ImageFormat::Invalid)> ImageFormatCaps;
+		std::array<ImageFormat, int(RenderTextureFormat::Invalid)> rtFormatMap;
 	};
 
 	struct rs_base {
@@ -66,11 +67,8 @@ namespace Render {
 	struct rs_renderpass : rs_base {
 		std::string passName;
 		PassDesc passDesc;
-		uint32_t height = 0;
-		uint32_t width = 0;
 		bool haveDepth = false;
 		bool writeDepth = false;
-		struct rs_rendertarget* renderTarget = 0;
 	};
 
 	struct rs_fence : rs_base {};
