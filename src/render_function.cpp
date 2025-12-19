@@ -9,6 +9,17 @@ bool queryImgFormatCaps(rs_context * ctx, ImageFormat fmt, FormatCapFlag flags)
 	return (ctx->ImageFormatCaps[uFmt] & flags) == flags;
 }
 
+Render::RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt)
+{
+	ImageFormat fmt = ImageFormat::Invalid;
+	for (int i = 0;i < (int)RenderTextureFormat::Invalid;++i) {
+		if (ctx->rtFormatMap[i] == fmt) {
+			return (RenderTextureFormat)i;
+		}
+	}
+	return RenderTextureFormat::Invalid;
+}
+
 ImageFormat Render::fromRtFormatToImageFormat(rs_context * ctx,RenderTextureFormat fmt)
 {
 	const auto& map = ctx->rtFormatMap;

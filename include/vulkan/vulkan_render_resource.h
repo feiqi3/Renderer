@@ -6,15 +6,17 @@
 #include "volk.h"
 #include "vk_mem_alloc.h"
 #include "vulkan_deferred_destroy.h"
+#include  <utility>
 #include <array>
 #include <vector>
 
 #define VK_RS_DEF(x) typedef x x##_vk;
-#define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x); stmt }
+#define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x);Log::error(#x); stmt }
 
 namespace Render::Vulkan {
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;
+	using VkObjHandle = void*;
 	struct rs_context_vk : rs_context{
 		VkInstance instance;
 		VkDevice device;
@@ -73,8 +75,14 @@ namespace Render::Vulkan {
 		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;
 	};
 
+	struct frame_buffer_cache {
+		uint64_t renderPassHash;
+		uint64_t lastUsedFrame;
+		VkObjHandle frameBuffer;
+	};
+
 	struct rs_rendertarget_vk : rs_rendertarget {
-		
+		std::vector<frame_buffer_cache> renderPassFrameBuffers;
 	};
 
 	struct rs_pipeline_vk: rs_pipeline {
@@ -83,7 +91,7 @@ namespace Render::Vulkan {
 	};
 	
 	struct rs_renderpass_vk :rs_renderpass {
-		uint64_t passhash;
+		uint64_t passHash;
 	};
 
 	struct rs_fence_vk : rs_fence {

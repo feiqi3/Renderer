@@ -696,6 +696,7 @@ namespace Render::Vulkan {
         for (int i = 0; i < imageNum; ++i) {
             const auto img = images[i];
             if (img->width != iw && img->height != ih && img->arrayLayers != il) {
+                Log::error("Miss match width/height/array layers in render target.");
                 return nullptr;
             }
         }
@@ -720,14 +721,6 @@ namespace Render::Vulkan {
         rs_rendertarget_vk* rt = new rs_rendertarget_vk;
         rt->m_attachments = localimages;
         rt->m_depthStencilAttachment = depthStencil;
-        VkFramebufferCreateInfo fbCI{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        //TODO: inside  pool.
-        fbCI.                   renderPass;
-        uint32_t                    attachmentCount;
-        const VkImageView* pAttachments;
-        uint32_t                    width;
-        uint32_t                    height;
-        uint32_t                    layers;
         return rt;
     }
 
@@ -1213,6 +1206,105 @@ namespace Render::Vulkan {
         }
         views.resize(0);
     }
+
+	void setRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt)
+	{
+        auto curRp = (rs_renderpass_vk*)cmd->currentRenderPass;
+        if (!curRp) {
+            Log::error("Cannot set rendertarget before begin render pass");
+            return;
+        }
+
+		if (curRp->passDesc.lastDepth == true && rt->m_depthStencilAttachment == nullptr) {
+			Log::error("Not compatible render target for missing depth");
+			return;
+		}
+
+        int width = rt->m_attachments[0]->width;
+		int height = rt->m_attachments[0]->height;
+        int arrLayer = rt->m_attachments[0]->arrayLayers;
+
+
+        VkFramebuffer frameBuffer = nullptr;
+        //try find cached frame buffer.
+        for (auto& cachedFramebuffer : rt->renderPassFrameBuffers) {
+            if (cachedFramebuffer.renderPassHash == (curRp)->passHash) {
+                frameBuffer = (VkFramebuffer)cachedFramebuffer.frameBuffer;
+                cachedFramebuffer.lastUsedFrame = ctx->nextRenderFrame;
+                break;
+            }
+        }
+        if (frameBuffer == nullptr) {
+            //Create one 
+            std::vector<VkImageView> imageViews;
+            imageViews.reserve(rt->m_attachments.size() + rt->m_depthStencilAttachment != nullptr ? 1 : 0);
+            for (const auto& i : rt->m_attachments) {
+                imageViews.push_back(((rs_image_vk*)i)->view);
+            }
+            if (rt->m_depthStencilAttachment) {
+				imageViews.push_back(((rs_image_vk*)rt->m_depthStencilAttachment)->view);
+            }
+            VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+			fbCi.renderPass = (VkRenderPass)curRp->native;
+            fbCi.attachmentCount = imageViews.size();
+            fbCi.pAttachments = imageViews.data();
+            fbCi.width = width;
+			fbCi.height = height;
+			fbCi.layers = arrLayer;
+            VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, nullptr, &frameBuffer), { return; });
+
+            frame_buffer_cache cache{};
+            cache.frameBuffer = frameBuffer;
+            cache.lastUsedFrame = ctx->nextRenderFrame;
+            cache.renderPassHash = curRp->passHash;
+            rt->renderPassFrameBuffers.push_back(cache);
+        }
+        if (cmd->currentRenderTarget != NULL) {
+            //End this renderpass first 
+            cmdEndRenderPass(cmd);
+        }
+        //Then Begin.
+        std::vector<VkClearValue> clearValues;
+        clearValues.reserve(rt->m_attachments.size() + rt->m_depthStencilAttachment != nullptr ? 1 : 0);
+        for (int i = 0;i < rt->m_attachments.size();++i) {
+            const auto& att = curRp->passDesc.attachments[i];
+            
+            VkClearValue val = {};
+			const auto& curCol = cmd->currentClearColor[i];
+			if (att.isHDR) {
+                val.color.float32[0] = curCol.rgba[0];
+				val.color.float32[1] = curCol.rgba[1];
+				val.color.float32[2] = curCol.rgba[2];
+				val.color.float32[3] = curCol.rgba[3];
+            }
+            else {
+				val.color.uint32[0] = uint32_t(curCol.rgba[0] * 255);
+				val.color.uint32[1] = uint32_t(curCol.rgba[1] * 255);
+				val.color.uint32[2] = uint32_t(curCol.rgba[2] * 255);
+				val.color.uint32[3] = uint32_t(curCol.rgba[3] * 255);
+            }
+        }
+        if (rt->m_depthStencilAttachment) {
+			VkClearValue val = {};
+            val.depthStencil.depth = cmd->currentClearDepthStencil.depth;
+			val.depthStencil.stencil = cmd->currentClearDepthStencil.stencil;
+            clearValues.push_back(val);
+        }
+
+
+        VkRenderPassBeginInfo info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        info.renderPass = (VkRenderPass)curRp->native;
+        info.framebuffer = frameBuffer;
+        auto& renderArea = info.renderArea;
+        renderArea.extent.width = width;
+		renderArea.extent.height = height;
+        renderArea.offset = {};
+
+
+		info.             clearValueCount = clearValues.size();
+		const VkClearValue* pClearValues = clearValues.data();
+        vkCmdBeginRenderPass((VkCommandBuffer)(cmd->native), &info, VK_SUBPASS_CONTENTS_INLINE);
+	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
@@ -1847,96 +1939,13 @@ namespace Render::Vulkan {
         return createRsBuffer(context, stageBufferDesc);
     }
 
-    void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass,const std::vector<ClearColor>& clearColor,const ClearDepthStencil& clearDs)
-    {
-        auto& atts = renderpass->passDesc.attachments;
-        int idx = 0;
-        auto depthIdx = -1;
-        int imgNum = renderpass->passDesc.attachments.size();
-        if (renderpass->passDesc.lastDepth) {
-            depthIdx = imgNum - 1;
-        }
-        //TODO:
-        for (auto&& att : atts) {
-            auto layoutNeedWhenRpBegin = pickLayout(att.isHDR, att.loadOp);
-            rs_image_vk* rtImage = nullptr;
-			bool isDepthAtt = false;
-            if (renderpass->haveDepth && idx == atts.size() - 1) {
-				isDepthAtt = true;
-				rtImage = (rs_image_vk*)renderpass->renderTarget->m_depthStencilAttachment;
-            }
-            else {
-				rtImage = (rs_image_vk*)renderpass->renderTarget->m_attachments[idx];
-            }
-
-            assert(rtImage != nullptr && "Error!");
-            if (layoutNeedWhenRpBegin != VK_IMAGE_LAYOUT_UNDEFINED && layoutNeedWhenRpBegin != ((rs_image_vk*)renderpass->renderTarget->m_attachments[idx])->currentLayout)
-            {
-                VkImageSubresourceRange range{};
-                range.aspectMask = rtImage->usage & ImageUsage_DepthStencilAttachment ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-                range.baseMipLevel = 0;
-                range.levelCount = 1;
-                range.baseArrayLayer = 0;
-                range.layerCount = rtImage->arrayLayers;
-                TransitionImageLayout((VkCommandBuffer)cb->native, (VkImage)rtImage->native, rtImage->currentLayout, layoutNeedWhenRpBegin, range);
-                rtImage->currentLayout = layoutNeedWhenRpBegin;
-            }
-            else {
-                rtImage->currentLayout = layoutNeedWhenRpBegin;
-            }
-            idx++;
-        }
-
-        std::vector< VkClearValue> clearValues;
-        clearValues.reserve(renderpass->passDesc.attachments.size());
-        
-        //The last is for depthAndStencil
-        for (int i = 0; i < clearColor.size(); ++i) {
-            auto& c = clearColor[i];
-            VkClearValue clr{};
-            auto& passDesc = renderpass->passDesc.attachments[i];
-            if (isRtFormatHDRFormat(passDesc.fmt)) {
-                clr.color.float32[0] = c.rgba[0];
-                clr.color.float32[1] = c.rgba[1];
-                clr.color.float32[2] = c.rgba[2];
-                clr.color.float32[3] = c.rgba[3];
-            }
-            else {
-                clr.color.uint32[0] = (uint32_t)(c.rgba[0] * 255.f);
-                clr.color.uint32[1] = (uint32_t)(c.rgba[1] * 255.f);
-                clr.color.uint32[2] = (uint32_t)(c.rgba[2] * 255.f);
-                clr.color.uint32[3] = (uint32_t)(c.rgba[3] * 255.f);
-            }
-            clearValues.push_back(clr);
-        }
-
-        if (renderpass->haveDepth) {
-            VkClearValue clr{};
-            clr.depthStencil.depth = clearDs.depth;
-            clr.depthStencil.stencil = clearDs.stencil;
-            clearValues.push_back(clr);
-        }
-
-        VkRenderPassBeginInfo info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-        info.renderPass = (VkRenderPass)renderpass->native;
-        info.framebuffer = renderpass->frameBuffer;
-
-        auto& extent = info.renderArea.extent;
-        extent.width = renderpass->width;
-        extent.height = renderpass->height;
-        info.               clearValueCount = clearValues.size();
-        info.               pClearValues = clearValues.data();
-
-        vkCmdBeginRenderPass((VkCommandBuffer)cb->native, &info, VK_SUBPASS_CONTENTS_INLINE);
-        cb->currentRenderPass = renderpass;
-    }
 
     void cmdEndRenderPass(rs_commandbuffer_vk* cb)
     {
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
 
         auto currentRenderPass = cb->currentRenderPass;
-        auto rt = currentRenderPass->renderTarget;
+        auto rt = cb->currentRenderTarget;
         auto& images = rt->m_attachments;
         int idx = 0;
         for (auto image : images) {

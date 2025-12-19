@@ -284,11 +284,11 @@ namespace Render::Vulkan {
         );
 
         auto* rp = new rs_renderpass_vk();
-        rp->passDesc = rpDesc;  // 复制描述
+        rp->passDesc = rpDesc;
         rp->native = rdpass;
         rp->haveDepth = rpDesc.lastDepth;
         rp->writeDepth = rpDesc.writeDepth;
-        rp->passhash = CalcPassDescHash(rpDesc);
+        rp->passHash = CalcPassDescHash(rpDesc);
         return rp;
     }
 
@@ -692,5 +692,44 @@ namespace Render::Vulkan {
         auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, {});
         return pipelineLayout;
     }
+
+	uint64_t CalcRenderTargetPassHash(rs_context_vk* ctx, const rs_rendertarget_vk* rt)
+	{
+		uint64_t hash = 0;
+		const size_t maxAttachments = 8;
+        int attNum = rt->m_attachments.size() + rt->m_depthStencilAttachment != 0 ? 1 : 0;
+		size_t attCnt = std::min(rt->m_attachments.size() + rt->m_depthStencilAttachment != 0 ? 1 : 0, maxAttachments);
+        if (attCnt > maxAttachments) {
+            Log::error("Render target can only have 8 attachment+depth_stencil");
+            std::abort();
+        }
+		for (size_t i = 0; i < maxAttachments; ++i)
+		{
+			uint8_t fmtCode = 0;
+			uint8_t sampleCode = 0;
+
+			if (i < attCnt)
+			{
+                auto img = rt->m_attachments[i];
+                if (i == attCnt - 1) {
+                    img = rt->m_depthStencilAttachment;
+                }
+                const auto& rtFmt = fromImageFormatToRtFormat(ctx, img->format);
+				fmtCode = static_cast<uint8_t>(rtFmt) & 0x1F;   // 5 bit
+				sampleCode = int(img->sampleCount) & 0x3; // 2 bit
+            }
+			else
+			{
+				// Fill empty with format invalid
+				fmtCode = static_cast<uint8_t>(RenderTextureFormat::Invalid) & 0x1F;
+				sampleCode = 0;
+			}
+
+			uint64_t attCode = (static_cast<uint64_t>(fmtCode) << 2) | sampleCode; // 7 bit
+			hash |= attCode << (i * 7);
+		}
+
+		return hash;
+	}
 
 }

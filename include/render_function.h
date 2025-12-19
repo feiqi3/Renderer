@@ -22,6 +22,7 @@ namespace Render {
 	rs_shader_module* destroyShader(rs_context* context, ShaderDesc& desc);
 	bool queryImgFormatCaps(rs_context* ctx, ImageFormat fmt, FormatCapFlag flags);
 	ImageFormat fromRtFormatToImageFormat(rs_context* ctx,RenderTextureFormat fmt);
+	RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt);
 	bool isHDRRtFormat(RenderTextureFormat fmt);
 };
 

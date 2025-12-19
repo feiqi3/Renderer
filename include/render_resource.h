@@ -79,7 +79,10 @@ namespace Render {
 
 	struct rs_commandbuffer : rs_base {
 		uint8_t queueType;
-		rs_renderpass* currentRenderPass = 0;;
+		rs_renderpass* currentRenderPass = 0;
+		rs_rendertarget* currentRenderTarget = 0;
+		std::vector<ClearColor> currentClearColor;
+		ClearDepthStencil currentClearDepthStencil;
 		bool isSecondary = false;
 		bool isTransitent = false;
 		bool recording = false;
