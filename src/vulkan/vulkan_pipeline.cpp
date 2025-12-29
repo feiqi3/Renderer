@@ -1,4 +1,5 @@
 #include "render_function.h"
+#include "render_log.h"
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_render_function.h"
 #include "vulkan/vulkan_descriptor_set.h"
@@ -128,39 +129,11 @@ namespace Render::Vulkan {
             break;
         }
     }
-    uint8_t EncodeSampleCount(SampleCount s)
-    {
-        return static_cast<uint8_t>(s) & 0x3; // 2 bit
-    }
-    uint64_t CalcPassDescHash(const PassDesc& desc)
-    {
-        uint64_t hash = 0;
-        const size_t maxAttachments = 8; 
-        size_t count = std::min(desc.attachments.size(), maxAttachments);
 
-        for (size_t i = 0; i < maxAttachments; ++i)
-        {
-            uint8_t fmtCode = 0;
-            uint8_t sampleCode = 0;
-
-            if (i < count)
-            {
-                const auto& att = desc.attachments[i];
-                fmtCode = static_cast<uint8_t>(att.fmt) & 0x1F;   // 5 bit
-                sampleCode = int(att.SampleCount) & 0x3; // 2 bit
-            }
-            else
-            {
-                // Fill empty with format invalid
-                fmtCode = static_cast<uint8_t>(RenderTextureFormat::Invalid) & 0x1F;
-                sampleCode = 0;
-            }
-
-            uint64_t attCode = (static_cast<uint64_t>(fmtCode) << 2) | sampleCode; // 7 bit
-            hash |= attCode << (i * 7);
-        }
-
-        return hash;
+    uint8_t encodePassAttachmentCode(RenderTextureFormat fmt, SampleCount count) {
+        uint8_t fmtCode = static_cast<uint8_t>(fmt) & 0x1F;   // 5 bit
+        uint8_t sampleCode = static_cast<uint8_t>(count) & 0x3; // 2 bit
+        return (fmtCode << 2) | sampleCode;
     }
 
     rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* context, const std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>>& setLayouts, const std::vector<VkPushConstantRange>& pushConstants)
@@ -193,23 +166,47 @@ namespace Render::Vulkan {
         layout->native = res;
         return layout;
     }
-    rs_renderpass_vk* createRsRenderPassVk(rs_context_vk* ctx,
-        const PassDesc& rpDesc)
+
+    VkRenderPass getOrCreateRenderPassCacheVk(rs_context_vk* ctx, rs_renderpass_vk* renderpass, rs_rendertarget_vk* rt)
+    {
+        for (auto& passCache : renderpass->renderPassCache) {
+            if (passCache.passHash == rt->rtPassHash) {
+            //Find fine pass cache can match this rt  
+                passCache.lastFrame = ctx->nextRenderFrame;
+                return passCache.pass;
+            }
+        }
+        return createRenderPassCacheVk(ctx, renderpass, rt);
+    }
+
+    VkRenderPass createRenderPassCacheVk(rs_context_vk* ctx, rs_renderpass_vk* renderpass, rs_rendertarget_vk* rt)
     {
 
         std::vector<VkAttachmentDescription> vkAttachments;
-        int imageNum = rpDesc.attachments.size();
+        int imageNum = renderpass->passDesc.attachments.size();
+        int rtImageNum = rt->m_attachments.size() + (rt->m_depthStencilAttachment ? 1 : 0);
+        if (imageNum != rtImageNum || !(renderpass->haveDepth ^ (rt->m_depthStencilAttachment != nullptr))) {
+            Log::error("Miss match rt and renderpass, check depth or attachment num");
+            throw std::runtime_error("Miss match rt and renderpass");
+        }
+        
         vkAttachments.reserve(imageNum);
         for (int i = 0; i < imageNum; ++i) {
             VkAttachmentDescription ad = {};
-            auto& attPassDesc = rpDesc.attachments[i];
+            rs_image* image = nullptr;
+            auto& attPassDesc = renderpass->passDesc.attachments[i];
             bool isDepth = false;
-            ImageUsage usage = ImageUsage_ColorAttachment;
-            if (rpDesc.lastDepth && i == imageNum - 1) {
+            ImageUsage usage{};
+            if (renderpass->haveDepth && i == imageNum - 1) {
                 usage = ImageUsage_DepthStencilAttachment;
+                image = rt->m_depthStencilAttachment;
             }
-            ad.format = toVkFormat(fromRtFormatToImageFormat(ctx,attPassDesc.fmt));
-            ad.samples = toVkSampleCount(attPassDesc.SampleCount);
+            else {
+                usage = ImageUsage_ColorAttachment;
+                image = rt->m_attachments[i];
+            }
+            ad.format = toVkFormat(image->format);
+            ad.samples = toVkSampleCount(image->sampleCount);
             // loadOps
             ad.loadOp = (attPassDesc.loadOp == StorageOp::Clear)
                 ? VK_ATTACHMENT_LOAD_OP_CLEAR
@@ -240,10 +237,10 @@ namespace Render::Vulkan {
         VkAttachmentReference deepRef{};
         for (auto i = 0; i < imageNum; ++i) {
 
-            auto& attPassDesc = rpDesc.attachments[i];
+            auto& attPassDesc = renderpass->passDesc.attachments[i];
             bool isDepth = false;
             ImageUsage usage = ImageUsage_ColorAttachment;
-            if (rpDesc.lastDepth && i == imageNum - 1) {
+            if (renderpass->passDesc.lastDepth && i == imageNum - 1) {
                 usage = ImageUsage_DepthStencilAttachment;
             }
 
@@ -257,12 +254,12 @@ namespace Render::Vulkan {
             else if (usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
                 hasDepthRef = true;
                 deepRef.attachment = i;
-                deepRef.layout = rpDesc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+                deepRef.layout = renderpass->passDesc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                 continue;
             }
             colorRefs.push_back(ref);
         }
-        
+
         sd.colorAttachmentCount = colorRefs.size();
         sd.pColorAttachments = colorRefs.data();
 
@@ -278,62 +275,40 @@ namespace Render::Vulkan {
         rpci.dependencyCount = 0;
         rpci.pDependencies = nullptr;
         VkRenderPass rdpass;
-        VK_CHECK(vkCreateRenderPass(ctx->device, &rpci, 0, &rdpass), {
-            return nullptr;
-            }
-        );
+        RenderPassCache passCache{};
 
+        VK_CHECK(vkCreateRenderPass(ctx->device, &rpci, 0, &rdpass), { std::abort(); });
+        passCache.lastFrame = ctx->nextRenderFrame;
+        passCache.pass = rdpass;
+        passCache.passHash = rt->rtPassHash;
+        renderpass->renderPassCache.push_back(passCache);
+        return rdpass;
+    }
+
+
+    rs_renderpass_vk* createRsRenderPassVk(rs_context_vk* ctx,
+        const PassDesc& rpDesc)
+    {
         auto* rp = new rs_renderpass_vk();
         rp->passDesc = rpDesc;
-        rp->native = rdpass;
         rp->haveDepth = rpDesc.lastDepth;
         rp->writeDepth = rpDesc.writeDepth;
-        rp->passHash = CalcPassDescHash(rpDesc);
         return rp;
     }
 
     void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass, bool immediately)
     {
         if (immediately) {
-            vkDestroyRenderPass(ctx->device, (VkRenderPass)renderpass->native, 0);
+            for (auto& passCache : renderpass->renderPassCache) {
+                vkDestroyRenderPass(ctx->device, (VkRenderPass)passCache.pass, 0);
+            }
+            renderpass->renderPassCache.clear();
             delete renderpass;
             renderpass = 0;
         }
         else {
             ctx->destroyer->destroyRenderPass(ctx->nextRenderFrame, renderpass);
         }
-    }
-    //delete
-    bool changeRsRenderPassRtVk(rs_context_vk* ctx, rs_renderpass_vk* rp,rs_rendertarget_vk* rt)
-    {
-        auto renderPass = (VkRenderPass)rp->native;
-
-        std::vector<VkImageView> imgViews;
-        auto& attachments = rt->m_attachments;
-        for (int i = 0; i < rt->m_attachments.size(); ++i) {
-            auto image = attachments[i];
-            imgViews.push_back(((rs_image_vk*)image)->view);
-        }
-
-        if (rt->m_depthStencilAttachment) {
-            imgViews.push_back(((rs_image_vk*)rt->m_depthStencilAttachment)->view);
-        }
-
-        VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        fbCi.renderPass = renderPass;
-        fbCi.attachmentCount = imgViews.size();
-        fbCi.pAttachments = imgViews.data();
-        fbCi.width = rt->m_attachments[0]->width;
-        fbCi.height = rt->m_attachments[0]->height;
-        fbCi.layers = rt->m_attachments[0]->arrayLayers;
-
-        VkFramebuffer fb;
-
-        VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, 0, &fb),
-            { assert(0 && "Error when create framebuffer."); return false; });
-        rp->frameBuffer = fb;
-        vkDestroyFramebuffer(ctx->device, originFrameBuffer, 0);
-        return true;
     }
 
     VkPrimitiveTopology toVkTopology(Topology topo)
@@ -697,8 +672,8 @@ namespace Render::Vulkan {
 	{
 		uint64_t hash = 0;
 		const size_t maxAttachments = 8;
-        int attNum = rt->m_attachments.size() + rt->m_depthStencilAttachment != 0 ? 1 : 0;
-		size_t attCnt = std::min(rt->m_attachments.size() + rt->m_depthStencilAttachment != 0 ? 1 : 0, maxAttachments);
+        const auto attNum = rt->m_attachments.size() + (rt->m_depthStencilAttachment != nullptr ? 1 : 0);
+		size_t attCnt = std::min(attNum, maxAttachments);
         if (attCnt > maxAttachments) {
             Log::error("Render target can only have 8 attachment+depth_stencil");
             std::abort();

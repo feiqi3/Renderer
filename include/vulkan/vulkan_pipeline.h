@@ -17,8 +17,19 @@ namespace Render::Vulkan {
 	VkShaderStageFlags toVkShaderStageFlags(uint32_t stage);
 	VkShaderStageFlagBits toVkShaderStageBit(ShaderStage stage);
 
-	uint64_t CalcPassDescHash(const PassDesc& desc);
 	uint64_t CalcRenderTargetPassHash(rs_context_vk* ctx, const rs_rendertarget_vk* rt);
+
+	VkRenderPass getOrCreateRenderPassCacheVk(
+		rs_context_vk* ctx,
+		rs_renderpass_vk* renderpass,
+		rs_rendertarget_vk* rt
+	);
+
+	VkRenderPass createRenderPassCacheVk(
+		rs_context_vk* ctx,
+		rs_renderpass_vk* renderpass,
+		rs_rendertarget_vk* rt
+	);
 
 	rs_renderpass_vk* createRsRenderPassVk(
 		rs_context_vk* ctx,

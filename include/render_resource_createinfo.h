@@ -71,10 +71,8 @@ namespace Render {
     };
 
     struct PassAttachment {
-        RenderTextureFormat fmt;
         StorageOp       loadOp;
         StorageOp       storeOp;
-        SampleCount     SampleCount;
         bool isHDR = false; //float rt is HDR
     };
 

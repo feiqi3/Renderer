@@ -41,7 +41,7 @@ namespace Render::Vulkan {
 
 	void deinitVulkanBackEnd(rs_context_vk* ctx);
 	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx, rs_image_vk** images, int imageNum, rs_image_vk* depthStencil);
-	void setRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk* rt);
+	void setRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt);
 	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);
 	
 	rs_buffer_vk* createRsBuffer(rs_context_vk* context,const BufferDesc& desc);

@@ -82,16 +82,21 @@ namespace Render::Vulkan {
 	};
 
 	struct rs_rendertarget_vk : rs_rendertarget {
-		std::vector<frame_buffer_cache> renderPassFrameBuffers;
+		uint64_t rtPassHash;
 	};
 
 	struct rs_pipeline_vk: rs_pipeline {
 		PipelineType type{};
 		rs_pipeline_layout_vk* layout;
 	};
-	
+	struct RenderPassCache{
+		uint64_t passHash = 0;
+		uint64_t lastFrame = 0;
+		VkRenderPass pass;
+	};
 	struct rs_renderpass_vk :rs_renderpass {
-		uint64_t passHash;
+		//What does pass hash contains? 1. image format, 2. sample count 
+		std::vector<RenderPassCache> renderPassCache;
 	};
 
 	struct rs_fence_vk : rs_fence {

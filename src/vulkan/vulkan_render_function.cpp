@@ -721,11 +721,15 @@ namespace Render::Vulkan {
         rs_rendertarget_vk* rt = new rs_rendertarget_vk;
         rt->m_attachments = localimages;
         rt->m_depthStencilAttachment = depthStencil;
+        rt->rtPassHash = CalcRenderTargetPassHash(ctx, rt);
         return rt;
     }
 
     void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt)
     {
+        if (rt->native != nullptr) {
+            vkDestroyFramebuffer(ctx->device, (VkFramebuffer)rt->native, 0);
+        }
         delete rt;
         rt = 0;
     }
@@ -1225,16 +1229,9 @@ namespace Render::Vulkan {
         int arrLayer = rt->m_attachments[0]->arrayLayers;
 
 
-        VkFramebuffer frameBuffer = nullptr;
-        //try find cached frame buffer.
-        for (auto& cachedFramebuffer : rt->renderPassFrameBuffers) {
-            if (cachedFramebuffer.renderPassHash == (curRp)->passHash) {
-                frameBuffer = (VkFramebuffer)cachedFramebuffer.frameBuffer;
-                cachedFramebuffer.lastUsedFrame = ctx->nextRenderFrame;
-                break;
-            }
-        }
-        if (frameBuffer == nullptr) {
+        VkFramebuffer* frameBuffer = (VkFramebuffer*)&rt->native;
+        auto renderPass = getOrCreateRenderPassCacheVk(ctx,curRp,rt);
+        if (*frameBuffer == nullptr) {
             //Create one 
             std::vector<VkImageView> imageViews;
             imageViews.reserve(rt->m_attachments.size() + rt->m_depthStencilAttachment != nullptr ? 1 : 0);
@@ -1251,13 +1248,7 @@ namespace Render::Vulkan {
             fbCi.width = width;
 			fbCi.height = height;
 			fbCi.layers = arrLayer;
-            VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, nullptr, &frameBuffer), { return; });
-
-            frame_buffer_cache cache{};
-            cache.frameBuffer = frameBuffer;
-            cache.lastUsedFrame = ctx->nextRenderFrame;
-            cache.renderPassHash = curRp->passHash;
-            rt->renderPassFrameBuffers.push_back(cache);
+            VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, nullptr, frameBuffer), { return; });
         }
         if (cmd->currentRenderTarget != NULL) {
             //End this renderpass first 
@@ -1293,8 +1284,8 @@ namespace Render::Vulkan {
 
 
         VkRenderPassBeginInfo info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-        info.renderPass = (VkRenderPass)curRp->native;
-        info.framebuffer = frameBuffer;
+        info.renderPass = renderPass;
+        info.framebuffer = *frameBuffer;
         auto& renderArea = info.renderArea;
         renderArea.extent.width = width;
 		renderArea.extent.height = height;
@@ -1303,6 +1294,7 @@ namespace Render::Vulkan {
 
 		info.             clearValueCount = clearValues.size();
 		const VkClearValue* pClearValues = clearValues.data();
+        cmd->currentRenderTarget = rt;
         vkCmdBeginRenderPass((VkCommandBuffer)(cmd->native), &info, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
@@ -1992,10 +1984,14 @@ namespace Render::Vulkan {
     {
         assert(cb->currentRenderPass != nullptr);
         VkViewport viewport{};
-        viewport.x = rect.l * cb->currentRenderPass->width;
-        viewport.y = rect.t * cb->currentRenderPass->height;
-        viewport.width = (rect.r - rect.l) * cb->currentRenderPass->width;
-        viewport.height = (rect.b - rect.t) * cb->currentRenderPass->height;
+        auto& rt = cb->currentRenderTarget;
+        int width = rt->m_attachments[0]->width;
+        int height = rt->m_attachments[0]->height;
+        int arrLayer = rt->m_attachments[0]->arrayLayers;
+        viewport.x = rect.l * width;
+        viewport.y = rect.t * height;
+        viewport.width = (rect.r - rect.l) * width;
+        viewport.height = (rect.b - rect.t) * height;
         viewport.minDepth = minDepth;
         viewport.maxDepth = maxDepth;
         vkCmdSetViewport((VkCommandBuffer)cb->native, idx, 1, &viewport);
@@ -2004,11 +2000,16 @@ namespace Render::Vulkan {
     void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx)
     {
         assert(cb->currentRenderPass != nullptr);
+        auto& rt = cb->currentRenderTarget;
+        int width = rt->m_attachments[0]->width;
+        int height = rt->m_attachments[0]->height;
+        int arrLayer = rt->m_attachments[0]->arrayLayers;
+        
         VkRect2D scissor{};
-        scissor.extent.width = (rect.r - rect.l) * cb->currentRenderPass->width;
-        scissor.extent.height = (rect.b - rect.t) * cb->currentRenderPass->height;
-        scissor.offset.x = rect.l * cb->currentRenderPass->width;
-        scissor.offset.y = rect.t * cb->currentRenderPass->height;
+        scissor.extent.width = (rect.r - rect.l) * width;
+        scissor.extent.height = (rect.b - rect.t) * height;
+        scissor.offset.x = rect.l * width;
+        scissor.offset.y = rect.t * height;
 
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
