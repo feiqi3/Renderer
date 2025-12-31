@@ -33,6 +33,7 @@ namespace Render {
 	static PassDesc SwapchainPassDesc{
 		.attachments = {
 			PassAttachment{
+				.fmt = RenderTextureFormat::SwapchainFormat,
 				.loadOp = StorageOp::Clear,
 				.storeOp = StorageOp::Cached
 			}
@@ -51,7 +52,6 @@ namespace Render {
 	}
 	void SwapchainPass::init()
 	{
-		RenderSystem::instance()->getRenderPassManager()->markSwapchainRenderPass(this);
 		initBlitData();
 	}
 	SwapchainPass::~SwapchainPass()
@@ -60,7 +60,6 @@ namespace Render {
 		RenderSys->destroyRsSampler(BlitRTSampler);
 		delete BlitEntity;
 		MaterialTemplateManager::instance()->destroyMaterialTemplate(BlitMaterial->getName());
-		RenderSys->getRenderPassManager()->unMarkSwapchainRenderPass(this);
 	}
 
 	void SwapchainPass::initBlitData()
@@ -89,6 +88,9 @@ namespace Render {
 	{
 		auto RenderSys = RenderSystem::instance();
 		RenderSys->setCurrentCamera(nullptr);
+		auto nextSwapchainRt = RenderSys->getNextSwapchainRendertarget();
+		RenderSys->cmdSetRendertarget(cmdbuffer, nextSwapchainRt);
+		updateViewportAndScissor(cmdbuffer, nextSwapchainRt);
 		RenderSys->updateUniform(BlitSampler, this->BlitRTSampler, BlitPass);
 		RenderSys->drawIndexed(cmdbuffer, BlitEntity, getPassName());
 	}

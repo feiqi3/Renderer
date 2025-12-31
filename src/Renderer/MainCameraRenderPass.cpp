@@ -6,9 +6,15 @@ namespace Render {
 	static PassDesc MainCamPassDesc{
 		.attachments = {
 			PassAttachment{
+				.fmt	= RenderTextureFormat::RGBA8,
 				.loadOp = StorageOp::Clear,
 				.storeOp = StorageOp::Cached
-			}
+			},
+			PassAttachment{
+				.fmt = RenderTextureFormat::D24S8,
+				.loadOp = StorageOp::Clear,
+				.storeOp = StorageOp::DontCare
+			},
 		}
 	};
 

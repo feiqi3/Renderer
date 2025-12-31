@@ -11,7 +11,6 @@ bool queryImgFormatCaps(rs_context * ctx, ImageFormat fmt, FormatCapFlag flags)
 
 Render::RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt)
 {
-	ImageFormat fmt = ImageFormat::Invalid;
 	for (int i = 0;i < (int)RenderTextureFormat::Invalid;++i) {
 		if (ctx->rtFormatMap[i] == fmt) {
 			return (RenderTextureFormat)i;

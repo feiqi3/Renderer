@@ -13,22 +13,17 @@ namespace Render::Vulkan {
 	void destroyRsPipeline(rs_context_vk* ctx, rs_pipeline_vk*& pipeline,bool immediately = false);
 
 	void destroyRsPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout);
-	VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op);
+	VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op,bool writeDepth = false);
 	VkShaderStageFlags toVkShaderStageFlags(uint32_t stage);
 	VkShaderStageFlagBits toVkShaderStageBit(ShaderStage stage);
 
 	uint64_t CalcRenderTargetPassHash(rs_context_vk* ctx, const rs_rendertarget_vk* rt);
+	uint64_t CalcRenderPassHash(const rs_renderpass_vk* pass);
 
-	VkRenderPass getOrCreateRenderPassCacheVk(
-		rs_context_vk* ctx,
-		rs_renderpass_vk* renderpass,
-		rs_rendertarget_vk* rt
-	);
 
-	VkRenderPass createRenderPassCacheVk(
+	VkRenderPass createRenderPassVk(
 		rs_context_vk* ctx,
-		rs_renderpass_vk* renderpass,
-		rs_rendertarget_vk* rt
+		PassDesc& rpDesc
 	);
 
 	rs_renderpass_vk* createRsRenderPassVk(

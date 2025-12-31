@@ -414,6 +414,8 @@ namespace Render::Vulkan {
         else if (isDepthStencilSupported(ImageFormat::D32_SFLOAT))
             map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D32_SFLOAT;
 
+        map[(size_t)RenderTextureFormat::SwapchainFormat] = ctx->swapchain->SwapchainImageFormat;
+
     }
     //DXGI_FORMAT toDxgiFormat(ImageFormat fmt) {
     //    switch (fmt) {
@@ -617,6 +619,10 @@ namespace Render::Vulkan {
         createVkPhysicalDevice(ctx, -1);
         createVkDevice(ctx);
         createSwapchain(ctx, window, 0);
+
+        queryAllImageFormatCaps(ctx);
+        initRenderTextureFormatMapping(ctx);
+
         VmaVulkanFunctions vkFuncs{};
         vkFuncs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
         vkFuncs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
@@ -725,13 +731,19 @@ namespace Render::Vulkan {
         return rt;
     }
 
-    void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt)
+    void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt,bool imm)
     {
         if (rt->native != nullptr) {
-            vkDestroyFramebuffer(ctx->device, (VkFramebuffer)rt->native, 0);
+            if (imm) {
+                vkDestroyFramebuffer(ctx->device, (VkFramebuffer)rt->native, 0);
+				delete rt;
+				rt = 0;
+            }
+            else {
+                ctx->destroyer->destroyRenderTarget(ctx->nextRenderFrame,rt);
+            }
         }
-        delete rt;
-        rt = 0;
+
     }
 
     VkCompareOp
@@ -766,7 +778,7 @@ namespace Render::Vulkan {
         }
     }
 
-    rs_buffer_vk* createRsBuffer(rs_context_vk* context,const BufferDesc& desc)
+    rs_buffer_vk* createRsBufferVk(rs_context_vk* context,const BufferDesc& desc)
     {
         VkBuffer buffer;
         VmaAllocation allocation;
@@ -1195,6 +1207,7 @@ namespace Render::Vulkan {
         context->swapchain->native = swapchain;
         context->swapchain->swapchainImgs = swapchainImages;
         context->maxSwapChainImages = swapchainImages.size();
+        context->swapchain->SwapchainImageFormat = ToImageFormat(choosenFormat.format);
     }
 
     void destroySwapChain(rs_context_vk* context)
@@ -1211,7 +1224,7 @@ namespace Render::Vulkan {
         views.resize(0);
     }
 
-	void setRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt)
+	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt)
 	{
         auto curRp = (rs_renderpass_vk*)cmd->currentRenderPass;
         if (!curRp) {
@@ -1219,8 +1232,8 @@ namespace Render::Vulkan {
             return;
         }
 
-		if (curRp->passDesc.lastDepth == true && rt->m_depthStencilAttachment == nullptr) {
-			Log::error("Not compatible render target for missing depth");
+		if (curRp->passHash != rt->rtPassHash) {
+			Log::error("Not compatible render pass for this render target");
 			return;
 		}
 
@@ -1230,7 +1243,7 @@ namespace Render::Vulkan {
 
 
         VkFramebuffer* frameBuffer = (VkFramebuffer*)&rt->native;
-        auto renderPass = getOrCreateRenderPassCacheVk(ctx,curRp,rt);
+        VkRenderPass renderPass = (VkRenderPass)cmd->currentRenderPass->native;
         if (*frameBuffer == nullptr) {
             //Create one 
             std::vector<VkImageView> imageViews;
@@ -1253,6 +1266,7 @@ namespace Render::Vulkan {
         if (cmd->currentRenderTarget != NULL) {
             //End this renderpass first 
             cmdEndRenderPass(cmd);
+            cmd->currentRenderPass = curRp;
         }
         //Then Begin.
         std::vector<VkClearValue> clearValues;
@@ -1261,8 +1275,18 @@ namespace Render::Vulkan {
             const auto& att = curRp->passDesc.attachments[i];
             
             VkClearValue val = {};
-			const auto& curCol = cmd->currentClearColor[i];
-			if (att.isHDR) {
+            ClearColor curCol = {};
+            if (i < cmd->currentClearColor.size())
+            {
+                if (i < cmd->currentClearColor.size()) {
+                    curCol = cmd->currentClearColor[i];
+                }
+                else {
+                    curCol = ClearColor{};
+                }
+
+            }
+            if (att.isHDR) {
                 val.color.float32[0] = curCol.rgba[0];
 				val.color.float32[1] = curCol.rgba[1];
 				val.color.float32[2] = curCol.rgba[2];
@@ -1274,7 +1298,9 @@ namespace Render::Vulkan {
 				val.color.uint32[2] = uint32_t(curCol.rgba[2] * 255);
 				val.color.uint32[3] = uint32_t(curCol.rgba[3] * 255);
             }
+            clearValues.push_back(val);
         }
+
         if (rt->m_depthStencilAttachment) {
 			VkClearValue val = {};
             val.depthStencil.depth = cmd->currentClearDepthStencil.depth;
@@ -1293,9 +1319,19 @@ namespace Render::Vulkan {
 
 
 		info.             clearValueCount = clearValues.size();
-		const VkClearValue* pClearValues = clearValues.data();
+        info.             pClearValues    = clearValues.data();
         cmd->currentRenderTarget = rt;
         vkCmdBeginRenderPass((VkCommandBuffer)(cmd->native), &info, VK_SUBPASS_CONTENTS_INLINE);
+	}
+
+	void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, const std::vector<ClearColor>& color, const ClearDepthStencil& clearDs)
+	{
+        if (cb->currentRenderPass) {
+            cmdEndRenderPass(cb);
+        }
+        cb->currentRenderPass = renderpass;
+        cb->currentClearColor = color;
+        cb->currentClearDepthStencil = clearDs;
 	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
@@ -1928,7 +1964,7 @@ namespace Render::Vulkan {
         stageBufferDesc.mappable = true;
         stageBufferDesc.queueType = QueueType_Graphics;
         stageBufferDesc.byteSize = size;
-        return createRsBuffer(context, stageBufferDesc);
+        return Vulkan::createRsBufferVk(context, stageBufferDesc);
     }
 
 
@@ -1976,7 +2012,7 @@ namespace Render::Vulkan {
                 );
             }
         }
-
+        cb->currentRenderTarget = 0;
         cb->currentRenderPass = 0;
     }
 

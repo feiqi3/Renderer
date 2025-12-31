@@ -4,42 +4,6 @@
 #include "vulkan/vulkan_pipeline.h"
 namespace Render {
 
-	class SwapchainRenderPassHelper {
-	public:  
-		std::vector<rs_renderpass*> swapchainRenderPass;
-		Name RenderPassName;
-		RenderPass* TargetRenderPass = 0;
-		void clearRenderPass() {
-			for (auto&& rp : swapchainRenderPass) {
-				RenderSystem::instance()->destoyRenderPass(rp);
-				rp = 0;
-			}
-		}
-
-		rs_renderpass* getCurframeSwapchainRenderPass(const PassDesc& desc,uint32_t curSwapchainImage) {
-			auto sys = RenderSystem::instance();
-			if (swapchainRenderPass.size() < curSwapchainImage + 1 ||  swapchainRenderPass[curSwapchainImage] == nullptr) {
-				swapchainRenderPass.resize(curSwapchainImage + 1);
-				swapchainRenderPass[curSwapchainImage] = sys->createRenderPass(sys->getNextSwapchainRendertarget(), desc);
-			}
-			return swapchainRenderPass[curSwapchainImage];
-		}
-
-		void rebuildAll() {
-			clearRenderPass();
-			auto sys = RenderSystem::instance();
-			swapchainRenderPass.resize(sys->getRenderContext()->maxSwapChainImages, nullptr);
-		}
-
-		~SwapchainRenderPassHelper() {
-			TargetRenderPass = 0;
-			RenderPassName = Name("");
-			clearRenderPass();
-			swapchainRenderPass.clear();
-		}
-	};
-
-
 	RenderPass* RenderPassManager::getRenderPass(const Name& passName)
 	{
 		auto itor = mRenderPasses.find(passName);
@@ -66,12 +30,10 @@ namespace Render {
 		}
 		mRenderPasses.clear();
 
-		delete mSwapchainRpHelper;
 	}
 
 	RenderPassManager::RenderPassManager()
 	{
-		mSwapchainRpHelper = new SwapchainRenderPassHelper;
 		mVirtualRenderPass = new VirtualRenderPass();
 		this->registerRenderPass(mVirtualRenderPass);
 	}
@@ -79,16 +41,10 @@ namespace Render {
 	void RenderPassManager::onFrameBegin()
 	{
 
-		if (!mSwapchainRpHelper->TargetRenderPass) {
-			return;
-		}	
-
 		//If target renderpass exists   
 		//Try create a renderpass for it
-		auto targettRp = mSwapchainRpHelper->TargetRenderPass;
 		auto sys = RenderSystem::instance();
 		uint32_t TargetSwapchainImg = sys->getNextRenderFrame() % sys->getRenderContext()->maxSwapChainImages;
-		targettRp->mRenderPass = mSwapchainRpHelper->getCurframeSwapchainRenderPass(targettRp->mPassDesc, TargetSwapchainImg);
 	}
 
 	void RenderPassManager::registerRenderPass(RenderPass* pass)
@@ -99,38 +55,6 @@ namespace Render {
 	void RenderPassManager::unregisterRenderPass(RenderPass* pass)
 	{
 		removeRenderPass(pass->getPassName());
-	}
-
-	void RenderPassManager::markSwapchainRenderPass(RenderPass* pass)
-	{
-		mSwapchainRpHelper->RenderPassName = pass->getPassName();
-		mSwapchainRpHelper->TargetRenderPass = pass;
-
-		if (mSwapchainRpHelper->TargetRenderPass->mRenderPass) {
-			RenderSystem::instance()->destoyRenderPass(mSwapchainRpHelper->TargetRenderPass->mRenderPass);
-			mSwapchainRpHelper->TargetRenderPass->mRenderPass = nullptr;
-		}
-
-		mSwapchainRpHelper->clearRenderPass();
-		auto sys = RenderSystem::instance();
-		uint32_t TargetSwapchainImg = sys->getNextRenderFrame() % sys->getRenderContext()->maxSwapChainImages;
-		pass->mRenderPass = mSwapchainRpHelper->getCurframeSwapchainRenderPass(pass->mPassDesc, TargetSwapchainImg);
-	}
-
-	void RenderPassManager::unMarkSwapchainRenderPass(RenderPass* pass)
-	{
-		if (pass != mSwapchainRpHelper->TargetRenderPass) {
-			return;
-		}
-		mSwapchainRpHelper->clearRenderPass();
-		mSwapchainRpHelper->RenderPassName = Name("");
-		mSwapchainRpHelper->TargetRenderPass->mRenderPass = nullptr;
-		mSwapchainRpHelper->TargetRenderPass = nullptr;
-	}
-
-	void RenderPassManager::onSwapchainRebuild()
-	{
-		this->mSwapchainRpHelper->rebuildAll();
 	}
 
 	void RenderPassManager::addRenderPass(const Name& passName, RenderPass* pass)
@@ -145,9 +69,6 @@ namespace Render {
 
 	void RenderPassManager::destroyRenderPass(RenderPass* pass)
 	{
-		if (pass == mSwapchainRpHelper->TargetRenderPass) {
-			unMarkSwapchainRenderPass(pass);
-		}
 		if (pass->mRenderPass) {
 			RenderSystem::instance()->destoyRenderPass(pass->mRenderPass);
 			pass->mRenderPass = nullptr;

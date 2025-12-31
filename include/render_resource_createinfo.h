@@ -71,8 +71,10 @@ namespace Render {
     };
 
     struct PassAttachment {
-        StorageOp       loadOp;
-        StorageOp       storeOp;
+        RenderTextureFormat fmt = RenderTextureFormat::Invalid;
+        SampleCount         SampleCount = SampleCount::Count1;
+        StorageOp           loadOp;
+        StorageOp           storeOp;
         bool isHDR = false; //float rt is HDR
     };
 
@@ -156,7 +158,7 @@ namespace Render {
     };
 
     struct Rect2D {
-        float l, r, t, b;
+        float l = 0.0f, r = 1.0f, t = 0.0f, b=1.0f;
     };
 
     struct VertexBindingInfo {

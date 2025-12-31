@@ -220,7 +220,7 @@ namespace Render::Vulkan {
         createBufferDesc.bufUsage = BufferType_Uniform;
         createBufferDesc.queueType = queue;
         createBufferDesc.mappable = true;
-        auto buffer= createRsBuffer(ctx, createBufferDesc);
+        auto buffer= createRsBufferVk(ctx, createBufferDesc);
         mapRsBuffer(ctx, buffer);
         UBO* ret = new UBO(ctx->maxFrameInFlight,createSizeNew,alignedSize);
         ret->mLastActiveFrame = 0;

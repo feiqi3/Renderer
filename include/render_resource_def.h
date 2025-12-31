@@ -98,11 +98,11 @@ namespace Render {
 
     using FormatCapFlag = uint8_t;
     namespace ImgFormatCaps {
-        FormatCapFlag Supported     = 1 << 0;
-        FormatCapFlag ColorAtt      = 1 << 1;
-        FormatCapFlag DepthStencil  = 1 << 2;
-        FormatCapFlag Sample        = 1 << 3;
-        FormatCapFlag Storage       = 1 << 4;
+        inline FormatCapFlag Supported     = 1 << 0;
+        inline FormatCapFlag ColorAtt      = 1 << 1;
+        inline FormatCapFlag DepthStencil  = 1 << 2;
+        inline FormatCapFlag Sample        = 1 << 3;
+        inline FormatCapFlag Storage       = 1 << 4;
     };
 
     enum class RenderTextureFormat : uint8_t
@@ -118,6 +118,9 @@ namespace Render {
 
         // Depth / Stencil
         D24S8,          // packed depth-stencil
+
+        SwapchainFormat,
+
         Invalid
     };
 

@@ -41,10 +41,9 @@ namespace Render::Vulkan {
 
 	void deinitVulkanBackEnd(rs_context_vk* ctx);
 	rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx, rs_image_vk** images, int imageNum, rs_image_vk* depthStencil);
-	void setRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt);
-	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt);
+	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt,bool imm = false);
 	
-	rs_buffer_vk* createRsBuffer(rs_context_vk* context,const BufferDesc& desc);
+	rs_buffer_vk* createRsBufferVk(rs_context_vk* context,const BufferDesc& desc);
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
@@ -109,7 +108,8 @@ namespace Render::Vulkan {
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
-	void cmdBeginRenderPass(rs_commandbuffer_vk* cb,rs_renderpass_vk* renderpass,const std::vector<ClearColor>& color,const ClearDepthStencil& clearDs);
+	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt);
+	void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, const std::vector<ClearColor>& color, const ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
@@ -123,7 +123,7 @@ namespace Render::Vulkan {
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize,uint32_t aspect);
 	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout fromlayout, VkImageLayout newlayout, uint32_t mip,uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore*> imageAvailableWaitSemaphores,std::vector<rs_semaphore*> renderFinishSignalSemphores,rs_fence_vk* fence);
-	void cmdBeginMark(rs_commandbuffer_vk* cb,const char* mark,float r,float g, float b, float a);
+	void cmdBeginMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a);
 	void cmdEndMark(rs_commandbuffer_vk* cb);
 	void cmdInsertMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a);
 	void cmdBeginRecord(rs_commandbuffer_vk* cb);

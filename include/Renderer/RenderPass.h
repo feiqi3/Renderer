@@ -12,9 +12,9 @@ namespace Render {
 		RenderPass(const Name& passName, const PassDesc& desc);
 		virtual void init() {}
 		virtual ~RenderPass();
-		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer);
+		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer, rs_rendertarget* rt);
 		rs_renderpass* getRaw()const { return mRenderPass; }
-		void setRenderTarget(rs_rendertarget* renderTarget,bool compatible = false);
+		void setRenderTarget(rs_rendertarget* renderTarget);
 		void draw(rs_commandbuffer* cmdbuffer);
 		void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
 			mClrColor = clrColor;
@@ -29,6 +29,7 @@ namespace Render {
 		bool needRebuildPipeline(rs_rendertarget* oldrt,rs_rendertarget* newrt);
 	protected:
 		Name mPassName;
+		rs_rendertarget* mRendertarget = nullptr;
 		rs_renderpass* mRenderPass;
 		const PassDesc mPassDesc;
 		std::vector<ClearColor> mClrColor;

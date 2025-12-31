@@ -4,7 +4,6 @@
 #include "vulkan/vulkan_render_function.h"
 #include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_render_resource.h"
-#include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_shader_module.h"
 namespace Render::Vulkan {
 
@@ -13,7 +12,7 @@ namespace Render::Vulkan {
         VK_DYNAMIC_STATE_VIEWPORT,
     };
 
-    VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op) {
+    VkImageLayout pickLayout(uint32_t usage, Render::StorageOp op, bool depthWrite) {
         using namespace Render;
 
         if (usage & ImageUsage_ColorAttachment) {
@@ -25,7 +24,9 @@ namespace Render::Vulkan {
         if (usage & ImageUsage_DepthStencilAttachment) {
             return (op != StorageOp::Cached)
                 ? VK_IMAGE_LAYOUT_UNDEFINED
-                : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                :   ( depthWrite 
+                ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL 
+                : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
         }
         return VK_IMAGE_LAYOUT_UNDEFINED;
     }
@@ -167,46 +168,35 @@ namespace Render::Vulkan {
         return layout;
     }
 
-    VkRenderPass getOrCreateRenderPassCacheVk(rs_context_vk* ctx, rs_renderpass_vk* renderpass, rs_rendertarget_vk* rt)
-    {
-        for (auto& passCache : renderpass->renderPassCache) {
-            if (passCache.passHash == rt->rtPassHash) {
-            //Find fine pass cache can match this rt  
-                passCache.lastFrame = ctx->nextRenderFrame;
-                return passCache.pass;
-            }
-        }
-        return createRenderPassCacheVk(ctx, renderpass, rt);
-    }
-
-    VkRenderPass createRenderPassCacheVk(rs_context_vk* ctx, rs_renderpass_vk* renderpass, rs_rendertarget_vk* rt)
+    VkRenderPass createRenderPassVk(rs_context_vk* ctx, const PassDesc& desc)
     {
 
         std::vector<VkAttachmentDescription> vkAttachments;
-        int imageNum = renderpass->passDesc.attachments.size();
-        int rtImageNum = rt->m_attachments.size() + (rt->m_depthStencilAttachment ? 1 : 0);
-        if (imageNum != rtImageNum || !(renderpass->haveDepth ^ (rt->m_depthStencilAttachment != nullptr))) {
-            Log::error("Miss match rt and renderpass, check depth or attachment num");
-            throw std::runtime_error("Miss match rt and renderpass");
-        }
-        
+        int imageNum = desc.attachments.size();
+        int rtImageNum = desc.attachments.size();
         vkAttachments.reserve(imageNum);
         for (int i = 0; i < imageNum; ++i) {
+            const auto& attDesc = desc.attachments[i];
             VkAttachmentDescription ad = {};
-            rs_image* image = nullptr;
-            auto& attPassDesc = renderpass->passDesc.attachments[i];
+            auto& attPassDesc = desc.attachments[i];
             bool isDepth = false;
             ImageUsage usage{};
-            if (renderpass->haveDepth && i == imageNum - 1) {
+            bool isCurAttDepth = (desc.lastDepth && i == imageNum - 1);
+            if (isCurAttDepth) {
                 usage = ImageUsage_DepthStencilAttachment;
-                image = rt->m_depthStencilAttachment;
+            }
+            else if (attDesc.fmt == RenderTextureFormat::SwapchainFormat) {
+                usage = ImageUsage_PresentSrc;
             }
             else {
                 usage = ImageUsage_ColorAttachment;
-                image = rt->m_attachments[i];
             }
-            ad.format = toVkFormat(image->format);
-            ad.samples = toVkSampleCount(image->sampleCount);
+            if (attDesc.fmt == RenderTextureFormat::Invalid) {
+                Log::error("Invalid image format in renderpass creation.");
+                throw std::runtime_error("image format error");
+            }
+            ad.format =toVkFormat(fromRtFormatToImageFormat(ctx,attDesc.fmt));
+            ad.samples = toVkSampleCount(attDesc.SampleCount);
             // loadOps
             ad.loadOp = (attPassDesc.loadOp == StorageOp::Clear)
                 ? VK_ATTACHMENT_LOAD_OP_CLEAR
@@ -216,11 +206,20 @@ namespace Render::Vulkan {
             // storeOps
             ad.storeOp = (attPassDesc.storeOp == StorageOp::Clear) ? VK_ATTACHMENT_STORE_OP_NONE
                 : ((attPassDesc.storeOp == StorageOp::Cached) ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE);
-            // stencil 默认不使用
-            ad.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            ad.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            if (isCurAttDepth) {
+				ad.stencilLoadOp = (attPassDesc.loadOp == StorageOp::Clear)
+					? VK_ATTACHMENT_LOAD_OP_CLEAR
+					: (attPassDesc.loadOp == StorageOp::DontCare)
+					? VK_ATTACHMENT_LOAD_OP_DONT_CARE
+					: VK_ATTACHMENT_LOAD_OP_LOAD;
+				ad.stencilStoreOp = (attPassDesc.storeOp == StorageOp::Clear) 
+                    ? VK_ATTACHMENT_STORE_OP_NONE
+					: ((attPassDesc.storeOp == StorageOp::Cached) 
+                    ? VK_ATTACHMENT_STORE_OP_STORE 
+                    : VK_ATTACHMENT_STORE_OP_DONT_CARE);
+            }
             // 布局
-            ad.initialLayout = pickLayout(usage, attPassDesc.loadOp);
+            ad.initialLayout = pickLayout(usage, attPassDesc.loadOp,desc.writeDepth);
             ad.finalLayout = usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(usage, attPassDesc.storeOp);
             vkAttachments.push_back(ad);
         }
@@ -237,10 +236,10 @@ namespace Render::Vulkan {
         VkAttachmentReference deepRef{};
         for (auto i = 0; i < imageNum; ++i) {
 
-            auto& attPassDesc = renderpass->passDesc.attachments[i];
+            auto& attPassDesc = desc.attachments[i];
             bool isDepth = false;
             ImageUsage usage = ImageUsage_ColorAttachment;
-            if (renderpass->passDesc.lastDepth && i == imageNum - 1) {
+            if (desc.lastDepth && i == imageNum - 1) {
                 usage = ImageUsage_DepthStencilAttachment;
             }
 
@@ -254,7 +253,7 @@ namespace Render::Vulkan {
             else if (usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
                 hasDepthRef = true;
                 deepRef.attachment = i;
-                deepRef.layout = renderpass->passDesc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+                deepRef.layout = desc.writeDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                 continue;
             }
             colorRefs.push_back(ref);
@@ -275,13 +274,8 @@ namespace Render::Vulkan {
         rpci.dependencyCount = 0;
         rpci.pDependencies = nullptr;
         VkRenderPass rdpass;
-        RenderPassCache passCache{};
 
         VK_CHECK(vkCreateRenderPass(ctx->device, &rpci, 0, &rdpass), { std::abort(); });
-        passCache.lastFrame = ctx->nextRenderFrame;
-        passCache.pass = rdpass;
-        passCache.passHash = rt->rtPassHash;
-        renderpass->renderPassCache.push_back(passCache);
         return rdpass;
     }
 
@@ -293,16 +287,15 @@ namespace Render::Vulkan {
         rp->passDesc = rpDesc;
         rp->haveDepth = rpDesc.lastDepth;
         rp->writeDepth = rpDesc.writeDepth;
+        rp->native = createRenderPassVk(ctx, rpDesc);
+        rp->passHash = CalcRenderPassHash(rp);
         return rp;
     }
 
     void destroyRsRenderPassVk(rs_context_vk* ctx, rs_renderpass_vk*& renderpass, bool immediately)
     {
         if (immediately) {
-            for (auto& passCache : renderpass->renderPassCache) {
-                vkDestroyRenderPass(ctx->device, (VkRenderPass)passCache.pass, 0);
-            }
-            renderpass->renderPassCache.clear();
+			vkDestroyRenderPass(ctx->device, (VkRenderPass)renderpass->native, 0);
             delete renderpass;
             renderpass = 0;
         }
@@ -685,14 +678,58 @@ namespace Render::Vulkan {
 
 			if (i < attCnt)
 			{
-                auto img = rt->m_attachments[i];
-                if (i == attCnt - 1) {
+                rs_image* img = nullptr;
+                if (rt->m_depthStencilAttachment && i == attCnt - 1) {
                     img = rt->m_depthStencilAttachment;
                 }
-                const auto& rtFmt = fromImageFormatToRtFormat(ctx, img->format);
+                else {
+                    img = rt->m_attachments[i];
+                }
+                assert(img != nullptr);
+                auto rtFmt = fromImageFormatToRtFormat(ctx, img->format);
 				fmtCode = static_cast<uint8_t>(rtFmt) & 0x1F;   // 5 bit
 				sampleCode = int(img->sampleCount) & 0x3; // 2 bit
             }
+			else
+			{
+				// Fill empty with format invalid
+				fmtCode = static_cast<uint8_t>(RenderTextureFormat::Invalid) & 0x1F;
+				sampleCode = 0;
+			}
+
+			uint64_t attCode = (static_cast<uint64_t>(fmtCode) << 2) | sampleCode; // 7 bit
+			hash |= attCode << (i * 7);
+		}
+
+		return hash;
+	}
+
+	uint64_t CalcRenderPassHash(const rs_renderpass_vk* pass)
+	{
+		uint64_t hash = 0;
+		const size_t maxAttachments = 8;
+        const auto attNum = pass->passDesc.attachments.size();
+
+		if (attNum > maxAttachments) {
+			Log::error("Render target can only have 8 attachment+depth_stencil");
+			std::abort();
+		}
+
+		size_t attCnt = std::min(attNum, maxAttachments);
+
+		for (size_t i = 0; i < maxAttachments; ++i)
+		{
+			uint8_t fmtCode = 0;
+			uint8_t sampleCode = 0;
+
+			if (i < attCnt)
+			{
+                const auto& att = pass->passDesc.attachments[i];
+
+				const auto& rtFmt = att.fmt;
+				fmtCode = static_cast<uint8_t>(rtFmt) & 0x1F;   // 5 bit
+				sampleCode = int(att.SampleCount) & 0x3; // 2 bit
+			}
 			else
 			{
 				// Fill empty with format invalid

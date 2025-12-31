@@ -5,15 +5,14 @@ namespace Render
 {
 	static PassDesc getRenderPassDesc() {
 		PassDesc ret;
-		ret.attachments.push_back(PassAttachment{});
+		ret.attachments.push_back(PassAttachment{.fmt = RenderTextureFormat::RGBA8});
 		return ret;
 	}
 
 	VirtualRenderPass::VirtualRenderPass():RenderPass(Name("VirtualRenderPass"),getRenderPassDesc())
 	{
-		this->mVirtualRtImage = RenderSystem::instance()->createRTTexture(ImageFormat::BGRA8_UNORM,10,10,1,1,false);
+		this->mVirtualRtImage = RenderSystem::instance()->createRTTexture(RenderTextureFormat::RGBA8,8,8,1,1,false);
 		this->mVirtualRt = RenderSystem::instance()->createRendertarget({ mVirtualRtImage }, 0);
-		this->setRenderTarget(mVirtualRt);
 	}
 
 	VirtualRenderPass::~VirtualRenderPass()

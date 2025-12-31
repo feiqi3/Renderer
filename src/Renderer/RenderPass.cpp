@@ -8,35 +8,32 @@
 namespace Render {
 	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
 	{
-
+		auto ctx = RenderSystem::instance()->getRenderContext();
+		mRenderPass = createRsRenderPassVk(ctx, mPassDesc);
 	}
-	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget, bool compatible)
+	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget)
 	{
 		using namespace Vulkan;
-		auto ctx = RenderSystem::instance()->getRenderContext();
-		if (!renderTarget) {
-			auto pass = (rs_renderpass_vk*)mRenderPass;
-			destroyRsRenderPassVk(ctx, pass);
-			mRenderPass = 0;
+		if (renderTarget == nullptr) {
+			mRendertarget = nullptr;
 			return;
 		}
 
-		if (!this->mRenderPass) {
-			mRenderPass = createRsRenderPassVk(ctx, (rs_rendertarget_vk*)renderTarget, mPassDesc);
+		auto ctx = RenderSystem::instance()->getRenderContext();
+		if (!RenderSystem::instance()->isRenderTargetCompatibleToRenderPass(mRenderPass, renderTarget)) {
+			assert(0);
+			return;
 		}
-		else {
-			bool needrebuild = needRebuildPipeline(mRenderPass->renderTarget, renderTarget);
-			changeRsRenderPassRtVk(ctx, (rs_renderpass_vk*)mRenderPass, (rs_rendertarget_vk*)renderTarget);
-			if (needrebuild) {
-				MaterialTemplateManager::instance()->broadcastPipelineRebuild(this);
-			}
-		}
+		this->mRendertarget = renderTarget;
 	}
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer)
 	{
 		RenderMarker Marker(cmdbuffer, mPassName.c_str(), 1.f, 0.f, 0.f, 1.f);
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
-		updateViewportAndScissor(cmdbuffer);
+		if (mRendertarget) {
+			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget);
+			updateViewportAndScissor(cmdbuffer, mRendertarget);
+		}
 		drawImpl(cmdbuffer);
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
 	}
@@ -59,7 +56,7 @@ namespace Render {
 				return true;
 			}
 			return false;
-			};
+		};
 
 		if (oldrt->m_attachments.size() != newrt->m_attachments.size() || ((oldrt->m_depthStencilAttachment == nullptr) ^ (newrt->m_depthStencilAttachment != nullptr))){		return true;
 			return true;
@@ -90,7 +87,7 @@ namespace Render {
 		destroyRsRenderPassVk(ctx, pass);
 		mRenderPass = 0;
 	}
-	void RenderPass::updateViewportAndScissor(rs_commandbuffer* cmdbuffer)
+	void RenderPass::updateViewportAndScissor(rs_commandbuffer* cmdbuffer,rs_rendertarget* rt)
 	{
 		Rect2D rect{};
 		rect.l = 0.f;
@@ -98,8 +95,7 @@ namespace Render {
 		rect.b = 1.f;
 		rect.r = 1.f;
 
-		if (this->mRenderPass) {
-			auto rt = this->mRenderPass->renderTarget;
+		if (rt) {
 			auto renderSys = RenderSystem::instance();
 			for (auto i = 0; i < rt->m_attachments.size(); i++) {
 				renderSys->cmdSetViewport(cmdbuffer, i, 0.0f, 1.f, rect);

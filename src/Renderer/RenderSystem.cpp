@@ -1,4 +1,5 @@
 #include "Renderer/RenderSystem.h"
+#include "render_function.h"
 #include "vulkan/vulkan_render_function.h"
 #include "window/render_resource_window_glfw.h"
 #include "Renderer/RenderDataAreana.h"
@@ -172,9 +173,9 @@ namespace Render{
 		auto ctx = getRenderContext();
 		return ctx->cmdBufferMgr->getCmdBufferLocalThread(ctx, getNextRenderFrame(), QueueType_Graphics, false);
 	}
-	rs_renderpass* RenderSystem::createRenderPass(rs_rendertarget* renderTarget,const PassDesc& passDescription)
+	rs_renderpass* RenderSystem::createRenderPass(const PassDesc& passDescription)
 	{
-		return Vulkan::createRsRenderPassVk(this->getRenderContext(), (Render::Vulkan::rs_rendertarget_vk*)renderTarget, passDescription);
+		return Vulkan::createRsRenderPassVk(this->getRenderContext(), passDescription);
 	}
 	void RenderSystem::destoyRenderPass(rs_renderpass* renderPass)
 	{
@@ -192,7 +193,12 @@ namespace Render{
 		Vulkan::cmdEndRenderPass((Vulkan::rs_commandbuffer_vk*)cmdbuf);
 	}
 
+	void RenderSystem::cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget)
+	{
+		Vulkan::cmdsetRenderTarget(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_rendertarget_vk*)rendertarget);
+	}
 	void RenderSystem::cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect)
+
 	{
 		Vulkan::cmdSetScissor((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect, framebufferIdx);
 	}
@@ -204,7 +210,7 @@ namespace Render{
 
 	rs_buffer* RenderSystem::createBuffer(void* data, uint32_t size, const BufferDesc& desc)
 	{
-		rs_buffer* buffer = Vulkan::createRsBuffer(getRenderContext(), desc);
+		rs_buffer* buffer = Vulkan::createRsBufferVk(getRenderContext(), desc);
 		if (desc.mappable) {
 			Vulkan::mapRsBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer);
 		}
@@ -293,7 +299,7 @@ namespace Render{
 		Vulkan::destroyRsImage(getRenderContext(), imageVk, false);
 	}
 
-	rs_image* RenderSystem::createRTTexture(ImageFormat format, int x, int y, int z, int layer, bool needSample)
+	rs_image* RenderSystem::createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer, bool needSample)
 	{
 		ImageDesc desc{};
 		desc.width = x;
@@ -311,7 +317,7 @@ namespace Render{
 		}
 
 		desc.type = type;
-		desc.format = format;
+		desc.format = fromRtFormatToImageFormat(getRenderContext(),format);
 		desc.usage = ImageUsage::ImageUsage_ColorAttachment;
 
 		if (needSample) {
@@ -320,7 +326,7 @@ namespace Render{
 
 		return Vulkan::createRsImage(getRenderContext(), desc);
 	}
-	rs_image* RenderSystem::createDepthStencilTexture(ImageFormat format, int x, int y,bool needSample)
+	rs_image* RenderSystem::createDepthStencilTexture(RenderTextureFormat format, int x, int y,bool needSample)
 	{
 		ImageDesc desc{};
 		desc.width = x;
@@ -332,7 +338,7 @@ namespace Render{
 		ImageType type = ImageType::V2D;
 
 		desc.type = type;
-		desc.format = format;
+		desc.format = fromRtFormatToImageFormat(getRenderContext(), format);
 		
 		desc.usage = ImageUsage::ImageUsage_DepthStencilAttachment;
 		if (needSample) {
@@ -360,7 +366,6 @@ namespace Render{
 		if (mDp->mEngineEvent.WindowResize) {
 			getRenderContext()->currentSwapchainImage = 0;
 			Vulkan::createSwapchain(getRenderContext(), this->mWindow, getRenderContext()->swapchain);
-			mDp->mPassManager->onSwapchainRebuild();
 			mDp->mEngineEvent.WindowResize = false;
 			deinitSwapchainRT();
 			initSwapchainRT();
@@ -577,6 +582,11 @@ namespace Render{
 	void RenderSystem::waitForEngineIdle()
 	{
 		Vulkan::WaitForDeviceIdel(getRenderContext());
+	}
+
+	bool RenderSystem::isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt)
+	{
+		return ((Vulkan::rs_renderpass_vk*)rp)->passHash == ((Vulkan::rs_rendertarget_vk*)rt)->rtPassHash;
 	}
 
 	void RenderSystem::onWindowResize()

@@ -76,7 +76,7 @@ namespace Render {
 	struct rs_semaphore : rs_base {};
 
 	struct rs_event : rs_base {};
-
+	struct rs_rendertarget;
 	struct rs_commandbuffer : rs_base {
 		uint8_t queueType;
 		rs_renderpass* currentRenderPass = 0;
@@ -99,7 +99,9 @@ namespace Render {
 		std::vector<rs_binding_data> mBindingData;
 	};
 
-	struct rs_swapchain : rs_base {};
+	struct rs_swapchain : rs_base {
+		ImageFormat SwapchainImageFormat;
+	};
 
 	struct rs_queue : rs_base {
 		uint8_t queueType;

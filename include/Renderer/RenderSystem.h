@@ -35,10 +35,11 @@ namespace Render{
 		class RenderPassManager* getRenderPassManager()const;
 		RenderPass* getRenderPass(const Name& pass);
 		rs_commandbuffer* GetCommandBufferCurFrameCurThread();
-		rs_renderpass* createRenderPass(rs_rendertarget* renderTarget,const PassDesc& passDescription);
+		rs_renderpass* createRenderPass(const PassDesc& passDescription);
 		void destoyRenderPass(rs_renderpass* renderPass);
 		void cmdBeginRenderPass(rs_commandbuffer* cmdbuf,rs_renderpass* pass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs);
 		void cmdEndRenderPass(rs_commandbuffer* cmdbuf);
+		void cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget);
 
 		void cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect);
 		void cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth,const Rect2D& rect);
@@ -58,8 +59,8 @@ namespace Render{
 
 		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap);
 		void destroyImage(rs_image* image);
-		rs_image* createRTTexture(ImageFormat format, int x, int y, int z, int layer,bool needSample);
-		rs_image* createDepthStencilTexture(ImageFormat format, int x, int y, bool needSample);
+		rs_image* createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer,bool needSample);
+		rs_image* createDepthStencilTexture(RenderTextureFormat format, int x, int y, bool needSample);
 		rs_rendertarget* createRendertarget(const std::vector<rs_image*>images,rs_image* dsTex);
 		void destroyRenderTarget(rs_rendertarget* rt);
 		void beginFrame();
@@ -117,6 +118,7 @@ namespace Render{
 		void setEngineIdle();
 		void waitForEngineIdle();
 
+		bool isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt);
 	public:
 		void onWindowResize();
 	private:

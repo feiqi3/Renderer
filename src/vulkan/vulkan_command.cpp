@@ -1,4 +1,5 @@
 #include"vulkan/vulkan_command.h"
+#include "render_log.h"
 #include <thread>
 #include <cassert>
 namespace Render::Vulkan {
