@@ -11,6 +11,8 @@ namespace Render::Vulkan {
 		this->mFrameSamplers.resize(mMaxFrameInFlight);
 		this->mFramePipelines.resize(mMaxFrameInFlight);
 		this->mFrameRenderPasses.resize(mMaxFrameInFlight);
+		this->mFrameSemaphores.resize(mMaxFrameInFlight);
+		this->mFrameFences.resize(mMaxFrameInFlight);
 	}
 	void DeferredDestroyer::destroyBuffer(uint64_t frame, rs_buffer_vk* buffer)
 	{
@@ -47,6 +49,22 @@ namespace Render::Vulkan {
 	{
 		int f = frame % mMaxFrameInFlight;
 		mFrameRenderPasses[f].push_back(renderpass);
+	}
+
+	void DeferredDestroyer::destroySemaphores(rs_semaphore_vk* semaphores)
+	{
+		for (int i = 0; i < semaphores->cnt; i++) {
+			VkSemaphore frameSemaphore = ((VkSemaphore*)semaphores->native)[i];
+			mFrameSemaphores[i].push_back(frameSemaphore);
+		}
+	}
+
+	void DeferredDestroyer::destroyFences(rs_fence_vk* fences)
+	{
+		for (int i = 0; i < fences->cnt; i++) {
+			VkFence frameFence = ((VkFence*)fences->native)[i];
+			mFrameFences[i].push_back(frameFence);
+		}
 	}
 
 	void DeferredDestroyer::endFrameDestroy(rs_context_vk* ctx,uint64_t frame)
@@ -98,6 +116,20 @@ namespace Render::Vulkan {
 			destroyRsRenderPassVk(ctx, renderpass, true);
 		}
 		renderpasses.clear();
+
+		auto& semaphores = mFrameSemaphores[f];
+		for (auto&& semaphore : semaphores) {
+			VkSemaphore sem = (VkSemaphore)semaphore;
+			vkDestroySemaphore(ctx->device, sem, nullptr);
+		}
+		semaphores.clear();
+
+		auto& fences = mFrameFences[f];
+		for (auto&& fence : fences) {
+			VkFence fen = (VkFence)fence;
+			vkDestroyFence(ctx->device, fen, nullptr);
+		}
+		fences.clear();
 	}
 
 	void DeferredDestroyer::clearAll(rs_context_vk* ctx)

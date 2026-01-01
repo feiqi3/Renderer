@@ -1048,10 +1048,8 @@ namespace Render::Vulkan {
 
     void destroyRsSemaphore(rs_context_vk* ctx, rs_semaphore_vk*& sem)
     {
+        ctx->destroyer->destroySemaphores(sem);
         auto semNative = (VkSemaphore*)sem->native;
-        for (int i = 0; i < sem->cnt; ++i) {
-            vkDestroySemaphore(ctx->device, semNative[i], 0);
-        }
         delete[] semNative;
         delete sem;
         sem = 0;
@@ -1074,9 +1072,7 @@ namespace Render::Vulkan {
 
     void destroyRsFence(rs_context_vk* ctx, rs_fence_vk*& fence)
     {
-        for (int i = 0; i < fence->cnt; ++i) {
-            vkDestroyFence(ctx->device, ((VkFence*)(fence->native))[i], 0);
-        }
+        ctx->destroyer->destroyFences(fence);
         delete[] (VkFence*)(fence->native);
         delete fence;
         fence = 0;

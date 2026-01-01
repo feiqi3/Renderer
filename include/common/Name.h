@@ -19,7 +19,7 @@ namespace Render {
 		}
 
 		explicit Name(const char* str)
-			: Name(str, str != nullptr ? strlen(str) : 0) {
+			: Name(str, str != nullptr ? u32(strlen(str)) : 0) {
 		}
 
 		explicit Name(const ::std::string& str)

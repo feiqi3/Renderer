@@ -6,7 +6,7 @@ namespace Render::Common {
     inline u32 murmur3_32(const void* key, size_t len, u32 seed)
     {
         const uint8_t* data = static_cast<const uint8_t*>(key);
-        const int nblocks = len / 4;
+        const int nblocks = int(len / 4);
 
         u32 h1 = seed;
         const u32 c1 = 0xcc9e2d51;

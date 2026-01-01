@@ -187,7 +187,7 @@ namespace Render::Vulkan {
 			for (auto&& cmd : threadCmds) {
 				auto cmdN = (VkCommandBuffer)cmd->native;
 				vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, &cmdN);
-				delete cmdN;
+				delete cmd;
 			}
 		}
 		mSingleTimeCmd.clear();
