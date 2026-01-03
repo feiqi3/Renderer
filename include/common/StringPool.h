@@ -17,8 +17,10 @@ namespace Render {
 	};
 
 	class StringPoolPrivate;
-	class StringPool :public Singleton<StringPool>{
+	class StringPool{
 	public:
+		static StringPool* instance();
+
 		static inline constexpr u32 getStringHash(const char* str, u32 length) {
 			return Common::fnv1a_hash(str, length);
 		}

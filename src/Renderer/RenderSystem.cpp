@@ -283,7 +283,7 @@ namespace Render{
 
 		desc.type = type;
 		desc.format = format;
-		desc.usage = ImageUsage::ImageUsage_Sampled;
+		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst;
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
 		if (data) {

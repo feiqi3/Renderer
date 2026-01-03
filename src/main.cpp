@@ -11,6 +11,8 @@
 #include "Renderer/CameraManager.h"
 #include "Renderer/Camera.h"
 #include "SimpleScene.h"
+#include "common/ResourceSystem.h"
+#include "function/EngineResourceManager.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -18,8 +20,9 @@ int main() {
 	Render::BackEndInitDesc backEndInit{};
 	backEndInit.appName = "Test";
 	backEndInit.engineName = "Feigen";
-	new Render::StringPool();
 	new Render::MaterialTemplateManager();
+	new Render::ResourceSystem();
+	RegisterAllEngineResourceManager();
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
 	setWindowEventsCallbacks(glfwWindow);
@@ -60,7 +63,9 @@ int main() {
 		glfwWindow->setTitle((std::string("fps: ") + std::to_string(CurrentFPS)).c_str());
 	}
 	renderFlow->deinit();
+	delete Render::ResourceSystem::instance();
 	delete Render::MaterialTemplateManager::instance();
+
 	Render::RenderSystem::destroyRenderSystem();
 	delete glfwWindow;
 	glfwWindow = 0;

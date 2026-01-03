@@ -5,6 +5,7 @@
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderPass.h"
 #include "Renderer/MaterialTemplateManager.h"
+#include "Renderer/Texture.h"
 namespace Render {
 
 	class ObjectMaterialTemplateFactory {
@@ -147,11 +148,10 @@ namespace Render {
 			renderInfo.indexType = IndexType::Uint32;
 		
 			this->createPass(Name("MainPass"));
-
 		}
-			
-	private:
+		
 
+	private:
 	};
 };
 

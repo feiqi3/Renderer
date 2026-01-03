@@ -5,7 +5,7 @@
 #include <map>
 namespace Render {
 	struct RenderPendingData {
-		ResourceType type;
+		UniformType type;
 		union {
 			void* dataPtr;		//Data of Per frame update
 			void* resourcePtr;  //Ptr of Resource, Like Texture/Storage buffer

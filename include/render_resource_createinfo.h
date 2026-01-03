@@ -154,7 +154,7 @@ namespace Render {
         uint16_t shaderVisibleStage = 0; //shader stage
         uint16_t count = 0; 
         uint16_t size = 0; 
-        ResourceType type;
+        UniformType type;
     };
 
     struct Rect2D {

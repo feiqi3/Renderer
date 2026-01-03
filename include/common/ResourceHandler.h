@@ -4,9 +4,52 @@
 #include "common/Name.h"
 #include "common/ResourceManager.h"
 namespace Render {
+
+	enum class ResourceState
+	{
+		Invalid,
+		Unloaded,
+		Loading,
+		Loaded,
+		Failed,
+		Reloading
+	};
+
+	struct ResourceMemory{
+		u32 cpuMemory;
+		u32 gpuMemory;
+	};
+
+	class IResource {
+	public:
+		inline ResourceState GetState() {
+			return mState;
+		}
+		inline virtual bool IsReady() const {
+			return mState == ResourceState::Loaded;
+		};
+		virtual const char* GetTypeName() const = 0;
+		virtual ResourceMemory GetMemory() const = 0;
+	public:
+
+
+		virtual ~IResource()			{}
+
+		virtual void OnLoaded()			{}
+
+		virtual void OnReloadBegin()	{}
+
+		virtual void OnReloadEnd()		{}
+
+		virtual void OnUnload()			{}
+	protected:
+		ResourceState mState = ResourceState::Invalid;
+	};
+
 	template<typename T>
 	class ResourceHandle {
 	public:
+		ResourceHandle(nullptr_t) : entry(nullptr), owner(nullptr), handleRef(0) {}
 		ResourceHandle() : entry(nullptr), owner(nullptr), handleRef(0) {}
 
 		ResourceHandle(IResourceManager* mgr, ResourceEntry* e)
@@ -56,8 +99,8 @@ namespace Render {
 			release();
 		}
 
-		T* operator->() const { return entry ? entry->resource : nullptr; }
-		T& operator*() const { assert(entry && entry->resource); return *(entry->resource); }
+		T* operator->() const { return entry ? (T*)entry->resource : nullptr; }
+		T& operator*() const { assert(entry && entry->resource); return *((T*)entry->resource); }
 
 		bool valid() const { return entry != nullptr && entry->resource != nullptr; }
 

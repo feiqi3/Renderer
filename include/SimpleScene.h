@@ -13,6 +13,8 @@ namespace Render {
 		Camera* mCam;
 		CubeEntity* mCube;
 		CubeEntity* mCubeB;
+		TexturePtr texture;
+		rs_sampler* sampler;
 		rs_image* mRtColor = nullptr;
 		rs_image* mRtDepth = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;

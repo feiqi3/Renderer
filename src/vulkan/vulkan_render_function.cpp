@@ -2149,7 +2149,7 @@ namespace Render::Vulkan {
         for (const auto& [setIdx, descriptorSet] : curFrameDescriptors) {
             auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
             for (auto&& binding : descriptorSet->mBindingData) {
-                if (binding.type == ResourceType::UniformBuffer) {
+                if (binding.type == UniformType::UniformBuffer) {
                     dynamics[dyNum] = (binding.uboDyOffset);
                     dyNum += 1;
                 }
@@ -2630,7 +2630,9 @@ namespace Render::Vulkan {
         };
 
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
-        auto layoutSave = image->currentLayout;
+        
+        auto toLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
         cmdImageLayoutTo(cb, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstMip,1, layeroff,layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
         VkCopyBufferToImageInfo2 cpInfo{ VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2 };
         cpInfo.srcBuffer = (VkBuffer)pendingBuffer->native;
@@ -2639,7 +2641,7 @@ namespace Render::Vulkan {
         cpInfo.regionCount = 1;
         cpInfo.pRegions = &imageCpy;
         vkCmdCopyBufferToImage2(cmd, &cpInfo);
-        cmdImageLayoutTo(cb, image, layoutSave, dstMip,1, layeroff, layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
+        cmdImageLayoutTo(cb, image, toLayout, dstMip,1, layeroff, layerSize, VK_IMAGE_ASPECT_COLOR_BIT);
 
     }
 

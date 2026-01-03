@@ -113,5 +113,10 @@ namespace Render {
 		return Dp->getOrCreateByHash(stringPtr, stringLen,hash);
 	}
 
+	StringPool* StringPool::instance() {
+		static StringPool sStringPool;
+		return &sStringPool;
+	}
+
 }
 

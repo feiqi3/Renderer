@@ -14,23 +14,23 @@ namespace Render::Vulkan {
         */
     }
 
-    VkDescriptorType toVkDescriptorType(ResourceType type) {
+    VkDescriptorType toVkDescriptorType(UniformType type) {
         switch (type) {
-        case ResourceType::ConstantBuffer:
+        case UniformType::ConstantBuffer:
             return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        case ResourceType::UniformBuffer:
+        case UniformType::UniformBuffer:
             return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-        case ResourceType::StorageBuffer:
+        case UniformType::StorageBuffer:
             return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        case ResourceType::StorageImage:
+        case UniformType::StorageImage:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        case ResourceType::Texture:
+        case UniformType::Texture:
             return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        case ResourceType::InputAttachment:
+        case UniformType::InputAttachment:
             return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-        case ResourceType::Sampler:
+        case UniformType::Sampler:
             return VK_DESCRIPTOR_TYPE_SAMPLER;
-        //case ResourceType::AccelerationStructure:
+        //case UniformType::AccelerationStructure:
         //    return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         default:
             return VK_DESCRIPTOR_TYPE_MAX_ENUM; // or handle error
@@ -84,13 +84,13 @@ namespace Render::Vulkan {
         if (block->maxSets == 0)
             return VK_NULL_HANDLE;
 
-        for (auto i = 0; i < (int)ResourceType::Count; ++i) {
+        for (auto i = 0; i < (int)UniformType::Count; ++i) {
             if (block->sizes[i].descriptorCount < layout->bindingHash.mAllocaHint.hint[i]) {
                 return VK_NULL_HANDLE;
             }
         }
 
-        for (auto i = 0; i < (int)ResourceType::Count; ++i) {
+        for (auto i = 0; i < (int)UniformType::Count; ++i) {
             block->sizes[i].descriptorCount -= layout->bindingHash.mAllocaHint.hint[i];
         }
         block->maxSets--;
@@ -126,7 +126,7 @@ namespace Render::Vulkan {
         auto ret = AllocateDescriptorSet(frame, ctx, setlayout);
         
         rs_binding_data binding{};
-        binding.type = ResourceType::Count;
+        binding.type = UniformType::Count;
         ret->mBindingData.resize(setlayout->bindingHash.maxBinding + 1, binding);
         for (auto& bindingSlot : setlayout->bindingHash.mDescriptors) {
             auto vkBindingPos = toVkBindingPos(bindingSlot.bindingPos);
@@ -171,7 +171,7 @@ namespace Render::Vulkan {
         for (const rs_binding_data& bindingData : descriptorSet->mBindingData) {
             switch (bindingData.type)
             {
-            case Render::ResourceType::UniformBuffer:
+            case Render::UniformType::UniformBuffer:
             {
                 UniformBufferObject* ubo = (UBO*)bindingData.native;
                 if (ubo) {
@@ -179,13 +179,13 @@ namespace Render::Vulkan {
                 }
             }
             break;
-            case      Render::ResourceType::ConstantBuffer:
-            case      Render::ResourceType::StorageBuffer:
-            case       Render::ResourceType::StorageImage:
-            case      Render::ResourceType::Texture:
-            case        Render::ResourceType::InputAttachment:
-            case  Render::ResourceType::Sampler:
-            //case Render::ResourceType::AccelerationStructure:
+            case      Render::UniformType::ConstantBuffer:
+            case      Render::UniformType::StorageBuffer:
+            case       Render::UniformType::StorageImage:
+            case      Render::UniformType::Texture:
+            case        Render::UniformType::InputAttachment:
+            case  Render::UniformType::Sampler:
+            //case Render::UniformType::AccelerationStructure:
             default:
                 break;
             }
@@ -244,7 +244,7 @@ namespace Render::Vulkan {
             const auto& layoutData =
                 descriptorSet->layout->bindingHash.mDescriptors;
             
-            if (layoutData.size() <= binding|| layoutData[binding].type != ResourceType::UniformBuffer || layoutData[binding].size < size) {
+            if (layoutData.size() <= binding|| layoutData[binding].type != UniformType::UniformBuffer || layoutData[binding].size < size) {
                 assert(0 && "mismatch layout");
                 return;
             }
@@ -254,10 +254,10 @@ namespace Render::Vulkan {
                 return;
             }
 
-            if (descriptorSet->mBindingData[binding].type == ResourceType::Count) {
-                descriptorSet->mBindingData[binding].type = ResourceType::UniformBuffer;
+            if (descriptorSet->mBindingData[binding].type == UniformType::Count) {
+                descriptorSet->mBindingData[binding].type = UniformType::UniformBuffer;
             }
-            else if (descriptorSet->mBindingData[binding].type != ResourceType::UniformBuffer) {
+            else if (descriptorSet->mBindingData[binding].type != UniformType::UniformBuffer) {
                 assert(0 && "mismatch layout");
                 return;
             }
@@ -315,7 +315,7 @@ namespace Render::Vulkan {
             return;
         }
         auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
-        if (bindingInfo.type != ResourceType::Sampler) {
+        if (bindingInfo.type != UniformType::Sampler) {
             assert(0 && "Wrong binding type");
             return;
         }
@@ -348,7 +348,7 @@ namespace Render::Vulkan {
             return;
         }
         auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
-        if (bindingInfo.type != ResourceType::Texture) {
+        if (bindingInfo.type != UniformType::Texture) {
             assert(0 && "Wrong binding type");
             return;
         }
@@ -383,7 +383,7 @@ namespace Render::Vulkan {
         VkDescriptorBufferInfo bInfo{};
         bInfo.buffer = (VkBuffer)buffer->native;
         bInfo.offset = 0;
-        if (bindingInfo.type == ResourceType::UniformBuffer) {
+        if (bindingInfo.type == UniformType::UniformBuffer) {
             bInfo.range = bindingInfo.size;
         }
         else {
@@ -400,7 +400,7 @@ namespace Render::Vulkan {
             return;
         }
         auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
-        if (bindingInfo.type != ResourceType::StorageBuffer) {
+        if (bindingInfo.type != UniformType::StorageBuffer) {
             assert(0 && "Wrong binding type");
             return;
         }

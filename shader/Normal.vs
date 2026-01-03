@@ -4,6 +4,9 @@ layout(set = 1, binding = 0) uniform UniformBufferObject {
 	mat4 MatTransform;
 } ObjectCommon;
 
+layout(set = 1, binding = 1) uniform texture2D BoxTex;
+layout(set = 1, binding = 2) uniform sampler  BoxSampler;
+
 layout(location = 0) in vec3 inPosition;   // pos0
 layout(location = 1) in vec3 inNormal;     // pos1
 layout(location = 2) in vec2 inTexCoord;   // pos2

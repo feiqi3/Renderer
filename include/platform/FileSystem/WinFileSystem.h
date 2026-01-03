@@ -11,7 +11,7 @@ namespace Render::Platform::Win {
 		size_t read(void* buffer, size_t size) override;
 		size_t write(const void* buffer, size_t size) override;
 		size_t getSize() const override;
-		bool seek(size_t offset, bool fromBeginning) override;
+		size_t seek(i64 offset, bool fromBeginning) override;
 		bool isGood() const override { return mIsGood && mFile != nullptr; }
 		u32 getState() const override { return mState; }
 

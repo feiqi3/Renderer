@@ -80,7 +80,7 @@ namespace Render::Vulkan {
                 uint16_t shaderVisibleStage = 0; //shader stage
                 uint16_t count = 0;
                 uint16_t size = 0;
-                ResourceType type;
+                UniformType type;
             }descripor;
 
             const uint64_t FNV_offset = 0xcbf29ce484222325ULL;
@@ -88,7 +88,7 @@ namespace Render::Vulkan {
 
             uint64_t h = FNV_offset;
 
-            mAllocaHint.hint.resize((int)ResourceType::Count);
+            mAllocaHint.hint.resize((int)UniformType::Count);
 
             for (auto&& i : mDescriptors) {
                 descripor.binding = i.bindingPos;
@@ -126,7 +126,7 @@ namespace Render::Vulkan {
 
     };
 
-    VkDescriptorType toVkDescriptorType(ResourceType resType);
+    VkDescriptorType toVkDescriptorType(UniformType resType);
 
     std::optional<std::vector<rs_descriptor>> toDescriptors(const std::vector<std::vector<rs_descriptor>>& desc);
 

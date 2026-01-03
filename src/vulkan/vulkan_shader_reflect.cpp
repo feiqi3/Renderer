@@ -7,40 +7,40 @@
 #include <filesystem>
 namespace {
 
-    Render::ResourceType SpvDescriptorTypeToResourceType(SpvReflectDescriptorType type) {
-        using ResourceType = Render::ResourceType;
+    Render::UniformType SpvDescriptorTypeToResourceType(SpvReflectDescriptorType type) {
+        using UniformType = Render::UniformType;
         switch (type) {
         case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
         case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-            return ResourceType::UniformBuffer;
+            return UniformType::UniformBuffer;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
         case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-            return ResourceType::StorageBuffer;
+            return UniformType::StorageBuffer;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-            return ResourceType::StorageImage;
+            return UniformType::StorageImage;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
         case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
         case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-            return ResourceType::Texture;
+            return UniformType::Texture;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
-            return ResourceType::Sampler;
+            return UniformType::Sampler;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-            return ResourceType::InputAttachment;
+            return UniformType::InputAttachment;
 
         //case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
-        //    return ResourceType::AccelerationStructure;
+        //    return UniformType::AccelerationStructure;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-            return ResourceType::StorageBuffer;
+            return UniformType::StorageBuffer;
 
         default:
             // 如果你愿意处理未知类型
-            return ResourceType::Count; // 或者抛异常 / 打日志
+            return UniformType::Count; // 或者抛异常 / 打日志
         }
     }
 
@@ -342,8 +342,8 @@ namespace Render::Vulkan {
             bindingInfo.count = binding->count;
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
 
-            if (bindingInfo.type == ResourceType::UniformBuffer && bindingInfo.bindingItemName.starts_with("CBUFFER_")) {
-                bindingInfo.type = ResourceType::ConstantBuffer;
+            if (bindingInfo.type == UniformType::UniformBuffer && bindingInfo.bindingItemName.starts_with("CBUFFER_")) {
+                bindingInfo.type = UniformType::ConstantBuffer;
             }
 
             bindingInfo.size = binding->block.size;

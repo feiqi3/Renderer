@@ -1,6 +1,6 @@
 #include "platform/FileSystem/WinFileSystem.h"
 #include "Windows.h"
-
+#include <iostream>
 namespace Render::Platform::Win{
 	WindowsFileStream::WindowsFileStream(const std::string & path, bool createMode):mFile(nullptr),mIsGood(false),mState(FileAccess::INVALID)
 	{
@@ -66,7 +66,7 @@ namespace Render::Platform::Win{
         return (size_t)sz.QuadPart;
     }
 
-    bool WindowsFileStream::seek(size_t offset, bool fromBeginning)
+    size_t WindowsFileStream::seek(i64 offset, bool fromBeginning)
     {
         if (!isGood())
             return false;
@@ -77,7 +77,12 @@ namespace Render::Platform::Win{
         DWORD method = fromBeginning ? FILE_BEGIN : FILE_CURRENT;
 
         LARGE_INTEGER newPos;
-        return SetFilePointerEx(mFile, li, &newPos, method);
+        BOOL ok = SetFilePointerEx(mFile, li, &newPos, method);
+        if (!ok) {
+            DWORD err = GetLastError();
+            std::cerr << "Seek error -> code:" << err;
+        }
+        return newPos.QuadPart;
     }
 
 

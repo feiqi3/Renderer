@@ -50,3 +50,4 @@ target_include_directories(spirv-reflect-static PUBLIC
 )
 
 add_subdirectory(glm)
+add_subdirectory(stb)

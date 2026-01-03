@@ -13,10 +13,10 @@ namespace Render {
 		void unregisterSystem(const Name& resourceType);
 		IResourceManager* getResourceManager(const Name& name);
 		template<typename T> 
-		inline ResourceHandle<T> getOrCreateResource(const Name& type, const Name& resource, void* userCreateInfo) {
+		inline ResourceHandle<T> getOrCreateResource(const Name& type, const Name& resource) {
 			auto mgr = getResourceManager(type);
 			if (!mgr)return nullptr;
-			return ResourceHandle<T>(mgr, mgr->acquire(resource), userCreateInfo);
+			return ResourceHandle<T>(mgr, mgr->acquireOrCreate(resource));
 		}
 		template<typename T>
 		inline ResourceHandle<T> getResource(const Name& type, const Name& resource) {
@@ -31,8 +31,12 @@ namespace Render {
 		}
 		bool isResourceManagerExist(const Name& name)const;
 	private:
-		std::vector< std::unique_ptr<IResourceManager>> mManagers;
+		std::map<Name, std::unique_ptr<IResourceManager>> mManagers;
+		u32 mResourceTypeCnt = 0;
 	};
+
+#include "function/EngineResourceNameList.inl"
+
 }
 
 #endif

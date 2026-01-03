@@ -6,6 +6,8 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 worldPos;
 
 layout(location = 0) out vec4 outColor;
+layout(set = 1, binding = 1) uniform texture2D BoxTex;
+layout(set = 1, binding = 2) uniform sampler  BoxSampler;
 
 void main()
 {
@@ -17,5 +19,8 @@ void main()
 
     float lighting = dot(normalize(fragNormal), normalize(virtualLightPos - worldPos));
     vec4 normalColor = vec4( (normalize(fragNormal)  + vec3(1.,1.,1.)) / 2., 1.0);
-    outColor = normalColor;
+    vec4 textureColor = texture(sampler2D(BoxTex,BoxSampler),fragTexCoord);
+    textureColor.a = 1.0;
+
+    outColor = normalColor * textureColor;
 }

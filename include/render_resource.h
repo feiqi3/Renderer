@@ -91,7 +91,7 @@ namespace Render {
 	};
 
 	struct rs_binding_data : rs_base{
-		ResourceType type;
+		UniformType type;
 		uint32_t uboDyOffset;
 	};
 

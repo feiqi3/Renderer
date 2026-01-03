@@ -246,7 +246,7 @@ namespace Render {
         DecrementAndWrap       // 减量并溢出回绕到最大值
     };
 
-    enum class ResourceType : uint8_t {
+    enum class UniformType : uint8_t {
         ConstantBuffer,
         UniformBuffer,
         StorageBuffer,

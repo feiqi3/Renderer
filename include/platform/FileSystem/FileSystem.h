@@ -35,7 +35,8 @@ namespace Render::Platform {
 		virtual size_t read(void* buffer, size_t size) = 0;
 		virtual size_t write(const void* buffer, size_t size) = 0;
 		virtual size_t getSize() const = 0;
-		virtual bool seek(size_t offset, bool fromBeginning) = 0;
+		//return current posistion
+		virtual size_t seek(i64 offset, bool fromBeginning) = 0;
 		virtual bool isGood() const = 0;
 		virtual u32 getState()const = 0;
 	};
