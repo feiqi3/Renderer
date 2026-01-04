@@ -13,6 +13,7 @@ namespace Render {
 		uint64_t nextRenderFrame = -1;
 		uint64_t curRenderFrame = -1;
 		uint32_t maxFrameInFlight = 2;
+		bool needWireFramePipeline = true;
 
 		uint32_t LogicFrameFif = 0;
 		uint32_t RenderFrameFif = 0;

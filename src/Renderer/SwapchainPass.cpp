@@ -10,6 +10,9 @@ namespace Render {
 	public:
 		NormalEntity() {
 		}
+		virtual void updateUniforms(rs_commandbuffer* cmd, Material* pass) {
+			
+		};
 
 		MaterialTemplate* getMaterialTemplate() override{
 			static bool isFirstInit = true;

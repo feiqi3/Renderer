@@ -4,6 +4,7 @@
 #include "Renderer/CameraManager.h"
 #include "common/ResourceSystem.h"
 #include "Renderer/Texture.h"
+#include "Renderer/RenderQueue.h"
 namespace Render {
 	SimpleScene::SimpleScene()
 	{
@@ -44,11 +45,9 @@ namespace Render {
 		RenderSystem::instance()->updateUniformBufferData(bindingPos, &matrixB, sizeof(mat4), mCubeB->getPass(Name("MainCameraPass")));
 		RenderSystem::instance()->updateUniform(texturePos, texture->getRsImage(), mCubeB->getPass(Name("MainCameraPass")));
 		RenderSystem::instance()->updateUniform(samplerPos, sampler, mCubeB->getPass(Name("MainCameraPass")));
-
-
-		auto rp = (MainCameraPass*)RenderSystem::instance()->getRenderPass(Name("MainCameraPass"));
-		rp->addToDrawList(mCubeB);
-		rp->addToDrawList(mCube);
+		auto mainRenderQueue = RenderSystem::instance()->getMainRenderQueue();
+		mainRenderQueue->submit(mCube, 0);
+		mainRenderQueue->submit(mCubeB, 0);
 	}
 
 }

@@ -8,7 +8,7 @@
 #include "Common/Name.h"
 #include <render_resource.h>
 namespace Render{
-
+	class RenderQueue;
 	class Camera;
 
 	namespace Window {
@@ -32,6 +32,8 @@ namespace Render{
 			return (Vulkan::rs_context_vk*)mBackEndContext;
 		}
 
+		RenderQueue* getMainRenderQueue()const;
+		RenderQueue* getRenderQueue(const Name& queueName)const;
 		class RenderPassManager* getRenderPassManager()const;
 		RenderPass* getRenderPass(const Name& pass);
 		rs_commandbuffer* GetCommandBufferCurFrameCurThread();

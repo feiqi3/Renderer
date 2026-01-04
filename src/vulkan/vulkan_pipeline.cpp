@@ -491,7 +491,7 @@ namespace Render::Vulkan {
         VkPipelineRasterizationStateCreateInfo rsCi{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
         rsCi.                                   depthClampEnable = VK_FALSE;
         rsCi.                                   rasterizerDiscardEnable = VK_FALSE;
-        rsCi.                              polygonMode = toVkFillMode(desc.renderState.fillMode);
+        rsCi.                                   polygonMode = toVkFillMode(desc.renderState.fillMode);
         rsCi.                            cullMode = toVkCullMode(desc.renderState.cullMode);
         rsCi.frontFace = toVkFrontFace(desc.renderState.frontFace);
         rsCi.depthBiasEnable = VK_FALSE;
@@ -611,6 +611,19 @@ namespace Render::Vulkan {
             }
         }
 
+        //Extra bonus:
+        //For wireFrame   
+        if (ctx->needWireFramePipeline) {
+            if (!ctx->dynamicWireFrameStateSupported) {
+                //If VK_EXT_extended_dynamic_state3 not supported   
+                //Create a dedicated pipeline for wireframe
+                rsCi.polygonMode = toVkFillMode(FillMode::Line);
+                VkPipeline wireFramePipeline;
+                vkCreateGraphicsPipelines(ctx->device, VK_NULL_HANDLE, 1, &ci, 0, &wireFramePipeline);
+                ret->wireFramePipeline = wireFramePipeline;
+            }
+        }
+
         return ret;
     }
 
@@ -633,6 +646,9 @@ namespace Render::Vulkan {
             return;
         }
         vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->native, 0);
+        if (pipeline->wireFramePipeline != nullptr) {
+            vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->wireFramePipeline, 0);
+        }
         destroyRsPipelineLayout(ctx, pipeline->layout);
         delete pipeline;
         pipeline = 0;

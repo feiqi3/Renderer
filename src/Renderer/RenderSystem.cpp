@@ -11,6 +11,7 @@
 #include "Renderer/Camera.h"
 #include "platform/FileSystem/FileSystem.h"
 #include "platform/FileSystem/WinFileSystem.h"
+#include "Renderer/RenderQueue.h"
 #include <set>
 namespace Render{
 
@@ -54,6 +55,7 @@ namespace Render{
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
+		std::unique_ptr<RenderGroup> mRenderDispatcher;
 		Render::Platform::Win::WinFileSystem* mWinFileSystem;
 		rs_drawdata* mCurrentCameraData = nullptr;
 		EngineEvent mEngineEvent;
@@ -78,7 +80,8 @@ namespace Render{
 			auto render_context = sRenderSystem->getRenderContext();
 		}
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
-		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024 * 64, sRenderSystem->mBackEndContext->maxSwapChainImages);
+		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024, sRenderSystem->mBackEndContext->maxSwapChainImages);
+		sRenderSystem->mDp->mRenderDispatcher = std::make_unique<RenderGroup>();
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
 
@@ -157,6 +160,15 @@ namespace Render{
 		}
 
 
+	}
+	RenderQueue* RenderSystem::getMainRenderQueue()const
+	{
+		const static Name mainQueueName = Name("Main");
+		return &mDp->mRenderDispatcher->getQueue(mainQueueName);
+	}
+	RenderQueue* RenderSystem::getRenderQueue(const Name& queueName) const
+	{
+		return &mDp->mRenderDispatcher->getQueue(queueName);
 	}
 	RenderPassManager* RenderSystem::getRenderPassManager() const
 	{
@@ -450,7 +462,7 @@ namespace Render{
 	{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
-
+		entity->updateUniforms(cmdBuffer,pass->mMaterial);
 		drawIndexed(cmdBuffer, entity, pass);
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
@@ -461,6 +473,7 @@ namespace Render{
 		std::array<Vulkan::rs_drawdata_vk*,3> drawDataArr{};
 		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityDrawData;
 		drawDataArr[1] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
+		entity->updateUniforms(cmdBuffer, pass->mMaterial);
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)

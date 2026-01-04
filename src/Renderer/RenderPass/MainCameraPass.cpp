@@ -1,5 +1,7 @@
 #include "Renderer/RenderPass/MainCameraPass.h"
 #include "Renderer/RenderSystem.h"
+#include "Renderer/RenderQueue.h"
+#include "Renderer/EnginePass.h"
 namespace Render{
 	static PassDesc getMainCamPassDesc() {
 		PassDesc desc{};
@@ -13,7 +15,7 @@ namespace Render{
 		return desc;
 	}
 
-	MainCameraPass::MainCameraPass():RenderPass(Name("MainCameraPass"),getMainCamPassDesc())
+	MainCameraPass::MainCameraPass():RenderPass(PassName::MainCameraPass,getMainCamPassDesc())
 	{
 		ClearColor mainColorAtt = {};
 		mainColorAtt.rgba[0] = 0.f;
@@ -29,10 +31,17 @@ namespace Render{
 	void MainCameraPass::drawImpl(rs_commandbuffer* cmdbuffer)
 	{
 		auto renderSys = RenderSystem::instance();
-		for (auto&& render : mSceneEntity) {
-			renderSys->drawIndexed(cmdbuffer, render, this->getPassName());
+		auto mainRenderQueue = renderSys->getMainRenderQueue();
+		auto entityView = mainRenderQueue->getView();
+		while (1) {
+			auto command = entityView.next();
+			if (!command)break;
+			auto entity = command->entity;
+			auto pass = entity->getPass(this->getPassName());
+			if (pass) {
+				renderSys->drawIndexed(cmdbuffer, entity, pass);
+			}
 		}
-		mSceneEntity.clear();
 	}
 	void MainCameraPass::addToDrawList(RenderEntity* Entity)
 	{

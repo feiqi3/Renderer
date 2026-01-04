@@ -40,7 +40,7 @@ namespace Render::Vulkan {
 		//For Pipeline 
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
-
+		bool dynamicWireFrameStateSupported = false;
 		//
 
 		class DescriptorSetManager* descriptorSetMgr = 0;
@@ -86,8 +86,9 @@ namespace Render::Vulkan {
 	};
 
 	struct rs_pipeline_vk: rs_pipeline {
+		VkObjHandle wireFramePipeline = nullptr;
 		PipelineType type{};
-		rs_pipeline_layout_vk* layout;
+		rs_pipeline_layout_vk* layout = nullptr;
 	};
 
 	struct rs_renderpass_vk :rs_renderpass {

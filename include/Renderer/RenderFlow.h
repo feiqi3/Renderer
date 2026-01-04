@@ -4,6 +4,7 @@
 #include "SwapchainPass.h"   
 #include "RenderSystem.h"
 #include "RenderPassManager.h"
+#include "RenderQueue.h"
 namespace Render {
 	class RenderFlow {
 	public:
@@ -72,9 +73,6 @@ namespace Render {
 			auto RenderSys = RenderSystem::instance();
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
 			RenderSys->cmdBegin(cmdbufOffscreen);
-			for (auto&& entity : mRenderEntities) {
-				mMainCamPass->addToDrawList(entity);
-			}
 			mMainCamPass->draw(cmdbufOffscreen);
 			RenderSys->cmdEnd(cmdbufOffscreen);
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);

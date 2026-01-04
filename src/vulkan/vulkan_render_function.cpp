@@ -2046,7 +2046,7 @@ namespace Render::Vulkan {
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*, 3> drawDatas, uint32_t curFif, bool isInstanced)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*, 3> drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
     {
         if (pipeline == 0) {
             assert(0);
@@ -2060,7 +2060,11 @@ namespace Render::Vulkan {
             assert(0);
             return;
         }
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->native);
+        VkPipeline piplineVk = (VkPipeline)pipeline->native;
+        if (wireFrame && pipeline->wireFramePipeline != nullptr) {
+            piplineVk = (VkPipeline)pipeline->wireFramePipeline;
+        }
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
         //It's ok to draw with out index buffer
         bool donotuseidxdraw = false;
         if (info.indexBuffer) {
@@ -2095,7 +2099,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced, bool wireFrame)
     {
         if (pipeline == 0) {
             assert(0);
@@ -2107,7 +2111,11 @@ namespace Render::Vulkan {
             return;
         }
         auto cmd = (VkCommandBuffer)cb->native;
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->native);
+        VkPipeline piplineVk = (VkPipeline)pipeline->native;
+        if (wireFrame && pipeline->wireFramePipeline != nullptr) {
+            piplineVk = (VkPipeline)pipeline->wireFramePipeline;
+        }
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
 
 
         bool donotuseidxdraw = false;
