@@ -84,7 +84,7 @@ namespace Render {
 			mSwapchainPass->draw(cmdbufSwapchain);
 			RenderSys->cmdEnd(cmdbufSwapchain);
 			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
-
+			RenderSys->getMainRenderQueue()->clear();
 		}
 	private:
 		MainCameraPass* mMainCamPass = 0;
