@@ -12,7 +12,7 @@ namespace Render {
 	class ImageRaw {
 	public:
 		static ImageRaw* createImageRaw(const std::string& path, int wantChannel = -1);
-
+		static ImageRaw* createImageRaw(int width, int height, int channel, bool hdr = false);
 		inline void* getImageRaw() { return pImageData; }
 		inline int getWidth()const { return mSizeX; }
 		inline int getHeight()const { return mSizeY; }
@@ -23,12 +23,14 @@ namespace Render {
 		~ImageRaw();
 	protected:
 		ImageRaw(const std::string& path,int want_channels = -1);
+		ImageRaw(int width, int height, int channel, bool hdr);
 	private:
 		void* pImageData = nullptr;
 		int mSizeX = 0;
 		int mSizeY = 0;
 		int mChannel = 0;
 		bool mIsHdr = false;
+		bool mMannul = false;
 	};
 
 	using TextureResourceManager = ResourceManager<class Texture>;

@@ -87,6 +87,9 @@ namespace Render {
         RGB32_SFLOAT,        // 32-bit float R, G, B       
         RGBA32_SFLOAT,      // 32-bit float RGBA        
 
+        // 32-bit integer color formats 
+        RGBA32_UINT,
+
         // Depth/stencil formats
         D16_UNORM,          // 16-bit depth             
         D24_UNORM_S8_UINT,  // 24-bit depth + 8-bit S   
@@ -124,7 +127,21 @@ namespace Render {
         Invalid
     };
 
-    using VertexFormat = ImageFormat;
+    enum class VertexFormat : uint8_t
+    {
+        Float,
+        Float2,
+        Float3,
+        Float4,
+
+        Half2,
+        Half4,
+
+        Uint4,   // bone indices
+        UByte4N, // normalized color / weights
+
+        Invalid,
+    };
 
     enum class ImageType : uint8_t {
         V1D,    

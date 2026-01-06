@@ -1,4 +1,5 @@
 #include "render_log.h"
+#include "render_function.h"
 #include "vulkan/vulkan_shader_reflect.h"
 #include "vulkan/vulkan_render_function.h"
 #include "../3rd/spirv-reflect/spirv_reflect.h"
@@ -319,7 +320,7 @@ namespace Render::Vulkan {
             if (var->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) continue;
             InputAttribute attr{};
             attr.location = var->location;
-            attr.format = ToImageFormat( SpvReflectFormatToVkFormat(var->format));
+            attr.format = fromImaegFormatToVertexFormat(ToImageFormat( SpvReflectFormatToVkFormat(var->format)));
             attributes.push_back(attr);
         }
 

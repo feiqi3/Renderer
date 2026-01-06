@@ -259,8 +259,9 @@ namespace Render::Vulkan {
 
         case VK_FORMAT_R32_SFLOAT:              return ImageFormat::R32_SFLOAT;
         case VK_FORMAT_R32G32_SFLOAT:           return ImageFormat::RG32_SFLOAT;
-        case VK_FORMAT_R32G32B32_SFLOAT:           return ImageFormat::RGB32_SFLOAT;
+        case VK_FORMAT_R32G32B32_SFLOAT:    return ImageFormat::RGB32_SFLOAT;
         case VK_FORMAT_R32G32B32A32_SFLOAT:     return ImageFormat::RGBA32_SFLOAT;
+        case VK_FORMAT_R32G32B32A32_UINT:      return ImageFormat::RGBA32_UINT;
 
         case VK_FORMAT_D16_UNORM:               return ImageFormat::D16_UNORM;
         case VK_FORMAT_D24_UNORM_S8_UINT:       return ImageFormat::D24_UNORM_S8_UINT;
@@ -300,6 +301,8 @@ namespace Render::Vulkan {
         case ImageFormat::RG32_SFLOAT:        return VK_FORMAT_R32G32_SFLOAT;
         case ImageFormat::RGB32_SFLOAT:        return VK_FORMAT_R32G32B32_SFLOAT;
         case ImageFormat::RGBA32_SFLOAT:      return VK_FORMAT_R32G32B32A32_SFLOAT;
+
+        case ImageFormat::RGBA32_UINT:        return VK_FORMAT_R32G32B32A32_UINT;
 
         case ImageFormat::D16_UNORM:          return VK_FORMAT_D16_UNORM;
         case ImageFormat::D24_UNORM_S8_UINT:  return VK_FORMAT_D24_UNORM_S8_UINT;

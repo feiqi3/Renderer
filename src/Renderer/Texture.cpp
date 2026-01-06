@@ -72,6 +72,10 @@ namespace Render {
     {
         return new ImageRaw(path,wantChannel);
     }
+    ImageRaw* ImageRaw::createImageRaw(int width, int height, int channel, bool hdr)
+    {
+        return new ImageRaw(width, height,channel, hdr);
+    }
     size_t ImageRaw::getByteSize() const
     {
         size_t perEleSize = isHdr() ? HDR_ELE_SIZE : 1;
@@ -85,7 +89,12 @@ namespace Render {
     }
     ImageRaw::~ImageRaw()
     {
-        stbi_image_free(pImageData);
+        if (!mMannul) {
+            stbi_image_free(pImageData);
+        }
+        else {
+            delete[] pImageData;
+        }
         pImageData = 0;
     }
     ImageRaw::ImageRaw(const std::string& path, int want_channels)
@@ -116,7 +125,10 @@ namespace Render {
             std::cerr<<"Load texture failed: reason: " << stbi_failure_reason();
         }
     }
-    void __TextureManagerDeleteGPUImage(rs_image* img)
+    ImageRaw::ImageRaw(int width, int height, int channel, bool hdr):mSizeX(width),mSizeY(height),mChannel(channel),mIsHdr(hdr), mMannul(true)
     {
+        assert(width > 0 && height > 0 && channel >= 1);
+        size_t totalSize = size_t(width) * size_t(height) * size_t(channel) * size_t(hdr ? HDR_ELE_SIZE : 1);
+        pImageData = new uint8_t[totalSize];
     }
 }

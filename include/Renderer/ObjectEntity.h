@@ -36,7 +36,7 @@ namespace Render {
 			InputAttribute AttVtx{
 			};
 			AttVtx.binding = 0;
-			AttVtx.format = VertexFormat::RGB32_SFLOAT;
+			AttVtx.format = VertexFormat::Float3;
 			AttVtx.location = 0;
 			AttVtx.offset = offset;
 			VtxIA.attributes.push_back(AttVtx);
@@ -44,14 +44,14 @@ namespace Render {
 
 			//Normal
 			AttVtx.binding = 0;
-			AttVtx.format = VertexFormat::RGB32_SFLOAT;
+			AttVtx.format = VertexFormat::Float3;
 			AttVtx.location = 1;
 			AttVtx.offset = offset;
 			VtxIA.attributes.push_back(AttVtx);
 			offset += 12;
 			//Texcoord
 			AttVtx.binding = 0;
-			AttVtx.format = VertexFormat::RG32_SFLOAT;
+			AttVtx.format = VertexFormat::Float2;
 			AttVtx.location = 2;
 			AttVtx.offset = offset;
 			VtxIA.attributes.push_back(AttVtx);

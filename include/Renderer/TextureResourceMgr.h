@@ -1,3 +1,5 @@
+#ifndef TEXTURE_RESOURCE_MANAGER_H_
+#define TEXTURE_RESOURCE_MANAGER_H_
 #include "Texture.h"
 
 namespace Render {
@@ -21,3 +23,5 @@ namespace Render {
 		RenderSystem::instance()->destroyImage(texture->getRsImage());
 	}
 }
+
+#endif

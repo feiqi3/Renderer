@@ -9,7 +9,6 @@ namespace Render::Vulkan {
 
 	VkFormat toVkFormat(ImageFormat fmt);
 
-
 	VkImageViewType toVkImageViewType(ImageType t);
 	VkImageType toVkImageType(ImageType t);
 

@@ -458,7 +458,7 @@ namespace Render::Vulkan {
             VkVertexInputAttributeDescription attr{};
             attr.    location = i.location;
             attr.    binding = i.binding;
-            attr.    format = toVkFormat(i.format);
+            attr.    format =  toVkFormat(fromVertexFormatToImageFormat(i.format));
             attr.offset = i.offset;
             vtxInputDesc.push_back(attr);
         }

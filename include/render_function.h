@@ -8,7 +8,9 @@ namespace Render {
 	namespace Window {
 		class rs_window;
 	};
-
+	uint32_t vertexFormatToSize(VertexFormat format);
+	ImageFormat  fromVertexFormatToImageFormat(VertexFormat fmt);
+	VertexFormat fromImaegFormatToVertexFormat(ImageFormat fmt);
 	rs_context* initRsBackEnd(const BackEndInitDesc& desc);
 
 	rs_buffer* createRsBuffer(rs_context* context,BufferDesc& desc);
