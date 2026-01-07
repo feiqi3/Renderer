@@ -28,7 +28,7 @@ namespace Render {
 		inline virtual bool IsReady() const {
 			return mState == ResourceState::Loaded;
 		};
-		virtual const char* GetTypeName() const = 0;
+		virtual const Name& GetTypeName() const = 0;
 		virtual ResourceMemory GetMemory() const = 0;
 	public:
 

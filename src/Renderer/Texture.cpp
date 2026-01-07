@@ -56,9 +56,10 @@ namespace Render {
             return (fileStream->seek(0, false) >= fileStream->getSize()) ? 1 : 0;
         }
     }
-    const char* Texture::GetTypeName() const
+    const Name& Texture::GetTypeName() const
     {
-        return "Texture";
+        static const Name sTypeName = Name("Texture");
+        return sTypeName;
     }
     ResourceMemory Texture::GetMemory() const
     {

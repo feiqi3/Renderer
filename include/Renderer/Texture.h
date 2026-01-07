@@ -36,7 +36,7 @@ namespace Render {
 	using TextureResourceManager = ResourceManager<class Texture>;
 	class Texture : public IResource {
 	public:
-		virtual const char* GetTypeName() const override;
+		virtual const Name& GetTypeName() const override;
 		virtual ResourceMemory GetMemory() const override;
 		rs_image* getRsImage();
 	protected:
