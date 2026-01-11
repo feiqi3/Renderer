@@ -958,6 +958,11 @@ namespace Render::Vulkan {
         image = 0;
     }
 
+    size_t getRsImageSize(rs_image_vk* image)
+    {
+        return image->allocation->GetSize();
+    }
+
     rs_sampler_vk* createRsSampler(rs_context_vk* ctx,const SamplerDesc& desc)
     {
         VkSamplerCreateInfo sci{};
@@ -2206,6 +2211,15 @@ namespace Render::Vulkan {
         auto tempBuffer = createStageBufferTemp(ctx, size);
         auto descPtr = mapRsBuffer(ctx, tempBuffer);
         memcpy(descPtr, data, size);
+
+        VkMappedMemoryRange range = {};
+
+        range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        range.memory = tempBuffer->allocation->GetMemory();
+        range.offset = tempBuffer->allocation->GetOffset();
+        range.size = tempBuffer->allocation->GetSize();
+        vkFlushMappedMemoryRanges(ctx->device, 1, &range);
+
         VkCopyBufferInfo2 cpInfo{
             VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2
         };
@@ -2226,7 +2240,7 @@ namespace Render::Vulkan {
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
         .pNext = nullptr,
         .srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT & VK_ACCESS_TRANSFER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .buffer = (VkBuffer)tempBuffer->native,
@@ -2277,7 +2291,7 @@ namespace Render::Vulkan {
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
         .pNext = nullptr,
         .srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT & VK_ACCESS_TRANSFER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .buffer = (VkBuffer)bufferSrc->native,

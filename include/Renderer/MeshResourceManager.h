@@ -5,6 +5,8 @@
 #include "common/ResourceHandler.h"
 #include "common/ResourceManager.h"
 namespace Render {
+    class MeshResourceManager;
+
 	enum class VertexSemantic : uint8_t
 	{
 		Position,
@@ -33,7 +35,6 @@ namespace Render {
         // index draw
         uint32_t indexOffset = 0;
         uint32_t indexCount = 0;
-		uint32_t materialIndex = 0;
 	};
 
     class MeshData {
@@ -49,7 +50,7 @@ namespace Render {
             IndexType idxType
         )
             : pVertex(vertex)
-            , mVertexSize(vertexDataSize)
+            , mVertexByteSize(vertexDataSize)
             , mVertexCount(vertexCount)
             , pIndice(indice)
             , mIndexCount(indexCount)
@@ -61,7 +62,7 @@ namespace Render {
 
         inline void* getVertexData()       const { return pVertex; }
         inline size_t getVertexCount()      const { return mVertexCount; }
-        inline size_t getVertexDataSize()   const { return mVertexSize; }
+        inline size_t getVertexByteSize()   const { return mVertexByteSize; }
 
         inline void   setStride(u32 s) { mStride = s; }
         inline u32    getStride() const { return mStride; }
@@ -72,6 +73,7 @@ namespace Render {
         inline size_t    getIndexCount()const { return mIndexCount; }
         inline IndexType getIndexType() const { return mIndexType; }
         inline void      setIndexType(IndexType t) { mIndexType = t; }
+        size_t           getIndexByteSize()   const;
 
         /* ================= Attributes ================= */
 
@@ -93,7 +95,6 @@ namespace Render {
         inline void addSubMesh(
             uint32_t indexOffset,
             uint32_t indexCount,
-            uint32_t materialIndex = 0,
             int32_t  vertexOffset = 0
         ) {
             mSubMeshes.push_back(
@@ -101,7 +102,6 @@ namespace Render {
                     .vertexOffset = vertexOffset,
                     .indexOffset = indexOffset,
                     .indexCount = indexCount,
-                    .materialIndex = materialIndex
                 }
             );
         }
@@ -119,10 +119,14 @@ namespace Render {
             return mSubMeshes;
         }
 
+
+        rs_buffer* updateToGPUVertex();
+        rs_buffer* updateToGPUIndice();
+        class Mesh* toMeshResource();
     private:
         /* raw data */
         void* pVertex = nullptr;
-        size_t mVertexSize = 0;
+        size_t mVertexByteSize = 0;
         size_t mVertexCount = 0;
         u32    mStride = 0;
 
@@ -139,8 +143,9 @@ namespace Render {
 
     class Mesh : public IResource {
     public:
-        virtual const Name& GetTypeName() const override;
-        virtual ResourceMemory GetMemory() const override;
+        static const Name& typeName();
+        virtual const Name& getTypeName() const override;
+        virtual ResourceMemory getMemory() const override;
     public:
         inline rs_buffer* getVertexBuffer() const { return mVertex; }
         inline rs_buffer* getIndexBuffer()  const { return mIndice; }
@@ -174,6 +179,8 @@ namespace Render {
         const std::vector<MeshVertexAttribute>& getVertexLayout()const {return mVertexLayout;}
     private:
 
+    private:
+
         rs_buffer* mVertex = nullptr;
         rs_buffer* mIndice = nullptr;
 
@@ -189,6 +196,21 @@ namespace Render {
 
         std::vector<SubMesh> mSubMeshes;
         std::vector<MeshVertexAttribute> mVertexLayout;
+
+        friend class MeshResourceManager;
+        friend class MeshData;
+    };
+
+    class MeshResourceManager : public ResourceManager<Mesh> {
+    public:
+        MeshResourceManager();
+        virtual const Name& typeName() const;
+    private:
+        void createNecessaryPersistenceResources()override;
+    protected:
+        virtual Mesh* loadImpl(const Name& id);
+        virtual void  unloadImpl(Mesh* mesh);
+
     };
 }
 #endif

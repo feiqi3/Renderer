@@ -1,6 +1,11 @@
 #include "render_function.h"
+#include "vulkan/vulkan_render_function.h"
 namespace Render{
-bool queryImgFormatCaps(rs_context * ctx, ImageFormat fmt, FormatCapFlag flags)
+	size_t getRsImageGPUSize(rs_image* image)
+	{
+		return Vulkan::getRsImageSize((Vulkan::rs_image_vk*)image);
+	}
+	bool queryImgFormatCaps(rs_context * ctx, ImageFormat fmt, FormatCapFlag flags)
 {
 	uint32_t uFmt = (uint32_t)fmt;
 	if (uFmt >= uint32_t(ImageFormat::Invalid)) {

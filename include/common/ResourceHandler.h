@@ -5,46 +5,6 @@
 #include "common/ResourceManager.h"
 namespace Render {
 
-	enum class ResourceState
-	{
-		Invalid,
-		Unloaded,
-		Loading,
-		Loaded,
-		Failed,
-		Reloading
-	};
-
-	struct ResourceMemory{
-		u32 cpuMemory;
-		u32 gpuMemory;
-	};
-
-	class IResource {
-	public:
-		inline ResourceState GetState() {
-			return mState;
-		}
-		inline virtual bool IsReady() const {
-			return mState == ResourceState::Loaded;
-		};
-		virtual const Name& GetTypeName() const = 0;
-		virtual ResourceMemory GetMemory() const = 0;
-	public:
-
-
-		virtual ~IResource()			{}
-
-		virtual void OnLoaded()			{}
-
-		virtual void OnReloadBegin()	{}
-
-		virtual void OnReloadEnd()		{}
-
-		virtual void OnUnload()			{}
-	protected:
-		ResourceState mState = ResourceState::Invalid;
-	};
 
 	template<typename T>
 	class ResourceHandle {
@@ -118,6 +78,18 @@ namespace Render {
 
 			entry = nullptr;
 			owner = nullptr;
+		}
+
+		inline explicit operator bool() const noexcept {
+			return entry != nullptr;
+		}
+
+		inline bool operator==(std::nullptr_t) const noexcept {
+			return entry == nullptr;
+		}
+
+		inline bool operator!=(std::nullptr_t) const noexcept {
+			return entry != nullptr;
 		}
 
 	private:

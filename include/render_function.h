@@ -19,6 +19,7 @@ namespace Render {
 
 	rs_image* createRsImage(rs_context* context, ImageDesc& desc);
 	rs_image* destroyRsImage(rs_context* context, ImageDesc& desc);
+	size_t getRsImageGPUSize(rs_image* image);
 
 	rs_shader_module* createShader(rs_context* context, ShaderDesc& desc);
 	rs_shader_module* destroyShader(rs_context* context, ShaderDesc& desc);

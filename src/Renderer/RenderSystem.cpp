@@ -311,6 +311,11 @@ namespace Render{
 		Vulkan::destroyRsImage(getRenderContext(), imageVk, false);
 	}
 
+	size_t RenderSystem::getImageSize(rs_image* img)
+	{
+		return getRsImageGPUSize(img);
+	}
+
 	rs_image* RenderSystem::createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer, bool needSample)
 	{
 		ImageDesc desc{};

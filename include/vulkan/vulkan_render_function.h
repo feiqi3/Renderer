@@ -52,6 +52,7 @@ namespace Render::Vulkan {
 
 	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
 	void destroyRsImage(rs_context_vk* context, rs_image_vk*& image,bool immediately = false);
+	size_t getRsImageSize(rs_image_vk* image);
 
 	rs_sampler_vk* createRsSampler(rs_context_vk* context,const SamplerDesc& desc);
 	void destroyRsSampler(rs_context_vk* context, rs_sampler_vk*& sampler, bool immediately = false);

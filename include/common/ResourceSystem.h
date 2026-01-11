@@ -12,6 +12,27 @@ namespace Render {
 		void registerSystem(std::unique_ptr<IResourceManager> manager);
 		void unregisterSystem(const Name& resourceType);
 		IResourceManager* getResourceManager(const Name& name);
+
+		template<typename T>
+		inline ResourceHandle<T> createResource(const Name& type, const Name& resource,ResourceLifetime lifeTime = ResourceLifetime::Transient) {
+			auto mgr = getResourceManager(type);
+			if (!mgr)return nullptr;
+			return ResourceHandle<T>(mgr, mgr->create(resource,lifeTime));
+		}
+
+		template<typename T>
+		inline ResourceHandle<T> registerResource(const Name& type, const Name& resource,T* pRes, ResourceLifetime lifeTime = ResourceLifetime::Transient,UserDeletor deletor = nullptr) {
+			auto mgr = getResourceManager(type);
+			if (!mgr)return nullptr;
+			return ResourceHandle<T>(mgr, mgr->registerResource(resource, pRes, lifeTime,deletor));
+		}
+
+		inline void destroyResource(const Name& type, const Name& resource) {
+			auto mgr = getResourceManager(type);
+			if (!mgr)return;
+			mgr->destroy(resource);
+		}
+
 		template<typename T> 
 		inline ResourceHandle<T> getOrCreateResource(const Name& type, const Name& resource) {
 			auto mgr = getResourceManager(type);

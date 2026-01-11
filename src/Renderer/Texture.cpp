@@ -56,14 +56,21 @@ namespace Render {
             return (fileStream->seek(0, false) >= fileStream->getSize()) ? 1 : 0;
         }
     }
-    const Name& Texture::GetTypeName() const
+    const Name& Texture::typeName()
     {
         static const Name sTypeName = Name("Texture");
         return sTypeName;
     }
-    ResourceMemory Texture::GetMemory() const
+    const Name& Texture::getTypeName() const
     {
-        return ResourceMemory();
+        return typeName();
+    }
+    ResourceMemory Texture::getMemory() const
+    {
+        ResourceMemory memory{};
+        memory.cpuMemory = sizeof(this) + sizeof(pImage);
+        memory.gpuMemory = RenderSystem::instance()->getImageSize(pImage);
+        return memory;
     }
     rs_image* Texture::getRsImage()
     {
@@ -87,6 +94,13 @@ namespace Render {
         size_t perElementSize = isHdr() ? 4 : 1;
         ImageFormat fmt = getImageFormat(this->mChannel, this->mIsHdr);
         return RenderSystem::instance()->createImage2D(this->pImageData, perElementSize * mSizeX * mSizeY * mChannel,fmt, mSizeX,mSizeY,1,1,1);
+    }
+    Texture* ImageRaw::toTextureResource()
+    {
+        Texture* tex = new Texture();
+        tex->pImage = this->updateToGPU();
+        tex->mState = ResourceState::Loaded;
+        return tex;
     }
     ImageRaw::~ImageRaw()
     {

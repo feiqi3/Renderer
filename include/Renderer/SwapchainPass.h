@@ -19,7 +19,7 @@ namespace Render {
 		class RenderEntity* BlitEntity = 0;
 		class MaterialTemplate* BlitMaterial = 0;
 		class Material* BlitMatVarient = 0;
-		class rs_sampler* BlitRTSampler = 0;
+		struct rs_sampler* BlitRTSampler = 0;
 		class Pass* BlitPass = 0;
 		rs_drawdata* BlitDrawData = 0;
 		rs_binding_pos BlitTarget = INVALID_BINDING_POS;

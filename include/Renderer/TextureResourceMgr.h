@@ -1,27 +1,19 @@
 #ifndef TEXTURE_RESOURCE_MANAGER_H_
 #define TEXTURE_RESOURCE_MANAGER_H_
 #include "Texture.h"
-
+#include "common/ResourceManager.h"
 namespace Render {
-	template<>
-	inline Texture* ResourceManager<Texture>::loadImpl(const Name& id) {
-		auto imageRaw = ImageRaw::createImageRaw(id.c_str(), -1);
-		Texture* ret = new Texture();
-		ret->pImage = imageRaw->updateToGPU();
-		auto& memory = ret->mMemory;
-		memory.cpuMemory = sizeof(Texture) + sizeof(rs_image);
-		memory.gpuMemory = imageRaw->getByteSize();
-		delete imageRaw;
-		return ret;
-	}
 
-	template<>
-	inline const Name& ResourceManager<Texture>::typeName()const { const static auto textureName = Name("Texture"); return textureName; }
+	class TextureResourceManager : public ResourceManager< Texture> {
+	public:
+		Texture* loadImpl(const Name& id) override;
+		void unloadImpl(Texture* texture);
+		const Name& typeName()const override;
+	public:
+		void createNecessaryPersistenceResources()override;
+	};
 
-	template<>
-	inline void ResourceManager<Texture>::unloadImpl(Texture* texture) {
-		RenderSystem::instance()->destroyImage(texture->getRsImage());
-	}
+
 }
 
 #endif

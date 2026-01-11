@@ -20,6 +20,7 @@ namespace Render {
 		inline bool isHdr()const { return mIsHdr; }
 		size_t getByteSize()const;
 		rs_image* updateToGPU()const;
+		class Texture* toTextureResource();
 		~ImageRaw();
 	protected:
 		ImageRaw(const std::string& path,int want_channels = -1);
@@ -33,16 +34,17 @@ namespace Render {
 		bool mMannul = false;
 	};
 
-	using TextureResourceManager = ResourceManager<class Texture>;
+	class TextureResourceManager;
 	class Texture : public IResource {
 	public:
-		virtual const Name& GetTypeName() const override;
-		virtual ResourceMemory GetMemory() const override;
+		static const Name& typeName();
+		virtual const Name& getTypeName() const override;
+		virtual ResourceMemory getMemory() const override;
 		rs_image* getRsImage();
 	protected:
 		rs_image* pImage = nullptr;
-		ResourceMemory mMemory = {};
-		friend class ResourceManager<class Texture>;
+		friend class TextureResourceManager;
+		friend class ImageRaw;
 	};
 
 	using TexturePtr = ResourceHandle<Texture>;

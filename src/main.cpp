@@ -22,12 +22,13 @@ int main() {
 	backEndInit.engineName = "Feigen";
 	new Render::MaterialTemplateManager();
 	new Render::ResourceSystem();
-	RegisterAllEngineResourceManager();
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
 	setWindowEventsCallbacks(glfwWindow);
+	RegisterAllEngineResourceManager();
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
+	CreateAllPersistentResource();
 	renderFlow->init();
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;

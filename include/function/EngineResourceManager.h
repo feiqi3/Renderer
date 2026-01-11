@@ -3,6 +3,7 @@
 #include "common/Name.h"
 namespace Render {
 	void RegisterAllEngineResourceManager();
+	void CreateAllPersistentResource();
 	void UnRegisterAllEngineResourceManager();
 }
 
