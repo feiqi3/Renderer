@@ -1,222 +1,164 @@
-#include"vulkan/vulkan_command.h"
+#include "vulkan/vulkan_command.h"
 #include "render_log.h"
+#include "vulkan/vulkan_render_function.h" 
 #include <thread>
 #include <cassert>
+
 namespace Render::Vulkan {
 
-    int MaxActiveFrames = 10;
-	CommandBufferManager::CommandBufferManager(int maxFrame) :m_maxFrameInFlight(maxFrame)
+	static const int MaxActiveFrames = 10;
+
+	CommandBufferManager::CommandBufferManager(int maxFrame) : m_maxFrameInFlight(maxFrame)
 	{
-		mPools.resize(m_maxFrameInFlight);
-		mSingleTimeCmd.resize(m_maxFrameInFlight);
-		mThreadsCmdBuffersCache.resize(m_maxFrameInFlight);
+		m_frames.resize(m_maxFrameInFlight);
+	}
+
+	CommandBufferManager::~CommandBufferManager()
+	{
 	}
 
 	void CommandBufferManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
 	{
-		//clear.
-		//It is promised that all operation have done when this frame begins.
 		auto curFif = frame % m_maxFrameInFlight;
-		{
-			std::lock_guard<std::mutex> lock(mCmdBufferLock);
-			ThreadVector& threadVec = mPools[curFif];
 
-			for (auto cmd : mSingleTimeCmd[curFif]) {
-				vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, (VkCommandBuffer*)&cmd->native);
-				delete cmd;
-			}
-			mSingleTimeCmd[curFif].clear();
+		std::lock_guard<std::mutex> lock(mCmdBufferLock);
+		FrameData& frameData = m_frames[curFif];
 
-			int pos = -1;
-			auto thisThreadId = std::this_thread::get_id();
-			//Find current thread's pools
-			for (int i = 0; i < mThreadToPoolPos.size(); ++i) {
-				if (mThreadToPoolPos[i] == thisThreadId) {
-					pos = i;
-					break;
+		for (auto& threadData : frameData.threads) {
+			for (auto& block : threadData.poolBlocks) {
+				if (!block.pool) continue;
+
+				vkResetCommandPool(ctx->device, (VkCommandPool)block.pool->native, 0);
+
+				if (!block.usedList.empty()) {
+					block.freeList.splice(block.freeList.end(), block.usedList);
+				}
+
+				while (!block.freeList.empty()) {
+					rs_commandbuffer_vk* coldCmd = block.freeList.front();
+
+					//The old one is still active, skip checking the young
+					if (frame - coldCmd->lastActiveFrames <= MaxActiveFrames) {
+						break;
+					}
+
+					vkFreeCommandBuffers(ctx->device,
+						(VkCommandPool)block.pool->native,
+						1,
+						(VkCommandBuffer*)&coldCmd->native);
+					delete coldCmd;
+
+					block.freeList.pop_front();
 				}
 			}
-
-			if (pos == -1) {
-				mThreadToPoolPos.push_back(thisThreadId);
-				pos = mThreadToPoolPos.size() - 1;
-			}
-			if (threadVec.size() < pos + 1) {
-				threadVec.resize(pos + 1, {});
-				mThreadsCmdBuffersCache[curFif].resize(pos + 1, {});
-			}
-			assert(pos >= 0);
-
-			QueueVector& queueVec = threadVec[pos];
-
-			for (auto&& pool : queueVec) {
-				vkResetCommandPool(ctx->device, (VkCommandPool)pool->native, 0);
-			}
 		}
-
-		std::vector<std::pair<rs_commandpool_vk*, std::vector<VkCommandBuffer>>> toFreelist;
-		for (auto& [queueIdx, cmdBuffers] : this->mThreadsCmdBuffersCache[curFif]) {
-			auto eraseSize = std::erase_if(cmdBuffers, [&toFreelist,frame](rs_commandbuffer_vk* cmd) {
-				if (frame - cmd->lastActiveFrames > MaxActiveFrames) {
-					std::vector<VkCommandBuffer>* targetCmds = nullptr;
-					for (auto& [recyclePool, cmds] : toFreelist) {
-						if (recyclePool == cmd->pool) 
-						{
-							targetCmds = &cmds;
-							break;
-						}
-					}
-					if (!targetCmds) {
-						toFreelist.push_back({ cmd->pool,{} });
-						targetCmds = &(toFreelist[toFreelist.size() - 1]).second;
-					}
-					targetCmds->push_back((VkCommandBuffer)cmd->native);
-					delete cmd;
-					return true;
-				}
-				return false;
-			});
-		}
-		for (auto& [pool, cmds] : toFreelist) {
-			vkFreeCommandBuffers(ctx->device,
-				(VkCommandPool)pool->native,
-				(uint32_t)cmds.size(),
-				cmds.data());
-		}
-	}
-
-	void CommandBufferManager::endFrame(rs_context_vk* ctx, uint64_t frame)
-	{
-	}
-
-	void CommandBufferManager::submitFrame(rs_context_vk* ctx, uint64_t frame)
-	{
 	}
 
 	rs_commandbuffer_vk* CommandBufferManager::getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType, bool singleTime)
 	{
-		std::lock_guard<std::mutex> lock(mCmdBufferLock);
-		auto curFif = frame % m_maxFrameInFlight;
-		int pos = -1;
-		auto thisThreadId = std::this_thread::get_id();
-		//Find current thread's pools
-		for (int i = 0; i < mThreadToPoolPos.size();++i) {
-			if (mThreadToPoolPos[i] == thisThreadId) {
-				pos = i;
+		ThreadData* currentThreadData = nullptr;
+		{
+			//Find target queue lists in current thread
+			std::lock_guard<std::mutex> lock(mCmdBufferLock);
+
+			auto curFif = frame % m_maxFrameInFlight;
+			FrameData& frameData = m_frames[curFif];
+			auto thisThreadId = std::this_thread::get_id();
+
+			for (auto& tData : frameData.threads) {
+				if (tData.threadId == thisThreadId) {
+					currentThreadData = &tData;
+					break;
+				}
+			}
+			if (!currentThreadData) {
+				frameData.threads.emplace_back();
+				currentThreadData = &frameData.threads.back();
+				currentThreadData->threadId = thisThreadId;
+			}
+		}
+
+		CommandPoolBlock* targetBlock = nullptr;
+		//find target command list in target queue
+		for (auto& block : currentThreadData->poolBlocks) {
+			if (block.queueType & queueType) {
+				targetBlock = &block;
 				break;
 			}
 		}
-		if (pos == -1) {
-			mThreadToPoolPos.push_back(thisThreadId);
-			for (auto&& i : mPools) {
-				i.push_back({});
-			}
-			for (auto&& i : mThreadsCmdBuffersCache) {
-				i.push_back({});
-			}
-			pos = mThreadToPoolPos.size() - 1;
-		}
 
-		ThreadVector& threadVec = mPools[curFif];
-		QueueVector& queueVec = threadVec[pos];
+		if (!targetBlock) {
+			currentThreadData->poolBlocks.emplace_back();
+			targetBlock = &currentThreadData->poolBlocks.back();
+			targetBlock->queueType = queueType;
 
-		//Find target pool with identical queueType
-		rs_commandpool_vk* pool = 0;
-		for (auto&& i : queueVec) {
-			if (i && i->queue->queueType & queueType) {
-				pool = i;
-				break;
-			}
-		}
+			rs_commandpool_vk* pool = new rs_commandpool_vk;
+			rs_queue_vk* targetQueue = ctx->graphicQueue;
+			if (ctx->computeQueue && (ctx->computeQueue->queueType & queueType)) targetQueue = ctx->computeQueue;
+			if (ctx->transferQueue && (ctx->transferQueue->queueType & queueType)) targetQueue = ctx->transferQueue;
 
-		//If Cannot find target pool, compute one
-		if (!pool) {
-			pool = new rs_commandpool_vk;
-			if (ctx->graphicQueue->queueType & queueType) {
-				pool->queue = ctx->graphicQueue ;
-			}
-			if (ctx->computeQueue && ctx->computeQueue->queueType & queueType) {
-				pool->queue = ctx->computeQueue ;
-			}
-			if (ctx->presentQueue && ctx->presentQueue->queueType & queueType) {
-				pool->queue = ctx->presentQueue ;
-			}
-			if (ctx->transferQueue && ctx->transferQueue->queueType & queueType) {
-				pool->queue = ctx->transferQueue ;
-			}
-			
+			pool->queue = targetQueue;
 			VkCommandPoolCreateInfo ci{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-
 			ci.queueFamilyIndex = pool->queue->familyIndex;
+			ci.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+
 			VK_CHECK(vkCreateCommandPool(ctx->device, &ci, 0, (VkCommandPool*)&pool->native), { std::abort(); });
-			queueVec.push_back(pool);
+			targetBlock->pool = pool;
 		}
 
-		auto& curThreadQueueCmdVec = mThreadsCmdBuffersCache[curFif][pos].second;
-		rs_commandbuffer_vk* cmdBuffer = 0;
-		for (auto&& cachedBuffer : curThreadQueueCmdVec) {
-			if (cachedBuffer->lastActiveFrames != frame) {
-				cmdBuffer = cachedBuffer;
-				cmdBuffer->lastActiveFrames = frame;
-				return cmdBuffer;
-			}
-		}
-		//Creat buffer
-		cmdBuffer = new rs_commandbuffer_vk;
-		VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		allocInfo.           commandPool = (VkCommandPool)pool->native;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = 1;
-		vkAllocateCommandBuffers(ctx->device, &allocInfo, (VkCommandBuffer*)&cmdBuffer->native);
-		cmdBuffer->isSecondary = false;
-		cmdBuffer->isTransitent = singleTime;
-		cmdBuffer->pool = pool;
-		cmdBuffer->queueType = pool->queue->queueType;
-		cmdBuffer->lastActiveFrames = frame;
+		rs_commandbuffer_vk* cmdBuffer = nullptr;
 
-		if (singleTime) {
-			mSingleTimeCmd[curFif].push_back(cmdBuffer);
+		//Find a command buffer in free list
+		if (!targetBlock->freeList.empty()) {
+			auto it = std::prev(targetBlock->freeList.end());
+			cmdBuffer = *it;
+
+			targetBlock->usedList.splice(targetBlock->usedList.end(),
+				targetBlock->freeList,
+				it);
 		}
 		else {
-			mThreadsCmdBuffersCache[curFif][pos].second.push_back(cmdBuffer);
+			//Create one if there are no vacant one
+			cmdBuffer = new rs_commandbuffer_vk;
+			VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+			allocInfo.commandPool = (VkCommandPool)targetBlock->pool->native;
+			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			allocInfo.commandBufferCount = 1;
+
+			vkAllocateCommandBuffers(ctx->device, &allocInfo, (VkCommandBuffer*)&cmdBuffer->native);
+
+			cmdBuffer->pool = targetBlock->pool;
+			cmdBuffer->queueType = targetBlock->pool->queue->queueType;
+
+			targetBlock->usedList.push_back(cmdBuffer);
 		}
+
+		cmdBuffer->isSecondary = false;
+		cmdBuffer->isTransitent = singleTime;
+		cmdBuffer->lastActiveFrames = frame; 
 
 		return cmdBuffer;
 	}
 
 	void CommandBufferManager::clearAll(rs_context_vk* ctx) {
-		for (auto&& frameCmdVec : mThreadsCmdBuffersCache) {
-			for (auto&& queueCmdVec : frameCmdVec) {
-				for (auto&& cmd : queueCmdVec.second) {
-					auto cmdN = (VkCommandBuffer)cmd->native;
-					vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, &cmdN);
-					delete cmd;
-				}
-			}
-		}
-		mThreadsCmdBuffersCache.clear();
-		for (auto&& threadCmds : mSingleTimeCmd) {
-			for (auto&& cmd : threadCmds) {
-				auto cmdN = (VkCommandBuffer)cmd->native;
-				vkFreeCommandBuffers(ctx->device, (VkCommandPool)cmd->pool->native, 1, &cmdN);
-				delete cmd;
-			}
-		}
-		mSingleTimeCmd.clear();
-		for (auto&& framePools : mPools) {
-			for (auto&& threadPools : framePools) {
-				for (auto&& queuePool : threadPools) {
-					vkDestroyCommandPool(
-						ctx->device, (VkCommandPool)queuePool->native,0
-					);
-					delete queuePool;
-				}
-			}
-		}
-		mPools.clear();
-	}
+		std::lock_guard<std::mutex> lock(mCmdBufferLock);
 
-	CommandBufferManager::~CommandBufferManager()
-	{
+		for (auto& frameData : m_frames) {
+			for (auto& threadData : frameData.threads) {
+				for (auto& block : threadData.poolBlocks) {
+					if (block.pool) {
+						for (auto cmd : block.freeList) delete cmd;
+						block.freeList.clear();
+
+						for (auto cmd : block.usedList) delete cmd;
+						block.usedList.clear();
+
+						vkDestroyCommandPool(ctx->device, (VkCommandPool)block.pool->native, 0);
+						delete block.pool;
+					}
+				}
+			}
+			frameData.threads.clear();
+		}
 	}
 }
