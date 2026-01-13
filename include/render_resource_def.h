@@ -8,7 +8,7 @@ namespace Render {
         BufferType_Index = 1u << 1, 
         BufferType_Uniform = 1u << 2,   
         BufferType_Storage = 1u << 3, 
-        BufferType_TransferSrc = 1u << 4,  //Means GPU visible
+        BufferType_TransferSrc = 1u << 4,
         BufferType_Indirect = 1u << 5, 
         BufferType_Count = 1u << 6,
     };

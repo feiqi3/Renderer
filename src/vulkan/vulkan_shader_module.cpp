@@ -1,5 +1,6 @@
 #include "vulkan/vulkan_shader_module.h"
 #include "vulkan/vulkan_shader_reflect.h"
+#include "render_log.h"
 #include <map>
 namespace Render::Vulkan {
     std::vector<DescritporSetInfo> assembleDescriptorSetInfo(const std::vector<rs_descriptor>& descriptors)
@@ -34,7 +35,12 @@ namespace Render::Vulkan {
                     && existedDescriptor.type == descriptor.type
                 ) {
                     existedDescriptor.shaderVisibleStage |= descriptor.shaderVisibleStage;
-                }
+				}
+				else {
+					Log::error("Shader resource conflict at Set " + std::to_string(vkPos.setIdx) +
+						" Binding " + std::to_string(vkPos.bindingIdx));
+				}
+                
             }
         }
         std::vector<DescritporSetInfo> retVal;

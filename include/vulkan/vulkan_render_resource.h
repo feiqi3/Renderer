@@ -9,7 +9,7 @@
 #include  <utility>
 #include <array>
 #include <vector>
-
+#include <mutex>
 #define VK_RS_DEF(x) typedef x x##_vk;
 #define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x);Log::error(#x); stmt }
 
@@ -83,6 +83,7 @@ namespace Render::Vulkan {
 
 	struct rs_rendertarget_vk : rs_rendertarget {
 		uint64_t rtPassHash;
+		std::mutex mMutex;
 	};
 
 	struct rs_pipeline_vk: rs_pipeline {

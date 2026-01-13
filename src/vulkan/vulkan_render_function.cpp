@@ -1244,29 +1244,31 @@ namespace Render::Vulkan {
         int width = rt->m_attachments[0]->width;
 		int height = rt->m_attachments[0]->height;
         int arrLayer = rt->m_attachments[0]->arrayLayers;
-
-
-        VkFramebuffer* frameBuffer = (VkFramebuffer*)&rt->native;
-        VkRenderPass renderPass = (VkRenderPass)cmd->currentRenderPass->native;
-        if (*frameBuffer == nullptr) {
-            //Create one 
-            std::vector<VkImageView> imageViews;
-            imageViews.reserve(rt->m_attachments.size() + rt->m_depthStencilAttachment != nullptr ? 1 : 0);
-            for (const auto& i : rt->m_attachments) {
-                imageViews.push_back(((rs_image_vk*)i)->view);
-            }
-            if (rt->m_depthStencilAttachment) {
-				imageViews.push_back(((rs_image_vk*)rt->m_depthStencilAttachment)->view);
-            }
-            VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-			fbCi.renderPass = (VkRenderPass)curRp->native;
-            fbCi.attachmentCount = imageViews.size();
-            fbCi.pAttachments = imageViews.data();
-            fbCi.width = width;
-			fbCi.height = height;
-			fbCi.layers = arrLayer;
-            VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, nullptr, frameBuffer), { return; });
-        }
+		VkFramebuffer* frameBuffer = (VkFramebuffer*)&rt->native;
+		VkRenderPass renderPass = (VkRenderPass)cmd->currentRenderPass->native;
+        if (*frameBuffer == nullptr){
+			std::lock_guard<std::mutex> lock(rt->mMutex);
+            //Double check
+			if (*frameBuffer == nullptr) {
+				//Create one 
+				std::vector<VkImageView> imageViews;
+                imageViews.reserve(rt->m_attachments.size() + (rt->m_depthStencilAttachment != nullptr ? 1 : 0));
+				for (const auto& i : rt->m_attachments) {
+					imageViews.push_back(((rs_image_vk*)i)->view);
+				}
+				if (rt->m_depthStencilAttachment) {
+					imageViews.push_back(((rs_image_vk*)rt->m_depthStencilAttachment)->view);
+				}
+				VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+				fbCi.renderPass = (VkRenderPass)curRp->native;
+				fbCi.attachmentCount = imageViews.size();
+				fbCi.pAttachments = imageViews.data();
+				fbCi.width = width;
+				fbCi.height = height;
+				fbCi.layers = arrLayer;
+				VK_CHECK(vkCreateFramebuffer(ctx->device, &fbCi, nullptr, frameBuffer), { return; });
+			}
+		}
         if (cmd->currentRenderTarget != NULL) {
             //End this renderpass first 
             cmdEndRenderPass(cmd);

@@ -45,31 +45,31 @@ namespace Render::Vulkan {
         VkDescriptorPoolSize poolFactor{};
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 24;
         this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 60;
         this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 60;
         this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 60;
         this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 60;
         this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 60;
         this->m_defaultSize.push_back(poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_SAMPLER;
-        poolFactor.descriptorCount = 10;
+        poolFactor.descriptorCount = 60;
         this->m_defaultSize.push_back(poolFactor);
 
         //poolFactor.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
@@ -563,29 +563,26 @@ namespace Render::Vulkan {
         auto& FrameAllocInfo = mFrameAllocateInfo[frameInFlight];
         auto tail = mRingBufferAllocator.tail_offset();
         auto head = mRingBufferAllocator.head_offset();
-        if (FrameAllocInfo.totalAllocateSize != 0) {
-            bool isBroken = (head != ((tail + FrameAllocInfo.totalAllocateSize) % mRingBufferAllocator.capacity()));
-            assert(isBroken && ("Broken Ring Buffer"));
-            mRingBufferAllocator.release(FrameAllocInfo.totalAllocateSize);
+        if (FrameAllocInfo.totalAdvanceSize != 0) {
+            mRingBufferAllocator.release(FrameAllocInfo.totalAdvanceSize);
         }
         FrameAllocInfo = { };
     }
     bool UniformBufferObject::allocateInFrame(void* data, uint32_t size, uint32_t frameInFlight, uint64_t frame, uint32_t& offsetInBuffer)
     {
 
-        auto reverseData = mRingBufferAllocator.reserve_and_commit(size);
-        if (reverseData.count != 1) {
-            return false;
-        }
+        auto reservation = mRingBufferAllocator.reserve_and_commit(size);
+        if (reservation.count != 1) return false;
         auto& FrameAllocInfo = mFrameAllocateInfo[frameInFlight];
-        offsetInBuffer = reverseData.parts[0].offset;
-        if (FrameAllocInfo.totalAllocateSize == 0) {
+        offsetInBuffer = reservation.parts[0].offset;
+        if (FrameAllocInfo.totalAdvanceSize == 0) {
             FrameAllocInfo.headOffset = offsetInBuffer;
             mLastActiveFrame = frame;
         }
-        char* dataPtr = (char*)mBuffer->mappedPtr;
-        memcpy(dataPtr + offsetInBuffer, (char*)data,size);
-        FrameAllocInfo.totalAllocateSize += reverseData.total_advance;
-        return true;
+        uint8_t* dataPtr = (uint8_t*)mBuffer->mappedPtr;
+        memcpy(dataPtr + offsetInBuffer, (uint8_t*)data,size);
+		mFrameAllocateInfo[frameInFlight].totalAdvanceSize += reservation.total_advance;
+
+		return true;
     }
 }

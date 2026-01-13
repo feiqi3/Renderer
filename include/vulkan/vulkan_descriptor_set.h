@@ -32,7 +32,7 @@ namespace Render::Vulkan {
         Render::Common::RingBufferAllocator mRingBufferAllocator;
         struct FrameAllocateInfo {
             uint32_t headOffset = 0;
-            uint32_t totalAllocateSize = 0;
+            uint32_t totalAdvanceSize = 0;
         };
         std::vector<FrameAllocateInfo> mFrameAllocateInfo;
         uint32_t mAlignment = 0;

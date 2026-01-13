@@ -22,9 +22,10 @@ namespace {
         case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
             return UniformType::StorageImage;
 
-        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
         case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+            assert(0 && "Combined Image Sampler not supported here.");
+		case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+		case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
             return UniformType::Texture;
 
         case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:

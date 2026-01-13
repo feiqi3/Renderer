@@ -54,23 +54,35 @@ namespace Render::Vulkan {
 			}
 		}
 
-		for (auto& [queueIdx,cmdBuffers] : this->mThreadsCmdBuffersCache[curFif]) {
-			std::vector<VkCommandBuffer> toFrees;
-			rs_commandpool_vk* pool = 0;
-			auto eraseSize = std::erase_if(cmdBuffers, [&pool ,&toFrees,frame](rs_commandbuffer_vk* cmd) {
+		std::vector<std::pair<rs_commandpool_vk*, std::vector<VkCommandBuffer>>> toFreelist;
+		for (auto& [queueIdx, cmdBuffers] : this->mThreadsCmdBuffersCache[curFif]) {
+			auto eraseSize = std::erase_if(cmdBuffers, [&toFreelist,frame](rs_commandbuffer_vk* cmd) {
 				if (frame - cmd->lastActiveFrames > MaxActiveFrames) {
-					pool = cmd->pool;
-					toFrees.push_back((VkCommandBuffer)cmd->native);
+					std::vector<VkCommandBuffer>* targetCmds = nullptr;
+					for (auto& [recyclePool, cmds] : toFreelist) {
+						if (recyclePool == cmd->pool) 
+						{
+							targetCmds = &cmds;
+							break;
+						}
+					}
+					if (!targetCmds) {
+						toFreelist.push_back({ cmd->pool,{} });
+						targetCmds = &(toFreelist[toFreelist.size() - 1]).second;
+					}
+					targetCmds->push_back((VkCommandBuffer)cmd->native);
 					delete cmd;
 					return true;
 				}
 				return false;
 			});
-			if (pool && eraseSize > 0) {
-				vkFreeCommandBuffers(ctx->device, (VkCommandPool)pool->native, eraseSize, toFrees.data());
-			}
 		}
-
+		for (auto& [pool, cmds] : toFreelist) {
+			vkFreeCommandBuffers(ctx->device,
+				(VkCommandPool)pool->native,
+				(uint32_t)cmds.size(),
+				cmds.data());
+		}
 	}
 
 	void CommandBufferManager::endFrame(rs_context_vk* ctx, uint64_t frame)

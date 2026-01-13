@@ -438,7 +438,6 @@ namespace Render::Vulkan {
         ci.pStages = shaders.data();
 
         VkPipelineVertexInputStateCreateInfo vtxInputState{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-        vtxInputState.vertexBindingDescriptionCount = desc.vertexInputDesc.bindings.size();
         std::vector<VkVertexInputBindingDescription> vtxBinding;
         int bindingpos = 0;
         for (auto&& i : desc.vertexInputDesc.bindings) {
@@ -451,7 +450,7 @@ namespace Render::Vulkan {
         }
 
         vtxInputState.pVertexBindingDescriptions = vtxBinding.data();
-        vtxInputState.vertexAttributeDescriptionCount = vtxBinding.size();
+        vtxInputState.vertexBindingDescriptionCount = vtxBinding.size();
 
         std::vector<VkVertexInputAttributeDescription> vtxInputDesc{};
         for (auto&& i : desc.vertexInputDesc.attributes) {
@@ -534,8 +533,10 @@ namespace Render::Vulkan {
             //Do not blend depth, cause blend is for color attachments.
             blendAttCnts--;
         }
+
         std::vector<VkPipelineColorBlendAttachmentState> attBlendStates(blendAttCnts,defaultBlendState );
-        for (int i = 0; i < desc.renderState.blendStates.size(); ++i) {
+        size_t validBlendCount = std::min(attBlendStates.size(), desc.renderState.blendStates.size());
+        for (int i = 0; i < validBlendCount; ++i) {
             auto& st = attBlendStates[i];
             auto& _st = desc.renderState.blendStates[i];
             st.blendEnable = _st.blendEnable == true ? VK_TRUE : VK_FALSE;
@@ -677,44 +678,45 @@ namespace Render::Vulkan {
         return pipelineLayout;
     }
 
+	uint64_t encodeAttachmentHash(RenderTextureFormat fmt, SampleCount samples) {
+		uint8_t fmtCode = static_cast<uint8_t>(fmt) & 0x1F; // 5 bits
+		uint8_t sampleCode = uint8_t(samples) & 0x3; // 2 bits
+		return (static_cast<uint64_t>(fmtCode) | (static_cast<uint64_t>(sampleCode) << 5));
+	}
 	uint64_t CalcRenderTargetPassHash(rs_context_vk* ctx, const rs_rendertarget_vk* rt)
 	{
 		uint64_t hash = 0;
-		const size_t maxAttachments = 8;
-        const auto attNum = rt->m_attachments.size() + (rt->m_depthStencilAttachment != nullptr ? 1 : 0);
-		size_t attCnt = std::min(attNum, maxAttachments);
-        if (attCnt > maxAttachments) {
-            Log::error("Render target can only have 8 attachment+depth_stencil");
-            std::abort();
-        }
-		for (size_t i = 0; i < maxAttachments; ++i)
-		{
-			uint8_t fmtCode = 0;
-			uint8_t sampleCode = 0;
+		const size_t maxColorAttachments = 8;
 
-			if (i < attCnt)
-			{
-                rs_image* img = nullptr;
-                if (rt->m_depthStencilAttachment && i == attCnt - 1) {
-                    img = rt->m_depthStencilAttachment;
-                }
-                else {
-                    img = rt->m_attachments[i];
-                }
-                assert(img != nullptr);
-                auto rtFmt = fromImageFormatToRtFormat(ctx, img->format);
-				fmtCode = static_cast<uint8_t>(rtFmt) & 0x1F;   // 5 bit
-				sampleCode = int(img->sampleCount) & 0x3; // 2 bit
-            }
-			else
-			{
-				// Fill empty with format invalid
-				fmtCode = static_cast<uint8_t>(RenderTextureFormat::Invalid) & 0x1F;
-				sampleCode = 0;
+		for (size_t i = 0; i < maxColorAttachments; ++i)
+		{
+			RenderTextureFormat rtFmt = RenderTextureFormat::Invalid;
+			SampleCount samples = SampleCount::Count1;
+
+			if (i < rt->m_attachments.size()) {
+				auto* img = rt->m_attachments[i];
+				if (img) {
+					rtFmt = fromImageFormatToRtFormat(ctx, img->format);
+					samples = img->sampleCount;
+				}
 			}
 
-			uint64_t attCode = (static_cast<uint64_t>(fmtCode) << 2) | sampleCode; // 7 bit
-			hash |= attCode << (i * 7);
+			uint64_t code = encodeAttachmentHash(rtFmt, samples);
+			hash |= (code << (i * 7));
+		}
+
+		{
+			RenderTextureFormat rtFmt = RenderTextureFormat::Invalid;
+			SampleCount samples = SampleCount::Count1;
+
+			if (rt->m_depthStencilAttachment) {
+				auto* img = rt->m_depthStencilAttachment;
+				rtFmt = fromImageFormatToRtFormat(ctx, img->format);
+				samples = img->sampleCount;
+			}
+
+			uint64_t code = encodeAttachmentHash(rtFmt, samples);
+			hash |= (code << (maxColorAttachments * 7));
 		}
 
 		return hash;
@@ -723,38 +725,41 @@ namespace Render::Vulkan {
 	uint64_t CalcRenderPassHash(const rs_renderpass_vk* pass)
 	{
 		uint64_t hash = 0;
-		const size_t maxAttachments = 8;
-        const auto attNum = pass->passDesc.attachments.size();
+		const size_t maxColorAttachments = 8;
+		const auto& desc = pass->passDesc;
+		const auto& attachments = desc.attachments;
 
-		if (attNum > maxAttachments) {
-			Log::error("Render target can only have 8 attachment+depth_stencil");
-			std::abort();
+		int depthIndex = -1;
+		if (desc.lastDepth && !attachments.empty()) {
+			depthIndex = (int)attachments.size() - 1;
 		}
 
-		size_t attCnt = std::min(attNum, maxAttachments);
+		size_t colorSlot = 0;
+		for (size_t i = 0; i < attachments.size(); ++i) {
+			if ((int)i == depthIndex) continue;
 
-		for (size_t i = 0; i < maxAttachments; ++i)
-		{
-			uint8_t fmtCode = 0;
-			uint8_t sampleCode = 0;
+			if (colorSlot >= maxColorAttachments) break;
 
-			if (i < attCnt)
-			{
-                const auto& att = pass->passDesc.attachments[i];
+			const auto& att = attachments[i];
+			uint64_t code = encodeAttachmentHash(att.fmt, att.SampleCount);
+			hash |= (code << (colorSlot * 7));
 
-				const auto& rtFmt = att.fmt;
-				fmtCode = static_cast<uint8_t>(rtFmt) & 0x1F;   // 5 bit
-				sampleCode = int(att.SampleCount) & 0x3; // 2 bit
-			}
-			else
-			{
-				// Fill empty with format invalid
-				fmtCode = static_cast<uint8_t>(RenderTextureFormat::Invalid) & 0x1F;
-				sampleCode = 0;
-			}
+			colorSlot++;
+		}
 
-			uint64_t attCode = (static_cast<uint64_t>(fmtCode) << 2) | sampleCode; // 7 bit
-			hash |= attCode << (i * 7);
+		for (; colorSlot < maxColorAttachments; ++colorSlot) {
+			uint64_t code = encodeAttachmentHash(RenderTextureFormat::Invalid, SampleCount::Count1);
+			hash |= (code << (colorSlot * 7));
+		}
+
+		if (depthIndex != -1) {
+			const auto& att = attachments[depthIndex];
+			uint64_t code = encodeAttachmentHash(att.fmt, att.SampleCount);
+			hash |= (code << (maxColorAttachments * 7));
+		}
+		else {
+			uint64_t code = encodeAttachmentHash(RenderTextureFormat::Invalid, SampleCount::Count1);
+			hash |= (code << (maxColorAttachments * 7));
 		}
 
 		return hash;
