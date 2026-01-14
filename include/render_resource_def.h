@@ -121,7 +121,7 @@ namespace Render {
 
         // Depth / Stencil
         D24S8,          // packed depth-stencil
-
+        D32,            // Pure depth
         SwapchainFormat,
 
         Invalid
@@ -175,6 +175,7 @@ namespace Render {
         Count2 = 1,   // 2x MSAA
         Count4 = 2,   // 4x MSAA
         Count8 = 3,   // 8x MSAA
+        Invalid   ,
     };
 
     enum class BorderColor : uint8_t {

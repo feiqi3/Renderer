@@ -32,16 +32,20 @@ namespace Render {
 		int mChannel = 0;
 		bool mIsHdr = false;
 		bool mMannul = false;
-	};
 
+	};
 	class TextureResourceManager;
 	class Texture : public IResource {
 	public:
+
+
 		static const Name& typeName();
 		virtual const Name& getTypeName() const override;
 		virtual ResourceMemory getMemory() const override;
 		rs_image* getRsImage();
 	protected:
+		//Hand over image's lifetime control! 
+		static Texture* fromRsImage(rs_image* image);
 		rs_image* pImage = nullptr;
 		friend class TextureResourceManager;
 		friend class ImageRaw;

@@ -5,7 +5,26 @@
 #include "RenderSystem.h"
 #include "RenderPassManager.h"
 #include "RenderQueue.h"
+#include "Texture.h"
 namespace Render {
+	class RenderFlowBase {
+	public:
+		RenderFlowBase() = default;
+		virtual ~RenderFlowBase() = default;
+	public:
+
+		struct RenderTargetPack {
+			Name renderTargetName;
+			rs_rendertarget* renderTarget;
+			std::vector<TexturePtr> textures;
+		};
+
+	protected:
+		
+		std::list<RenderTargetPack> mRenderTargets;
+
+	};
+
 	class RenderFlow {
 	public:
 

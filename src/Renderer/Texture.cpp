@@ -56,7 +56,15 @@ namespace Render {
             return (fileStream->seek(0, false) >= fileStream->getSize()) ? 1 : 0;
         }
     }
-    const Name& Texture::typeName()
+
+	Texture* Texture::fromRsImage(rs_image* image)
+	{
+        Texture* texture = new Texture();
+        texture->pImage = image;
+        return texture;
+	}
+
+	const Name& Texture::typeName()
     {
         static const Name sTypeName = Name("Texture");
         return sTypeName;

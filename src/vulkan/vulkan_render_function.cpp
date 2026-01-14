@@ -417,6 +417,13 @@ namespace Render::Vulkan {
         else if (isDepthStencilSupported(ImageFormat::D32_SFLOAT))
             map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D32_SFLOAT;
 
+        if (isDepthStencilSupported(ImageFormat::D32_SFLOAT)) {
+			map[(size_t)RenderTextureFormat::D32] = ImageFormat::D32_SFLOAT;
+        }
+        else {
+            map[(size_t)RenderTextureFormat::D32] = map[(size_t)RenderTextureFormat::D24S8];
+        }
+
         map[(size_t)RenderTextureFormat::SwapchainFormat] = ctx->swapchain->SwapchainImageFormat;
 
     }
@@ -954,6 +961,13 @@ namespace Render::Vulkan {
             return;
         }
         vmaDestroyImage(context->allocator, (VkImage)image->native, image->allocation);
+        
+		//Delete Views
+		vkDestroyImageView(context->device, image->view, 0);
+		for (auto& [viewKey,view] : image->otherViews) {
+			vkDestroyImageView(context->device, view, 0);
+		}
+        
         delete image;
         image = 0;
     }

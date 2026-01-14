@@ -14,7 +14,7 @@ namespace Render{
 	return (ctx->ImageFormatCaps[uFmt] & flags) == flags;
 }
 
-Render::RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt)
+RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt)
 {
 	for (int i = 0;i < (int)RenderTextureFormat::Invalid;++i) {
 		if (ctx->rtFormatMap[i] == fmt) {
@@ -24,7 +24,7 @@ Render::RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageForm
 	return RenderTextureFormat::Invalid;
 }
 
-ImageFormat Render::fromRtFormatToImageFormat(rs_context * ctx,RenderTextureFormat fmt)
+ImageFormat fromRtFormatToImageFormat(rs_context * ctx,RenderTextureFormat fmt)
 {
 	const auto& map = ctx->rtFormatMap;
 	auto uFmt = uint32_t(fmt);

@@ -679,6 +679,8 @@ namespace Render::Vulkan {
     }
 
 	uint64_t encodeAttachmentHash(RenderTextureFormat fmt, SampleCount samples) {
+        assert(uint32_t(RenderTextureFormat::Invalid) <= ((1 << 5)));
+        assert(uint32_t(SampleCount::Invalid) <= ((1 << 2)));
 		uint8_t fmtCode = static_cast<uint8_t>(fmt) & 0x1F; // 5 bits
 		uint8_t sampleCode = uint8_t(samples) & 0x3; // 2 bits
 		return (static_cast<uint64_t>(fmtCode) | (static_cast<uint64_t>(sampleCode) << 5));

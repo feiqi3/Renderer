@@ -1,5 +1,5 @@
 #include "Renderer/TextureResourceMgr.h"
-
+#include "Common/ResourceSystem.h"
 namespace Render{
 
 	namespace {

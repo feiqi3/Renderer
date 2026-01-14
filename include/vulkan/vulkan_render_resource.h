@@ -9,6 +9,7 @@
 #include  <utility>
 #include <array>
 #include <vector>
+#include <list>
 #include <mutex>
 #define VK_RS_DEF(x) typedef x x##_vk;
 #define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x);Log::error(#x); stmt }
@@ -62,6 +63,9 @@ namespace Render::Vulkan {
 	struct rs_image_vk : rs_image {
 		VmaAllocation allocation;
 		VkImageView view;
+		uint64_t defaultViewKey;
+		using ViewPair = std::pair<uint64_t, VkImageView>;
+		std::list<ViewPair> otherViews;
 		VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	};
 
@@ -158,6 +162,9 @@ namespace Render::Vulkan {
 			>
 		> DescriptorSets; //per frame in flight, per descriptor
 	};
+
+
+
 
 };
 
