@@ -245,8 +245,8 @@ namespace Render::Vulkan {
                 descriptorSet->layout->bindingHash.mDescriptors;
             
             if (layoutData.size() <= binding|| layoutData[binding].type != UniformType::UniformBuffer || layoutData[binding].size < size) {
-                assert(0 && "mismatch layout");
-                return;
+				assert(0 && "Wrong binding type");
+				Log::error("Wrong binding type in binding" + std::to_string(binding));
             }
 
             if (layoutData[binding].count > 1) {
@@ -317,9 +317,11 @@ namespace Render::Vulkan {
         auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
         if (bindingInfo.type != UniformType::Sampler) {
             assert(0 && "Wrong binding type");
+            Log::error("Wrong binding type in binding" + std::to_string(binding));
             return;
         }
-
+		if (descriptorSet->mBindingData[binding].native == sampler->native)return;
+		descriptorSet->mBindingData[binding].native = sampler->native;
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
         writeSet.dstArrayElement = 0;
@@ -352,7 +354,8 @@ namespace Render::Vulkan {
             assert(0 && "Wrong binding type");
             return;
         }
-
+		if (descriptorSet->mBindingData[binding].native == image->native)return;
+		descriptorSet->mBindingData[binding].native = image->native;
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
         writeSet.dstArrayElement = 0;
@@ -370,10 +373,13 @@ namespace Render::Vulkan {
 
     void DescriptorSetManager::updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer)
     {
+        //TODO: this function is ambiguous FIX ME
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
         }
-        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        if (descriptorSet->mBindingData[binding].native == buffer->native)return;
+		descriptorSet->mBindingData[binding].native = buffer->native;
+		auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
 
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
@@ -401,9 +407,12 @@ namespace Render::Vulkan {
         }
         auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
         if (bindingInfo.type != UniformType::StorageBuffer) {
-            assert(0 && "Wrong binding type");
-            return;
+			assert(0 && "Wrong binding type");
+			Log::error("Wrong binding type in binding" + std::to_string(binding));
+			return;
         }
+		if (descriptorSet->mBindingData[binding].native == buffer->native)return;
+		descriptorSet->mBindingData[binding].native = buffer->native;
 
         VkWriteDescriptorSet writeSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
         writeSet.                         dstBinding = binding;
@@ -471,7 +480,7 @@ namespace Render::Vulkan {
 				}
             }
             else {
-                assert(0 && "Not Managered set layout");
+                assert(0 && "Not Managed set layout");
             }
 
 
