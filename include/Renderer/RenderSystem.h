@@ -65,7 +65,11 @@ namespace Render{
 		size_t getImageSize(rs_image* img);
 		rs_image* createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer,bool needSample);
 		rs_image* createDepthStencilTexture(RenderTextureFormat format, int x, int y, bool needSample);
-		rs_rendertarget* createRendertarget(const std::vector<rs_image*>images,rs_image* dsTex);
+		//Create more rendertarget with more detailed control settings
+		rs_rendertarget* createRendertargetDetailed( std::vector<rs_image*>& images, std::vector<ImageViewKey>& viewKeys,bool lastDepth);
+		
+		//Create more rendertarget with default settings(which is fair enough)
+		rs_rendertarget* createRendertarget(const std::vector<rs_image*>images, rs_image* dsTex);
 		void destroyRenderTarget(rs_rendertarget* rt);
 		void beginFrame();
 
@@ -74,6 +78,7 @@ namespace Render{
 		void updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_image* image, Pass* pass);
+		void updateUniform(rs_binding_pos binding, rs_image* image,ImageViewKey viewkey, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_sampler* sampler, Pass* pass);
 		void updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip);
 		void updateBufferData(rs_buffer* buffer,void* data,size_t byteSize,size_t dstOffset);

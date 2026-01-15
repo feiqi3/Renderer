@@ -290,6 +290,14 @@ namespace Render {
         uint32_t stencil;
     };
 
+    enum class ViewAspect {
+        Depth               = 1,
+        Stencil             = 2,
+        DepthAndStencil     = 3,
+        Color               = 4,
+        Invalid,
+    };
+
     enum class ShaderLang {
         HLSL,
         GLSL,

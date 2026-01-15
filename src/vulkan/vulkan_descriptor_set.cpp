@@ -354,15 +354,15 @@ namespace Render::Vulkan {
             assert(0 && "Wrong binding type");
             return;
         }
-		if (descriptorSet->mBindingData[binding].native == image->native)return;
-		descriptorSet->mBindingData[binding].native = image->native;
+		if (descriptorSet->mBindingData[binding].native == (VkImageView)image->defaultView.native)return;
+		descriptorSet->mBindingData[binding].native = (VkImageView)image->defaultView.native;
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
         writeSet.dstArrayElement = 0;
         writeSet.descriptorCount = 1;
         writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
         VkDescriptorImageInfo iInfo{};
-        iInfo.imageView = (VkImageView)image->view;
+        iInfo.imageView = (VkImageView)image->defaultView.native;
         iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         writeSet.pImageInfo = &iInfo;
         writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
@@ -563,7 +563,36 @@ namespace Render::Vulkan {
         delete rs;
         rs = 0;
     }
-    UniformBufferObject::UniformBufferObject(uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize)
+
+	void DescriptorSetManager::updateImageDetailed(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, const ImageViewKey& viewKey, uint8_t queueType)
+	{
+		if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
+			return;
+		}
+        const auto& view = getRsImageViewFromImage(ctx, image, viewKey);
+		auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+		if (bindingInfo.type != UniformType::Texture) {
+			assert(0 && "Wrong binding type");
+			return;
+		}
+		if (descriptorSet->mBindingData[binding].native == view.native)return;
+		descriptorSet->mBindingData[binding].native = view.native;
+		VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		writeSet.dstBinding = binding;
+		writeSet.dstArrayElement = 0;
+		writeSet.descriptorCount = 1;
+		writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
+		VkDescriptorImageInfo iInfo{};
+		iInfo.imageView = (VkImageView)view.native;
+		iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		writeSet.pImageInfo = &iInfo;
+		writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
+
+		vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
+
+	}
+
+	UniformBufferObject::UniformBufferObject(uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize)
         :mRingBufferAllocator(bufferSize, alignedSize,true,true),mFrameAllocateInfo(maxFrameInFlight),mAlignment(alignedSize)
     {
     }

@@ -3,6 +3,7 @@
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #define VMA_IMPLEMENTATION
 #include "volk.h"
+#include <cmath>
 #include "vk_mem_alloc.h"
 #include "GLFW/glfw3.h"
 #include "render_function.h"
@@ -233,7 +234,7 @@ namespace {
 }
 
 namespace Render::Vulkan {
-
+    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context, uint64_t frame, uint32_t fif, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet);
 
     ImageFormat ToImageFormat(VkFormat format) {
         switch (format) {
@@ -718,7 +719,7 @@ namespace Render::Vulkan {
         }
 
         std::vector<rs_image*> localimages;
-
+        std::vector<rs_image_view> views;
         int depthAttPos = -1;
 
         for (int i = 0; i < imageNum; ++i) {
@@ -731,15 +732,84 @@ namespace Render::Vulkan {
                 assert(0 && "Attachment size not match");
                 return nullptr;
             }
+            views.push_back(img.defaultView);
             localimages.push_back((rs_image*) & img);
         }
 
         rs_rendertarget_vk* rt = new rs_rendertarget_vk;
-        rt->m_attachments = localimages;
+        rt->m_views                 = views;
+        rt->m_attachments           = localimages;
         rt->m_depthStencilAttachment = depthStencil;
+        rt->m_dsView = depthStencil ? depthStencil->defaultView : rs_image_view{};
         rt->rtPassHash = CalcRenderTargetPassHash(ctx, rt);
         return rt;
     }
+
+	Render::Vulkan::rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx, rs_image_vk** images, ImageViewKey* imageViewKeys, int imageNum, bool havedepthLast)
+	{
+        rs_image_vk* dsImg = nullptr;
+        if (havedepthLast) {
+            dsImg = images[imageNum - 1];
+        }
+		int iw = -1;
+		int ih = -1;
+		int il = -1;
+
+		for (int i = 0; i < imageNum; ++i) {
+			const auto img = images[i];
+            const auto& viewkey = imageViewKeys[i];
+            if (viewkey.getMipCount() > 1) {
+				Log::error("Mip count should be set to 1 in render target.");
+				return nullptr;
+			}
+            uint32_t iw_new = std::max(1, int(std::round_toward_zero(images[i]->width  / (2 << viewkey.getBaseMip()))));
+			uint32_t ih_new = std::max(1, int(std::round_toward_zero(images[i]->height / (2 << viewkey.getBaseMip()))));
+            uint32_t il_new = viewkey.getLayerCount();
+            if (iw == -1 || ih == -1 || il == -1) {
+                iw = iw_new;
+				ih = ih_new;
+				il = viewkey.getLayerCount();
+                continue;
+            }
+
+			if (iw_new != iw && ih_new != ih && il_new != il) {
+				Log::error("Miss match width/height/array layers in render target.");
+				return nullptr;
+			}
+		}
+
+		std::vector<rs_image*> localimages;
+		std::vector<rs_image_view> localviews;
+		int depthAttPos = -1;
+        rs_image_view dsView = {};
+        for (int i = 0; i < imageNum; ++i) {
+            auto& img = *(images[i]);
+            if (!(img.usage & ImageUsage_ColorAttachment)) {
+                assert(0 && "Image usage not match");
+                return nullptr;
+            }
+            if (img.width != iw || img.height != ih || img.arrayLayers != il) {
+                assert(0 && "Attachment size not match");
+                return nullptr;
+            }
+            const auto& view = getRsImageViewFromImage(ctx, &img, imageViewKeys[i]);
+            if (i == imageNum - 1 && havedepthLast) {
+                dsView = view;
+            }
+            else {
+                localviews.push_back(getRsImageViewFromImage(ctx, &img, imageViewKeys[i]));
+                localimages.push_back((rs_image*)&img);
+            }
+        }
+
+		rs_rendertarget_vk* rt = new rs_rendertarget_vk;
+		rt->m_views = localviews;
+		rt->m_attachments = localimages;
+        rt->m_depthStencilAttachment = dsImg;
+        rt->m_dsView = dsView;
+		rt->rtPassHash = CalcRenderTargetPassHash(ctx, rt);
+		return rt;
+	}
 
     void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt,bool imm)
     {
@@ -894,7 +964,6 @@ namespace Render::Vulkan {
     rs_image_vk* createRsImage(rs_context_vk* ctx, ImageDesc& desc)
     {
         VkImage image;
-        VkImageView imageview;
         VmaAllocation alloc;
         VkImageCreateInfo ici{};
         ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -916,41 +985,23 @@ namespace Render::Vulkan {
         VmaAllocationInfo aif;
         vmaCreateImage(ctx->allocator, &ici, &ai, &image, &alloc, &aif);
 
-        VkImageViewCreateInfo ivci{};
-        ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        ivci.image = image;
-        ivci.viewType = toVkImageViewType(desc.type);
-        ivci.format = ici.format;
-        ivci.components = { VK_COMPONENT_SWIZZLE_IDENTITY };
-        ivci.subresourceRange.aspectMask =
-            (desc.usage& ImageUsage_DepthStencilAttachment)
-            ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT
-            : VK_IMAGE_ASPECT_COLOR_BIT;
-        ivci.subresourceRange.baseMipLevel = 0;
-        ivci.subresourceRange.levelCount = desc.mipLevels;
-        ivci.subresourceRange.baseArrayLayer = 0;
-        ivci.subresourceRange.layerCount = desc.arrayLayers;
+		auto ret = new rs_image_vk;
+		ret->native = image;
+		ret->allocation = alloc;
+		ret->width = desc.width;
+		ret->height = desc.height;
+		ret->depth = desc.depth;
+		ret->type = desc.type;
+		ret->format = desc.format;
+		ret->mipLevels = desc.mipLevels;
+		ret->arrayLayers = desc.arrayLayers;
+		ret->usage = desc.usage;
+		ret->sampleCount = desc.samples;
 
-        VK_CHECK(vkCreateImageView(ctx->device, &ivci, nullptr, &imageview),
-        {
-            return nullptr;
-        }
-       );
+        auto defaultView = createRsImageView(ctx, ret, ret->type, (ret->usage), 0, desc.mipLevels, 0, desc.arrayLayers);
 
+        ret->defaultView = defaultView;
 
-        auto ret = new rs_image_vk;
-        ret->native = image;
-        ret->view = imageview;
-        ret->allocation = alloc;
-        ret->width = desc.width;
-        ret->height = desc.height;
-        ret->depth = desc.depth;
-        ret->type = desc.type;
-        ret->format = desc.format;
-        ret->mipLevels = desc.mipLevels;
-        ret->arrayLayers = desc.arrayLayers;
-        ret->usage = desc.usage;
-        ret->sampleCount = desc.samples;
         return ret;
     }
 
@@ -962,12 +1013,12 @@ namespace Render::Vulkan {
         }
         vmaDestroyImage(context->allocator, (VkImage)image->native, image->allocation);
         
-		//Delete Views
-		vkDestroyImageView(context->device, image->view, 0);
-		for (auto& [viewKey,view] : image->otherViews) {
-			vkDestroyImageView(context->device, view, 0);
+		destroyRsImageView(context, image->defaultView);
+
+		for (auto& view : image->imageViews) {
+			destroyRsImageView(context, view);
 		}
-        
+        image->imageViews.clear();
         delete image;
         image = 0;
     }
@@ -1188,38 +1239,19 @@ namespace Render::Vulkan {
         std::vector<rs_image_vk*>swapchainImages;
         for (auto&& img : swapImages) {
 
-            VkImageViewCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-            ci.                    image  = img;
-            ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            ci.                   format = choosenFormat.format;
-            ci.components = { 
-                VK_COMPONENT_SWIZZLE_IDENTITY ,
-                VK_COMPONENT_SWIZZLE_IDENTITY ,
-                VK_COMPONENT_SWIZZLE_IDENTITY ,
-                VK_COMPONENT_SWIZZLE_IDENTITY 
-            };
-            auto& subres = ci.subresourceRange;
-            subres.    aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            subres.baseMipLevel = 0;
-            subres.levelCount = 1;
-            subres.baseArrayLayer = 0;
-            subres.layerCount = 1;
-            VkImageView view;
-            VK_CHECK(vkCreateImageView(context->device, &ci, 0, &view), {
-                swapchainImages.push_back(nullptr);
-            });
-            rs_image_vk* rsImage = new rs_image_vk;
-            rsImage->native = img;
-            rsImage->view = view;
-            rsImage->width = wWidth;
-            rsImage->height = wHeight;
-            rsImage->type = ImageType::V2D;
-            rsImage->depth = 1;
-            rsImage->mipLevels = 1;
-            rsImage->usage = ImageUsage_PresentSrc | ImageUsage_ColorAttachment;
-            rsImage->format = ToImageFormat(choosenFormat.format);
-            rsImage->arrayLayers = 1;
-            swapchainImages.push_back(rsImage);
+			rs_image_vk* rsImage = new rs_image_vk;
+			rsImage->native = img;
+			rsImage->width = wWidth;
+			rsImage->height = wHeight;
+			rsImage->type = ImageType::V2D;
+			rsImage->depth = 1;
+			rsImage->mipLevels = 1;
+			rsImage->usage = ImageUsage_PresentSrc | ImageUsage_ColorAttachment;
+			rsImage->format = ToImageFormat(choosenFormat.format);
+			rsImage->arrayLayers = 1;
+            auto view = createRsImageView(context, rsImage, ImageType::V2D, ViewAspect::Color, 0, 1, 0, 1);
+			rsImage->defaultView = view;
+			swapchainImages.push_back(rsImage);
         }
 
         context->swapchain->native = swapchain;
@@ -1233,13 +1265,16 @@ namespace Render::Vulkan {
         VkSwapchainKHR swapchain = (VkSwapchainKHR)context->swapchain->native;
         vkDestroySwapchainKHR(context->device,swapchain,0);
         //DestroyViews 
-        //Images are created by swapchai  
-        auto& views = context->swapchain->swapchainImgs;
-        for (auto image : views) {
-            vkDestroyImageView(context->device, image->view, 0);
+        //Images are created by swapchain  
+        auto& swapchainImages = context->swapchain->swapchainImgs;
+        for (auto image : swapchainImages) {
+			destroyRsImageView(context, image->defaultView);
+            for (auto& view : image->imageViews) {
+				destroyRsImageView(context, view);
+            }
             delete image;
         }
-        views.resize(0);
+        swapchainImages.resize(0);
     }
 
 	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt)
@@ -1267,11 +1302,11 @@ namespace Render::Vulkan {
 				//Create one 
 				std::vector<VkImageView> imageViews;
                 imageViews.reserve(rt->m_attachments.size() + (rt->m_depthStencilAttachment != nullptr ? 1 : 0));
-				for (const auto& i : rt->m_attachments) {
-					imageViews.push_back(((rs_image_vk*)i)->view);
+				for (const auto& i : rt->m_views) {
+					imageViews.push_back((VkImageView)i.native);
 				}
 				if (rt->m_depthStencilAttachment) {
-					imageViews.push_back(((rs_image_vk*)rt->m_depthStencilAttachment)->view);
+					imageViews.push_back((VkImageView)rt->m_dsView.native);
 				}
 				VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 				fbCi.renderPass = (VkRenderPass)curRp->native;
@@ -1352,6 +1387,145 @@ namespace Render::Vulkan {
         cb->currentRenderPass = renderpass;
         cb->currentClearColor = color;
         cb->currentClearDepthStencil = clearDs;
+	}
+
+    Render::rs_image_view createRsImageViewInner(rs_context_vk* ctx, rs_image* image, ImageType viewType, VkImageAspectFlags aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt) {
+		rs_image_view rsView{};
+		VkImageViewCreateInfo ivci{};
+		ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		ivci.image = (VkImage)image->native;
+		ivci.viewType = toVkImageViewType(viewType);
+		ivci.format = toVkFormat(image->format);
+		ivci.components = { 
+                VK_COMPONENT_SWIZZLE_IDENTITY ,
+				VK_COMPONENT_SWIZZLE_IDENTITY ,
+				VK_COMPONENT_SWIZZLE_IDENTITY ,
+				VK_COMPONENT_SWIZZLE_IDENTITY
+        };
+		ivci.subresourceRange.aspectMask = (aspect);
+		ivci.subresourceRange.baseMipLevel = baseMip;
+		ivci.subresourceRange.levelCount = mipCnt;
+		ivci.subresourceRange.baseArrayLayer = baseLayer;
+		ivci.subresourceRange.layerCount = layerCnt;
+        VK_CHECK(vkCreateImageView(ctx->device, &ivci, 0, (VkImageView*)&rsView.native), { assert(false);return {}; });
+		return rsView;
+    }
+
+	Render::rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+	{
+        auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
+        view.viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+        return view;
+    }
+
+	Render::rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+	{
+		auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(imageUsage), baseMip, mipCnt, baseLayer, layerCnt);
+        ViewAspect aspect = ViewAspect::Color;
+
+        if (imageUsage & ImageUsage_DepthStencilAttachment) {
+            aspect = ViewAspect::DepthAndStencil;
+        }
+
+        view.viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+		return view;
+	}
+
+    VkImageAspectFlags toVkAspect(ViewAspect aspect)
+	{
+        switch (aspect)
+        {
+        case Render::ViewAspect::DepthAndStencil:
+            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			break;
+        case Render::ViewAspect::Depth:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+            break;
+        case Render::ViewAspect::Stencil:
+			return VK_IMAGE_ASPECT_STENCIL_BIT;
+			break;
+        case Render::ViewAspect::Color:
+			return VK_IMAGE_ASPECT_COLOR_BIT;
+			break;
+        default:
+            break;
+        }
+        return VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+
+    VkImageAspectFlags toVkAspect(uint32_t usageFlags)
+	{
+        VkImageAspectFlags ret = VkImageAspectFlagBits::VK_IMAGE_ASPECT_NONE;
+        if ( (usageFlags & uint32_t(ImageUsage_ColorAttachment)) || (usageFlags & uint32_t(ImageUsage_Sampled))) {
+            ret = (ret | VK_IMAGE_ASPECT_COLOR_BIT);
+        }
+        if (usageFlags & uint32_t(ImageUsage_DepthStencilAttachment)) {
+            ret = (ret | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+        }
+        return ret;
+	}
+
+	void destroyRsImageView(rs_context_vk* ctx,rs_image_view& view)
+	{
+        vkDestroyImageView(ctx->device, (VkImageView)view.native, 0);
+        view.native = nullptr;
+        view.viewKey.value = 0;
+	}
+
+	const Render::rs_image_view& getRsImageViewFromImage(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey)
+	{
+        if (image->defaultView.viewKey == viewKey) {
+            return image->defaultView;
+        }
+        for (auto& imageView : image->imageViews) {
+            if (imageView.viewKey == viewKey) {
+                return imageView;
+            }
+        }
+
+        //Create:
+        auto& viewBits = viewKey.bits;
+        auto view = createRsImageView(ctx, image, (ImageType)viewBits.viewType,
+            (ViewAspect)viewBits.aspect,
+            viewBits.baseMip, viewBits.mipCount,
+            viewBits.baseLayer, viewBits.layerCount);
+        image->imageViews.push_back(view);
+        return image->imageViews.back();
+	}
+
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,const ImageViewKey& viewKey)
+	{
+		auto vkPos = toVkBindingPos(pos);
+		auto fif = context->LogicFrameFif;
+		auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+		if (descriptorSet) {
+			context->descriptorSetMgr->updateImageDetailed(frame, context, descriptorSet, vkPos.bindingIdx, vk, viewKey, QueueType_Graphics);
+		}
+		else {
+			Log::error("Update descripotSet error");
+		}
+	}
+
+	const Render::rs_image_view& getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey)
+	{
+        if (image->defaultView.viewKey == viewKey) {
+            return image->defaultView;
+        }
+
+        for (auto&& view : image->imageViews) {
+            if (view.viewKey == viewKey) {
+                return view;
+            }
+        }
+
+        auto view = createRsImageView(ctx, image,
+            viewKey.getViewType(),viewKey.getAspect(),
+            viewKey.getBaseMip(),viewKey.getMipCount(),
+            viewKey.getBaseLayer(),viewKey.getLayerCount()
+            );
+        image->imageViews.push_back(view);
+        return image->imageViews.back();
+
 	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
@@ -1902,7 +2076,8 @@ namespace Render::Vulkan {
         }
         delete drawdata;
     }
-    inline rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
+    
+    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
         auto& frameSets = drawdata->DescriptorSets[fif];
         rs_descriptorSet_vk* targetSet = 0;
         for (auto& [idx, descriptor] : frameSets) {

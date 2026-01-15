@@ -37,6 +37,11 @@ namespace Render {
 		std::string shaderCode;
 	};
 
+	//Actually this is created JIT and is hidden behind API specific functions
+	struct rs_image_view : rs_base {
+		ImageViewKey viewKey;
+	};
+
 	struct rs_image : rs_base {
 		ImageFormat format = ImageFormat::Invalid;
 		ImageType type = ImageType::V2D;
@@ -47,6 +52,11 @@ namespace Render {
 		uint16_t arrayLayers;
 		uint32_t usage;
 		SampleCount sampleCount = SampleCount::Count1;
+
+		//---------------------------//
+		rs_image_view defaultView;
+		//create in runtime.
+		std::list<rs_image_view> imageViews;
 	};
 
 	struct rs_buffer : rs_base {
@@ -110,7 +120,9 @@ namespace Render {
 
 	struct rs_rendertarget : rs_base {
 		std::vector<rs_image*> m_attachments;
+		std::vector<rs_image_view> m_views;
 		rs_image* m_depthStencilAttachment;
+		rs_image_view m_dsView;
 	};
 
 	struct rs_drawdata {

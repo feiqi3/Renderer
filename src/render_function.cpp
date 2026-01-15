@@ -24,6 +24,29 @@ RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt)
 	return RenderTextureFormat::Invalid;
 }
 
+Render::ImageViewKey genViewKey(ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+{
+	ImageViewKey key{};
+	key.value = 0;
+	key.bits.viewType = (uint16_t)viewType;
+	key.bits.aspect = (uint16_t)aspect;
+	key.bits.baseMip = baseMip;
+	key.bits.mipCount = mipCnt;
+	key.bits.baseLayer = baseLayer;
+	key.bits.layerCount = layerCnt;
+	return key;
+}
+
+bool operator==(const ImageViewKey& keyA, const ImageViewKey& keyB)
+{
+	return keyA.value == keyB.value;
+}
+
+bool operator!=(const ImageViewKey& keyA, const ImageViewKey& keyB)
+{
+	return keyA.value != keyB.value;
+}
+
 ImageFormat fromRtFormatToImageFormat(rs_context * ctx,RenderTextureFormat fmt)
 {
 	const auto& map = ctx->rtFormatMap;

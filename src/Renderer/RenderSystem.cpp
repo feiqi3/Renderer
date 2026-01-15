@@ -363,6 +363,13 @@ namespace Render{
 		}
 		return Vulkan::createRsImage(getRenderContext(), desc);
 	}
+
+	Render::rs_rendertarget* RenderSystem::createRendertargetDetailed(std::vector<rs_image*>& images, std::vector<ImageViewKey>& viewKeys, bool lastDepth)
+	{
+		auto ctx = getRenderContext();
+		return Vulkan::createRsRenderTarget(ctx, (Vulkan::rs_image_vk**)images.data(), (ImageViewKey*)viewKeys.data(), images.size(),lastDepth);
+	}
+
 	rs_rendertarget* RenderSystem::createRendertarget(const std::vector<rs_image*>images, rs_image* dsTex)
 	{
 		auto ctx = getRenderContext();
@@ -433,7 +440,16 @@ namespace Render{
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_sampler_vk*)sampler);
 	}
-	void RenderSystem::updateImageData(rs_image* image, void* data,size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip)
+
+	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, ImageViewKey viewkey, Pass* pass)
+	{
+		auto ctx = getRenderContext();
+		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_image_vk*)image, viewkey);
+	}
+
+	void RenderSystem::updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip)
 	{
 		auto ctx = getRenderContext();
 		Vulkan::updateImage(ctx,nullptr, (Vulkan::rs_image_vk*)image, data, byteSize, x, y, z, width, height, depth, mip, layerOffset, layerSize, false);

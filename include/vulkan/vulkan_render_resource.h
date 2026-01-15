@@ -62,10 +62,6 @@ namespace Render::Vulkan {
 
 	struct rs_image_vk : rs_image {
 		VmaAllocation allocation;
-		VkImageView view;
-		uint64_t defaultViewKey;
-		using ViewPair = std::pair<uint64_t, VkImageView>;
-		std::list<ViewPair> otherViews;
 		VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	};
 
@@ -167,5 +163,14 @@ namespace Render::Vulkan {
 
 
 };
+
+//For view key.
+namespace std {
+	template<> struct hash<Render::ImageViewKey> {
+		size_t operator()(const Render::ImageViewKey& k) const {
+			return (size_t)k.value;
+		}
+	};
+}
 
 #endif

@@ -27,6 +27,9 @@ namespace Render {
 	ImageFormat fromRtFormatToImageFormat(rs_context* ctx,RenderTextureFormat fmt);
 	RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt);
 	bool isHDRRtFormat(RenderTextureFormat fmt);
+
+	ImageViewKey genViewKey(ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
 };
+
 
 #endif

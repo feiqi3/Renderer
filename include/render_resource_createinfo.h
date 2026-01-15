@@ -78,6 +78,13 @@ namespace Render {
         bool isHDR = false; //float rt is HDR
     };
 
+    struct ImageViewDesc {
+        ViewAspect aspect        = ViewAspect::Color;
+        uint16_t   mipLevel      = 0;
+        uint16_t   arrayLayerBeg = 0;
+        uint16_t   arrayLayerEnd = 0;
+    };
+
     struct PassDesc {
         std::vector<PassAttachment> attachments;
         bool lastDepth = false;
@@ -165,6 +172,45 @@ namespace Render {
         uint16_t offset;
         struct rs_buffer* buffer;
     };
+
+	union ImageViewKey {
+	private:
+		struct BitField {
+			uint64_t aspect : 4;  // [0-3]
+			uint64_t viewType : 4;  // [4-7]
+			uint64_t baseMip : 6;  // [8-13]
+			uint64_t mipCount : 6;  // [14-19]
+			uint64_t baseLayer : 6;  // [20-25]
+			uint64_t layerCount : 6;  // [26-31]
+			uint64_t reserved : 32; // [32-63]
+		};
+	public:
+		BitField bits;
+		uint64_t value;
+
+	public:
+		ImageViewKey();
+		ImageViewKey(uint64_t rawValue);
+
+		ImageViewKey& setAspect(ViewAspect aspect);
+		ImageViewKey& setViewType(ImageType type);
+		ImageViewKey& setBaseMip(uint32_t mip);
+		ImageViewKey& setMipCount(uint32_t count);
+		ImageViewKey& setBaseLayer(uint32_t layer);
+		ImageViewKey& setLayerCount(uint32_t count);
+
+		ViewAspect getAspect() const;
+		ImageType  getViewType() const;
+		uint32_t   getBaseMip() const;
+		uint32_t   getMipCount() const;
+		uint32_t   getBaseLayer() const;
+		uint32_t   getLayerCount() const;
+
+		bool operator==(const ImageViewKey& other) const;
+		bool operator!=(const ImageViewKey& other) const;
+
+		bool isValid() const;
+	};
 
     struct RenderInfo {
         std::vector<VertexBindingInfo > bindingBuffers;                      //in buffers
