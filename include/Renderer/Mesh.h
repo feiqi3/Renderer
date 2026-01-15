@@ -148,6 +148,7 @@ namespace Render {
 		friend class MeshResourceManager;
 		friend class MeshData;
 	};
+	using MeshPtr = ResourceHandle<Mesh>;
 }
 
 #endif // MESH_H_
