@@ -66,7 +66,6 @@ namespace Render {
 		inline size_t    getIndexCount()const { return mIndexCount; }
 		inline IndexType getIndexType() const { return mIndexType; }
 		inline void      setIndexType(IndexType t) { mIndexType = t; }
-
 		size_t           getIndexByteSize() const;
 
 		/* ================= Attributes ================= */
@@ -75,6 +74,7 @@ namespace Render {
 
 		/* ================= SubMesh ================= */
 		void addSubMesh(uint32_t indexOffset, uint32_t indexCount, int32_t vertexOffset = 0);
+		inline void setSubMeshes(std::vector<SubMesh>& submesh) { mSubMeshes = submesh; }
 
 		inline size_t getSubMeshCount() const { return mSubMeshes.size(); }
 		inline const SubMesh& getSubMesh(size_t i) const { return mSubMeshes[i]; }
@@ -119,6 +119,7 @@ namespace Render {
 
 		inline size_t getSubMeshCount() const { return mSubMeshes.size(); }
 		inline const SubMesh& getSubMesh(size_t i) const { return mSubMeshes[i]; }
+		const SubMesh& getSubMeshByName(const std::string& name) const;
 
 		inline u32 getVertexCount() const { return mVertexCount; }
 		inline u32 getVertexByteSize() const { return mVertexByteSize; }

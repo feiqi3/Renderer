@@ -7,6 +7,7 @@ namespace Render {
 	// ==========================================
 	// MeshData Implementation
 	// ==========================================
+	static const SubMesh cEmptySubMesh = {};
 
 	MeshData::MeshData(
 		void* vertex,
