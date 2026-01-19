@@ -597,4 +597,37 @@ namespace Render {
         out.magFilter = fromGltfToFilter(sampler.magFilter);
         return true;
     }
+    bool GLTFLoaderPrivate::getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node)
+    {
+        std::string nameOfNode = name.str() + "_" + node.name;
+        out.name = nameOfNode;
+
+        if (node.translation.size() == 3) {
+            out.translation[0] = node.translation[0];
+            out.translation[1] = node.translation[1];
+            out.translation[2] = node.translation[2];
+        }
+
+        if (node.rotation.size() == 0) {
+            out.rotation[3] = 1;
+        }
+        else {
+            out.rotation[0] = node.rotation[0];
+            out.rotation[1] = node.rotation[1];
+            out.rotation[2] = node.rotation[2];
+            out.rotation[3] = node.rotation[3];
+        }
+        
+        if (node.scale.size() == 3) {
+            out.scale[0] = node.scale[0];
+            out.scale[1] = node.scale[1];
+            out.scale[2] = node.scale[2];
+        }
+
+        out.meshIndex = node.mesh;
+        for (auto&& idx : node.children) {
+            out.children.push_back(idx);
+        }
+        return true;
+    }
 }

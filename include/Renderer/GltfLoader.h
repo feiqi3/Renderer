@@ -40,11 +40,11 @@ namespace Render {
     };
 
     struct GLTFNode {
+        std::string         name;
         vec3                translation;
-        vec3                rotation;
+        vec4                rotation;
         vec3                scale;                 
         int                 meshIndex;      
-        int                 submeshIndex;
         std::vector<int>    children;
     };
 
