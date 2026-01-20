@@ -419,7 +419,7 @@ namespace Render {
     class GLTFLoaderPrivate {
     public:
         tinygltf::TinyGLTF loader;
-
+        bool            getJoint(const Name& name, GLTFJoint& out, const tinygltf::Model& model, const tinygltf::Node& node, const tinygltf::Skin& skin, int jointIndex);
         bool            getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
         bool            getMaterial(const Name& name, GLTFMaterial& out, const tinygltf::Model& model, const tinygltf::Material& mat);
         bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture);
@@ -540,7 +540,47 @@ namespace Render {
             return false;
         }
     }
+    bool GLTFLoaderPrivate::getJoint(
+        const Name& name,
+        GLTFJoint& out,
+        const tinygltf::Model& model,
+        const tinygltf::Node& node,
+        const tinygltf::Skin& skin,
+        int jointIndex) 
+    {
+        out.nodeIndex = jointIndex;
+        out.children.clear();
 
+        // --- inverseBindMatrix ---
+        if (skin.inverseBindMatrices >= 0) {
+            const tinygltf::Accessor& accessor = model.accessors[skin.inverseBindMatrices];
+            assert(accessor.type == TINYGLTF_TYPE_MAT4);
+            assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+            assert(jointIndex < accessor.count);
+
+            const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+            const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+
+            size_t byteOffset = bufferView.byteOffset + accessor.byteOffset + jointIndex * sizeof(glm::mat4);
+            const float* matData = reinterpret_cast<const float*>(buffer.data.data() + byteOffset);
+            memcpy(&out.inverseBindMatrix, matData, sizeof(glm::mat4));
+        }
+        else {
+            out.inverseBindMatrix = glm::mat4(1.0f);
+        }
+
+        for (int childNodeIndex : node.children) {
+            auto it = std::find(skin.joints.begin(), skin.joints.end(), childNodeIndex);
+            if (it != skin.joints.end()) {
+                int childJointIndex = static_cast<int>(std::distance(skin.joints.begin(), it));
+                out.children.push_back(childJointIndex);
+            }
+        }
+
+        out.parent = -1;
+
+        return true;
+    }
     bool GLTFLoaderPrivate::getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh)
     {
         std::vector<StandardModelVertex> vertex;
@@ -562,6 +602,74 @@ namespace Render {
         Name thisMeshResName = Name(name.str()+ "_" + mesh.name);
         out.mesh = ResourceSystem::instance()->registerResource(ResourceName::Mesh, thisMeshResName, meshdata.toMeshResource());
         out.name = mesh.name;
+        return true;
+    }
+    bool GLTFLoaderPrivate::getMaterial(
+        const Name& name,
+        GLTFMaterial& out,
+        const tinygltf::Model& model,
+        const tinygltf::Material& mat)
+    {
+        // name
+        out.name = name.str();
+        if (!mat.name.empty()) {
+            out.name += "_" + mat.name;
+        }
+
+        if (mat.emissiveFactor.size() >= 3) {
+            out.emissiveFactor[0] = static_cast<float>(mat.emissiveFactor[0]);
+            out.emissiveFactor[1] = static_cast<float>(mat.emissiveFactor[1]);
+            out.emissiveFactor[2] = static_cast<float>(mat.emissiveFactor[2]);
+        }
+        else {
+            out.emissiveFactor[0] = out.emissiveFactor[1] = out.emissiveFactor[2] = 0.0f;
+        }
+        out.emissiveTexture = mat.emissiveTexture.index;
+        out.emissiveTextureCoord = mat.emissiveTexture.texCoord;
+
+        if (mat.alphaMode == "MASK") {
+            out.alphaMode = GLTFAlphaMode::Mask;
+            out.alphaCutoff = static_cast<float>(mat.alphaCutoff);
+        }
+        else if (mat.alphaMode == "BLEND") {
+            out.alphaMode = GLTFAlphaMode::Blend;
+        }
+        else {
+            out.alphaMode = GLTFAlphaMode::Opaque;
+        }
+
+        out.doubleSided = mat.doubleSided;
+
+        const auto& pbr = mat.pbrMetallicRoughness;
+
+        if (pbr.baseColorFactor.size() >= 4) {
+            out.baseColorFactor[0] = static_cast<float>(pbr.baseColorFactor[0]);
+            out.baseColorFactor[1] = static_cast<float>(pbr.baseColorFactor[1]);
+            out.baseColorFactor[2] = static_cast<float>(pbr.baseColorFactor[2]);
+            out.baseColorFactor[3] = static_cast<float>(pbr.baseColorFactor[3]);
+        }
+        else {
+            out.baseColorFactor[0] = out.baseColorFactor[1] =
+                out.baseColorFactor[2] = 1.0f;
+            out.baseColorFactor[3] = 1.0f;
+        }
+
+        out.baseColorTexture = pbr.baseColorTexture.index;
+        out.baseColorTexCoord = pbr.baseColorTexture.texCoord;
+
+        out.metallicFactor = static_cast<float>(pbr.metallicFactor);
+        out.roughnessFactor = static_cast<float>(pbr.roughnessFactor);
+        out.metallicRoughnessTexture = pbr.metallicRoughnessTexture.index;
+        out.metallicRoughnessTexCoord = pbr.metallicRoughnessTexture.texCoord;
+
+        out.normalTexture = mat.normalTexture.index;
+        out.normalTexCoord = mat.normalTexture.texCoord;
+        out.normalScale = static_cast<float>(mat.normalTexture.scale);
+
+        out.occlusionTexture = mat.occlusionTexture.index;
+        out.occlusionTexCoord = mat.occlusionTexture.texCoord;
+        out.occlusionStrength = static_cast<float>(mat.occlusionTexture.strength);
+
         return true;
     }
     bool GLTFLoaderPrivate::getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture)
