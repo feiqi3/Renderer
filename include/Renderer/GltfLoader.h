@@ -86,12 +86,19 @@ namespace Render {
     };
 
     struct GLTFJoint {
-        //this is not a joint list ---> may contain not joint node
-        //so you need extra bake to get right trs
-        int nodeIndex = -1;                
-        int parent = -1;                  
-        std::vector<int> children;        
-        mat4 inverseBindMatrix = mat4(1.0f); 
+        std::string name;
+        vec3 translation        = vec3(0.);
+        vec4 rotation           = vec4(0, 0, 0, 1.);
+        vec3 scale              = vec3(1., 1., 1.);
+        mat4 inverseBindMatrix  = mat4(1.0f); 
+        int parent              = -1;
+        bool isJoint            = true;
+        std::vector<int>  children;
+    };
+
+    struct GLTFSkeleton {
+        int root                = -1;
+        std::vector<GLTFJoint> joints;
     };
 
 	class GLTFLoaderPrivate;

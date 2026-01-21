@@ -413,13 +413,65 @@ namespace {
         }
         return true;
     }
+
+
+
 }
 
 namespace Render {
+
+    namespace {
+    
+        void addSocketForSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin, std::unordered_map<int, int>& nodeToJoint) {
+            for (auto& nodeIdx : skin.joints) {
+                const auto& node = model.nodes[nodeIdx];
+                int jointIdx = nodeToJoint[nodeIdx];
+                auto& joint = out.joints[jointIdx];
+                for (auto& child : node.children) {
+                    auto it = nodeToJoint.find(child);
+                    if (it == nodeToJoint.end()) {
+                        GLTFJoint j{};
+                        const auto& n = model.nodes[child];
+                        // ---- bind pose local TRS ----
+                        if (n.translation.size() == 3) {
+                            j.translation = vec3(
+                                float(n.translation[0]),
+                                float(n.translation[1]),
+                                float(n.translation[2]));
+                        }
+
+                        if (n.rotation.size() == 4) {
+                            // glTF: [x, y, z, w]
+                            j.rotation = vec4(
+                                float(n.rotation[0]),
+                                float(n.rotation[1]),
+                                float(n.rotation[2]),
+                                float(n.rotation[3]));
+                        }
+
+                        if (n.scale.size() == 3) {
+                            j.scale = vec3(
+                                float(n.scale[0]),
+                                float(n.scale[1]),
+                                float(n.scale[2]));
+                        }
+                        j.isJoint = false;
+                        j.name = n.name;
+                        j.parent = jointIdx;
+                        j.children.clear();
+                        out.joints.push_back(j);
+                        joint.children.push_back(out.joints.size() - 1);
+                    }
+                }
+            }
+        }
+    
+    }
+
     class GLTFLoaderPrivate {
     public:
         tinygltf::TinyGLTF loader;
-        bool            getJoint(const Name& name, GLTFJoint& out, const tinygltf::Model& model, const tinygltf::Node& node, const tinygltf::Skin& skin, int jointIndex);
+        bool            getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin);
         bool            getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
         bool            getMaterial(const Name& name, GLTFMaterial& out, const tinygltf::Model& model, const tinygltf::Material& mat);
         bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture);
@@ -540,47 +592,140 @@ namespace Render {
             return false;
         }
     }
-    bool GLTFLoaderPrivate::getJoint(
-        const Name& name,
-        GLTFJoint& out,
-        const tinygltf::Model& model,
-        const tinygltf::Node& node,
-        const tinygltf::Skin& skin,
-        int jointIndex) 
+
+    bool GLTFLoaderPrivate::getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin)
     {
-        out.nodeIndex = jointIndex;
-        out.children.clear();
+        out.root = -1;
+        out.joints.clear();
 
-        // --- inverseBindMatrix ---
-        if (skin.inverseBindMatrices >= 0) {
-            const tinygltf::Accessor& accessor = model.accessors[skin.inverseBindMatrices];
-            assert(accessor.type == TINYGLTF_TYPE_MAT4);
-            assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
-            assert(jointIndex < accessor.count);
-
-            const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
-            const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
-
-            size_t byteOffset = bufferView.byteOffset + accessor.byteOffset + jointIndex * sizeof(glm::mat4);
-            const float* matData = reinterpret_cast<const float*>(buffer.data.data() + byteOffset);
-            memcpy(&out.inverseBindMatrix, matData, sizeof(glm::mat4));
+        if (skin.joints.empty()) {
+            return false;
         }
-        else {
-            out.inverseBindMatrix = glm::mat4(1.0f);
+        if (skin.inverseBindMatrices < 0) {
+            return false;
+        }
+        const auto& nodes = model.nodes;
+        const auto& jointNodes = skin.joints;
+        const size_t jointCount = jointNodes.size();
+        const tinygltf::Accessor& acc = model.accessors[skin.inverseBindMatrices];
+        if (acc.type != TINYGLTF_TYPE_MAT4 || acc.count != jointCount) {
+            return false;
         }
 
-        for (int childNodeIndex : node.children) {
-            auto it = std::find(skin.joints.begin(), skin.joints.end(), childNodeIndex);
-            if (it != skin.joints.end()) {
-                int childJointIndex = static_cast<int>(std::distance(skin.joints.begin(), it));
-                out.children.push_back(childJointIndex);
+        const tinygltf::BufferView& bv = model.bufferViews[acc.bufferView];
+        const tinygltf::Buffer& buf = model.buffers[bv.buffer];
+        const uint8_t* base =
+            buf.data.data() + bv.byteOffset + acc.byteOffset;
+        std::unordered_map<int, int> nodeToJoint;
+        nodeToJoint.reserve(jointCount);
+        for (size_t i = 0; i < jointCount; ++i) {
+            nodeToJoint[jointNodes[i]] = static_cast<int>(i);
+        }
+        out.joints.resize(jointCount);
+        for (size_t i = 0; i < jointCount; ++i) {
+            const int nodeIdx = jointNodes[i];
+            if (nodeIdx < 0 || nodeIdx >= static_cast<int>(nodes.size())) {
+                return false;
+            }
+
+            GLTFJoint& j = out.joints[i];
+            const tinygltf::Node& n = nodes[nodeIdx];
+
+            // ---- bind pose local TRS ----
+            if (n.translation.size() == 3) {
+                j.translation = vec3(
+                    float(n.translation[0]),
+                    float(n.translation[1]),
+                    float(n.translation[2]));
+            }
+
+            if (n.rotation.size() == 4) {
+                // glTF: [x, y, z, w]
+                j.rotation = vec4(
+                    float(n.rotation[0]),
+                    float(n.rotation[1]),
+                    float(n.rotation[2]),
+                    float(n.rotation[3]));
+            }
+
+            if (n.scale.size() == 3) {
+                j.scale = vec3(
+                    float(n.scale[0]),
+                    float(n.scale[1]),
+                    float(n.scale[2]));
+            }
+
+            // ---- inverse bind matrix ----
+            const float* m = reinterpret_cast<const float*>(
+                base + sizeof(float) * 16 * i);
+
+            mat4 ibm(1.0f);
+            for (int r = 0; r < 4; ++r) {
+                for (int c = 0; c < 4; ++c) {
+                    ibm[c][r] = m[r * 4 + c];
+                }
+            }
+            j.inverseBindMatrix = ibm;
+            j.name = n.name;
+            j.parent = -1;
+            j.children.clear();
+        }
+
+        bool oneRoot = false;
+        for (size_t i = 0; i < jointCount; ++i) {
+            int nodeIdx = jointNodes[i];
+
+            int parentNode = -1;
+            for (size_t n = 0; n < nodes.size(); ++n) {
+                for (int c : nodes[n].children) {
+                    if (c == nodeIdx) {
+                        parentNode = static_cast<int>(n);
+                        break;
+                    }
+                }
+                if (parentNode != -1) break;
+            }
+
+            auto it = nodeToJoint.find(parentNode);
+            if (it != nodeToJoint.end()) {
+                int parentJoint = it->second;
+                out.joints[i].parent = parentJoint;
+                out.joints[parentJoint].children.push_back(static_cast<int>(i));
+            }
+            else {
+                
+                if (!oneRoot)
+                    oneRoot = true;
+                else 
+                    return false;
+
             }
         }
 
-        out.parent = -1;
+        out.root = -1;
+        if (skin.skeleton >= 0) {
+            auto it = nodeToJoint.find(skin.skeleton);
+            if (it != nodeToJoint.end()) {
+                out.root = it->second;
+            }
+        }
 
-        return true;
+        if (out.root == -1) {
+            for (size_t i = 0; i < jointCount; ++i) {
+                if (out.joints[i].parent == -1) {
+                    out.root = static_cast<int>(i);
+                    break;
+                }
+            }
+        }
+        if (out.root != -1) {
+            addSocketForSkeleton(name, out, model, skin, nodeToJoint);
+        }
+        else {
+            return false;
+        }
     }
+
     bool GLTFLoaderPrivate::getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh)
     {
         std::vector<StandardModelVertex> vertex;
