@@ -65,6 +65,7 @@ namespace Render {
     struct GLTFMesh {
         std::string         name;
         MeshPtr             mesh;
+        std::vector<int>    materialIdx; // For each submesh
     };
 
     struct GLTFNode {
@@ -82,14 +83,19 @@ namespace Render {
         std::vector<int>            nodes;
     };
 
+    struct GLTFSkeleton {
+        int root = -1;
+        std::vector<GLTFJoint> joints;
+    };
+
     struct GLTFModel {
         std::vector<GLTFScene>      scenes;
         std::vector<GLTFNode>       nodes;
-        std::vector<int>            rootNodes;
         std::vector<GLTFMesh>       meshes;
         std::vector<GLTFMaterial>   materials;
         std::vector<GLTFTexture>    textures;
         std::vector<GLTFSampler>    samplers;
+        std::vector<GLTFSkeleton>   skeletons;
     };
 
     struct GLTFJoint {
@@ -100,12 +106,7 @@ namespace Render {
         mat4 inverseBindMatrix  = mat4(1.0f); 
         int parent              = -1;
         bool isJoint            = true;
-        std::vector<int>  children;
-    };
-
-    struct GLTFSkeleton {
-        int root                = -1;
-        std::vector<GLTFJoint> joints;
+        std::vector<int>  children; //Index to other node in joint list
     };
 
 	class GLTFLoaderPrivate;

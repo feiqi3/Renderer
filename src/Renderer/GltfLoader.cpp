@@ -230,7 +230,7 @@ namespace {
 
         const int srcNumComp = NumComponentsInType(acc.type);
         const int compByteSize = ComponentByteSize(acc.componentType);
-        if (compByteSize == 0) return; // unknown component type
+        if (compByteSize == 0) return false; // unknown component type
 
         const uint8_t* basePtr = buffer.data.empty() ? nullptr : buffer.data.data();
         if (!basePtr) return false;
@@ -471,7 +471,7 @@ namespace Render {
     class GLTFLoaderPrivate {
     public:
         tinygltf::TinyGLTF loader;
-        bool            getGLTFModel(GLTFModel& out, const tinygltf::Model& model);
+        bool            getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model);
         bool            getGLTFScene(GLTFScene& out, const tinygltf::Scene& scene);
         bool            getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin);
         bool            getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
@@ -596,28 +596,206 @@ namespace Render {
 
     }
 
-	bool GLTFLoaderPrivate::getGLTFModel(GLTFModel& out, const tinygltf::Model& model)
-	{
-        auto& scenes = out.scenes;
-        for (int i = 0;i < model.scenes.size();++i) {
-            scenes.push_back({});
-            getGLTFScene(scenes.back(), model.scenes[i]);
-        }
+    bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)
+    {
+        // 清理输出
+        out.scenes.clear();
+        out.nodes.clear();
+        out.meshes.clear();
+        out.materials.clear();
+        out.textures.clear();
+        out.samplers.clear();
+        out.skeletons.clear();
 
-        std::unordered_map<int, int> gltfNodeIdxToEngineNode;
-        for (const auto& scene : scenes) {
-            std::vector<int> enginnewNodeIdx = {};
-            for (auto nodeidx : scene.nodes) {
-                auto itor = gltfNodeIdxToEngineNode.find(nodeidx);
-                if (itor == gltfNodeIdxToEngineNode.end()) {
-                    out.nodes.push_back({});
-                    int newNodeIdx = out.nodes.size() - 1;
-                    getNode(Name(scene.name), out.nodes.back(), model, model.nodes[nodeidx]);
-                    enginnewNodeIdx.push_back(newNodeIdx);
+        Name modelNamePrefix = Name(modelName+":");
+
+        std::unordered_map<int, int> gltfNodeToEngine;
+        std::unordered_map<int, int> gltfMeshToEngine;
+        std::unordered_map<int, int> gltfMatToEngine;
+        std::unordered_map<int, int> gltfTexToEngine;
+        std::unordered_map<int, int> gltfSamplerToEngine;
+        std::unordered_map<int, int> gltfSkinToEngine;
+
+        std::function<bool(int)> processSampler;
+        std::function<bool(int)> processTexture;
+        std::function<bool(int)> processMaterial;
+        std::function<bool(int)> processMesh;
+        std::function<bool(int)> processNode;
+        std::function<bool(int)> processSkin;
+
+        processSampler = [&](int tinySamplerIdx)->bool {
+            if (tinySamplerIdx < 0) return true;
+            if (gltfSamplerToEngine.find(tinySamplerIdx) != gltfSamplerToEngine.end()) return true;
+            if (tinySamplerIdx >= static_cast<int>(model.samplers.size())) return false;
+            GLTFSampler s;
+            if (!getSampler(modelNamePrefix, s, model, model.samplers[tinySamplerIdx])) return false;
+            int engIdx = static_cast<int>(out.samplers.size());
+            out.samplers.push_back(s);
+            gltfSamplerToEngine[tinySamplerIdx] = engIdx;
+            return true;
+            };
+
+        processTexture = [&](int tinyTexIdx)->bool {
+            if (tinyTexIdx < 0) return true;
+            if (gltfTexToEngine.find(tinyTexIdx) != gltfTexToEngine.end()) return true;
+            if (tinyTexIdx >= static_cast<int>(model.textures.size())) return false;
+            const tinygltf::Texture& t = model.textures[tinyTexIdx];
+            if (t.source < 0 || t.source >= static_cast<int>(model.images.size())) return false;
+            GLTFTexture engTex;
+            if (!getTexture(modelNamePrefix, engTex, model, t)) return false;
+            int tinySamplerIdx = t.sampler;
+            if (tinySamplerIdx >= 0) {
+                if (!processSampler(tinySamplerIdx)) return false;
+                auto it = gltfSamplerToEngine.find(tinySamplerIdx);
+                engTex.smaplerIndex = (it != gltfSamplerToEngine.end()) ? it->second : -1;
+            }
+            else {
+                engTex.smaplerIndex = -1;
+            }
+            int engIdx = static_cast<int>(out.textures.size());
+            out.textures.push_back(engTex);
+            gltfTexToEngine[tinyTexIdx] = engIdx;
+            return true;
+            };
+
+        processMaterial = [&](int tinyMatIdx)->bool {
+            if (tinyMatIdx < 0) return true;
+            if (gltfMatToEngine.find(tinyMatIdx) != gltfMatToEngine.end()) return true;
+            if (tinyMatIdx >= static_cast<int>(model.materials.size())) return false;
+            GLTFMaterial engMat;
+            if (!getMaterial(modelNamePrefix, engMat, model, model.materials[tinyMatIdx])) return false;
+            auto tryRemapTexField = [&](int& field) {
+                if (field < 0) return true;
+                if (!processTexture(field)) return false;
+                auto it = gltfTexToEngine.find(field);
+                field = (it != gltfTexToEngine.end()) ? it->second : -1;
+                return true;
+                };
+            if (!tryRemapTexField(engMat.baseColorTexture)) return false;
+            if (!tryRemapTexField(engMat.metallicRoughnessTexture)) return false;
+            if (!tryRemapTexField(engMat.normalTexture)) return false;
+            if (!tryRemapTexField(engMat.occlusionTexture)) return false;
+            if (!tryRemapTexField(engMat.emissiveTexture)) return false;
+
+            int engIdx = static_cast<int>(out.materials.size());
+            out.materials.push_back(engMat);
+            gltfMatToEngine[tinyMatIdx] = engIdx;
+            return true;
+            };
+
+        processMesh = [&](int tinyMeshIdx)->bool {
+            if (tinyMeshIdx < 0) return true;
+            if (gltfMeshToEngine.find(tinyMeshIdx) != gltfMeshToEngine.end()) return true;
+            if (tinyMeshIdx >= static_cast<int>(model.meshes.size())) return false;
+            out.meshes.push_back({});
+            GLTFMesh& engMesh = out.meshes.back();
+            if (!getMesh(modelNamePrefix, engMesh, model, model.meshes[tinyMeshIdx])) return false;
+            for (size_t i = 0; i < engMesh.materialIdx.size(); ++i) {
+                int tinyMatIdx = engMesh.materialIdx[i];
+                if (tinyMatIdx < 0) {
+                    engMesh.materialIdx[i] = -1;
+                    continue;
                 }
+                if (!processMaterial(tinyMatIdx)) return false;
+                auto it = gltfMatToEngine.find(tinyMatIdx);
+                if (it == gltfMatToEngine.end()) return false;
+                engMesh.materialIdx[i] = it->second;
+            }
+            int engIdx = static_cast<int>(out.meshes.size() - 1);
+            gltfMeshToEngine[tinyMeshIdx] = engIdx;
+            return true;
+            };
+
+        // skin -> skeleton
+        processSkin = [&](int tinySkinIdx)->bool {
+            if (tinySkinIdx < 0) return true;
+            if (gltfSkinToEngine.find(tinySkinIdx) != gltfSkinToEngine.end()) return true;
+            if (tinySkinIdx >= static_cast<int>(model.skins.size())) return false;
+            out.skeletons.push_back({});
+            GLTFSkeleton& sk = out.skeletons.back();
+            if (!getSkeleton(modelNamePrefix, sk, model, model.skins[tinySkinIdx])) return false;
+            int engIdx = static_cast<int>(out.skeletons.size() - 1);
+            gltfSkinToEngine[tinySkinIdx] = engIdx;
+            return true;
+            };
+
+        processNode = [&](int tinyNodeIdx)->bool {
+            if (tinyNodeIdx < 0) return true;
+            if (gltfNodeToEngine.find(tinyNodeIdx) != gltfNodeToEngine.end()) return true; // 已处理
+            if (tinyNodeIdx >= static_cast<int>(model.nodes.size())) return false;
+
+            out.nodes.push_back({});
+            int engNodeIdx = static_cast<int>(out.nodes.size() - 1);
+            gltfNodeToEngine[tinyNodeIdx] = engNodeIdx;
+
+            GLTFNode& engNode = out.nodes.back();
+            if (!getNode(modelNamePrefix, engNode, model, model.nodes[tinyNodeIdx])) return false;
+
+            for (int childTiny : model.nodes[tinyNodeIdx].children) {
+                if (!processNode(childTiny)) return false;
+            }
+
+            // 处理此 node 引用的 mesh & skin
+            int tinyMeshIdx = model.nodes[tinyNodeIdx].mesh;
+            if (tinyMeshIdx >= 0) {
+                if (!processMesh(tinyMeshIdx)) return false;
+                // remap node.meshIndex 为 engine 索引
+                auto it = gltfMeshToEngine.find(tinyMeshIdx);
+                engNode.meshIndex = (it != gltfMeshToEngine.end()) ? it->second : -1;
+            }
+            else engNode.meshIndex = -1;
+
+            int tinySkinIdx = model.nodes[tinyNodeIdx].skin;
+            if (tinySkinIdx >= 0) {
+                if (!processSkin(tinySkinIdx)) return false;
+                auto it = gltfSkinToEngine.find(tinySkinIdx);
+                engNode.skinIndex = (it != gltfSkinToEngine.end()) ? it->second : -1;
+            }
+            else engNode.skinIndex = -1;
+            return true;
+            };
+
+        // 从每个 scene 的 root node 出发遍历
+        for (size_t s = 0; s < model.scenes.size(); ++s) {
+            const tinygltf::Scene& sc = model.scenes[s];
+            for (int rootTiny : sc.nodes) {
+                if (!processNode(rootTiny)) return false;
             }
         }
-	}
+
+        for (size_t engIdx = 0; engIdx < out.nodes.size(); ++engIdx) {
+            GLTFNode& nn = out.nodes[engIdx];
+            std::vector<int> newChildren;
+            newChildren.reserve(nn.children.size());
+            for (int tinyChild : nn.children) {
+                auto it = gltfNodeToEngine.find(tinyChild);
+                if (it != gltfNodeToEngine.end()) {
+                    newChildren.push_back(it->second);
+                }else{
+                    assert(false);
+                    return false;
+                }
+            }
+            nn.children.swap(newChildren);
+        }
+
+        out.scenes.clear();
+        for (size_t s = 0; s < model.scenes.size(); ++s) {
+            GLTFScene sc;
+            sc.name = model.scenes[s].name;
+            sc.nodes.clear();
+            for (int tinyRoot : model.scenes[s].nodes) {
+                auto it = gltfNodeToEngine.find(tinyRoot);
+                if (it == gltfNodeToEngine.end()) {
+                    return false;
+                }
+                sc.nodes.push_back(it->second);
+            }
+            out.scenes.push_back(std::move(sc));
+        }
+
+        return true;
+    }
 
 	bool GLTFLoaderPrivate::getGLTFScene(GLTFScene& out, const tinygltf::Scene& scene)
 	{
@@ -757,6 +935,7 @@ namespace Render {
         else {
             return false;
         }
+        return true;
     }
 
     bool GLTFLoaderPrivate::getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh)
@@ -767,12 +946,12 @@ namespace Render {
         std::vector<int> matIdx;
         bool isSuccess = packPrimitiveToStandardVertices(model, mesh, vertex, indice, submeshes, matIdx);
         if (!isSuccess)return false;
-        
+        out.materialIdx = matIdx;
         MeshData meshdata = MeshData(
             (void*)vertex.data(),sizeof(StandardModelVertex) * vertex.size(), vertex.size(), (void*)indice.data(), indice.size(), IndexType::Uint32
         );
         meshdata.addAttribute(Render::VertexFormat::Float3,VertexSemantic::Position,offsetof(StandardModelVertex,position));
-        meshdata.addAttribute(Render::VertexFormat::Float3, VertexSemantic::Normal, offsetof(StandardModelVertex, position));
+        meshdata.addAttribute(Render::VertexFormat::Float3, VertexSemantic::Normal, offsetof(StandardModelVertex, normal));
         meshdata.addAttribute(Render::VertexFormat::Float2, VertexSemantic::TexCoord0, offsetof(StandardModelVertex, uv_0));
         meshdata.addAttribute(Render::VertexFormat::Float2, VertexSemantic::TexCoord1, offsetof(StandardModelVertex, uv_1));
         meshdata.addAttribute(Render::VertexFormat::UByte4N, VertexSemantic::Color0, offsetof(StandardModelVertex, color_u8x4_pack));
@@ -782,6 +961,7 @@ namespace Render {
         out.name = mesh.name;
         return true;
     }
+
     bool GLTFLoaderPrivate::getMaterial(
         const Name& name,
         GLTFMaterial& out,
@@ -853,7 +1033,7 @@ namespace Render {
     bool GLTFLoaderPrivate::getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture)
     {
         auto imgIdx = texture.source;
-        if (imgIdx < 0 && imgIdx >= model.images.size()) {
+        if (imgIdx < 0 || imgIdx >= model.images.size()) {
             return false;
         }
         const tinygltf::Image& image = model.images[imgIdx];
@@ -886,7 +1066,6 @@ namespace Render {
     bool GLTFLoaderPrivate::getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node)
     {
         std::string nameOfNode = node.name;
-        out.name = nameOfNode;
 
         if (node.translation.size() == 3) {
             out.translation[0] = node.translation[0];
@@ -910,11 +1089,11 @@ namespace Render {
             out.scale[2] = node.scale[2];
         }
 
-        out.meshIndex = node.mesh;
         for (auto&& idx : node.children) {
             out.children.push_back(idx);
         }
 
+        out.name = nameOfNode;
         out.skinIndex = node.skin;
         out.meshIndex = node.mesh;
         out.skinIndex = node.skin;
