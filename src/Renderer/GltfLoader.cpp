@@ -5,7 +5,7 @@
 #include <iostream>
 #include "Renderer/ModelVertex.h"
 #include "Renderer/Mesh.h"
-
+#include <vector>
 namespace {
 
     enum class TypeOfVertexElement {
@@ -471,6 +471,8 @@ namespace Render {
     class GLTFLoaderPrivate {
     public:
         tinygltf::TinyGLTF loader;
+        bool            getGLTFModel(GLTFModel& out, const tinygltf::Model& model);
+        bool            getGLTFScene(GLTFScene& out, const tinygltf::Scene& scene);
         bool            getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin);
         bool            getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
         bool            getMaterial(const Name& name, GLTFMaterial& out, const tinygltf::Model& model, const tinygltf::Material& mat);
@@ -567,7 +569,7 @@ namespace Render {
         mDp = nullptr;
     }
 
-    GLTFScene* Render::GLTFLoader::createFromFilePath(const std::string& path)
+    GLTFModel* Render::GLTFLoader::createFromFilePath(const std::string& path)
     {
         auto& loader = mDp->loader;
         tinygltf::Model model;
@@ -591,9 +593,40 @@ namespace Render {
         if (!loadRes) {
             return false;
         }
+
     }
 
-    bool GLTFLoaderPrivate::getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin)
+	bool GLTFLoaderPrivate::getGLTFModel(GLTFModel& out, const tinygltf::Model& model)
+	{
+        auto& scenes = out.scenes;
+        for (int i = 0;i < model.scenes.size();++i) {
+            scenes.push_back({});
+            getGLTFScene(scenes.back(), model.scenes[i]);
+        }
+
+        std::unordered_map<int, int> gltfNodeIdxToEngineNode;
+        for (const auto& scene : scenes) {
+            std::vector<int> enginnewNodeIdx = {};
+            for (auto nodeidx : scene.nodes) {
+                auto itor = gltfNodeIdxToEngineNode.find(nodeidx);
+                if (itor == gltfNodeIdxToEngineNode.end()) {
+                    out.nodes.push_back({});
+                    int newNodeIdx = out.nodes.size() - 1;
+                    getNode(Name(scene.name), out.nodes.back(), model, model.nodes[nodeidx]);
+                    enginnewNodeIdx.push_back(newNodeIdx);
+                }
+            }
+        }
+	}
+
+	bool GLTFLoaderPrivate::getGLTFScene(GLTFScene& out, const tinygltf::Scene& scene)
+	{
+        out.name = scene.name;
+        out.nodes = scene.nodes;
+        return true;
+	}
+
+	bool GLTFLoaderPrivate::getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin)
     {
         out.root = -1;
         out.joints.clear();
@@ -852,7 +885,7 @@ namespace Render {
     }
     bool GLTFLoaderPrivate::getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node)
     {
-        std::string nameOfNode = name.str() + "_" + node.name;
+        std::string nameOfNode = node.name;
         out.name = nameOfNode;
 
         if (node.translation.size() == 3) {
@@ -881,6 +914,11 @@ namespace Render {
         for (auto&& idx : node.children) {
             out.children.push_back(idx);
         }
+
+        out.skinIndex = node.skin;
+        out.meshIndex = node.mesh;
+        out.skinIndex = node.skin;
+        out.children = node.children;
         return true;
     }
 }

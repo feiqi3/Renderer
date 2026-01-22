@@ -72,11 +72,18 @@ namespace Render {
         vec3                translation;
         vec4                rotation;
         vec3                scale;                 
-        int                 meshIndex;      
+        int                 meshIndex;   
+        int                 skinIndex;
         std::vector<int>    children;
     };
 
     struct GLTFScene {
+        std::string                 name;
+        std::vector<int>            nodes;
+    };
+
+    struct GLTFModel {
+        std::vector<GLTFScene>      scenes;
         std::vector<GLTFNode>       nodes;
         std::vector<int>            rootNodes;
         std::vector<GLTFMesh>       meshes;
@@ -106,7 +113,7 @@ namespace Render {
 	public:
 		GLTFLoader();
 		~GLTFLoader();
-		GLTFScene* createFromFilePath(const std::string& path);
+		GLTFModel* createFromFilePath(const std::string& path);
 	private:
 		GLTFLoaderPrivate* mDp = nullptr;
 	};
