@@ -1,6 +1,5 @@
 #include "Renderer/MeshResourceManager.h"
 #include "Renderer/RenderSystem.h"
-#include "tiny_gltf.h" 
 #include <stdexcept>
 
 namespace Render {

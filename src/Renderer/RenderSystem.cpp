@@ -12,6 +12,7 @@
 #include "platform/FileSystem/FileSystem.h"
 #include "platform/FileSystem/WinFileSystem.h"
 #include "Renderer/RenderQueue.h"
+#include "Renderer/ConstShaderDataManager.h"
 #include <set>
 namespace Render{
 
@@ -88,6 +89,7 @@ namespace Render{
 		new Platform::FileSystem;
 		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
+		new ConstShaderDataManager;
 		new CameraManager;
 	}
 	void RenderSystem::destroyRenderSystem()
@@ -515,7 +517,8 @@ namespace Render{
 	
 	const std::vector<std::string>& RenderSystem::getShaderIncludeSearchDir() const
 	{
-		static const std::vector<std::string> ret{ "../shader","shader" };
+		static const std::vector<std::string> ret{ "../shader","shader"
+			,"../include/Renderer/GPUShared", "include/Renderer/GPUShared" };
 		return ret;
 	}
 
@@ -605,7 +608,8 @@ namespace Render{
 			mDp->mCurrentCameraData = nullptr;
 			return;
 		}
-		mDp->mCurrentCameraData = CameraManager::instance()->updateCameraDrawData(camera);
+		//TOOD: use CameraManager::instance()->updateCamera();
+		mDp->mCurrentCameraData = ConstShaderDataManager::instance()->updateCameraDrawData(camera);
 	}
 
 	void RenderSystem::setEngineIdle()

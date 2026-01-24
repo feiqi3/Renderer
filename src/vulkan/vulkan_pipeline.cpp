@@ -589,6 +589,7 @@ namespace Render::Vulkan {
         VkPipeline pipeline;
 
         VK_CHECK(vkCreateGraphicsPipelines(ctx->device, VK_NULL_HANDLE, 1, &ci, 0,&pipeline), {
+            assert(0 && "Null pipeline layout");
             return nullptr;
         });
 

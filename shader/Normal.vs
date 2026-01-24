@@ -20,5 +20,5 @@ void main()
     fragTexCoord = inTexCoord;
     worldPos = (ObjectCommon.MatTransform * vec4(inPosition,1.0f)).xyz;
     fragNormal =  (mat4(mat3(ObjectCommon.MatTransform)) * vec4(inNormal,1.0f)).xyz;
-    gl_Position = CameraCommon.MatProj * CameraCommon.MatView * ObjectCommon.MatTransform * vec4(inPosition, 1.0);
+    gl_Position = CameraCommon.camera.MatProj * CameraCommon.camera.MatView * ObjectCommon.MatTransform * vec4(inPosition, 1.0);
 }

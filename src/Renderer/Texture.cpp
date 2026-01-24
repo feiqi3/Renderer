@@ -1,5 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#undef  STB_IMAGE_IMPLEMENTATION
 #include "Renderer/Texture.h"
 #include "platform/FileSystem/FileSystem.h"
 #include "Renderer/RenderSystem.h"

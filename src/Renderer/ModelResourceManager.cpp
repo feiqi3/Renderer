@@ -1,11 +1,9 @@
 #include "Renderer/ModelResourceManager.h"
-#include "tiny_gltf.h"
-
 
 namespace Render {
     const Name& Render::ModelResourceManager::typeName() const
     {
-        Model::typeName();
+        return Model::typeName();
     }
     Model* ModelResourceManager::loadImpl(const Name& id)
     {

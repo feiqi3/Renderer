@@ -1,12 +1,11 @@
-#ifndef GPU_LIGHT_DATA_H
-#define GPU_LIGHT_DATA_H
-#include "common/CommonMath.h"
+#ifndef SCENE_DATA_H_
+#define SCENE_DATA_H_
 
+#include "GPUSharedDef.h"
 #define RENDER_MAX_LIGHT_PER_SCENE 8
 
-namespace Render {
-
-	struct GPULightData {
+GPU_SHARED_NAMESPACE_BEGIN
+	GPU_STRUCT_BEGIN(GPULightData)
 		// ----------------------------------------------------
 		// x, y, z: Light position (Point/Spot) or 0 (for Directional)
 		// w:		LightType (0=Dir, 1=Point, 2=Spot)
@@ -24,14 +23,15 @@ namespace Render {
 		// y: (Outer Cone cos)
 		// z, w: padding
 		vec4 spotParams;
-	};
+	GPU_STRUCT_END
 
 
-	struct GPUSceneLightData {
+	GPU_STRUCT_BEGIN(GPUSceneLightData)
 		// x: total light num, y, z, w unused
 		vec4 sceneLightInfo;
 		GPULightData lights[RENDER_MAX_LIGHT_PER_SCENE];
-	};
-}
+	GPU_STRUCT_END
 
-#endif
+GPU_SHARED_NAMESPACE_END
+
+#endif //SCENE_DATA_H_

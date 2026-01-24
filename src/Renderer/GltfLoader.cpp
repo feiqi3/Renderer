@@ -1,18 +1,22 @@
 #include "Renderer/GltfLoader.h"
-#include "tiny_gltf.h"
 #include "platform/FileSystem/FileSystem.h"
 #include "common/ResourceSystem.h"
 #include <iostream>
 #include "Renderer/ModelVertex.h"
 #include "Renderer/Mesh.h"
 #include <vector>
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "tiny_gltf.h"
+
+
 namespace {
 
     enum class TypeOfVertexElement {
         Vec4,
         Vec3,
         Vec2,
-        Uint8X4,
+        Uint8X4,t
     };
 
     static Render::AddressMode fromGltfToAddressMode(int s) {
@@ -532,6 +536,7 @@ namespace Render {
                 return false;
             }
             filestream->write(contents.data(), contents.size());
+            return true;
         }
 
         bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
@@ -591,9 +596,12 @@ namespace Render {
             printf("GLTFLOADER Err: %s\n", err.c_str());
         }
         if (!loadRes) {
-            return false;
+            return nullptr;
         }
 
+        GLTFModel* innerModel = new GLTFModel;
+        bool getModelSuccess = mDp->getGLTFModel(path, *innerModel, model);
+        return innerModel;
     }
 
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)

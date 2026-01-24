@@ -83,6 +83,18 @@ namespace Render {
         std::vector<int>            nodes;
     };
 
+
+    struct GLTFJoint {
+        std::string name;
+        vec3 translation = vec3(0.);
+        vec4 rotation = vec4(0, 0, 0, 1.);
+        vec3 scale = vec3(1., 1., 1.);
+        mat4 inverseBindMatrix = mat4(1.0f);
+        int parent = -1;
+        bool isJoint = true;
+        std::vector<int>  children; //Index to other node in joint list
+    };
+
     struct GLTFSkeleton {
         int root = -1;
         std::vector<GLTFJoint> joints;
@@ -98,16 +110,6 @@ namespace Render {
         std::vector<GLTFSkeleton>   skeletons;
     };
 
-    struct GLTFJoint {
-        std::string name;
-        vec3 translation        = vec3(0.);
-        vec4 rotation           = vec4(0, 0, 0, 1.);
-        vec3 scale              = vec3(1., 1., 1.);
-        mat4 inverseBindMatrix  = mat4(1.0f); 
-        int parent              = -1;
-        bool isJoint            = true;
-        std::vector<int>  children; //Index to other node in joint list
-    };
 
 	class GLTFLoaderPrivate;
 	class GLTFLoader {

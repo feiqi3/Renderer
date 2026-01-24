@@ -1,12 +1,15 @@
 #include "function/Scene.h"
 #include "function/Object.h"
-
+#include "Renderer/RenderSystem.h"
 #include <algorithm>
 #include <cassert>
 
 namespace Render {
 
-    Scene::Scene() = default;
+    Scene::Scene() {
+        m_lightMgr = std::make_unique<LightManager>();
+        m_drawData = RenderSystem::instance()->createDrawData();
+    }
 
     Scene::~Scene() {
         for (auto& obj : m_objects) {
@@ -18,6 +21,7 @@ namespace Render {
             o->onDestroy();
         }
         m_objects.clear();
+        RenderSystem::instance()->destroyDrawData(m_drawData);
     }
 
     uint32_t Scene::generateObjectID() {
@@ -81,6 +85,21 @@ namespace Render {
 
     const std::list<std::unique_ptr<Object>>& Scene::objects() const noexcept {
         return m_objects;
+    }
+
+    LightManager& Scene::getLightMgr()
+    {
+        return *m_lightMgr;
+    }
+
+    const LightManager& Scene::getLightMgr() const
+    {
+        return *m_lightMgr;
+    }
+
+    rs_drawdata* Scene::getSceneDrawData() const
+    {
+        return m_drawData;
     }
 
     void Scene::update(float deltaTime) {

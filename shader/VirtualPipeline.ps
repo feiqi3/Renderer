@@ -4,5 +4,5 @@ layout(location = 0) in vec2 v_uv;
 layout(location = 0) out vec4 o_color;
 void main(){
 	//Avoid compiler optimization
-    o_color = CameraCommon.CameraFront;
+    o_color = CameraCommon.camera.CameraFront;
 }
