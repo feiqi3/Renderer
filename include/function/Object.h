@@ -86,8 +86,11 @@ namespace Render {
 
     protected:
         void setScene(Scene* scene) noexcept;
-
+        void updateTransformRecursive(bool needUpdate);
+        void updateWorldTransform();
     private:
+        bool parentCycleCheck(Object* target);
+
         friend class Scene;
 
         ObjectID m_id;

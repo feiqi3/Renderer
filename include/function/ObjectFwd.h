@@ -6,6 +6,7 @@ namespace Render {
 	class Component;
 	class Object;
 	using ObjectID = u32;
+	const ObjectID INVALID_ID = 0;
 };
 
 #endif

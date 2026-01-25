@@ -1,7 +1,10 @@
 #ifndef _COMMON_MATH_H_
 #define _COMMON_MATH_H_
+#include <glm/glm.hpp>
 #include "glm/matrix.hpp"
 #include "glm/ext.hpp"
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 namespace Render {
 	using vec2 = glm::vec2;
 	using vec3 = glm::vec3;
@@ -28,7 +31,32 @@ namespace Render {
 
 	inline auto translate(const mat4& m, const vec3& v) { return glm::translate(m, v); }
 	inline auto rotate(const mat4& m, float angle, const vec3& axis) { return glm::rotate(m, angle, axis); }
+	inline auto rotate(const mat4& m, const vec3& v) { return glm::mat4_cast(glm::quat(v)); }
+	inline auto rotate(const mat4& m, const quat& v) { return glm::mat4_cast(v); }
 	inline auto scale(const mat4& m, const vec3& v) { return glm::scale(m, v); }
+	inline auto getTRS(const vec3& t, const vec3& r, const vec3& s) {
+		return scale(rotate(translate(mat4(1.0), t), r), s);
+	}
+	inline bool decompose(
+		mat4 const& modelMatrix,
+		vec3& scale,
+		quat& rotation,
+		vec3& translation,
+		vec3& skew,
+		vec4& perspective
+	) {
+		return glm::decompose(
+			modelMatrix,
+			scale,
+			rotation,
+			translation,
+			skew,
+			perspective
+		);
+	}
+	inline auto getTRS(const vec3& t, const quat& r, const vec3& s) {
+		return scale(rotate(translate(mat4(1.0), t), r), s);
+	}
 	inline auto lookAt(const vec3& eye, const vec3& center, const vec3& up) {
 		return glm::lookAt(eye, center, up);
 	}
