@@ -44,8 +44,14 @@ namespace Render{
 		return Texture::typeName();
 	}
 
+	const Name& TextureResourceManager::getDefaultResourceName() const
+	{
+		return mDefaultResourceName;
+	}
+
 	void TextureResourceManager::createNecessaryPersistenceResources() {
-		this->registerResource(Name("Builtin::ErrorRGB"), getErrorTexture(), ResourceLifetime::Persistent, nullptr);
+		mDefaultResourceName = Name("Builtin::ErrorRGB");
+		this->registerResource(mDefaultResourceName, getErrorTexture(), ResourceLifetime::Persistent, nullptr);
 	}
 
 }

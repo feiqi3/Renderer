@@ -37,7 +37,11 @@ namespace Render {
 		inline ResourceHandle<T> getOrCreateResource(const Name& type, const Name& resource) {
 			auto mgr = getResourceManager(type);
 			if (!mgr)return nullptr;
-			return ResourceHandle<T>(mgr, mgr->acquireOrCreate(resource));
+			auto res = mgr->acquireOrCreate(resource);
+			if (!res && !mgr->getDefaultResourceName().isEmpty() && resource != mgr->getDefaultResourceName()) {
+				res = mgr->acquireOrCreate(mgr->getDefaultResourceName());
+			}
+			return ResourceHandle<T>(mgr, res);
 		}
 		template<typename T>
 		inline ResourceHandle<T> getResource(const Name& type, const Name& resource) {
@@ -48,7 +52,12 @@ namespace Render {
 			if (!mgrCasted) {
 				return nullptr;
 			}
-			return ResourceHandle<T>(mgr, mgr->acquire(resource));
+			auto res = mgr->acquire(resource);
+			assert(res != nullptr && "No resource was found");
+			if (!res && !mgr->getDefaultResourceName().isEmpty() && resource != mgr->getDefaultResourceName()) {
+				res = mgr->acquire(mgr->getDefaultResourceName());
+			}
+			return ResourceHandle<T>(mgr, res);
 		}
 		bool isResourceManagerExist(const Name& name)const;
 	private:

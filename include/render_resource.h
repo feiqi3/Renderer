@@ -120,9 +120,9 @@ namespace Render {
 
 	struct rs_rendertarget : rs_base {
 		std::vector<rs_image*> m_attachments;
-		std::vector<rs_image_view> m_views;
+		std::vector<rs_image_view*> m_views;
 		rs_image* m_depthStencilAttachment;
-		rs_image_view m_dsView;
+		rs_image_view* m_dsView;
 	};
 
 	struct rs_drawdata {

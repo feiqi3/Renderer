@@ -719,7 +719,7 @@ namespace Render::Vulkan {
         }
 
         std::vector<rs_image*> localimages;
-        std::vector<rs_image_view> views;
+        std::vector<rs_image_view*> views;
         int depthAttPos = -1;
 
         for (int i = 0; i < imageNum; ++i) {
@@ -732,7 +732,7 @@ namespace Render::Vulkan {
                 assert(0 && "Attachment size not match");
                 return nullptr;
             }
-            views.push_back(img.defaultView);
+            views.push_back(&img.defaultView);
             localimages.push_back((rs_image*) & img);
         }
 
@@ -740,7 +740,7 @@ namespace Render::Vulkan {
         rt->m_views                 = views;
         rt->m_attachments           = localimages;
         rt->m_depthStencilAttachment = depthStencil;
-        rt->m_dsView = depthStencil ? depthStencil->defaultView : rs_image_view{};
+        rt->m_dsView = depthStencil ? &depthStencil->defaultView : nullptr;
         rt->rtPassHash = CalcRenderTargetPassHash(ctx, rt);
         return rt;
     }
@@ -779,9 +779,9 @@ namespace Render::Vulkan {
 		}
 
 		std::vector<rs_image*> localimages;
-		std::vector<rs_image_view> localviews;
+		std::vector<rs_image_view*> localviews;
 		int depthAttPos = -1;
-        rs_image_view dsView = {};
+        rs_image_view* dsView = nullptr;
         for (int i = 0; i < imageNum; ++i) {
             auto& img = *(images[i]);
             if (!(img.usage & ImageUsage_ColorAttachment)) {
@@ -1303,10 +1303,10 @@ namespace Render::Vulkan {
 				std::vector<VkImageView> imageViews;
                 imageViews.reserve(rt->m_attachments.size() + (rt->m_depthStencilAttachment != nullptr ? 1 : 0));
 				for (const auto& i : rt->m_views) {
-					imageViews.push_back((VkImageView)i.native);
+					imageViews.push_back((VkImageView)i->native);
 				}
 				if (rt->m_depthStencilAttachment) {
-					imageViews.push_back((VkImageView)rt->m_dsView.native);
+					imageViews.push_back((VkImageView)rt->m_dsView->native);
 				}
 				VkFramebufferCreateInfo fbCi{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 				fbCi.renderPass = (VkRenderPass)curRp->native;

@@ -1,3 +1,4 @@
+#include "ResourceManager.h"
 #ifndef _RESOURCE_MANAGER_INL_
 #define _RESOURCE_MANAGER_INL_
 
@@ -163,6 +164,12 @@ namespace Render {
 				unloadImpl(res);
 			}
 		}
+	}
+
+	template<typename T>
+	inline const Name& ResourceManager<T>::getDefaultResourceName() const
+	{
+		return Name::Empty();
 	}
 
 	template<typename T>

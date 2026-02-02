@@ -38,20 +38,49 @@ namespace Render {
 		bool operator<(const Name& other) const noexcept {
 			return view() < other.view();
 		}
+
 		bool operator==(const Name& other) const noexcept {
-			return data_->unique_id == other.data_->unique_id;
+			if (!data_) {
+				return other.data_ == nullptr;
+			}
+			else {
+				return data_->unique_id == other.data_->unique_id;
+			}
 		}
 
 		bool operator!=(const Name& other) const noexcept {
 			return !(*this == other);
 		}
 
-		const char* c_str() const noexcept { return data_->mStringVal; }
-		::std::string_view view() const noexcept { return ::std::string_view(data_->mStringVal,data_->mStringLen); }
-		size_t hash() const noexcept { return hash_; }
-		::std::string str() const noexcept { return ::std::string(data_->mStringVal,data_->mStringLen); }
-	};
+		const char* c_str() const noexcept { 
+			if (data_)
+				return data_->mStringVal;
+			else
+				return nullptr;
+		}
+		::std::string_view view() const noexcept { 
+			if (data_ == nullptr) {
+				return ::std::string_view();
+			}
+			else {
+				return ::std::string_view(data_->mStringVal, data_->mStringLen);
+			}
+		}
 
+		size_t hash() const noexcept { return hash_; }
+
+		::std::string str() const noexcept {
+			if (data_ == nullptr) {
+				return std::string();
+			}
+			else {
+				return ::std::string(data_->mStringVal, data_->mStringLen);
+			}
+		}
+
+		static Name Empty() { return Name(); }
+
+	};
 
 }
 

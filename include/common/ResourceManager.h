@@ -80,6 +80,7 @@ namespace Render {
 		virtual ResourceEntry* acquireOrCreate(const Name& id) = 0;
 		virtual ResourceEntry* acquire(const Name& id) = 0;
 		virtual void release(const Name& id) = 0;
+		virtual const Name& getDefaultResourceName()const = 0;
 
 		friend class ResourceSystem;
 	};
@@ -99,6 +100,7 @@ namespace Render {
 		virtual void destroy(const Name& name) override;
 		virtual ResourceEntry* acquireOrCreate(const Name& name) override;
 		virtual void release(const Name& id) override;
+		virtual const Name& getDefaultResourceName()const override;
 
 		inline virtual void createNecessaryPersistenceResources() override {};
 

@@ -9,8 +9,10 @@ namespace Render {
 		Texture* loadImpl(const Name& id) override;
 		void unloadImpl(Texture* texture);
 		const Name& typeName()const override;
+		const Name& getDefaultResourceName()const override;
 	public:
 		void createNecessaryPersistenceResources()override;
+		Name mDefaultResourceName;
 	};
 
 
