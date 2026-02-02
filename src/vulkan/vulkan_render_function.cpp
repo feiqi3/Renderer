@@ -792,12 +792,12 @@ namespace Render::Vulkan {
                 assert(0 && "Attachment size not match");
                 return nullptr;
             }
-            const auto& view = getRsImageViewFromImage(ctx, &img, imageViewKeys[i]);
+            const auto& view = getRsImageView(ctx, &img, imageViewKeys[i]);
             if (i == imageNum - 1 && havedepthLast) {
                 dsView = view;
             }
             else {
-                localviews.push_back(getRsImageViewFromImage(ctx, &img, imageViewKeys[i]));
+                localviews.push_back(getRsImageView(ctx, &img, imageViewKeys[i]));
                 localimages.push_back((rs_image*)&img);
             }
         }
@@ -1472,14 +1472,14 @@ namespace Render::Vulkan {
         view.viewKey.value = 0;
 	}
 
-	const Render::rs_image_view& getRsImageViewFromImage(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey)
+	Render::rs_image_view* getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey)
 	{
         if (image->defaultView.viewKey == viewKey) {
-            return image->defaultView;
+            return nullptr;
         }
         for (auto& imageView : image->imageViews) {
             if (imageView.viewKey == viewKey) {
-                return imageView;
+                return &imageView;
             }
         }
 
@@ -1490,42 +1490,20 @@ namespace Render::Vulkan {
             viewBits.baseMip, viewBits.mipCount,
             viewBits.baseLayer, viewBits.layerCount);
         image->imageViews.push_back(view);
-        return image->imageViews.back();
+        return &image->imageViews.back();
 	}
 
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,const ImageViewKey& viewKey)
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,rs_image_view* view)
 	{
 		auto vkPos = toVkBindingPos(pos);
 		auto fif = context->LogicFrameFif;
 		auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-		if (descriptorSet) {
-			context->descriptorSetMgr->updateImageDetailed(frame, context, descriptorSet, vkPos.bindingIdx, vk, viewKey, QueueType_Graphics);
+        if (descriptorSet) {
+			context->descriptorSetMgr->updateImageDetailed(frame, context, descriptorSet, vkPos.bindingIdx, vk, view, QueueType_Graphics);
 		}
 		else {
 			Log::error("Update descripotSet error");
 		}
-	}
-
-	const Render::rs_image_view& getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey)
-	{
-        if (image->defaultView.viewKey == viewKey) {
-            return image->defaultView;
-        }
-
-        for (auto&& view : image->imageViews) {
-            if (view.viewKey == viewKey) {
-                return view;
-            }
-        }
-
-        auto view = createRsImageView(ctx, image,
-            viewKey.getViewType(),viewKey.getAspect(),
-            viewKey.getBaseMip(),viewKey.getMipCount(),
-            viewKey.getBaseLayer(),viewKey.getLayerCount()
-            );
-        image->imageViews.push_back(view);
-        return image->imageViews.back();
-
 	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)

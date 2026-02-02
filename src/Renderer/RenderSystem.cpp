@@ -13,8 +13,12 @@
 #include "platform/FileSystem/WinFileSystem.h"
 #include "Renderer/RenderQueue.h"
 #include "Renderer/ConstShaderDataManager.h"
+#include "Renderer/TextureResourceMgr.h"
+#include "common/ResourceSystem.h"
 #include <set>
 namespace Render{
+
+	TexturePtr geterrorTexture(class RenderSystemPrivate* dp);
 
 	ShaderIncludeRes ShaderIncludeFindingFunction(const std::vector<std::string>& findDirectiories, const std::string& name) {
 		auto FileSys = Platform::FileSystem::instance();
@@ -57,6 +61,9 @@ namespace Render{
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
 		std::unique_ptr<RenderGroup> mRenderDispatcher;
+
+		TexturePtr mErrorRGBTexture = nullptr;
+
 		Render::Platform::Win::WinFileSystem* mWinFileSystem;
 		rs_drawdata* mCurrentCameraData = nullptr;
 		EngineEvent mEngineEvent;
@@ -366,6 +373,11 @@ namespace Render{
 		return Vulkan::createRsImage(getRenderContext(), desc);
 	}
 
+	rs_image_view* RenderSystem::_getViewFromImage(rs_image* image, const ImageViewKey& viewKey)
+	{
+		return Vulkan::getRsImageView( this->getRenderContext(), image, viewKey);
+	}
+
 	Render::rs_rendertarget* RenderSystem::createRendertargetDetailed(std::vector<rs_image*>& images, std::vector<ImageViewKey>& viewKeys, bool lastDepth)
 	{
 		auto ctx = getRenderContext();
@@ -432,6 +444,10 @@ namespace Render{
 		auto ctx = getRenderContext();
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
+		auto imageToBind = image;
+		if (imageToBind == nullptr) {
+			imageToBind = geterrorTexture(mDp.get())->getRsImage();
+		}
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame,pipeline,drawData, binding, (Vulkan::rs_image_vk*)image);
 
 	}
@@ -448,7 +464,13 @@ namespace Render{
 		auto ctx = getRenderContext();
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
-		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_image_vk*)image, viewkey);
+		rs_image_view* view = _getViewFromImage(image, viewkey);
+		if (view == nullptr) {
+			auto errImage = geterrorTexture(mDp.get())->getRsImage();
+			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_image_vk*)errImage);
+			return;
+		}
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_image_vk*)image, view);
 	}
 
 	void RenderSystem::updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip)
@@ -659,6 +681,13 @@ namespace Render{
 	void RenderSystemPrivate::cleanUpFramesPendingData(uint32_t fif,uint64_t frame)
 	{
 		mArena->beginFrame(frame);
+	}
+
+	TexturePtr geterrorTexture(RenderSystemPrivate* dp)
+	{
+		if(dp->mErrorRGBTexture == nullptr)
+			dp->mErrorRGBTexture = ResourceSystem::instance()->getResource<Texture>(ResourceName::Texture, Name("Builtin::ErrorRGB"));
+		return nullptr;
 	}
 
 }

@@ -57,7 +57,7 @@ namespace Render::Vulkan {
 	rs_image_vk* createRsImage(rs_context_vk* context, ImageDesc& desc);
 	void destroyRsImage(rs_context_vk* context, rs_image_vk*& image,bool immediately = false);
 	size_t getRsImageSize(rs_image_vk* image);
-	const rs_image_view& getRsImageViewFromImage(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey);
+	rs_image_view* getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey);
 	rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
 	rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
 	void destroyRsImageView(rs_context_vk* ctx, rs_image_view& view);
@@ -112,7 +112,7 @@ namespace Render::Vulkan {
 	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk);
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,const ImageViewKey& viewKey);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk, rs_image_view* view);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);

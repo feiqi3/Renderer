@@ -184,7 +184,7 @@ namespace Render::Vulkan {
         void updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType);
         void updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType);
 		void updateImageDetailed(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image,
-            const ImageViewKey& viewKey, uint8_t queueType);
+            rs_image_view* view, uint8_t queueType);
         void updateSampler(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType);
 
         rs_pipeline_layout_vk* createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders);

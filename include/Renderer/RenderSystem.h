@@ -65,6 +65,7 @@ namespace Render{
 		size_t getImageSize(rs_image* img);
 		rs_image* createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer,bool needSample);
 		rs_image* createDepthStencilTexture(RenderTextureFormat format, int x, int y, bool needSample);
+		rs_image_view* _getViewFromImage(rs_image* image,const ImageViewKey& viewKey);
 		//Create more rendertarget with more detailed control settings
 		rs_rendertarget* createRendertargetDetailed( std::vector<rs_image*>& images, std::vector<ImageViewKey>& viewKeys,bool lastDepth);
 		

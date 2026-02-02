@@ -564,26 +564,25 @@ namespace Render::Vulkan {
         rs = 0;
     }
 
-	void DescriptorSetManager::updateImageDetailed(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, const ImageViewKey& viewKey, uint8_t queueType)
+	void DescriptorSetManager::updateImageDetailed(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, rs_image_view* view, uint8_t queueType)
 	{
 		if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
 			return;
 		}
-        const auto& view = getRsImageViewFromImage(ctx, image, viewKey);
 		auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
 		if (bindingInfo.type != UniformType::Texture) {
 			assert(0 && "Wrong binding type");
 			return;
 		}
-		if (descriptorSet->mBindingData[binding].native == view.native)return;
-		descriptorSet->mBindingData[binding].native = view.native;
+		if (descriptorSet->mBindingData[binding].native == view->native)return;
+		descriptorSet->mBindingData[binding].native = view->native;
 		VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 		writeSet.dstBinding = binding;
 		writeSet.dstArrayElement = 0;
 		writeSet.descriptorCount = 1;
 		writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
 		VkDescriptorImageInfo iInfo{};
-		iInfo.imageView = (VkImageView)view.native;
+		iInfo.imageView = (VkImageView)view->native;
 		iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		writeSet.pImageInfo = &iInfo;
 		writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;

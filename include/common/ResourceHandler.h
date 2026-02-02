@@ -61,7 +61,7 @@ namespace Render {
 
 		T* operator->() const { return entry ? (T*)entry->resource : nullptr; }
 		T& operator*() const { assert(entry && entry->resource); return *((T*)entry->resource); }
-
+		T* get() const { return entry ? (T*)entry->resource : nullptr; }
 		bool valid() const { return entry != nullptr && entry->resource != nullptr; }
 
 		void addRef() { handleRef.fetch_add(1, std::memory_order_relaxed); }
