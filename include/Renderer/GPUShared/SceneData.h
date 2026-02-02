@@ -12,7 +12,7 @@ GPU_SHARED_NAMESPACE_BEGIN
 		vec4 positionType;
 
 		// x, y, z: Light Direction (Directional/Spot)
-		// w:       Fade Range
+		// w:       Radius
 		vec4 directionRange;
 
 		// x, y, z: Albedo (RGB)
