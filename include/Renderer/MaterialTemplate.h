@@ -20,10 +20,11 @@ namespace Render {
 		}
 		virtual void onRenderPassRTChangedNeedRebuild(RenderPass* pass);
 		Material* createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco);
+		Material* createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco,const RenderState& state);
 		Material* getVarient(const Name& passName);
 		const Name& getName()const { return mName; }
 	private:
-		rs_pipeline* createVariantPipeline(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco);
+		rs_pipeline* createVariantPipeline(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco,const RenderState& state);
 		void destroyVarient(Material* material);
 		~MaterialTemplate();
 	private:

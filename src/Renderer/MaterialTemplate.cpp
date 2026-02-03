@@ -29,19 +29,25 @@ namespace Render {
 
 	Material* MaterialTemplate::createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
 	{
+		return createVariant(pass, shaderMarco, mRenderState);
+	}
+
+	Render::Material* MaterialTemplate::createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
+	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 
 		auto itor = mVarientMap.find(pass->getPassName());
 		if (itor != mVarientMap.end()) {
 			destroyVarient(itor->second);
 		}
-		auto pipeline = createVariantPipeline(pass,shaderMarco);
-		Material* mat = new Material(pass,this,pipeline,shaderMarco);
+		auto pipeline = createVariantPipeline(pass, shaderMarco, state);
+		Material* mat = new Material(pass, this, pipeline, shaderMarco);
 
 		mVarientMap[pass->getPassName()] = mat;
 
 		return mat;
 	}
+
 	Material* MaterialTemplate::getVarient(const Name& name)
 	{
 		auto itor = mVarientMap.find(name);
@@ -59,7 +65,7 @@ namespace Render {
 		mVarientMap.clear();
 	}
 
-	rs_pipeline* MaterialTemplate::createVariantPipeline(RenderPass* pass,const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
+	rs_pipeline* MaterialTemplate::createVariantPipeline(RenderPass* pass,const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
 	{
 
 		auto ctx = RenderSystem::instance()->getRenderContext();
@@ -103,6 +109,7 @@ namespace Render {
 		PipelineDesc desc{
 			.type = PipelineType::Graphics,
 			.shaders = modules,
+			.renderState = state,
 			.vertexInputDesc = getInputVertexDesc()
 		};
 

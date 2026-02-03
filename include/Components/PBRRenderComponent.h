@@ -10,7 +10,7 @@ namespace Render {
 		virtual void onAttach() override;
 
 	private:
-		static MaterialTemplate* createPBRMaterial();
+		static MaterialTemplate* createPBRMaterial(GLTFMaterial* material);
 
 	private:
 		MaterialTemplate* mPBRMatTemp = nullptr;

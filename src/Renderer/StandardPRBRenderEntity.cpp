@@ -1,0 +1,171 @@
+#include "Renderer/StandardPRBRenderEntity.h"
+#include "Renderer/RenderSystem.h"
+#include "Renderer/EnginePass.h"
+namespace Render {
+	namespace {
+
+		Name getPBRMaterialName() {
+			return Name("StandardPBR");
+		}
+
+		MaterialTemplate* createPBRMaterial() {
+			std::string PBRShaderVSName = "../shader/StandardPBR.vs";
+			std::string PBRShaderPSName = "../shader/StandardPBR.ps";
+			ShaderStageInfo pbrTemplateInfo{ {ShaderStage::Vertex,PBRShaderVSName }, {ShaderStage::Fragment, PBRShaderPSName } };
+			RenderState normalState{};
+			normalState.depthTestEnable = true;
+			VertexInputDescription VtxIA{
+			};
+
+			uint32_t offset = 0;
+			//Vertex
+			InputAttribute AttVtx{
+			};
+			//POSITION
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float3;
+			AttVtx.location = 0;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 12;
+
+			//Normal
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float3;
+			AttVtx.location = 1;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 12;
+			//Texcoord0
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float2;
+			AttVtx.location = 2;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 8;
+			//Texcoord1
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float2;
+			AttVtx.location = 3;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 8;
+
+			//Color0
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float2;
+			AttVtx.location = 4;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 4;
+			InputBufferBinding binding{};
+			binding.perInstance = false;
+			binding.stride = offset;
+			VtxIA.bindings.push_back(binding);
+			RenderState renderstate{};
+			auto materialTemplateToRet = MaterialTemplateManager::instance()->createMaterialTemplate(getPBRMaterialName(), pbrTemplateInfo,renderstate, VtxIA);
+			if (!materialTemplateToRet)return nullptr;
+			materialTemplateToRet->createVariant(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass), {});
+			return materialTemplateToRet;
+		}
+	}
+
+	Render::MaterialTemplate* StandardPBRRenderEntity::getMaterialTemplate()
+	{
+		if (pbrMaterial == nullptr) {
+			pbrMaterial = MaterialTemplateManager::instance()->getMaterialTemplate(getPBRMaterialName());
+			if (!pbrMaterial) {
+				pbrMaterial = createPBRMaterial();
+				mainPassMaterial = pbrMaterial->getVarient(PassName::MainCameraPass);
+				this->createPass(PassName::MainCameraPass);
+			}
+		}
+		return pbrMaterial;
+	}
+
+	void StandardPBRRenderEntity::updateUniforms(rs_commandbuffer* cmd, Material* pass)
+	{
+		auto renderSys = RenderSystem::instance();
+		renderSys->updateUniformBufferData(pbrDataBindingPos, &pbrData,sizeof(pbrData), mainPass);
+		
+	}
+
+	void StandardPBRRenderEntity::setBaseCol(vec4 col)
+	{
+		pbrData.baseCol = col;
+	}
+
+	Render::vec4 StandardPBRRenderEntity::getBaseCol()
+	{
+		return pbrData.baseCol;
+
+	}
+
+	void StandardPBRRenderEntity::setMetalRoughAO(vec4 v)
+	{
+		pbrData.metalRoughAO = v;
+	}
+
+	Render::vec4 StandardPBRRenderEntity::getMetalRoughAO()
+	{
+		return pbrData.metalRoughAO;
+	}
+
+	void StandardPBRRenderEntity::setEmissive(vec4 col)
+	{
+		pbrData.emissiveFactor = col;
+	}
+
+	Render::vec4 StandardPBRRenderEntity::getEmissive()
+	{
+		return pbrData.emissiveFactor;
+	}
+
+	void StandardPBRRenderEntity::setTexControl(vec4 v)
+	{
+		pbrData.texControl = v;
+	}
+
+	Render::vec4 StandardPBRRenderEntity::getTexControl()
+	{
+		return pbrData.texControl;
+	}
+
+	void StandardPBRRenderEntity::prepareBindingInfo()
+	{
+		RenderSystem::instance()->getBindingPos()
+	}
+
+	void StandardPBRRenderEntity::setBaseColTex(TexturePtr tex) {
+		mBaseColorTex = tex;
+	}
+
+	TexturePtr StandardPBRRenderEntity::getBaseColTex() {
+		return mBaseColorTex;
+	}
+
+	void StandardPBRRenderEntity::setNormalTex(TexturePtr tex) {
+		mNormalTex = tex;
+	}
+
+	TexturePtr StandardPBRRenderEntity::getNormalTex() {
+		return mNormalTex;
+	}
+
+	void StandardPBRRenderEntity::setMetallicRoughnessTex(TexturePtr tex) {
+		mMetallicRoughnessTex = tex;
+	}
+
+	TexturePtr StandardPBRRenderEntity::getMetallicRoughnessTex() {
+		return mMetallicRoughnessTex;
+	}
+
+	void StandardPBRRenderEntity::setAOTex(TexturePtr tex) {
+		mAOTexture = tex;
+	}
+
+	TexturePtr StandardPBRRenderEntity::getAOTex() {
+		return mAOTexture;
+	}
+
+}

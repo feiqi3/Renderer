@@ -44,7 +44,7 @@ namespace Render::Vulkan {
         this->m_pools.resize(maxFrame);
         VkDescriptorPoolSize poolFactor{};
 
-        poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolFactor.descriptorCount = 24;
         this->m_defaultSize.push_back(poolFactor);
 
@@ -255,7 +255,7 @@ namespace Render::Vulkan {
             }
 
             if (descriptorSet->mBindingData[binding].type == UniformType::Count) {
-                descriptorSet->mBindingData[binding].type = UniformType::UniformBuffer;
+                return;
             }
             else if (descriptorSet->mBindingData[binding].type != UniformType::UniformBuffer) {
                 assert(0 && "mismatch layout");
@@ -377,9 +377,17 @@ namespace Render::Vulkan {
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
         }
+
+
         if (descriptorSet->mBindingData[binding].native == buffer->native)return;
 		descriptorSet->mBindingData[binding].native = buffer->native;
 		auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+
+        if (bindingInfo.type != UniformType::ConstantBuffer && bindingInfo.type != UniformType::StorageBuffer 
+            && bindingInfo.type != UniformType::UniformBuffer) {
+            assert(false && "Mis match layout");
+        }
+
 
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;

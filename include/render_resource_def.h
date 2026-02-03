@@ -265,7 +265,7 @@ namespace Render {
     };
 
     enum class UniformType : uint8_t {
-        ConstantBuffer,
+        ConstantBuffer, //A very important convention: those buffer begin with "CBUFFER_" will be marked as ConstantBuffer
         UniformBuffer,
         StorageBuffer,
         StorageImage,
