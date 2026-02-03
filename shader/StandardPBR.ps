@@ -13,6 +13,15 @@ layout(set = 2, binding = 1) uniform UniformBufferObject {
 #define CAMDATA         CameraCommon.camera
 #define LIGHTDATA       SceneCommon.sceneLights
 
+layout(set = 2, binding = 2) uniform texture2D      u_baseColorTex;
+layout(set = 2, binding = 3) uniform sampler        u_baseColorSampler;
+layout(set = 2, binding = 4) uniform texture2D      u_normalTex;
+layout(set = 2, binding = 5) uniform sampler        u_normalSampler;
+layout(set = 2, binding = 6) uniform texture2D      u_metallicRoughnessTex;
+layout(set = 2, binding = 7) uniform sampler        u_metallicRoughnessSampler;
+layout(set = 2, binding = 8) uniform texture2D      u_AOTex;
+layout(set = 2, binding = 9) uniform sampler        u_AOSampler;
+
 layout(location = 0) in vec3 i_worldPos;
 layout(location = 1) in vec3 i_normal;
 layout(location = 2) in vec2 i_texcoord0;
@@ -88,7 +97,7 @@ vec3 PBR_DirectLight(vec3 V, vec3 L, vec3 N, vec3 albedo, float metallic, float 
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
-vec4 PBR_LightCalc(vec3 pos,vec3 V, vec3 N, float roughness, const bool metallic){
+vec4 PBR_LightCalc(vec3 pos,vec3 V, vec3 N, float roughness, const float metallic){
     vec3 col = vec3(0.f,0.f,0.f);
     for(int i = 0;i < (int)LIGHTDATA.sceneLightInfo.x;++i){
         GPULightData light = LIGHTDATA.lights[i];
@@ -114,6 +123,106 @@ vec4 PBR_LightCalc(vec3 pos,vec3 V, vec3 N, float roughness, const bool metallic
     }
     return col;
 }
+vec2 SelectUV(float useUV1)
+{
+    return (useUV1 == 0.0) ? i_texcoord0 : i_texcoord1.xy;
+}
 
-vec4 main(){
+vec3 ApplyNormalMap(vec3 N, vec3 normalSample, float normalScale)
+{
+    vec3 n = normalSample * 2.0 - 1.0;
+    n.xy *= normalScale;
+    return normalize(mix(N, n, normalScale > 0.0 ? 1.0 : 0.0));
+}
+
+vec4 main()
+{
+    // --------------------------------------------------
+    // UV selection (texControl: 0 -> uv0, !=0 -> uv1)
+    // --------------------------------------------------
+    vec2 uvBase = SelectUV(PBRDATA.texControl.x);
+    vec2 uvMR   = SelectUV(PBRDATA.texControl.y);
+    vec2 uvN    = SelectUV(PBRDATA.texControl.z);
+    vec2 uvAO   = SelectUV(PBRDATA.texControl.w);
+
+    // --------------------------------------------------
+    // Base Color
+    // --------------------------------------------------
+    vec4 baseColor = PBRDATA.baseCol;
+    baseColor *= texture(
+        sampler2D(u_baseColorTex, u_baseColorSampler),
+        uvBase
+    );
+
+    vec3 albedo = baseColor.rgb;
+
+    // --------------------------------------------------
+    // Metallic / Roughness
+    // --------------------------------------------------
+    float metallic  = PBRDATA.metalRoughAO.x;
+    float roughness = PBRDATA.metalRoughAO.y;
+
+    vec4 mrSample = texture(
+        sampler2D(u_metallicRoughnessTex, u_metallicRoughnessSampler),
+        uvMR
+    );
+
+    metallic  *= mrSample.b; // metallic
+    roughness *= mrSample.g; // roughness
+
+    metallic  = clamp(metallic, 0.0, 1.0);
+    roughness = clamp(roughness, 0.04, 1.0);
+
+    // --------------------------------------------------
+    // Normal
+    // --------------------------------------------------
+    vec3 N = normalize(i_normal);
+    float normalScale = PBRDATA.metalRoughAO.w;
+
+    vec3 normalSample = texture(
+        sampler2D(u_normalTex, u_normalSampler),
+        uvN
+    ).xyz;
+
+    vec3 n = normalSample * 2.0 - 1.0;
+    n.xy *= normalScale;
+    N = normalize(n);
+
+    // --------------------------------------------------
+    // View vector
+    // --------------------------------------------------
+    vec3 V = normalize(CAMDATA.position.xyz - i_worldPos);
+
+    // --------------------------------------------------
+    // Direct lighting (USING YOUR FUNCTION)
+    // --------------------------------------------------
+    vec3 directLight = PBR_LightCalc(
+        i_worldPos,
+        V,
+        N,
+        roughness,
+        metallic
+    ).rgb;
+
+    // --------------------------------------------------
+    // Ambient Occlusion (ENGINE-LEVEL APPLY)
+    // --------------------------------------------------
+    float ao = PBRDATA.metalRoughAO.z;
+    ao *= texture(
+        sampler2D(u_AOTex, u_AOSampler),
+        uvAO
+    ).r;
+
+    directLight *= ao;
+
+    // --------------------------------------------------
+    // Emissive
+    // --------------------------------------------------
+    vec3 emissive = PBRDATA.emissiveFactor.xyz;
+
+    // --------------------------------------------------
+    // Final
+    // --------------------------------------------------
+    vec3 color = directLight + emissive;
+    return vec4(color, baseColor.a);
 }

@@ -48,9 +48,6 @@ namespace Render {
 		rs_binding_pos normalTexBindingPos;
 		rs_binding_pos normalSamplerBindingPos;
 
-		rs_binding_pos baseColTexBindingPos;
-		rs_binding_pos baseColSamplerBindingPos;
-
 		rs_binding_pos metallicRoughnessTexBindingPos;
 		rs_binding_pos metallicRoughnessSamplerBindingPos;
 
@@ -61,6 +58,10 @@ namespace Render {
 		TexturePtr mNormalTex;
 		TexturePtr mMetallicRoughnessTex;
 		TexturePtr mAOTexture;
+		rs_sampler* mBaseColorSampler;
+		rs_sampler* mNormalSampler;
+		rs_sampler* mMetallicRoughnessSampler;
+		rs_sampler* mAOSampler;
 		MaterialTemplate* pbrMaterial = nullptr;
 		GPUShared::PBRData pbrData;
 		//----------------------//

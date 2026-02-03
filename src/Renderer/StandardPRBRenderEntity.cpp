@@ -86,8 +86,78 @@ namespace Render {
 	void StandardPBRRenderEntity::updateUniforms(rs_commandbuffer* cmd, Material* pass)
 	{
 		auto renderSys = RenderSystem::instance();
-		renderSys->updateUniformBufferData(pbrDataBindingPos, &pbrData,sizeof(pbrData), mainPass);
-		
+		{
+			// 1. PBR Data
+			renderSys->updateUniformBufferData(
+				pbrDataBindingPos,
+				&pbrData,
+				sizeof(pbrData),
+				mainPass
+			);
+
+			// 2. BaseColor
+			if (mBaseColorTex) {
+				renderSys->updateUniform(
+					baseColTexBindingPos,
+					mBaseColorTex->getRsImage(),
+					mainPass
+				);
+			}
+			if (mBaseColorSampler) {
+				renderSys->updateUniform(
+					baseColSamplerBindingPos,
+					mBaseColorSampler,
+					mainPass
+				);
+			}
+
+			// 3. Normal
+			if (mNormalTex) {
+				renderSys->updateUniform(
+					normalTexBindingPos,
+					mNormalTex->getRsImage(),
+					mainPass
+				);
+			}
+			if (mNormalSampler) {
+				renderSys->updateUniform(
+					normalSamplerBindingPos,
+					mNormalSampler,
+					mainPass
+				);
+			}
+
+			// 4. Metallic-Roughness
+			if (mMetallicRoughnessTex) {
+				renderSys->updateUniform(
+					metallicRoughnessTexBindingPos,
+					mMetallicRoughnessTex->getRsImage(),
+					mainPass
+				);
+			}
+			if (mMetallicRoughnessSampler) {
+				renderSys->updateUniform(
+					metallicRoughnessSamplerBindingPos,
+					mMetallicRoughnessSampler,
+					mainPass
+				);
+			}
+
+			if (mAOTexture) {
+				renderSys->updateUniform(
+					AOTexBindingPos,
+					mAOTexture->getRsImage(),
+					mainPass
+				);
+			}
+			if (mAOSampler) {
+				renderSys->updateUniform(
+					AOSamplerBindingPos,
+					mAOSampler,
+					mainPass
+				);
+			}
+		}
 	}
 
 	void StandardPBRRenderEntity::setBaseCol(vec4 col)
@@ -126,14 +196,30 @@ namespace Render {
 		pbrData.texControl = v;
 	}
 
-	Render::vec4 StandardPBRRenderEntity::getTexControl()
+	vec4 StandardPBRRenderEntity::getTexControl()
 	{
 		return pbrData.texControl;
 	}
 
 	void StandardPBRRenderEntity::prepareBindingInfo()
 	{
-		RenderSystem::instance()->getBindingPos()
+		auto getBindingOrFail = [&](std::string_view name, rs_binding_pos& out) -> bool {
+			out = RenderSystem::instance()->getBindingPos(std::string(name).c_str(), mainPassMaterial);
+			if (out == INVALID_BINDING_POS) {
+				assert(false && "binding not found");
+				return false;
+			}
+			return true;
+			};
+		getBindingOrFail("pbrData", pbrDataBindingPos);
+		getBindingOrFail("u_baseColorTex", baseColTexBindingPos);
+		getBindingOrFail("u_baseColorSampler", baseColSamplerBindingPos);
+		getBindingOrFail("u_normalTex", normalTexBindingPos);
+		getBindingOrFail("u_normalSampler", normalSamplerBindingPos);
+		getBindingOrFail("u_metallicRoughnessTex", metallicRoughnessTexBindingPos);
+		getBindingOrFail("u_metallicRoughnessSampler", metallicRoughnessSamplerBindingPos);
+		getBindingOrFail("u_AOTex", AOTexBindingPos);
+		getBindingOrFail("u_AOSampler", AOSamplerBindingPos);
 	}
 
 	void StandardPBRRenderEntity::setBaseColTex(TexturePtr tex) {
