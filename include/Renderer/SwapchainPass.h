@@ -2,6 +2,7 @@
 #define SWAP_CHAIN_PASS_H
 
 #include"RenderPass.h"
+#include "Renderer/MaterialTemplate.h"
 #include "render_resource.h"
 namespace Render {
 
@@ -16,9 +17,7 @@ namespace Render {
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
 
 	private:
-		class RenderEntity* BlitEntity = 0;
-		class MaterialTemplate* BlitMaterial = 0;
-		class MaterialPass* BlitMatVarient = 0;
+		class NormalEntity* BlitEntity = 0;
 		struct rs_sampler* BlitRTSampler = 0;
 		class Pass* BlitPass = 0;
 		rs_drawdata* BlitDrawData = 0;

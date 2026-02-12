@@ -507,6 +507,9 @@ namespace Render{
 	{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
+		if (entity->getMaterial()) {
+			entity->getMaterial()->uploadUniform(pass);
+		}
 		entity->updateUniforms(cmdBuffer,pass->mMaterial);
 		drawIndexed(cmdBuffer, entity, pass);
 	}

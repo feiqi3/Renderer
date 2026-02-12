@@ -1,19 +1,19 @@
 #ifndef OBJECT_ENTITY_H
 #define OBJECT_ENTITY_H
-
 #include "Renderer/RenderEntity.h"
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderPass.h"
 #include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/Texture.h"
 #include "Renderer/MeshResourceManager.h"
+#include"Renderer/MaterialManager.h"
 #include "common/ResourceSystem.h"
 namespace Render {
 
 	class CubeEntity : public RenderEntity {
 	public:
-		MaterialTemplate* getMaterialTemplate() override {
-			return mMaterialTemplate.get();
+		Material* getMaterial() override {
+			return mMaterial.get();
 		}
 
 		~CubeEntity() {
@@ -23,9 +23,9 @@ namespace Render {
 		CubeEntity() {
 		
 			auto cubeMesh = ResourceSystem::instance()->getOrCreateResource<Mesh>(ResourceName::Mesh, Name("Builtin::Cube"));
-			mMaterialTemplate = ResourceSystem::instance()->getResource<MaterialTemplate>(ResourceName::MaterialTemplate, Name("NormalTemplate"));
-			if (!mMaterialTemplate) {
-				mMaterialTemplate = createMaterial();
+			mMaterial = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, Name("NormalMaterial"));
+			if (!mMaterial) {
+				mMaterial = createMaterial();
 			}
 			auto& renderInfo = this->getRenderInfo();
 			renderInfo.bindingBuffers.push_back({});
@@ -44,7 +44,7 @@ namespace Render {
 
 
 	private:
-		MaterialTemplatePtr createMaterial() {
+		MaterialPtr createMaterial() {
 			ShaderStageInfo NomralTemplateInfo{ {ShaderStage::Vertex, "../shader/Normal.vs" }, {ShaderStage::Fragment, "../shader/Normal.ps" } };
 			RenderState normalState{};
 			normalState.depthTestEnable = true;
@@ -83,10 +83,11 @@ namespace Render {
 
 			auto temp =  MaterialTemplateManager::instance()->createMaterialTemplate(Name("NormalTemplate"), NomralTemplateInfo, normalState, VtxIA);
 			temp->createMaterialPass(RenderSystem::instance()->getRenderPass(Name("MainCameraPass")), {});
-			return temp;
+			auto mat = MaterialManager::instance()->createMaterial<Material>(Name("NormalMaterial"),temp);
+			return mat;
 		}
 	private:
-		MaterialTemplatePtr mMaterialTemplate = nullptr;
+		MaterialPtr	mMaterial = nullptr;
 		MaterialPass* mMainPass = 0;
 
 	};

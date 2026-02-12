@@ -4,6 +4,8 @@
 #include <Renderer/RenderSystem.h>
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/MaterialTemplateManager.h"
+#include "Renderer/MaterialManager.h"
+#include "common/ResourceSystem.h"
 namespace Render {
 
 	class NormalEntity :public RenderEntity{
@@ -14,23 +16,21 @@ namespace Render {
 			
 		};
 
-		MaterialTemplate* getMaterialTemplate() override{
-			static bool isFirstInit = true;
-			if (isFirstInit) {
-				isFirstInit = false;
+		Material* getMaterial() override{
+			mMaterial = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, Name("SwapChainMat"));
+			if (!mMaterial) {
+				auto matTempPtr = ResourceSystem::instance()->getResource<MaterialTemplate>(ResourceName::MaterialTemplate, Name("SwapChain"));
 				ShaderStageInfo stageInfo{ {ShaderStage::Vertex,"../shader/Blit.vs"},{ShaderStage::Fragment,"../shader/Blit.ps"} };
 				RenderState state{};
 				state.depthTestEnable = false;
 				VertexInputDescription vtxIA{};
-				this->mMaterial = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"), stageInfo, state, vtxIA);
+				matTempPtr = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"), stageInfo, state, vtxIA);
+				matTempPtr->createMaterialPass(RenderSystem::instance()->getRenderPass(Name("Swapchain")), {});
+				mMaterial = MaterialManager::instance()->createMaterial<Material>(Name("SwapChainMat"), matTempPtr);
 			}
-			else if(mMaterial == nullptr){
-				mMaterial = MaterialTemplateManager::instance()->getMaterialTemplate(Name("SwapChain"));
-			}
-			return mMaterial;
+			return mMaterial.get();
 		}
-	private: 
-		MaterialTemplate* mMaterial = 0;
+		MaterialPtr mMaterial = 0;
 	};
 
 	static PassDesc SwapchainPassDesc{
@@ -62,17 +62,15 @@ namespace Render {
 		auto RenderSys = RenderSystem::instance();
 		RenderSys->destroyRsSampler(BlitRTSampler);
 		delete BlitEntity;
-		MaterialTemplateManager::instance()->destroyMaterialTemplate(BlitMaterial->getName());
 	}
 
 	void SwapchainPass::initBlitData()
 	{
 		BlitEntity = new NormalEntity();
 		BlitEntity->getRenderInfo().idxCount = 6;
-		BlitMaterial = BlitEntity->getMaterialTemplate();
-		BlitMatVarient = BlitMaterial->createMaterialPass(this, {});
-		BlitPass = BlitEntity->createPass(this->getPassName());
 
+		auto BlitMatVarient = BlitEntity->getMaterial()->getMaterialPass(this->getPassName());
+		BlitPass = BlitEntity->createPass(this->getPassName());
 
 		auto RenderSys = RenderSystem::instance();
 		BlitTarget = RenderSys->getBindingPos("u_prevRT", BlitMatVarient);

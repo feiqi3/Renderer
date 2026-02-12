@@ -8,7 +8,7 @@ namespace Render {
 		}
 		mPasses.clear();
 	}
-	MaterialTemplate* RenderEntity::getMaterialTemplate()
+	Material* RenderEntity::getMaterial()
 	{
 		return nullptr;
 	}
@@ -45,9 +45,9 @@ namespace Render {
 		if (this->mPasses.find(passName) != mPasses.end()) {
 			return mPasses[passName];
 		}
-		auto material = this->getMaterialTemplate();
+		auto material = this->getMaterial();
 		if (material) {
-			auto Variant = getMaterialTemplate()->getMaterialPass(passName);
+			auto Variant = getMaterial()->getMaterialPass(passName);
 			if (Variant) {
 				auto pass = new Pass;
 				pass->mDrawData = RenderSystem::instance()->createDrawData();
@@ -72,11 +72,22 @@ namespace Render {
 
 	Pass* RenderEntity::getPass(const Name& passName)
 	{
-		auto itor = this->mPasses.find(passName);
-		if (itor == mPasses.end()) {
+		if (mPasses.size() < 10) {
+			//fast path
+			for (const auto& [name, pass] : mPasses) {
+				if (name == passName) {
+					return pass;
+				}
+			}
 			return nullptr;
 		}
-		return itor->second;
+		else {
+			auto itor = this->mPasses.find(passName);
+			if (itor == mPasses.end()) {
+				return nullptr;
+			}
+			return itor->second;
+		}
 	}
 
 	void RenderEntity::destroyPass(Pass* pass)

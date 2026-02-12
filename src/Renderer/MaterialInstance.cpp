@@ -2,6 +2,37 @@
 #include <assert.h>
 
 namespace Render {
+    const Name& Material::typeName() {
+        static const Name name("Material");
+        return name;
+    }
+    Material::Material(const MaterialTemplatePtr& matTplt)
+    {
+        assert(matTplt.get() != nullptr);
+        m_template = matTplt;
+        mState = ResourceState::Loaded;
+    }
+
+    Material::~Material()
+    {
+        OnUnload();
+    }
+
+    const Name& Material::getTypeName() const {
+        return typeName();
+    }
+
+    ResourceMemory Material::getMemory() const {
+        ResourceMemory mem{ 0, 0 };
+        mem.cpuMemory = (uint32_t)sizeof(*this);
+        mem.cpuMemory += (uint32_t)(mParameterMap.size() * sizeof(std::pair<std::string, _ParameterPair>));
+        return mem;
+    }
+
+    void Material::OnUnload() {
+        mParameterMap.clear();
+        mState = ResourceState::Unloaded;
+    }
 
     std::optional<Material::_ParameterPair&> Render::Material::getParameterInfo(const std::string& paramName)
     {
@@ -13,6 +44,7 @@ namespace Render {
                     _ParameterPair bpair{};
                     bpair.bindingPos = bindingInfoOption->bindingPos;
                     bpair.parameterType = bindingInfoOption->type;
+                    bpair.rawPtr = nullptr;
                     auto ret = this->mParameterMap.insert({ paramName, bpair });
                     return (ret.first)->second;
                 }
@@ -24,46 +56,27 @@ namespace Render {
         return std::nullopt;
     }
 
-    Material::Material(MaterialTemplate* matTplt)
-    {
-		assert(matTplt != nullptr);
-        m_template = matTplt;
-    }
-
-    Material::~Material()
-    {
-    }
-
     void Material::bindParameter(const std::string& paramName, TexturePtr tex)
     {
         auto bpair = this->getParameterInfo(paramName);
         if (bpair.has_value()) {
-            if (bpair->get().parameterType == UniformType::Texture ||
-                bpair->get().parameterType == UniformType::StorageImage ||
-                bpair->get().parameterType == UniformType::InputAttachment) {
-                bpair->get().texture = tex;
-            }
-            else {
-                assert(false && "Parameter type mismatch: Expected a Texture type.");
+            auto& pair = bpair.value();
+            if (pair.parameterType == UniformType::Texture ||
+                pair.parameterType == UniformType::StorageImage ||
+                pair.parameterType == UniformType::InputAttachment) {
+                pair.texture = tex;
             }
         }
     }
 
-    // 绑定 Buffer (StorageBuffer 或 ConstantBuffer)
     void Material::bindParameter(const std::string& paramName, rs_buffer* buffer)
     {
         auto bpair = this->getParameterInfo(paramName);
         if (bpair.has_value()) {
-            UniformType type = bpair->get().parameterType;
-
-            if (type == UniformType::ConstantBuffer || type == UniformType::StorageBuffer) {
-                bpair->get().rawPtr = static_cast<void*>(buffer);
-            }
-            else if (type == UniformType::UniformBuffer) {
-                assert(false && "UniformBuffer is not allowed to be set via Material class.");
-            }
-            else {
-                assert(false && "Parameter type mismatch: Expected a Buffer type.");
+            auto& pair = bpair.value();
+            if (pair.parameterType == UniformType::ConstantBuffer ||
+                pair.parameterType == UniformType::StorageBuffer) {
+                pair.rawPtr = buffer;
             }
         }
     }
@@ -72,11 +85,9 @@ namespace Render {
     {
         auto bpair = this->getParameterInfo(paramName);
         if (bpair.has_value()) {
-            if (bpair->get().parameterType == UniformType::Sampler) {
-                bpair->get().rawPtr = static_cast<void*>(sampler);
-            }
-            else {
-                assert(false && "Parameter type mismatch: Expected a Sampler.");
+            auto& pair = bpair.value();
+            if (pair.parameterType == UniformType::Sampler) {
+                pair.rawPtr = sampler;
             }
         }
     }
@@ -116,5 +127,9 @@ namespace Render {
 
         }
 
+    }
+    MaterialPass* Material::getMaterialPass(const Name& name)
+    {
+        return m_template->getMaterialPass(name);
     }
 }

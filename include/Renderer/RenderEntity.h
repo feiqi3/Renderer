@@ -1,7 +1,8 @@
 #ifndef RENDER_ENTITY_H
 #define RENDER_ENTITY_H
 #include "common/NoCopyable.h"
-#include "MaterialVarient.h"
+#include "Renderer/MaterialVarient.h"
+#include "Renderer/MaterialInstance.h"
 #include <map>
 namespace Render {
 	struct RenderPendingData {
@@ -18,7 +19,7 @@ namespace Render {
 		virtual bool isRenderReady() { return true; }
 		virtual ~RenderEntity() ;
 
-		virtual MaterialTemplate* getMaterialTemplate() = 0;
+		virtual Material* getMaterial() = 0;
 		rs_buffer* getIndexBuffer();
 		IndexType getIndexType()const;
 		void setIndexBuffer(rs_buffer* buffer,IndexType type);
