@@ -1,56 +1,80 @@
 #include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/MaterialTemplate.h"
 #include "Renderer/RenderPass.h"
+#include "function/EngineResourceManager.h"
+#include "common/ResourceSystem.h"
 #include <exception>
 #include <stdexcept>
-
+#include <cassert>
 namespace Render {
 
-	MaterialTemplate* MaterialTemplateManager::createMaterialTemplate(const Name& templateName, const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc)
-	{
-		auto itor = mMaterialTemplates.find(templateName);
-		if (itor != mMaterialTemplates.end()) {
-			assert(0 && "Error: duplicated material");
-			throw std::runtime_error("Error: duplicated material template name");
-			return nullptr;
-		}
-		auto mt = new MaterialTemplate(templateName, shaderInfo, state, inputDesc);
-		this->mMaterialTemplates.insert({ templateName, mt });
-		return mt;
-	}
+    MaterialTemplateManager::MaterialTemplateManager()
+    {
+    }
 
-	MaterialTemplate* MaterialTemplateManager::getMaterialTemplate(const Name& templateName)
-	{
-		auto itor = mMaterialTemplates.find(templateName);
-		if (itor != mMaterialTemplates.end()) {
-			return itor->second;
-		}
-		return nullptr;
-	}
+    MaterialTemplateManager::~MaterialTemplateManager()
+    {
+        clearAll();
+    }
 
-	MaterialTemplateManager::~MaterialTemplateManager()
-	{
-		for (auto& [name, mat] : this->mMaterialTemplates) {
-			delete mat;
-			mat = 0;
-		}
-		mMaterialTemplates.clear();
-	}
+    const Name& MaterialTemplateManager::typeName() const {
+        return MaterialTemplate::typeName();
+    }
 
-	void MaterialTemplateManager::destroyMaterialTemplate(const Name& templateName)
-	{
-		auto itor = mMaterialTemplates.find(templateName);
-		if (itor != mMaterialTemplates.end()) {
-			delete itor->second;
-		}
-		mMaterialTemplates.erase(itor);
-	}
+    MaterialTemplatePtr MaterialTemplateManager::createMaterialTemplate(
+        const Name& templateName,
+        const ShaderStageInfo& shaderInfo,
+        const RenderState& state,
+        const VertexInputDescription& inputDesc)
+    {
+        auto* entry = this->acquire(templateName);
+        if (entry) {
+            assert(0 && "Error: duplicated material template name");
+            throw std::runtime_error("Error: duplicated material template name");
+            return nullptr;
+        }
 
-	void MaterialTemplateManager::broadcastPipelineRebuild(RenderPass* passChanged)
-	{
-		for (auto& [name, mat] : this->mMaterialTemplates) {
-			mat->onRenderPassRTChangedNeedRebuild(passChanged);
-		}
-	}
+        auto mt = new MaterialTemplate(shaderInfo, state, inputDesc);
 
+        auto* newEntry = this->registerResource(
+            templateName,
+            mt,
+            ResourceLifetime::Transient,nullptr
+        );
+
+        if (!newEntry) {
+            delete mt;
+            return nullptr;
+        }
+		return ResourceSystem::instance()->getResource<MaterialTemplate>(MaterialTemplate::typeName(), templateName);
+    }
+
+    MaterialTemplatePtr MaterialTemplateManager::getMaterialTemplate(const Name& templateName) const
+    {
+        return ResourceSystem::instance()->getResource<MaterialTemplate>(typeName(), templateName);
+    }
+
+    MaterialTemplate* MaterialTemplateManager::loadImpl(const Name& id)
+    {
+        throw std::runtime_error("Not implemented");
+        return nullptr;
+    }
+
+    void MaterialTemplateManager::unloadImpl(MaterialTemplate* res)
+    {
+        delete res;
+    }
+
+    void MaterialTemplateManager::broadcastPipelineRebuild(RenderPass* passChanged)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& [name, entry] : m_entries) {
+            if (entry && entry->resource) {
+                auto* mat = static_cast<MaterialTemplate*>(entry->resource);
+                if (mat->IsReady()) {
+                    mat->onRenderPassRTChangedNeedRebuild(passChanged);
+                }
+            }
+        }
+    }
 }

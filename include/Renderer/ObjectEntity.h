@@ -10,23 +10,41 @@
 #include "common/ResourceSystem.h"
 namespace Render {
 
-	class ObjectMaterialTemplateFactory {
+	class CubeEntity : public RenderEntity {
 	public:
-		static ObjectMaterialTemplateFactory* instance() {
-			static ObjectMaterialTemplateFactory Factory;
-			return &Factory;
-		}
-	public:
-		MaterialTemplate* getNormalMaterial() {
-			return mNormalTemplate;
+		MaterialTemplate* getMaterialTemplate() override {
+			return mMaterialTemplate.get();
 		}
 
-		Material* getMainPass() {
-			return mMainPass;
+		~CubeEntity() {
+			auto& renderInfo = this->getRenderInfo();
 		}
+
+		CubeEntity() {
+		
+			auto cubeMesh = ResourceSystem::instance()->getOrCreateResource<Mesh>(ResourceName::Mesh, Name("Builtin::Cube"));
+			mMaterialTemplate = ResourceSystem::instance()->getResource<MaterialTemplate>(ResourceName::MaterialTemplate, Name("NormalTemplate"));
+			if (!mMaterialTemplate) {
+				mMaterialTemplate = createMaterial();
+			}
+			auto& renderInfo = this->getRenderInfo();
+			renderInfo.bindingBuffers.push_back({});
+			auto& binding0 = renderInfo.bindingBuffers[0];
+			binding0.buffer = cubeMesh->getVertexBuffer();
+			binding0.offset = 0;
+
+			renderInfo.indexBuffer = cubeMesh->getIndexBuffer();
+			renderInfo.idxCount = cubeMesh->getIndexCount();
+			renderInfo.indexType = cubeMesh->getIndexType();
+			renderInfo.idxOffset = 0;
+		
+			this->createPass(Name("MainPass"));
+		}
+		virtual void updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass) {};
+
 
 	private:
-		ObjectMaterialTemplateFactory() {
+		MaterialTemplatePtr createMaterial() {
 			ShaderStageInfo NomralTemplateInfo{ {ShaderStage::Vertex, "../shader/Normal.vs" }, {ShaderStage::Fragment, "../shader/Normal.ps" } };
 			RenderState normalState{};
 			normalState.depthTestEnable = true;
@@ -63,45 +81,14 @@ namespace Render {
 			binding.stride = offset;
 			VtxIA.bindings.push_back(binding);
 
-			mNormalTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("NormalTemplate"),NomralTemplateInfo, normalState, VtxIA);
-			mMainPass = mNormalTemplate->createVariant(RenderSystem::instance()->getRenderPass(Name("MainCameraPass")), {});
+			auto temp =  MaterialTemplateManager::instance()->createMaterialTemplate(Name("NormalTemplate"), NomralTemplateInfo, normalState, VtxIA);
+			temp->createMaterialPass(RenderSystem::instance()->getRenderPass(Name("MainCameraPass")), {});
+			return temp;
 		}
-		MaterialTemplate* mNormalTemplate = 0;
-		Material* mMainPass = 0;
-	};
-
-
-	class CubeEntity : public RenderEntity {
-	public:
-		MaterialTemplate* getMaterialTemplate() override {
-			return ObjectMaterialTemplateFactory::instance()->getNormalMaterial();
-		}
-
-		~CubeEntity() {
-			auto& renderInfo = this->getRenderInfo();
-		}
-
-		CubeEntity() {
-		
-			auto cubeMesh = ResourceSystem::instance()->getOrCreateResource<Mesh>(ResourceName::Mesh, Name("Builtin::Cube"));
-
-			auto& renderInfo = this->getRenderInfo();
-			renderInfo.bindingBuffers.push_back({});
-			auto& binding0 = renderInfo.bindingBuffers[0];
-			binding0.buffer = cubeMesh->getVertexBuffer();
-			binding0.offset = 0;
-
-			renderInfo.indexBuffer = cubeMesh->getIndexBuffer();
-			renderInfo.idxCount = cubeMesh->getIndexCount();
-			renderInfo.indexType = cubeMesh->getIndexType();
-			renderInfo.idxOffset = 0;
-		
-			this->createPass(Name("MainPass"));
-		}
-		virtual void updateUniforms(rs_commandbuffer* cmd, Material* pass) {};
-
-
 	private:
+		MaterialTemplatePtr mMaterialTemplate = nullptr;
+		MaterialPass* mMainPass = 0;
+
 	};
 };
 

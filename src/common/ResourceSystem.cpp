@@ -1,6 +1,13 @@
 #include "common/ResourceSystem.h"
 #include "common/ResourceManager.h"
 namespace Render {
+	ResourceSystem::~ResourceSystem()
+	{
+		for (auto& [name, sys] : mManagers) {
+			sys->clearAll();
+		}
+	}
+
 
 	void ResourceSystem::registerSystem(std::unique_ptr<IResourceManager> manager)
 	{
@@ -16,6 +23,7 @@ namespace Render {
 	{
 		auto itor = mManagers.find(resourceType);
 		if (itor != mManagers.end()) {
+			itor->second->clearAll();
 			mManagers.erase(resourceType);
 		}
 	}

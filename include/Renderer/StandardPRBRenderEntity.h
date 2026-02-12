@@ -9,7 +9,7 @@ namespace Render {
 	public:
 		MaterialTemplate* getMaterialTemplate();
 
-		void updateUniforms(rs_commandbuffer* cmd, Material* pass);
+		void updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass);
 
 		void setBaseColTex(TexturePtr tex);
 		TexturePtr getBaseColTex();
@@ -38,7 +38,7 @@ namespace Render {
 	private:
 		void prepareBindingInfo();
 	private:
-		Material* mainPassMaterial;
+		MaterialPass* mainPassMaterial;
 		Pass*	  mainPass;
 		//----------------------//
 		rs_binding_pos pbrDataBindingPos;
@@ -62,7 +62,7 @@ namespace Render {
 		rs_sampler* mNormalSampler;
 		rs_sampler* mMetallicRoughnessSampler;
 		rs_sampler* mAOSampler;
-		MaterialTemplate* pbrMaterial = nullptr;
+		MaterialTemplatePtr pbrMaterial = nullptr;
 		GPUShared::PBRData pbrData;
 		//----------------------//
 	};

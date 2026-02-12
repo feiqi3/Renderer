@@ -14,7 +14,7 @@ namespace Render {
 	class ConstShaderDataManagerPrivate {
 	public:
 		MaterialTemplate* VirtualCameraTemplate = nullptr;
-		Material* MainPassVirtualMaterial = nullptr;
+		MaterialPass* MainPassVirtualMaterial = nullptr;
 		rs_binding_pos CameraCommonDataBindingPos;
 		rs_binding_pos  SceneCommonDataBindingPos;
 	};
@@ -44,7 +44,7 @@ namespace Render {
 		//1. create a pipeline 
 		auto pass = pSys->getRenderPass(Name("VirtualRenderPass"));
 		mDp->VirtualCameraTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("VirtualCamera"), VirtualCameraShaderStageInfo, renderState, vtxIA);
-		mDp->MainPassVirtualMaterial = mDp->VirtualCameraTemplate->createVariant(pass, {});
+		mDp->MainPassVirtualMaterial = mDp->VirtualCameraTemplate->createMaterialPass(pass, {});
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassVirtualMaterial);
 		mDp->SceneCommonDataBindingPos  = pSys->getBindingPos("SceneCommon" , mDp->MainPassVirtualMaterial);
 		assert(mDp->CameraCommonDataBindingPos != INVALID_BINDING_POS);

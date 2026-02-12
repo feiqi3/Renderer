@@ -416,7 +416,7 @@ namespace Render{
 		getRenderPassManager()->onFrameBegin();
 	}
 
-	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, Material* material)
+	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)
 	{
 		auto data = material->getBindingInfoByName(bindingName);
 		if (data.has_value()) {

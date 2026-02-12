@@ -9,49 +9,82 @@
 #include <cassert>
 namespace Render {
 
+	MaterialTemplate::MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc)
+		: mRenderState(state), mShaderInfo(shaderInfo), mInputDesc(inputDesc)
+	{
+		mState = ResourceState::Loaded;
+	}
+
+	const Name& MaterialTemplate::typeName()
+	{
+		static const Name typeName("MaterialTemplate");
+		return typeName;
+	}
+	const Name& MaterialTemplate::getTypeName() const {
+		return typeName();
+	}
+
+	ResourceMemory MaterialTemplate::getMemory() const {
+		//A rought count of memory usage
+		ResourceMemory mem{ 0, 0 };
+		mem.cpuMemory = (uint32_t)sizeof(*this);
+		mem.cpuMemory += this->mMaterialPassMap.size() * sizeof(MaterialPass);
+
+		return mem;
+	}
+
+	void MaterialTemplate::OnUnload() {
+		for (auto&& [name, mat] : mMaterialPassMap) {
+			destroyMaterialPass(mat);
+		}
+		mMaterialPassMap.clear();
+		mState = ResourceState::Unloaded;
+	}
+
 	void MaterialTemplate::onRenderPassRTChangedNeedRebuild(RenderPass* pass)
 	{
 		if (!pass)return;
 
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		//Rebuild all variant with target pass.
-		for (auto&& [name, matVariant] : this->mVarientMap) {
+		for (auto&& [name, matVariant] : this->mMaterialPassMap) {
 			if (matVariant->getRenderPass() == pass) {
 				//1. destroy old pipeline.
 				auto pipeline = (Vulkan::rs_pipeline_vk*)matVariant->getRsPipeline();
+				RenderState oldstate = pipeline->renderState;
 				Vulkan::destroyRsPipeline(ctx, pipeline);
-				matVariant->mRsPipeline = createVariantPipeline(pass, matVariant->getShaderStageInfo());
+				matVariant->mRsPipeline = createVariantPipeline(pass, matVariant->getShaderStageInfo(), oldstate);
 			}
 		}
 
 
 	}
 
-	Material* MaterialTemplate::createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
+	MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
 	{
-		return createVariant(pass, shaderMarco, mRenderState);
+		return createMaterialPass(pass, shaderMarco, mRenderState);
 	}
 
-	Render::Material* MaterialTemplate::createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
+	Render::MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 
-		auto itor = mVarientMap.find(pass->getPassName());
-		if (itor != mVarientMap.end()) {
-			destroyVarient(itor->second);
+		auto itor = mMaterialPassMap.find(pass->getPassName());
+		if (itor != mMaterialPassMap.end()) {
+			destroyMaterialPass(itor->second);
 		}
 		auto pipeline = createVariantPipeline(pass, shaderMarco, state);
-		Material* mat = new Material(pass, this, pipeline, shaderMarco);
+		MaterialPass* mat = new MaterialPass(pass, this, pipeline, shaderMarco);
 
-		mVarientMap[pass->getPassName()] = mat;
+		mMaterialPassMap[pass->getPassName()] = mat;
 
 		return mat;
 	}
 
-	Material* MaterialTemplate::getVarient(const Name& name)
+	MaterialPass* MaterialTemplate::getMaterialPass(const Name& name)
 	{
-		auto itor = mVarientMap.find(name);
-		if (itor != mVarientMap.end()) {
+		auto itor = mMaterialPassMap.find(name);
+		if (itor != mMaterialPassMap.end()) {
 			return itor->second;
 		}
 
@@ -59,10 +92,7 @@ namespace Render {
 	}
 	MaterialTemplate::~MaterialTemplate()
 	{
-		for (auto& [name, varient] : mVarientMap) {
-			destroyVarient(varient);
-		}
-		mVarientMap.clear();
+		OnUnload();
 	}
 
 	rs_pipeline* MaterialTemplate::createVariantPipeline(RenderPass* pass,const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
@@ -122,7 +152,7 @@ namespace Render {
 
 	}
 
-	void MaterialTemplate::destroyVarient(Material* mat)
+	void MaterialTemplate::destroyMaterialPass(MaterialPass* mat)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		auto pipeline = (Vulkan::rs_pipeline_vk*)mat->getRsPipeline();

@@ -8,7 +8,7 @@ namespace Render {
 			return Name("StandardPBR");
 		}
 
-		MaterialTemplate* createPBRMaterial() {
+		MaterialTemplatePtr createPBRMaterial() {
 			std::string PBRShaderVSName = "../shader/StandardPBR.vs";
 			std::string PBRShaderPSName = "../shader/StandardPBR.ps";
 			ShaderStageInfo pbrTemplateInfo{ {ShaderStage::Vertex,PBRShaderVSName }, {ShaderStage::Fragment, PBRShaderPSName } };
@@ -65,25 +65,25 @@ namespace Render {
 			RenderState renderstate{};
 			auto materialTemplateToRet = MaterialTemplateManager::instance()->createMaterialTemplate(getPBRMaterialName(), pbrTemplateInfo,renderstate, VtxIA);
 			if (!materialTemplateToRet)return nullptr;
-			materialTemplateToRet->createVariant(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass), {});
+			materialTemplateToRet->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass), {});
 			return materialTemplateToRet;
 		}
 	}
 
-	Render::MaterialTemplate* StandardPBRRenderEntity::getMaterialTemplate()
+	MaterialTemplate* StandardPBRRenderEntity::getMaterialTemplate()
 	{
 		if (pbrMaterial == nullptr) {
 			pbrMaterial = MaterialTemplateManager::instance()->getMaterialTemplate(getPBRMaterialName());
 			if (!pbrMaterial) {
 				pbrMaterial = createPBRMaterial();
-				mainPassMaterial = pbrMaterial->getVarient(PassName::MainCameraPass);
+				mainPassMaterial = pbrMaterial->getMaterialPass(PassName::MainCameraPass);
 				this->createPass(PassName::MainCameraPass);
 			}
 		}
-		return pbrMaterial;
+		return pbrMaterial.get();
 	}
 
-	void StandardPBRRenderEntity::updateUniforms(rs_commandbuffer* cmd, Material* pass)
+	void StandardPBRRenderEntity::updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass)
 	{
 		auto renderSys = RenderSystem::instance();
 		{

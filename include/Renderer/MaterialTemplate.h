@@ -1,40 +1,53 @@
 #ifndef MATERIAL_TEMPLATE_H
 #define MATERIAL_TEMPLATE_H
+
 #include <string>
 #include <vector>
 #include <map>
 #include "common/Name.h"
 #include "render_resource_createinfo.h"
+#include "render_resource.h"
+#include "common/ResourceHandler.h"
 namespace Render {
-	class Material;
-	class RenderPass;
-	struct rs_pipeline;
-	class MaterialTemplate {
-	public:
-		MaterialTemplate(const Name& name, const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc):mName(name),mRenderState(state),mShaderInfo(shaderInfo), mInputDesc(inputDesc){
-		}
-		const RenderState& getRenderState()const { return mRenderState; }
-		const ShaderStageInfo& getShaderStageInfo()const { return mShaderInfo; }
-		const VertexInputDescription& getInputVertexDesc()const {
-			return mInputDesc;
-		}
-		virtual void onRenderPassRTChangedNeedRebuild(RenderPass* pass);
-		Material* createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco);
-		Material* createVariant(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco,const RenderState& state);
-		Material* getVarient(const Name& passName);
-		const Name& getName()const { return mName; }
-	private:
-		rs_pipeline* createVariantPipeline(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco,const RenderState& state);
-		void destroyVarient(Material* material);
-		~MaterialTemplate();
-	private:
-		friend class MaterialTemplateManager;
-		Name mName;
-		std::map<Name, Material*> mVarientMap;
-		RenderState mRenderState;
-		ShaderStageInfo mShaderInfo;
-		VertexInputDescription mInputDesc;
-	};
-}
 
+    class MaterialPass;
+    class RenderPass;
+    struct rs_pipeline;
+
+    class MaterialTemplate : public IResource {
+    public:
+        MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc);
+        virtual ~MaterialTemplate();
+
+        static const Name& typeName();
+        virtual const Name& getTypeName() const override;
+        virtual ResourceMemory getMemory() const override;
+        virtual void OnUnload() override; 
+
+        const RenderState& getRenderState()const { return mRenderState; }
+        const ShaderStageInfo& getShaderStageInfo()const { return mShaderInfo; }
+        const VertexInputDescription& getInputVertexDesc()const { return mInputDesc; }
+
+        virtual void onRenderPassRTChangedNeedRebuild(RenderPass* pass);
+
+        MaterialPass* createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco);
+        MaterialPass* createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state);
+        MaterialPass* getMaterialPass(const Name& passName);
+        inline const std::map<Name, MaterialPass*>& getMaterialMap()const {
+            return mMaterialPassMap;
+        }
+
+    private:
+        rs_pipeline* createVariantPipeline(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state);
+        void destroyMaterialPass(MaterialPass* material);
+
+    private:
+        friend class MaterialTemplateManager;
+        RenderState mRenderState;
+        ShaderStageInfo mShaderInfo;
+        VertexInputDescription mInputDesc;
+        std::map<Name, MaterialPass*> mMaterialPassMap;
+    };
+	using MaterialTemplatePtr = ResourceHandle<MaterialTemplate>;
+}
 #endif

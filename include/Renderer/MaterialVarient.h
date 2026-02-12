@@ -7,7 +7,7 @@
 
 namespace Render {
 	class RenderPass;
-	class Material {
+	class MaterialPass {
 	public:
 		inline bool isValid()const {
 			return mRsPipeline && mRenderPass;
@@ -32,7 +32,7 @@ namespace Render {
 		}
 
 	private:
-		Material(RenderPass* renderpass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const ShaderStageInfo& stageInfo);
+		MaterialPass(RenderPass* renderpass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const ShaderStageInfo& stageInfo);
 	private:
 		friend class MaterialTemplate;
 		RenderPass* mRenderPass;
@@ -44,7 +44,7 @@ namespace Render {
 
 	class Pass {
 	public:
-		Material* mMaterial;
+		MaterialPass* mMaterial;
 		rs_drawdata* mDrawData;
 	};
 

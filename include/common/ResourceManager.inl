@@ -11,6 +11,7 @@ namespace Render {
 	template<typename T>
 	ResourceEntry* ResourceManager<T>::registerResource(const Name& id, IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor) {
 		const Name& tarName = resource->getTypeName();
+		ResourceEntry* ret = nullptr;
 		if (tarName != this->typeName()) {
 			assert(0);
 			throw std::runtime_error("Resource Type Error");
@@ -27,10 +28,13 @@ namespace Render {
 			entry->refCount = 1;
 			entry->lifeTimeCtrl = lifeTimeCtr;
 			entry->deletor = deletor;
-			auto ret = entry.get();
+			ret = entry.get();
 			this->m_entries.insert({ id, std::move(entry) });
-			return ret;
 		}
+		if (ret) {
+			ret->resource->OnLoaded();
+		}
+		return ret;
 	}
 
 	template<typename T>
@@ -52,7 +56,6 @@ namespace Render {
 	ResourceEntry* ResourceManager<T>::create(const Name& name, ResourceLifetime lifeTimeCtr) {
 		T* res = loadImpl(name);
 		if (!res) return nullptr;
-
 		bool needRelease = false;
 
 		ResourceEntry* entry = nullptr;
@@ -78,6 +81,9 @@ namespace Render {
 
 		if (needRelease) {
 			unloadImpl(res);
+		}
+		else {
+			res->OnLoaded();
 		}
 		return entry;
 	}
@@ -106,6 +112,7 @@ namespace Render {
 			release(name);
 		}
 		else {
+			res->OnUnload();
 			if (deletor != nullptr) {
 				deletor(name, res);
 			}
@@ -157,6 +164,7 @@ namespace Render {
 			}
 		}
 		if (needDelete) {
+			res->OnUnload();
 			if (deletor) {
 				deletor(id, res);
 			}
@@ -170,6 +178,31 @@ namespace Render {
 	inline const Name& ResourceManager<T>::getDefaultResourceName() const
 	{
 		return Name::Empty();
+	}
+
+	template<typename T>
+	inline void ResourceManager<T>::clearAll()
+	{
+		std::vector<std::unique_ptr<ResourceEntry>> resourcesToUnload;
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			for (auto& [name, entryPtr] : m_entries) {
+				auto res = entryPtr->resource;
+				resourcesToUnload.push_back(std::move(entryPtr));
+			}
+			m_entries.clear();
+		}
+		for (int i = 0; i < resourcesToUnload.size(); ++i) {
+			auto& entry = resourcesToUnload[i];
+			auto res = entry->resource;
+			res->OnUnload();
+			if (entry->deletor) {
+				entry->deletor(entry->resourceName, res);
+			}
+			else {
+				unloadImpl(static_cast<T*>(res));
+			}
+		}
 	}
 
 	template<typename T>

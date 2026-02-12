@@ -119,7 +119,6 @@ namespace Render {
 
 		inline size_t getSubMeshCount() const { return mSubMeshes.size(); }
 		inline const SubMesh& getSubMesh(size_t i) const { return mSubMeshes[i]; }
-		const SubMesh& getSubMeshByName(const std::string& name) const;
 
 		inline u32 getVertexCount() const { return mVertexCount; }
 		inline u32 getVertexByteSize() const { return mVertexByteSize; }

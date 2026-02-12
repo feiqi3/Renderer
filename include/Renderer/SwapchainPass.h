@@ -18,7 +18,7 @@ namespace Render {
 	private:
 		class RenderEntity* BlitEntity = 0;
 		class MaterialTemplate* BlitMaterial = 0;
-		class Material* BlitMatVarient = 0;
+		class MaterialPass* BlitMatVarient = 0;
 		struct rs_sampler* BlitRTSampler = 0;
 		class Pass* BlitPass = 0;
 		rs_drawdata* BlitDrawData = 0;

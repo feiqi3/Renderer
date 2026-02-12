@@ -1,6 +1,6 @@
 #include "function/EngineResourceManager.h"
 #include "common/ResourceSystem.h"
-
+#include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/MeshResourceManager.h"
 namespace Render {
@@ -16,6 +16,9 @@ namespace Render {
 			auto MeshManager = std::make_unique<MeshResourceManager>();
 			sRegisteredResourceName.push_back(MeshManager->typeName());
 			resSystem->registerSystem(std::move(MeshManager));
+			auto MatTempManager = std::make_unique<MaterialTemplateManager>();
+			sRegisteredResourceName.push_back(MatTempManager->typeName());
+			resSystem->registerSystem(std::move(MatTempManager));
 		}
 	}
 

@@ -15,7 +15,7 @@ namespace Render {
 	enum class ResourceLifetime : u8 {
 		Transient,
 		Persistent,     // Do not destroy when ref count == 0
-		Manual          // Can only be destroyed manually
+		Manual          // Can only be destroyed manually, or when resource manager is destroyed
 	};
 
 	enum class ResourceState
@@ -38,7 +38,7 @@ namespace Render {
 	// ==========================================
 	class IResource {
 	public:
-		inline ResourceState GetState() const { return mState; } // 保持 inline 以优化性能
+		inline ResourceState GetState() const { return mState; }
 		inline virtual bool IsReady() const { return mState == ResourceState::Loaded; }
 
 		virtual const Name& getTypeName() const = 0;
@@ -81,7 +81,7 @@ namespace Render {
 		virtual ResourceEntry* acquire(const Name& id) = 0;
 		virtual void release(const Name& id) = 0;
 		virtual const Name& getDefaultResourceName()const = 0;
-
+		virtual void clearAll() = 0;
 		friend class ResourceSystem;
 	};
 
@@ -101,7 +101,7 @@ namespace Render {
 		virtual ResourceEntry* acquireOrCreate(const Name& name) override;
 		virtual void release(const Name& id) override;
 		virtual const Name& getDefaultResourceName()const override;
-
+		virtual void clearAll() override;
 		inline virtual void createNecessaryPersistenceResources() override {};
 
 		// Debug helper
@@ -111,7 +111,7 @@ namespace Render {
 		virtual T* loadImpl(const Name& id) = 0;
 		virtual void unloadImpl(T* /*resource*/) = 0;
 
-	private:
+	protected:
 		std::mutex m_mutex;
 		std::map<Name, std::unique_ptr<ResourceEntry>> m_entries;
 	};

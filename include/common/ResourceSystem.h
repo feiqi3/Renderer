@@ -9,6 +9,8 @@ namespace Render {
 	class IResourceManager;
 	class ResourceSystem : public Singleton<ResourceSystem> {
 	public:
+		~ResourceSystem();
+
 		void registerSystem(std::unique_ptr<IResourceManager> manager);
 		void unregisterSystem(const Name& resourceType);
 		IResourceManager* getResourceManager(const Name& name);

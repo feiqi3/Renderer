@@ -10,7 +10,7 @@ namespace Render {
 	public:
 		NormalEntity() {
 		}
-		virtual void updateUniforms(rs_commandbuffer* cmd, Material* pass) {
+		virtual void updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass) {
 			
 		};
 
@@ -70,7 +70,7 @@ namespace Render {
 		BlitEntity = new NormalEntity();
 		BlitEntity->getRenderInfo().idxCount = 6;
 		BlitMaterial = BlitEntity->getMaterialTemplate();
-		BlitMatVarient = BlitMaterial->createVariant(this, {});
+		BlitMatVarient = BlitMaterial->createMaterialPass(this, {});
 		BlitPass = BlitEntity->createPass(this->getPassName());
 
 
