@@ -1,8 +1,9 @@
 #ifndef RENDER_ENTITY_H
 #define RENDER_ENTITY_H
+#include "render_resource_def.h"
+#include "render_resource_createinfo.h"
 #include "common/NoCopyable.h"
-#include "Renderer/MaterialVarient.h"
-#include "Renderer/MaterialInstance.h"
+#include "common/Name.h"
 #include <map>
 namespace Render {
 	struct RenderPendingData {
@@ -14,6 +15,11 @@ namespace Render {
 		uint32_t size = 0;
 	};
 	class Pass;
+	class MaterialPass;
+	class Material;
+	struct rs_drawdata;
+	struct rs_buffer;
+	struct rs_commandbuffer;
 	class RenderEntity : Common::NonCopyable{
 	public:
 		virtual bool isRenderReady() { return true; }

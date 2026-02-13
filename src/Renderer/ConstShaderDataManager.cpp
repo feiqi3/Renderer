@@ -13,7 +13,7 @@
 namespace Render {
 	class ConstShaderDataManagerPrivate {
 	public:
-		MaterialTemplate* VirtualCameraTemplate = nullptr;
+		MaterialTemplatePtr VirtualCameraTemplate = nullptr;
 		MaterialPass* MainPassVirtualMaterial = nullptr;
 		rs_binding_pos CameraCommonDataBindingPos;
 		rs_binding_pos  SceneCommonDataBindingPos;

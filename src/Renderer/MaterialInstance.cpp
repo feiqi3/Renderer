@@ -34,7 +34,11 @@ namespace Render {
         mState = ResourceState::Unloaded;
     }
 
-    std::optional<Material::_ParameterPair&> Render::Material::getParameterInfo(const std::string& paramName)
+    void Material::OnUpdateParam()
+    {
+    }
+
+    std::optional<Material::_ParameterPair*> Render::Material::getParameterInfo(const std::string& paramName)
     {
         auto itor = mParameterMap.find(paramName);
         if (itor == mParameterMap.end()) {
@@ -46,12 +50,12 @@ namespace Render {
                     bpair.parameterType = bindingInfoOption->type;
                     bpair.rawPtr = nullptr;
                     auto ret = this->mParameterMap.insert({ paramName, bpair });
-                    return (ret.first)->second;
+                    return &(ret.first)->second;
                 }
             }
         }
         else {
-            return itor->second;
+            return &itor->second;
         }
         return std::nullopt;
     }
@@ -60,11 +64,11 @@ namespace Render {
     {
         auto bpair = this->getParameterInfo(paramName);
         if (bpair.has_value()) {
-            auto& pair = bpair.value();
+            auto& pair = *bpair.value();
             if (pair.parameterType == UniformType::Texture ||
                 pair.parameterType == UniformType::StorageImage ||
                 pair.parameterType == UniformType::InputAttachment) {
-                pair.texture = tex;
+                pair.var = tex;
             }
         }
     }
@@ -73,7 +77,7 @@ namespace Render {
     {
         auto bpair = this->getParameterInfo(paramName);
         if (bpair.has_value()) {
-            auto& pair = bpair.value();
+            auto& pair = *bpair.value();
             if (pair.parameterType == UniformType::ConstantBuffer ||
                 pair.parameterType == UniformType::StorageBuffer) {
                 pair.rawPtr = buffer;
@@ -81,13 +85,13 @@ namespace Render {
         }
     }
 
-    void Material::bindParameter(const std::string& paramName, rs_sampler* sampler)
+    void Material::bindParameter(const std::string& paramName, SamplerPtr sampler)
     {
         auto bpair = this->getParameterInfo(paramName);
         if (bpair.has_value()) {
-            auto& pair = bpair.value();
+            auto& pair = *bpair.value();
             if (pair.parameterType == UniformType::Sampler) {
-                pair.rawPtr = sampler;
+                pair.var = sampler;
             }
         }
     }
@@ -95,14 +99,14 @@ namespace Render {
     {
 
         for (auto& [name, bpair] : mParameterMap) {
-            if (bpair.rawPtr == nullptr && bpair.rawPtr == nullptr) {
+            if (bpair.rawPtr == nullptr && !bpair.var.hasResource()) {
                 continue;
             }
             auto sys = RenderSystem::instance();
             switch (bpair.parameterType) {
             case UniformType::StorageBuffer:
             case UniformType::ConstantBuffer:
-                sys->updateUniform(bpair.bindingPos, (rs_sampler*)bpair.rawPtr, pass);
+                sys->updateUniform(bpair.bindingPos, (rs_buffer*)bpair.rawPtr, pass);
                 break;
 
             case UniformType::UniformBuffer:
@@ -112,11 +116,11 @@ namespace Render {
             case UniformType::StorageImage:
             case UniformType::Texture:
             case UniformType::InputAttachment:
-                sys->updateUniform(bpair.bindingPos, bpair.texture->getRsImage(), pass);
+                sys->updateUniform(bpair.bindingPos, bpair.var.getTexture()->getRsImage(), pass);
                 break;
 
             case UniformType::Sampler:
-                sys->updateUniform(bpair.bindingPos, (rs_sampler*)bpair.rawPtr, pass);
+                sys->updateUniform(bpair.bindingPos, bpair.var.getSampler()->getRsSampler(), pass);
                 break;
 
             case UniformType::Count:

@@ -4,9 +4,9 @@
 
 layout(set = 2, binding = 1) uniform UniformBufferObject {
     PBRData pbrData
-} pbrData;
+} CBUFFER_pbrData;
 
-#define PBRDATA         pbrData.pbrData
+#define PBRDATA         CBUFFER_pbrData.pbrData
 #define CAMDATA         CameraCommon.camera
 #define LIGHTDATA       SceneCommon.sceneLights
 

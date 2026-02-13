@@ -3,14 +3,15 @@
 
 #include "function/Component.h"
 #include "Renderer/GltfLoader.h"
+#include "Renderer/MaterialInstance.h"
 namespace Render {
 	class MaterialTemplate;
 	class PBRRenderComponent : public Component{
 	public:
 		virtual void onAttach() override;
+		static MaterialPtr createPBRMaterial(GLTFMaterial* material);
 
 	private:
-		static MaterialTemplate* createPBRMaterial(GLTFMaterial* material);
 
 	private:
 		MaterialTemplate* mPBRMatTemp = nullptr;

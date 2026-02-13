@@ -15,6 +15,7 @@
 #include "Renderer/ConstShaderDataManager.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "common/ResourceSystem.h"
+#include "Renderer/MaterialInstance.h"
 #include <set>
 namespace Render{
 
@@ -508,6 +509,7 @@ namespace Render{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
 		if (entity->getMaterial()) {
+			entity->getMaterial()->OnUpdateParam();
 			entity->getMaterial()->uploadUniform(pass);
 		}
 		entity->updateUniforms(cmdBuffer,pass->mMaterial);

@@ -1,5 +1,6 @@
 #include "Renderer/RenderEntity.h"
 #include "Renderer/RenderSystem.h"
+#include "Renderer/MaterialInstance.h"
 namespace Render {
 	RenderEntity::~RenderEntity()
 	{

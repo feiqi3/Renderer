@@ -1,10 +1,12 @@
 #ifndef _COMMON_MATH_H_
 #define _COMMON_MATH_H_
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include "glm/matrix.hpp"
 #include "glm/ext.hpp"
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#undef GLM_ENABLE_EXPERIMENTAL
 namespace Render {
 	using vec2 = glm::vec2;
 	using vec3 = glm::vec3;
@@ -72,6 +74,10 @@ namespace Render {
 	inline auto mix(const auto& a, const auto& b, float t) { return glm::mix(a, b, t); }
 	inline auto clamp(const auto& v, const auto& min, const auto& max) { return glm::clamp(v, min, max); }
 	inline auto smoothstep(float edge0, float edge1, float x) { return glm::smoothstep(edge0, edge1, x); }
+
+	inline auto fromEulerAngles(const vec3& angles) {
+		return glm::quat(angles);
+	}
 }
 
 #endif

@@ -31,7 +31,7 @@ namespace Render {
 		static float timeTotal = 0.;
 		timeTotal += deltatime;
 		vec3 cubeBTranslate = vec3(0, std::sin(timeTotal), 1.);
-		auto pass = mCube->getMaterialTemplate()->getMaterialPass(PassName::MainCameraPass);
+		auto pass = mCube->getMaterial()->getMaterialPass(PassName::MainCameraPass);
 		auto texturePos = RenderSystem::instance()->getBindingPos("BoxTex", pass);
 		auto samplerPos = RenderSystem::instance()->getBindingPos("BoxSampler", pass);
 		auto bindingPos = RenderSystem::instance()->getBindingPos("ObjectCommon", pass);

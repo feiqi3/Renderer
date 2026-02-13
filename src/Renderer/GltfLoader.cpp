@@ -4,6 +4,14 @@
 #include <iostream>
 #include "Renderer/ModelVertex.h"
 #include "Renderer/Mesh.h"
+#include "function/Scene.h"
+#include "function/Object.h"
+#include "Components/PBRRenderComponent.h"
+#include "Renderer/Materials/PBRMaterial.h"
+#include "Renderer/MaterialTemplateManager.h"
+#include "common/ResourceSystem.h"
+#include "Renderer/MaterialManager.h"
+#include "Renderer/SamplerResourceManager.h"
 #include <vector>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -217,6 +225,83 @@ namespace {
         }
         default:
             return 0;
+        }
+    }
+
+    Render::MaterialTemplatePtr getPBRMaterialTemplate(Render::GLTFMaterial* material) {
+        using namespace Render;
+        auto materialTemplateMgr = MaterialTemplateManager::instance();
+        std::string materialName = "PBRMaterialTemplate";
+        std::string vsMarco = "";
+        std::string psMarco = "";
+        switch (material->alphaMode) {
+            case GLTFAlphaMode::Opaque:
+                materialName += "_Opaque";
+				break;
+            case GLTFAlphaMode::Mask:
+				materialName += "_Mask";
+                psMarco += "#define ALPHA_TEST\n";
+                break;
+            case GLTFAlphaMode::Blend:
+				materialName += "_Blend";
+                psMarco += "#define ALPHA_BLEND\n";
+                break;
+        }
+        Name tpltName = Name(materialName);
+		auto pbrTplt =  materialTemplateMgr->getMaterialTemplate(tpltName);
+        if (!pbrTplt) {
+            //Try create one
+            RenderState state{};
+            if (material->alphaMode == GLTFAlphaMode::Blend) {
+                BlendState glassBlendForMainRT;
+
+                glassBlendForMainRT.blendEnable = true;
+
+                glassBlendForMainRT.srcColorBlend = BlendFactor::SrcAlpha;        
+                glassBlendForMainRT.dstColorBlend = BlendFactor::OneMinusSrcAlpha; 
+                glassBlendForMainRT.colorBlendOp = BlendOp::Add;                 
+
+                glassBlendForMainRT.srcAlphaBlend = BlendFactor::One;             
+                glassBlendForMainRT.dstAlphaBlend = BlendFactor::Zero;            
+                glassBlendForMainRT.alphaBlendOp = BlendOp::Add;
+                state.blendStates.push_back(glassBlendForMainRT);
+            }
+            VertexInputDescription vtxID{};
+            InputBufferBinding binding{};
+			binding.stride = sizeof(StandardModelVertex);
+            vtxID.bindings.push_back(binding);
+            int offset = 0;
+            InputAttribute ia{};
+            ia.binding = 0;
+            ia.location = 0;
+            ia.format = VertexFormat::Float3;
+            ia.offset = 0;
+			vtxID.attributes.push_back(ia);
+			ia.offset += sizeof(float) * 3;
+
+            ia.location = 1;
+            vtxID.attributes.push_back(ia);
+            ia.offset += sizeof(float) * 3;
+
+            ia.location = 2;
+            ia.format = VertexFormat::Float2;
+			vtxID.attributes.push_back(ia);
+			offset += sizeof(float) * 2;
+
+            ia.location = 3;
+            ia.format = VertexFormat::Float2;
+            vtxID.attributes.push_back(ia);
+            offset += sizeof(float) * 2;
+
+            ia.location = 4;
+            ia.format = VertexFormat::Uint4;
+            vtxID.attributes.push_back(ia);
+            offset += sizeof(uint32_t);
+
+            return materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,""},{ShaderStage::Fragment,psMarco} }, state, vtxID);
+        }
+        else {
+            return pbrTplt;
         }
     }
 
@@ -483,6 +568,9 @@ namespace Render {
         bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture);
         bool            getSampler(const Name& name, GLTFSampler& out, const tinygltf::Model& model, const tinygltf::Sampler& sampler);
         bool            getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node);
+    
+		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat);
+    
     };
 
 
@@ -602,6 +690,28 @@ namespace Render {
         GLTFModel* innerModel = new GLTFModel;
         bool getModelSuccess = mDp->getGLTFModel(path, *innerModel, model);
         return innerModel;
+    }
+
+    Object* GLTFLoader::toEngineSceneNode(Scene* scene, GLTFModel* model)
+    {
+        //Root for model
+        Object* obj =  scene->createObject(model->modelName.c_str());
+        assert(obj != nullptr);
+        for (int i = 0; i < model->nodes.size(); ++i) {
+            auto node = model->nodes[i];
+			Object* childObj = scene->createObject(node.name.c_str());
+            // TRS
+            childObj->setLocalPosition(node.translation);
+            childObj->setLocalRotation(fromEulerAngles(node.rotation));
+            childObj->setLocalScale(node.scale);
+            // Mesh
+            if (node.meshIndex >= 0 && node.meshIndex < model->meshes.size()) {
+                auto& mesh = model->meshes[node.meshIndex];
+                auto renderComp = childObj->addComponent<Render::PBRRenderComponent>();
+            }
+            // Parent-child
+			obj->addChild(childObj);
+        }
     }
 
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)
@@ -801,7 +911,7 @@ namespace Render {
             }
             out.scenes.push_back(std::move(sc));
         }
-
+        out.modelName = modelName;
         return true;
     }
 
@@ -1035,7 +1145,6 @@ namespace Render {
         out.occlusionTexture = mat.occlusionTexture.index;
         out.occlusionTexCoord = mat.occlusionTexture.texCoord;
         out.occlusionStrength = static_cast<float>(mat.occlusionTexture.strength);
-
         return true;
     }
     bool GLTFLoaderPrivate::getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture)
@@ -1107,5 +1216,39 @@ namespace Render {
         out.skinIndex = node.skin;
         out.children = node.children;
         return true;
+    }
+    MaterialPtr GLTFLoaderPrivate::createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat)
+    {
+        Name matName = Name(gltfMat.name);
+        auto pbrMatPtr = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, matName);
+        if (!pbrMatPtr) {
+            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName, getPBRMaterialTemplate(&out));
+        }
+
+        PBRMaterial* pbrMat = dynamic_cast<PBRMaterial*>(pbrMatPtr.get());
+        //Setup material
+        pbrMat->setBaseColor(vec4(
+            gltfMat.baseColorFactor[0],
+            gltfMat.baseColorFactor[1],
+            gltfMat.baseColorFactor[2],
+            gltfMat.baseColorFactor[3]
+        ));
+        pbrMat->setMetallic(gltfMat.metallicFactor);
+        pbrMat->setRoughness(gltfMat.roughnessFactor);
+        pbrMat->setAOStrength(gltfMat.occlusionStrength);
+        pbrMat->setNormalScale(gltfMat.normalScale);
+        pbrMat->setEmissive(vec3(gltfMat.emissiveFactor[0],
+            gltfMat.emissiveFactor[1],
+            gltfMat.emissiveFactor[2]
+        ));
+        //TODO: sampler
+        //TODO: from gltf sampler to engine sampler desc, and create sampler resource.
+        if (gltfMat.baseColorTexture >= 0) {
+            auto& texture = model->textures[gltfMat.baseColorTexture];
+            //pbrMat->setBaseColorTexture(texture.texture,model->samplers[texture.smaplerIndex].)
+        }
+        else {
+            
+        }
     }
 }

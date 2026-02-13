@@ -6,10 +6,10 @@
 
 layout(set = 2, binding = 1) uniform UniformBufferObject {
     PBRData pbrData
-} pbrData;
+} CBUFFER_pbrData;
 
+#define PBRDATA         CBUFFER_pbrData.pbrData
 #define OBJDATA         ObjData.ObjData
-#define PBRDATA         pbrData.pbrData
 #define CAMDATA         CameraCommon.camera
 #define LIGHTDATA       SceneCommon.sceneLights
 
@@ -144,16 +144,20 @@ vec4 main()
     vec2 uvMR   = SelectUV(PBRDATA.texControl.y);
     vec2 uvN    = SelectUV(PBRDATA.texControl.z);
     vec2 uvAO   = SelectUV(PBRDATA.texControl.w);
-
+    bool useBaseCol = (PBRDATA.texControl.x >= 0.);
+    bool useMR      = (PBRDATA.texControl.y >= 0.);
+    bool useN       = (PBRDATA.texControl.z >= 0.);
+    bool useAO      = (PBRDATA.texControl.w >= 0.);
     // --------------------------------------------------
     // Base Color
     // --------------------------------------------------
     vec4 baseColor = PBRDATA.baseCol;
-    baseColor *= texture(
-        sampler2D(u_baseColorTex, u_baseColorSampler),
-        uvBase
-    );
-
+    if(useBaseCol){
+        baseColor *= texture(
+            sampler2D(u_baseColorTex, u_baseColorSampler),
+            uvBase
+        );
+    }
     vec3 albedo = baseColor.rgb;
 
     // --------------------------------------------------
@@ -161,31 +165,33 @@ vec4 main()
     // --------------------------------------------------
     float metallic  = PBRDATA.metalRoughAO.x;
     float roughness = PBRDATA.metalRoughAO.y;
+    if(useMR){
+        vec4 mrSample = texture(
+            sampler2D(u_metallicRoughnessTex, u_metallicRoughnessSampler),
+            uvMR
+        );
 
-    vec4 mrSample = texture(
-        sampler2D(u_metallicRoughnessTex, u_metallicRoughnessSampler),
-        uvMR
-    );
+        metallic  *= mrSample.b; // metallic
+        roughness *= mrSample.g; // roughness
 
-    metallic  *= mrSample.b; // metallic
-    roughness *= mrSample.g; // roughness
-
-    metallic  = clamp(metallic, 0.0, 1.0);
-    roughness = clamp(roughness, 0.04, 1.0);
-
+        metallic  = clamp(metallic, 0.0, 1.0);
+        roughness = clamp(roughness, 0.04, 1.0);
+    }
     // --------------------------------------------------
     // Normal
     // --------------------------------------------------
     vec3 N = normalize(i_normal);
-    float normalScale = PBRDATA.metalRoughAO.w;
+    if(useN){
+        float normalScale = PBRDATA.metalRoughAO.w;
 
-    vec3 normalSample = texture(
-        sampler2D(u_normalTex, u_normalSampler),
-        uvN
-    ).xyz;
+        vec3 normalSample = texture(
+            sampler2D(u_normalTex, u_normalSampler),
+            uvN
+        ).xyz;
 
-    vec3 n = normalSample * 2.0 - 1.0;
-    n.xy *= normalScale;
+        vec3 n = normalSample * 2.0 - 1.0;
+        n.xy *= normalScale;
+    }
     N = normalize(n);
 
     // --------------------------------------------------
@@ -208,11 +214,12 @@ vec4 main()
     // Ambient Occlusion (ENGINE-LEVEL APPLY)
     // --------------------------------------------------
     float ao = PBRDATA.metalRoughAO.z;
-    ao *= texture(
-        sampler2D(u_AOTex, u_AOSampler),
-        uvAO
-    ).r;
-
+    if(useAO){
+        ao *= texture(
+            sampler2D(u_AOTex, u_AOSampler),
+            uvAO
+        ).r;
+    }
     directLight *= ao;
 
     // --------------------------------------------------

@@ -177,7 +177,7 @@ namespace Render {
 	template<typename T>
 	inline const Name& ResourceManager<T>::getDefaultResourceName() const
 	{
-		return Name::Empty();
+		return Name::_emptyName;
 	}
 
 	template<typename T>

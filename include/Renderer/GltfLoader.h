@@ -6,8 +6,10 @@
 #include "common/CommonMath.h"
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
+#include "MaterialInstance.h"
 namespace Render {
-
+    class Scene;
+    class Object;
     enum class GLTFAlphaMode : uint8_t {
         Opaque,
         Mask,           //AlphaTest
@@ -59,6 +61,8 @@ namespace Render {
         float emissiveFactor[3] = { 0.f, 0.f, 0.f };
         int emissiveTexture = -1;
         int emissiveTextureCoord = 0;
+
+        MaterialPtr materialInstance = nullptr;
     };
 
 
@@ -101,6 +105,7 @@ namespace Render {
     };
 
     struct GLTFModel {
+        std::string                 modelName;
         std::vector<GLTFScene>      scenes;
         std::vector<GLTFNode>       nodes;
         std::vector<GLTFMesh>       meshes;
@@ -116,7 +121,8 @@ namespace Render {
 	public:
 		GLTFLoader();
 		~GLTFLoader();
-		GLTFModel* createFromFilePath(const std::string& path);
+		GLTFModel*      createFromFilePath(const std::string& path);
+        Object*         toEngineSceneNode(Scene* scene,GLTFModel* model);
 	private:
 		GLTFLoaderPrivate* mDp = nullptr;
 	};

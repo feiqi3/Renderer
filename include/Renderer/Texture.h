@@ -1,5 +1,6 @@
 #ifndef TEXTURE_H_
 #define TEXTURE_H_
+#pragma once
 
 #include "common/ResourceManager.h"
 #include "common/ResourceHandler.h"

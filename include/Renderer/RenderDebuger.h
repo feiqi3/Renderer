@@ -3,7 +3,7 @@
 #include "common/NoCopyable.h"
 #include <string>
 namespace Render {
-	class rs_commandbuffer;
+	struct rs_commandbuffer;
 	class RenderMarker : public Common::NonCopyable{
 	public:
 		RenderMarker(rs_commandbuffer* cmd, const char* label,float r,float g,float b,float a);

@@ -78,9 +78,12 @@ namespace Render {
 			}
 		}
 
-		static Name Empty() { return Name(); }
+		static const Name _emptyName;
+		static Name Empty() { return _emptyName; }
 
 	};
+
+	inline const Name Name::_emptyName = Name();
 
 }
 

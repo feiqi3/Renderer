@@ -1,15 +1,17 @@
+
+
+#ifndef MATERIAL_INSTANCE_H_
+#define MATERIAL_INSTANCE_H_ 
 #include "Renderer/MaterialTemplate.h"
 #include "common/Name.h"
 #include "Renderer/RenderSystem.h"
-#include "Renderer/Texture.h"
 #include "common/ResourceHandler.h"
+#include "Renderer/Texture.h"
 #include <string>
 #include <optional>
 #include <map>
-
-#ifndef MATERIAL_INSTANCE_H_
-#define MATERIAL_INSTANCE_H_
-
+#include "Renderer/ResourceVariant.h"
+#include "Renderer/SamplerResourceManager.h"
 namespace Render {
 
 	class RenderPass; 
@@ -24,23 +26,23 @@ namespace Render {
 		virtual ResourceMemory getMemory() const override;
 		virtual void OnUnload() override;
 		virtual void OnLoaded() override {};
-
+		virtual void OnUpdateParam();
 		struct _ParameterPair {
 			rs_binding_pos	bindingPos;
 			UniformType		parameterType;
-			TexturePtr		texture;
-			void* rawPtr;
+			RenderResourceVariant var;
+			void*			rawPtr;
 		};
 
 		void									bindParameter(const std::string& paramName, TexturePtr tex);
 		void									bindParameter(const std::string& paramName, rs_buffer* buffer);
-		void									bindParameter(const std::string& paramName, rs_sampler* sampler);
+		void									bindParameter(const std::string& paramName, SamplerPtr sampler);
 
 		void									uploadUniform(Pass* pass);
 		MaterialPass* getMaterialPass(const Name& name);
 
 	protected:
-		std::optional<_ParameterPair&>			getParameterInfo(const std::string& paramName);
+		std::optional<_ParameterPair*>			getParameterInfo(const std::string& paramName);
 
 		MaterialTemplatePtr m_template;
 		std::map < std::string, _ParameterPair> mParameterMap;

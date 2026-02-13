@@ -1,11 +1,10 @@
 #ifndef MATERIAL_RESOURCE_MANAGER_H_
 #define MATERIAL_RESOURCE_MANAGER_H_
 
-#include "common/Singleton.h"
-#include "common/ResourceManager.h"
 #include "common/Name.h"
+#include "common/ResourceManager.h"
 #include "Renderer/MaterialInstance.h" 
-
+#include "common/ResourceSystem.h"
 namespace Render {
 
     class MaterialManager :
