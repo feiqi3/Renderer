@@ -46,7 +46,7 @@ namespace Render {
             delete mt;
             return nullptr;
         }
-		return ResourceSystem::instance()->getResource<MaterialTemplate>(MaterialTemplate::typeName(), templateName);
+        return ResourceHandle <MaterialTemplate>(this,newEntry);
     }
 
     MaterialTemplatePtr MaterialTemplateManager::getMaterialTemplate(const Name& templateName) const

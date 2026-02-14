@@ -25,7 +25,7 @@ namespace Render {
 			auto MatManager = std::make_unique<MaterialManager>();
 			sRegisteredResourceName.push_back(MatManager->typeName());
 			resSystem->registerSystem(std::move(MatManager));
-
+			
 			auto SamplerManager = std::make_unique<SamplerResourceManager>();
 			sRegisteredResourceName.push_back(SamplerManager->typeName());
 			resSystem->registerSystem(std::move(SamplerManager));

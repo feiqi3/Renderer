@@ -40,8 +40,7 @@ namespace Render {
                 delete mat;
                 return nullptr;
             }
-
-			return ResourceSystem::instance()->getResource<Material>(Material::typeName(), materialName);
+            return ResourceHandle<Material>(this, newEntry);
         }
     protected:
         virtual Material* loadImpl(const Name& id) override;

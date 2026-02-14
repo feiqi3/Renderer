@@ -1,102 +1,103 @@
 #ifndef _RESOURCE_HANDLER_H_
 #define _RESOURCE_HANDLER_H_
+
 #include "common/CoreDefs.h"
 #include "common/Name.h"
 #include "common/ResourceManager.h"
+#include <atomic>
+#include <cassert>
+
 namespace Render {
 
+    template<typename T>
+    class ResourceHandle {
+    private:
+        struct ControlBlock {
+            ResourceEntry* entry;
+            IResourceManager* owner;
+            std::atomic<uint32_t> refCount;
 
-	template<typename T>
-	class ResourceHandle {
-	public:
-		ResourceHandle(nullptr_t) : entry(nullptr), owner(nullptr), handleRef(0) {}
-		ResourceHandle() : entry(nullptr), owner(nullptr), handleRef(0) {}
+            ControlBlock(IResourceManager* mgr, ResourceEntry* e)
+                : entry(e), owner(mgr), refCount(1) {
+            }
+        };
 
-		ResourceHandle(IResourceManager* mgr, ResourceEntry* e)
-			: entry(e), owner(mgr), handleRef(1)
-		{
-		}
+        ControlBlock* m_block = nullptr;
 
-		ResourceHandle(const ResourceHandle& rhs)
-			: entry(rhs.entry), owner(rhs.owner), handleRef(rhs.handleRef.load())
-		{
-			addRef();
-		}
+    public:
+        ResourceHandle(nullptr_t) : m_block(nullptr) {}
+        ResourceHandle() : m_block(nullptr) {}
 
-		ResourceHandle(ResourceHandle&& rhs) noexcept
-			: entry(rhs.entry), owner(rhs.owner), handleRef(rhs.handleRef.load())
-		{
-			rhs.entry = nullptr;
-			rhs.owner = nullptr;
-			rhs.handleRef.store(0);
-		}
+        ResourceHandle(IResourceManager* mgr, ResourceEntry* e)
+        {
+            if (e && mgr) {
+                m_block = new ControlBlock(mgr, e);
+            }
+        }
 
-		ResourceHandle& operator=(const ResourceHandle& rhs) {
-			if (this != &rhs) {
-				release();
-				entry = rhs.entry;
-				owner = rhs.owner;
-				handleRef.store(rhs.handleRef.load());
-				addRef();
-			}
-			return *this;
-		}
+        ResourceHandle(const ResourceHandle& rhs)
+            : m_block(rhs.m_block)
+        {
+            addRef();
+        }
 
-		ResourceHandle& operator=(ResourceHandle&& rhs) noexcept {
-			if (this != &rhs) {
-				release();
-				entry = rhs.entry;
-				owner = rhs.owner;
-				handleRef.store(rhs.handleRef.load());
-				rhs.entry = nullptr;
-				rhs.owner = nullptr;
-				rhs.handleRef.store(0);
-			}
-			return *this;
-		}
+        ResourceHandle(ResourceHandle&& rhs) noexcept
+            : m_block(rhs.m_block)
+        {
+            rhs.m_block = nullptr;
+        }
 
-		~ResourceHandle() {
-			release();
-		}
+        ResourceHandle& operator=(const ResourceHandle& rhs) {
+            if (this != &rhs) {
+                release(); 
+                m_block = rhs.m_block; 
+                addRef();  
+            }
+            return *this;
+        }
 
-		T* operator->() const { return entry ? (T*)entry->resource : nullptr; }
-		T& operator*() const { assert(entry && entry->resource); return *((T*)entry->resource); }
-		T* get() const { return entry ? (T*)entry->resource : nullptr; }
-		bool valid() const { return entry != nullptr && entry->resource != nullptr; }
+        ResourceHandle& operator=(ResourceHandle&& rhs) noexcept {
+            if (this != &rhs) {
+                release();
+                m_block = rhs.m_block;
+                rhs.m_block = nullptr;
+            }
+            return *this;
+        }
 
-		void addRef() { handleRef.fetch_add(1, std::memory_order_relaxed); }
+        ~ResourceHandle() {
+            release();
+        }
 
-		void release() {
-			if (!entry) return;
+        T* operator->() const { return isValid() ? (T*)m_block->entry->resource : nullptr; }
+        T& operator*() const { assert(isValid()); return *((T*)m_block->entry->resource); }
+        T* get() const { return isValid() ? (T*)m_block->entry->resource : nullptr; }
 
-			uint32_t old = handleRef.fetch_sub(1, std::memory_order_acq_rel);
-			assert(old > 0);
+        bool isValid() const { return m_block != nullptr && m_block->entry != nullptr; }
+        bool valid() const { return isValid(); }
 
-			if (old == 1 && owner) {
-				owner->release(entry->resourceName);
-			}
+    private:
+        void addRef() {
+            if (m_block) {
+                m_block->refCount.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
 
-			entry = nullptr;
-			owner = nullptr;
-		}
+        void release() {
+            if (!m_block) return;
 
-		inline explicit operator bool() const noexcept {
-			return entry != nullptr;
-		}
+            uint32_t old = m_block->refCount.fetch_sub(1, std::memory_order_acq_rel);
 
-		inline bool operator==(std::nullptr_t) const noexcept {
-			return entry == nullptr;
-		}
+            if (old == 1) {
+                if (m_block->owner && m_block->entry) {
+                    m_block->owner->release(m_block->entry->resourceName);
+                }
 
-		inline bool operator!=(std::nullptr_t) const noexcept {
-			return entry != nullptr;
-		}
+                delete m_block;
+            }
 
-	private:
-		ResourceEntry* entry;
-		IResourceManager* owner;
-		std::atomic<uint32_t> handleRef;
-	};
+            m_block = nullptr;
+        }
+    };
 }
-
 #endif
