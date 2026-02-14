@@ -1,4 +1,5 @@
 #include "Renderer/MaterialInstance.h"
+#include "common/ResourceSystem.h"
 #include <assert.h>
 
 namespace Render {
@@ -68,7 +69,12 @@ namespace Render {
             if (pair.parameterType == UniformType::Texture ||
                 pair.parameterType == UniformType::StorageImage ||
                 pair.parameterType == UniformType::InputAttachment) {
-                pair.var = tex;
+                if (tex != nullptr) {
+                    pair.var = tex;
+                }
+                else {
+					pair.var = ResourceSystem::instance()->getDefaultResource<Texture>(ResourceName::Texture);
+                }
             }
         }
     }

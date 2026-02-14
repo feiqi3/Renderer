@@ -29,12 +29,15 @@ namespace Render {
     }
     SamplerPtr SamplerResourceManager::getOrCreateSampler(const SamplerDesc& desc)
     {
+        //SamplerDesc -> SamplerName -> SamplerResource
+
         //1. find in cache
         Name samplerName;
         {
             std::lock_guard<std::mutex> lock(mCacheMutex);
 			auto it = mDescToIdMap.find(desc);
             if (it == mDescToIdMap.end()) {
+                //if not in cache, assign a new id and put it in cache
                 mDescToIdMap[desc] = mNextSamplerId;
                 samplerName = Name("Samp_" + std::to_string(mNextSamplerId));
                 mNextSamplerId++;
@@ -42,9 +45,9 @@ namespace Render {
             }
             else {
                 samplerName = Name("Samp_" + std::to_string(it->second));
-
             }
 
+            //Try accquire it by name
 			auto entry = this->acquire(samplerName);
             if (entry) {
                 return ResourceHandle<Sampler>(this, entry);

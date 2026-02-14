@@ -20,6 +20,18 @@
 
 namespace {
 
+    Render::SamplerDesc fromGltfSamplerToSamplerDesc(const Render::GLTFSampler& sampler) {
+        using namespace Render;
+        
+        Render::SamplerDesc desc{};
+        desc.addressU = sampler.addressS;
+        desc.addressV = sampler.addressT;
+        desc.addressW = AddressMode::Repeat;
+        desc.minFilter = sampler.minFilter;
+        desc.magFilter = sampler.magFilter;
+        return desc;
+	}
+
     enum class TypeOfVertexElement {
         Vec4,
         Vec3,
@@ -228,7 +240,7 @@ namespace {
         }
     }
 
-    Render::MaterialTemplatePtr getPBRMaterialTemplate(Render::GLTFMaterial* material) {
+    Render::MaterialTemplatePtr getPBRMaterialTemplate(const Render::GLTFMaterial* material) {
         using namespace Render;
         auto materialTemplateMgr = MaterialTemplateManager::instance();
         std::string materialName = "PBRMaterialTemplate";
@@ -1222,7 +1234,10 @@ namespace Render {
         Name matName = Name(gltfMat.name);
         auto pbrMatPtr = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, matName);
         if (!pbrMatPtr) {
-            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName, getPBRMaterialTemplate(&out));
+            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName,getPBRMaterialTemplate(&gltfMat));
+        }
+        else {
+            return pbrMatPtr;
         }
 
         PBRMaterial* pbrMat = dynamic_cast<PBRMaterial*>(pbrMatPtr.get());
@@ -1241,14 +1256,82 @@ namespace Render {
             gltfMat.emissiveFactor[1],
             gltfMat.emissiveFactor[2]
         ));
-        //TODO: sampler
-        //TODO: from gltf sampler to engine sampler desc, and create sampler resource.
         if (gltfMat.baseColorTexture >= 0) {
-            auto& texture = model->textures[gltfMat.baseColorTexture];
-            //pbrMat->setBaseColorTexture(texture.texture,model->samplers[texture.smaplerIndex].)
+            TexturePtr texture = model->textures[gltfMat.baseColorTexture].texture;
+            SamplerPtr sampler = nullptr;
+            if (texture) {
+				auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[model->textures[gltfMat.baseColorTexture].smaplerIndex]);
+                sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
+            }
+            pbrMat->setBaseColorTexture(texture, sampler);
         }
         else {
-            
+            pbrMat->setBaseColorTexture(nullptr, nullptr);
         }
+
+        if (gltfMat.baseColorTexture >= 0) {
+            const auto& gltfTex = model->textures[gltfMat.baseColorTexture];
+            TexturePtr texture = gltfTex.texture;
+            SamplerPtr sampler = nullptr;
+            if (texture) {
+                bool useUV0 = true;
+                auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
+                sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
+                useUV0 = (gltfMat.baseColorTexCoord == 0);
+                pbrMat->setBaseColorTexture(texture, sampler, useUV0);
+            }
+        }
+        else {
+            pbrMat->setBaseColorTexture(nullptr, nullptr);
+        }
+
+        if (gltfMat.metallicRoughnessTexture >= 0) {
+            const auto& gltfTex = model->textures[gltfMat.metallicRoughnessTexture];
+            TexturePtr texture = gltfTex.texture;
+            SamplerPtr sampler = nullptr;
+            if (texture) {
+                bool useUV0 = true;
+                auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
+                sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
+                useUV0 = (gltfMat.metallicRoughnessTexCoord == 0);
+                pbrMat->setMetallicRoughnessTexture(texture, sampler, useUV0);
+            }
+        }
+        else {
+            pbrMat->setMetallicRoughnessTexture(nullptr, nullptr);
+        }
+
+        if (gltfMat.normalTexture >= 0) {
+            const auto& gltfTex = model->textures[gltfMat.normalTexture];
+            TexturePtr texture = gltfTex.texture;
+            SamplerPtr sampler = nullptr;
+            if (texture) {
+                bool useUV0 = true;
+                auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
+                sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
+                useUV0 = (gltfMat.normalTexCoord == 0);
+                pbrMat->setNormalTexture(texture, sampler, useUV0);
+            }
+        }
+        else {
+            pbrMat->setNormalTexture(nullptr, nullptr);
+        }
+
+        if (gltfMat.occlusionTexture >= 0) {
+            const auto& gltfTex = model->textures[gltfMat.occlusionTexture];
+            TexturePtr texture = gltfTex.texture;
+            SamplerPtr sampler = nullptr;
+            if (texture) {
+                bool useUV0 = true;
+                auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
+                sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
+                useUV0 = (gltfMat.occlusionTexCoord == 0);
+                pbrMat->setAOTexture(texture, sampler, useUV0);
+            }
+        }
+        else {
+            pbrMat->setAOTexture(nullptr, nullptr);
+        }
+        return pbrMatPtr;
     }
 }

@@ -4,7 +4,7 @@
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/GPUShared/PBREntity.h"
 #include "common/CommonMath.h" 
-
+#include "Renderer./ResourceVariant.h"
 namespace Render {
 
     class PBRMaterial : public Material {
@@ -13,15 +13,15 @@ namespace Render {
         virtual ~PBRMaterial();
 
         void setBaseColor(const vec4& color);
-        void setBaseColorTexture(TexturePtr tex, rs_sampler* sampler);
+        void setBaseColorTexture(TexturePtr tex, SamplerPtr sampler,bool useUV0 = true);
 
         void setMetallic(float metallic);
         void setRoughness(float roughness);
         void setAOStrength(float ao);
-        void setMetallicRoughnessTexture(TexturePtr tex, rs_sampler* sampler);
-        void setAOTexture(TexturePtr tex, rs_sampler* sampler);
+        void setMetallicRoughnessTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0 = true);
+        void setAOTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0 = true);
 
-        void setNormalTexture(TexturePtr tex, rs_sampler* sampler);
+        void setNormalTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0 = true);
         void setNormalScale(float scale);
 
         void setEmissive(const vec3& factor);

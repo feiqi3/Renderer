@@ -45,6 +45,7 @@ namespace Render {
 			}
 			return ResourceHandle<T>(mgr, res);
 		}
+
 		template<typename T>
 		inline ResourceHandle<T> getResource(const Name& type, const Name& resource) {
 			auto mgr = getResourceManager(type);
@@ -61,6 +62,16 @@ namespace Render {
 			}
 			return ResourceHandle<T>(mgr, res);
 		}
+
+		template<typename T>
+		inline ResourceHandle<T> getDefaultResource(const Name& typeName) {
+			auto mgr = getResourceManager(typeName);
+			if (!mgr)return nullptr;
+			auto res = mgr->acquire(mgr->getDefaultResourceName());
+			return ResourceHandle<T>(mgr, res);
+
+		}
+
 		bool isResourceManagerExist(const Name& name)const;
 	private:
 		std::map<Name, std::unique_ptr<IResourceManager>> mManagers;
