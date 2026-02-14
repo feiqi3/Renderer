@@ -76,6 +76,31 @@ namespace Render {
         bool isValid() const { return m_block != nullptr && m_block->entry != nullptr; }
         bool valid() const { return isValid(); }
 
+
+        explicit operator bool() const {
+            return isValid();
+        }
+
+        bool operator!() const {
+            return !isValid();
+        }
+
+        bool operator==(std::nullptr_t) const {
+            return !isValid();
+        }
+
+        bool operator!=(std::nullptr_t) const {
+            return isValid();
+        }
+
+        bool operator==(const ResourceHandle& rhs) const {
+            return m_block == rhs.m_block;
+        }
+
+        bool operator!=(const ResourceHandle& rhs) const {
+            return m_block != rhs.m_block;
+        }
+
     private:
         void addRef() {
             if (m_block) {
