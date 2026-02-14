@@ -102,5 +102,21 @@ namespace Render {
 	void RenderEntity::clear() {
 		RenderSystem::instance()->clearRenderEntity(this);
 	}
+
+	void RenderEntity::setModelMatrix(const mat4& mat)
+	{
+		mModelMatrix = mat;
+	}
+
+	const mat4& RenderEntity::getModelMatrix() const
+	{
+		return mModelMatrix;
+	}
+
+	vec3 RenderEntity::getWorldPos() const
+	{
+		glm::vec3 translation = glm::vec3(mModelMatrix[3]);
+		return translation;
+	}
 	
 }

@@ -4,6 +4,7 @@
 #include "render_resource_createinfo.h"
 #include "common/NoCopyable.h"
 #include "common/Name.h"
+#include "common/CommonMath.h"
 #include <map>
 namespace Render {
 	struct RenderPendingData {
@@ -45,10 +46,12 @@ namespace Render {
 
 		//Call this when change render entity.
 		void clear();
+		void setModelMatrix(const mat4& mat);
+		const mat4& getModelMatrix()const;
+		vec3 getWorldPos()const;
 	private:
-
 		void destroyPass(Pass* pass);
-
+		mat4 mModelMatrix = mat4(1.f);
 		friend class RenderSystem;
 		//TODO: Write every thing into descriptor
 		std::map<Name, Pass*> mPasses;
