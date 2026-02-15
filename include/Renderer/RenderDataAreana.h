@@ -1,50 +1,67 @@
-#ifndef RENDER_DATA_AREANA_H_
-#define RENDER_DATA_AREANA_H_
-#include "common/RingBuffer.h"
-#include "common/NoCopyable.h"
+#ifndef RENDER_DATA_ARENA_H
+#define RENDER_DATA_ARENA_H
+
+#include "RenderSystem.h"
 #include <vector>
 #include <list>
+
 namespace Render {
-	struct FrameArenaNode{
-		FrameArenaNode(uint32_t nodeSize);
-		~FrameArenaNode();
-		void reset();
-		void update(uint64_t frame);
 
-		uint64_t mLastActiveFrame = 0;
-		uint8_t* mData = 0;
-		uint32_t mHeadOffset = 0;
-		uint32_t mNodeSize = 1024 * 8; //default 8KB
-	};
+    constexpr uint32_t STAGING_BLOCK_SIZE = 1024 * 1024 * 16;
 
+    class RenderDataArena {
+    public:
+        RenderDataArena();
+        ~RenderDataArena();
 
-	struct AllocRange {
-		uint8_t* data;
-		uint32_t offset;
-		uint32_t size;
-	};
+        // 初始化
+        void init(uint32_t maxFramesInFlight,uint32_t stageBlockSize);
+        void shutdown();
 
-	class RenderDataArena : public Common::NonCopyable {
-	public:
-		RenderDataArena(uint64_t perNodeSize,uint32_t frameInFlight,uint32_t maxNodeVacantFrame = 10);
-		~RenderDataArena();
-		void cleanFrame(uint64_t frameIdx);
-		void beginFrame(uint64_t frameIdx);
-		AllocRange allocateFromArena(size_t reqSize);
-	private:
-		void createNewNode();
+        void beginFrame(uint64_t frameIndex);
 
-		uint32_t mPerArenaNodeSize = 0;
-		FrameArenaNode* findArenaNode(uint64_t reqSize,uint32_t frameIdx);
-		using AreaNodeList = std::list<FrameArenaNode*>;
-		std::vector<AreaNodeList> mInUsedArena;
-		std::vector<AreaNodeList> mFreeArena;
-		std::vector<std::unique_ptr<std::mutex>> mFrameMutex;
-		uint64_t mCurFrame = 0;
-		uint32_t mMaxFrameInFlight = 2;
-		uint32_t mCurFrameInFlight = 0;
-		uint32_t mMaxVacantFrame = 10;
-	};
-};
+        void executePendingCopies(rs_commandbuffer* cmd);
+
+        void stageBufferUpdate(rs_buffer* dstBuffer, uint32_t dstOffset, const void* data, uint32_t size);
+
+    private:
+        struct StagingBlock {
+            rs_buffer* buffer = nullptr; 
+            void* mappedPtr = nullptr;   
+            uint32_t capacity = 0;
+            uint32_t currentOffset = 0;
+            uint64_t lastUsedFrame = 0;
+        };
+
+        struct CopyCommand {
+            rs_buffer* srcBuffer;
+            rs_buffer* dstBuffer;
+            uint32_t srcOffset;
+            uint32_t dstOffset;
+            uint32_t size;
+        };
+
+        struct FrameData {
+            std::vector<StagingBlock*> blocks;
+
+            std::vector<CopyCommand> pendingCopies;
+
+            uint32_t activeBlockIndex = 0;
+        };
+
+        void allocateStagingMemory(uint32_t size, uint32_t frameIndex, rs_buffer** outBuffer, uint32_t* outOffset, void** outMappedPtr);
+
+        StagingBlock* createBlock(uint32_t size);
+        void destroyBlock(StagingBlock* block);
+
+    private:
+        uint32_t m_maxFramesInFlight = 0;
+        uint32_t m_currentFrameIndex = 0;
+		uint32_t m_stageBlockSize = STAGING_BLOCK_SIZE;
+        //A buffer can exist for m_maxVacantFrames after last used
+        uint32_t m_maxVacantFrames = 5;
+        std::vector<FrameData> m_frames;
+    };
+}
 
 #endif

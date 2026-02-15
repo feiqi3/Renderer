@@ -46,10 +46,13 @@ namespace Render{
 		void cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect);
 		void cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth,const Rect2D& rect);
 
+		//Gain a better performance
+		void cmdUpdateBuffer(rs_commandbuffer* cmdbuf, rs_buffer* buffer, void* data, uint32_t size, uint32_t offset);
+		void cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 		rs_buffer* createBuffer(void* data, uint32_t size, const BufferDesc& desc);
 		void destroyBuffer(rs_buffer* buffer);
 
-		void updateBuffer(rs_buffer* buffer,void* data, uint32_t size,uint32_t offset,bool imm = false);
+		void updateBuffer(rs_buffer* buffer,void* data, uint32_t size,uint32_t offset);
 
 		rs_pipeline* createRenderPipeline(rs_renderpass* renderpass,PipelineDesc& pipelineDescription);
 		void destroyRenderPipeline(rs_pipeline* pipeline);
@@ -58,6 +61,7 @@ namespace Render{
 		rs_drawdata* createDrawData();
 		void clearDrawData(rs_drawdata* data);
 		void destroyDrawData(rs_drawdata* data);
+		rs_drawdata* getCurCameraDrawData();
 
 		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap);
 		void destroyImage(rs_image* image);
@@ -83,10 +87,12 @@ namespace Render{
 		void updateUniform(rs_binding_pos binding, rs_sampler* sampler, Pass* pass);
 		void updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip);
 		void updateBufferData(rs_buffer* buffer,void* data,size_t byteSize,size_t dstOffset);
-		void* placeFramePendingData(void* data, uint32_t size);
 		void submitCmdBuffer(rs_commandbuffer* cmdBuffer,const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal,rs_fence* fence);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
+		
+		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const std::array<rs_drawdata*, 3>& drawDatas);
+		
 		void waitForFence(rs_fence* fence);
 		void clearRenderEntity(RenderEntity* entity);
 
@@ -129,6 +135,8 @@ namespace Render{
 		void waitForEngineIdle();
 
 		bool isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt);
+
+		void excutePendingBufferCopies(rs_commandbuffer* cmdbuf);
 	public:
 		void onWindowResize();
 	private:

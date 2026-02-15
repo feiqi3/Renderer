@@ -32,15 +32,16 @@ namespace Render{
 	{
 		auto renderSys = RenderSystem::instance();
 		auto mainRenderQueue = renderSys->getMainRenderQueue();
+		auto curCamDrawData = renderSys->getCurCameraDrawData();
+
 		auto entityView = mainRenderQueue->getView();
 		while (1) {
 			auto command = entityView.next();
 			if (!command)break;
-			auto entity = command->entity;
-			auto pass = entity->getPass(this->getPassName());
-			if (pass) {
-				renderSys->drawIndexed(cmdbuffer, entity, pass);
-			}
+			std::array<rs_drawdata*, 3> drawDataArr{};
+			drawDataArr[0] = command->drawData;
+			drawDataArr[1] = curCamDrawData;
+			renderSys->drawIndexed(cmdbuffer, command->pipeline, command->renderInfo, drawDataArr);
 		}
 	}
 	void MainCameraPass::addToDrawList(RenderEntity* Entity)

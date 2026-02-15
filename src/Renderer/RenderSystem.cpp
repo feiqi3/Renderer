@@ -16,6 +16,7 @@
 #include "Renderer/TextureResourceMgr.h"
 #include "common/ResourceSystem.h"
 #include "Renderer/MaterialInstance.h"
+#include "Renderer/RenderDataAreana.h"
 #include <set>
 namespace Render{
 
@@ -70,7 +71,6 @@ namespace Render{
 		EngineEvent mEngineEvent;
 		ShaderIncFindFunc mShaderIncludeFunction;
 	public:
-		void* updateFramePendingData(uint32_t fif, uint64_t frame, void* data, uint32_t size);
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
 
@@ -89,7 +89,9 @@ namespace Render{
 			auto render_context = sRenderSystem->getRenderContext();
 		}
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
-		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>(1024, sRenderSystem->mBackEndContext->maxSwapChainImages);
+		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>();
+		sRenderSystem->mDp->mArena->init(sRenderSystem->getRenderContext()->maxFrameInFlight, Render::STAGING_BLOCK_SIZE);
+		
 		sRenderSystem->mDp->mRenderDispatcher = std::make_unique<RenderGroup>();
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
@@ -105,6 +107,8 @@ namespace Render{
 		using namespace Vulkan;
 		if (!sRenderSystem)return;
 		sRenderSystem->mDp->mPassManager = 0;
+		sRenderSystem->mDp->mArena->shutdown();
+		sRenderSystem->mDp->mArena = 0;
 		delete CameraManager::instance();
 		deinitVulkanBackEnd((rs_context_vk*)sRenderSystem->mBackEndContext);
 		sRenderSystem->mWindow = 0;
@@ -230,13 +234,27 @@ namespace Render{
 		Vulkan::cmdSetViewport((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect,minDepth,maxDepth,framebufferIdx);
 	}
 
+	void RenderSystem::cmdUpdateBuffer(rs_commandbuffer* cmdbuf, rs_buffer* buffer, void* data, uint32_t size, uint32_t offset)
+	{
+		if (buffer->mappedPtr) {
+			memcpy(buffer->mappedPtr, data, size);
+			return;
+		}
+		Vulkan::updateBuffer(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_buffer_vk*)buffer, data, size, offset,false);
+	}
+
+	void RenderSystem::cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size)
+	{
+		Vulkan::cmdCopyBufferToBuffer((Vulkan::rs_commandbuffer_vk*)cmdbuf, getRenderContext(), (Vulkan::rs_buffer_vk*)srcBuffer, (Vulkan::rs_buffer_vk*)dstBuffer, srcOffset, dstOffset, size);
+	}
+
 	rs_buffer* RenderSystem::createBuffer(void* data, uint32_t size, const BufferDesc& desc)
 	{
 		rs_buffer* buffer = Vulkan::createRsBufferVk(getRenderContext(), desc);
 		if (desc.mappable) {
 			Vulkan::mapRsBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer);
 		}
-		updateBuffer(buffer, data, size, 0, true);
+		updateBuffer(buffer, data, size, 0);
 		return buffer;
 	}
 
@@ -246,13 +264,14 @@ namespace Render{
 		auto rsBuffer = (Vulkan::rs_buffer_vk*)buffer;
 		Vulkan::destroyRsBuffer(getRenderContext(), rsBuffer, false);
 	}
-	void RenderSystem::updateBuffer(rs_buffer* buffer, void* data, uint32_t size, uint32_t offset, bool imm)
+	void RenderSystem::updateBuffer(rs_buffer* buffer, void* data, uint32_t size, uint32_t offset)
 	{
 		if (buffer->mappedPtr) {
 			memcpy(buffer->mappedPtr, data, size);
 			return;
 		}
-		Vulkan::updateBuffer(getRenderContext(),nullptr, (Vulkan::rs_buffer_vk*)buffer, data, size, offset, imm);
+		auto& renderArena = mDp->mArena;
+		renderArena->stageBufferUpdate(buffer, offset, data, size);
 	}
 	rs_pipeline* RenderSystem::createRenderPipeline(rs_renderpass* renderpass, PipelineDesc& pipelineDescription)
 	{
@@ -281,6 +300,10 @@ namespace Render{
 	void RenderSystem::destroyDrawData(rs_drawdata* drawdata)
 	{
 		return Vulkan::destroyDrawData(getRenderContext(),  (Vulkan::rs_drawdata_vk*)drawdata);
+	}
+	rs_drawdata* RenderSystem::getCurCameraDrawData()
+	{
+		return mDp->mCurrentCameraData;
 	}
 	rs_drawdata* RenderSystem::createDrawData()
 	{
@@ -484,11 +507,7 @@ namespace Render{
 		auto ctx = getRenderContext();
 		Vulkan::updateBuffer(getRenderContext(),nullptr, (Vulkan::rs_buffer_vk*)buffer, data, byteSize, dstOffset, false);
 	}
-	void* RenderSystem::placeFramePendingData(void* data, uint32_t size)
-	{
-		auto fif = currentLogicFrame % mBackEndContext->maxFrameInFlight;
-		return mDp->updateFramePendingData(fif, currentLogicFrame, data, size);
-	}
+
 	void RenderSystem::submitCmdBuffer(rs_commandbuffer* cmdBuffer, const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal, rs_fence* fence)
 	{
 		if (cmdBuffer->hasCommands == false) {
@@ -508,11 +527,7 @@ namespace Render{
 	{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
-		if (entity->getMaterial()) {
-			entity->getMaterial()->OnUpdateParam();
-			entity->getMaterial()->uploadUniform(pass);
-		}
-		entity->updateUniforms(cmdBuffer,pass->mMaterial);
+		entity->updateUniforms(pass);
 		drawIndexed(cmdBuffer, entity, pass);
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
@@ -523,8 +538,17 @@ namespace Render{
 		std::array<Vulkan::rs_drawdata_vk*,3> drawDataArr{};
 		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityDrawData;
 		drawDataArr[1] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
-		entity->updateUniforms(cmdBuffer, pass->mMaterial);
+		if (entity->getMaterial()) {
+			entity->getMaterial()->OnUpdateParam();
+			entity->getMaterial()->uploadUniform(pass);
+		}
+		entity->updateUniforms(pass);
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
+	}
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const std::array<rs_drawdata*, 3>& drawDatas)
+	{
+		cmdBuffer->hasCommands = true;
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_pipeline_vk*)pipeline, info, (std::array<Vulkan::rs_drawdata_vk*, 3>&)drawDatas, getCurFif());
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{
@@ -654,6 +678,11 @@ namespace Render{
 		return ((Vulkan::rs_renderpass_vk*)rp)->passHash == ((Vulkan::rs_rendertarget_vk*)rt)->rtPassHash;
 	}
 
+	void RenderSystem::excutePendingBufferCopies(rs_commandbuffer* cmdbuf)
+	{
+		mDp->mArena->executePendingCopies((Vulkan::rs_commandbuffer_vk*)cmdbuf);
+	}
+
 	void RenderSystem::onWindowResize()
 	{
 		setEngineIdle();
@@ -670,19 +699,6 @@ namespace Render{
 
 	}
 
-	void* RenderSystemPrivate::updateFramePendingData(uint32_t fif, uint64_t frame, void* data, uint32_t size)
-	{
-		const uint32_t BufferSize = 1024 * 64; //64k
-
-		auto allocInfo = mArena->allocateFromArena(size);
-		if (allocInfo.data) {
-			memcpy(allocInfo.data + allocInfo.offset, data, size);
-		}
-		else {
-			throw std::runtime_error("No Valid Space for Render Data");
-		}
-		return allocInfo.data + allocInfo.offset;
-	}
 	void RenderSystemPrivate::cleanUpFramesPendingData(uint32_t fif,uint64_t frame)
 	{
 		mArena->beginFrame(frame);

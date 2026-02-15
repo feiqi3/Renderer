@@ -39,13 +39,16 @@ namespace Render {
 		void									bindParameter(const std::string& paramName, SamplerPtr sampler);
 
 		void									uploadUniform(Pass* pass);
-		MaterialPass* getMaterialPass(const Name& name);
-
+		MaterialPass*							getMaterialPass(const Name& name);
+		void									addMaterialPassToRender(const Name& passName);
+		void									setRenderOrder(u32 order);
+		u32										getRenderOrder()const;
 	protected:
 		std::optional<_ParameterPair*>			getParameterInfo(const std::string& paramName);
-
+		std::vector<Name>						passNamesToRender;
 		MaterialTemplatePtr m_template;
 		std::map < std::string, _ParameterPair> mParameterMap;
+		u32										mRenderOrder = 0;
 	};
 	using MaterialPtr = ResourceHandle<Material>;
 }

@@ -2357,9 +2357,11 @@ namespace Render::Vulkan {
         }
         if (bufferType & BufferType_Storage) {
             dstAccessBits |= VK_ACCESS_SHADER_READ_BIT;
+            //FIX: for condition where we need to write data into it
+            dstAccessBits |= VK_ACCESS_SHADER_WRITE_BIT;
         }
         if (bufferType & BufferType_TransferSrc) {
-            dstAccessBits |= VK_ACCESS_HOST_READ_BIT& VK_ACCESS_TRANSFER_READ_BIT & VK_ACCESS_TRANSFER_WRITE_BIT;
+            dstAccessBits |= VK_ACCESS_HOST_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
         }
         if (bufferType & BufferType_Indirect) {
             dstAccessBits |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
@@ -2440,51 +2442,76 @@ namespace Render::Vulkan {
     void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc, rs_buffer_vk* bufferDst, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
     {
         cb->hasCommands = true;
-        VkCopyBufferInfo2 cpInfo{
-    VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2
-        };
+        auto cmd = (VkCommandBuffer)cb->native;
 
+        // 1. 准备 Copy Info
+        VkCopyBufferInfo2 cpInfo{ VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2 };
         cpInfo.srcBuffer = (VkBuffer)bufferSrc->native;
         cpInfo.dstBuffer = (VkBuffer)bufferDst->native;
         cpInfo.regionCount = 1;
-        VkBufferCopy2 bufferCopy{
-            VK_STRUCTURE_TYPE_BUFFER_COPY_2
-        };
-        cpInfo.pRegions = &bufferCopy;
 
+        VkBufferCopy2 bufferCopy{ VK_STRUCTURE_TYPE_BUFFER_COPY_2 };
         bufferCopy.srcOffset = srcOffset;
         bufferCopy.dstOffset = dstOffset;
         bufferCopy.size = size;
+        cpInfo.pRegions = &bufferCopy;
 
-        VkBufferMemoryBarrier barrierBefore = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_HOST_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .buffer = (VkBuffer)bufferSrc->native,
-        .offset = 0,
-        .size = VK_WHOLE_SIZE,
-        };
+        // 2. Barrier Before (Pre-Copy)
 
-        VkBufferMemoryBarrier barrierAfter = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-        .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = bufferBarrierTransferDstCalc(bufferDst),
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .buffer = (VkBuffer)bufferDst->native,
-        .offset = dstOffset,
-        .size = VK_WHOLE_SIZE,
-        };
+        VkBufferMemoryBarrier2 barriers[2]; 
 
-        auto cmd = (VkCommandBuffer)cb->native;
+        // --- Barrier for Source Buffer ---
+        VkBufferMemoryBarrier barrierSrcBuf = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        barrierSrcBuf.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        barrierSrcBuf.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrierSrcBuf.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrierSrcBuf.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrierSrcBuf.buffer = (VkBuffer)bufferSrc->native;
+        barrierSrcBuf.offset = srcOffset;
+        barrierSrcBuf.size = size;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 1, &barrierBefore, 0, 0);
+        // --- Barrier for Dest Buffer ---
+        VkBufferMemoryBarrier barrierDstBuf = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        barrierDstBuf.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+        barrierDstBuf.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrierDstBuf.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrierDstBuf.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrierDstBuf.buffer = (VkBuffer)bufferDst->native;
+        barrierDstBuf.offset = dstOffset; 
+        barrierDstBuf.size = size; 
+
+        VkBufferMemoryBarrier preBarriers[] = { barrierSrcBuf, barrierDstBuf };
+
+        vkCmdPipelineBarrier(
+            cmd,
+            VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // Src Stages
+            VK_PIPELINE_STAGE_TRANSFER_BIT, // Dst Stages
+            0,
+            0, nullptr,
+            2, preBarriers,
+            0, nullptr
+        );
+
         vkCmdCopyBuffer2(cmd, &cpInfo);
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, 0, 1, &barrierAfter, 0, 0);
+
+        VkBufferMemoryBarrier barrierAfter = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        barrierAfter.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrierAfter.dstAccessMask = bufferBarrierTransferDstCalc(bufferDst);
+        barrierAfter.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrierAfter.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrierAfter.buffer = (VkBuffer)bufferDst->native;
+        barrierAfter.offset = dstOffset;
+        barrierAfter.size = size;
+
+        vkCmdPipelineBarrier(
+            cmd,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT,
+            0,
+            0, nullptr,
+            1, &barrierAfter,
+            0, nullptr
+        );
     }
 
 

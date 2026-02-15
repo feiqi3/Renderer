@@ -40,7 +40,7 @@ namespace Render {
 		
 			this->createPass(Name("MainPass"));
 		}
-		virtual void updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass) {};
+		virtual void updateUniforms(Pass* pass) {};
 
 
 	private:

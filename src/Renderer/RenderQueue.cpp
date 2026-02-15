@@ -1,13 +1,19 @@
 #include "Renderer/RenderQueue.h"
+#include "Renderer/MaterialInstance.h"
 
 namespace Render {
-    void RenderQueue::submit(RenderEntity* entity, u32 renderOrder, u64 renderMask)
+    void RenderQueue::submit(RenderEntity* entity, Pass* matPass, u64 renderMask = UINT64_MAX)
     {
         RenderCommand cmd{};
-        cmd.entity = entity;
+        cmd.pipeline = matPass->mMaterial->getRsPipeline();
+        cmd.drawData = matPass->mDrawData;
+        cmd.renderInfo = entity->getRenderInfo();
         cmd.renderMask = renderMask;
-        cmd.renderOrder = renderOrder;
-        mCommands.emplace(cmd.renderOrder, cmd);
+        //Update uniform data here 
+        
+        entity->getMaterial()->uploadUniform(matPass);
+        entity->updateUniforms(matPass);
+        mCommands.emplace(entity->getMaterial()->getRenderOrder(), cmd);
     }
 
     void RenderQueue::clear()

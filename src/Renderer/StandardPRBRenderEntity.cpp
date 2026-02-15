@@ -83,7 +83,7 @@ namespace Render {
 		return pbrMaterial.get();
 	}
 
-	void StandardPBRRenderEntity::updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass)
+	void StandardPBRRenderEntity::updateUniforms(Pass* pass)
 	{
 		auto renderSys = RenderSystem::instance();
 		{

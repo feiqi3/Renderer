@@ -36,7 +36,7 @@ namespace Render {
 		void destroyPass(const Name& passName);
 		Pass* getPass(const Name& passName);
 		virtual float distToCam()const { return 0.f; }
-		virtual void updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass) = 0;
+		virtual void updateUniforms(Pass* pass) {};
 		inline const RenderInfo& getRenderInfo()const {
 			return mRenderInfo;
 		}

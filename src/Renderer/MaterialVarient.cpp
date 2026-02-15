@@ -16,4 +16,9 @@ namespace Render {
 		}
 	}
 
+	const Name& Pass::getPassName() const
+	{
+		return mMaterial->getRenderPass()->getPassName();
+	}
+
 }

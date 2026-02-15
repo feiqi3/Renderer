@@ -4,21 +4,10 @@
 #include "common/CoreDefs.h"
 #include "common/Name.h"
 #include <map>
+#include "Renderer/RenderCommand.h"
 #include <unordered_map>
 namespace Render {
-
-    struct RenderCommand
-    {
-        RenderEntity* entity = nullptr;
-        uint64_t renderMask = 0;
-        uint32_t renderOrder = 0;
-
-        RenderCommand() = default;
-        RenderCommand(RenderEntity* e, uint64_t mask = 0, uint32_t order = 0)
-            : entity(e), renderMask(mask), renderOrder(order) {
-        }
-    };
-
+    class Pass;
     class RenderQueue
     {
     public:
@@ -30,7 +19,7 @@ namespace Render {
         RenderQueue(const RenderQueue&) = delete;
         RenderQueue& operator=(const RenderQueue&) = delete;
 
-        void submit(RenderEntity* entity,u32 renderOrder,u64 renderMask = UINT64_MAX);
+        void submit(RenderEntity* entity,Pass* pass,u64 renderMask = UINT64_MAX);
 
         void clear();
 

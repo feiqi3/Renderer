@@ -1,131 +1,140 @@
 #include "Renderer/RenderDataAreana.h"
-#include <cassert>
-#include "Vulkan/vulkan_image_data.h"
 
 namespace Render {
 
-    FrameArenaNode::FrameArenaNode(uint32_t nodeSize)
-        : mNodeSize(nodeSize)
-    {
-        mData = new uint8_t[nodeSize];
+    RenderDataArena::RenderDataArena() {}
+
+    RenderDataArena::~RenderDataArena() {
+        shutdown();
     }
 
-    FrameArenaNode::~FrameArenaNode() {
-        delete[] mData;
-        mData = nullptr;
+    void RenderDataArena::init(uint32_t maxFramesInFlight, uint32_t stageBlockSize) {
+        m_maxFramesInFlight = maxFramesInFlight;
+        m_stageBlockSize = stageBlockSize;
+        m_frames.resize(m_maxFramesInFlight);
     }
 
-    void FrameArenaNode::reset() {
-        mHeadOffset = 0;
-    }
-
-    void FrameArenaNode::update(uint64_t frame) {
-        mLastActiveFrame = frame;
-    }
-
-    // ---------------- RenderDataArena ----------------
-    RenderDataArena::RenderDataArena(uint64_t perNodeSize, uint32_t frameInFlight, uint32_t maxNodeVacantFrame)
-        : mPerArenaNodeSize(static_cast<uint32_t>(perNodeSize))
-        , mMaxFrameInFlight(frameInFlight)
-        , mMaxVacantFrame(maxNodeVacantFrame)
-    {
-        assert(mPerArenaNodeSize > 0);
-        mInUsedArena.resize(frameInFlight);
-        mFreeArena.resize(frameInFlight);
-        mFrameMutex.reserve(frameInFlight);
-        for (uint32_t i = 0; i < frameInFlight; ++i) {
-            mFrameMutex.emplace_back(std::make_unique<std::mutex>());
-        }
-    }
-
-    RenderDataArena::~RenderDataArena()
-    {
-        for(auto && arenaList : mInUsedArena){
-            for (auto&& arena : arenaList) {
-                delete arena;
+    void RenderDataArena::shutdown() {
+        for (auto& frame : m_frames) {
+            for (auto* block : frame.blocks) {
+                destroyBlock(block);
             }
-            arenaList.clear();
+            frame.blocks.clear();
+            frame.pendingCopies.clear();
         }
-        mInUsedArena.clear();
-        for (auto&& arenaList : mFreeArena) {
-            for (auto&& arena : arenaList) {
-                delete arena;
+        m_frames.clear();
+    }
+
+    void RenderDataArena::beginFrame(uint64_t frameIndex) {
+        m_currentFrameIndex = frameIndex % m_maxFramesInFlight;
+        FrameData& frame = m_frames[m_currentFrameIndex];
+
+        frame.pendingCopies.clear();
+
+
+
+        std::vector<StagingBlock*> blocksToErase;
+        
+        std::erase_if(frame.blocks, [&](StagingBlock* block) {
+            if (frameIndex - block->lastUsedFrame > m_maxVacantFrames) {
+                destroyBlock(block);
+                return true;
             }
-            arenaList.clear();
+            return false;
+		});
+
+        for (auto* block : frame.blocks) {
+            block->currentOffset = 0;
         }
-        mFreeArena.clear();
+        frame.activeBlockIndex = 0;
     }
 
-    void RenderDataArena::beginFrame(uint64_t frameIdx) {
-        mCurFrame = frameIdx;
-        mCurFrameInFlight = static_cast<uint32_t>(frameIdx % mMaxFrameInFlight);
+    void RenderDataArena::allocateStagingMemory(uint32_t size, uint32_t frameIndex, rs_buffer** outBuffer, uint32_t* outOffset, void** outMappedPtr) {
+        FrameData& frame = m_frames[frameIndex];
 
-        std::lock_guard<std::mutex> lock(*mFrameMutex[mCurFrameInFlight]);
-        auto& usedList = mInUsedArena[mCurFrameInFlight];
-        auto& freeList = mFreeArena[mCurFrameInFlight];
-        cleanFrame(frameIdx);
-        // 将上一帧使用过的节点移动到 free 桶
-        for (auto& node : usedList) {
-            node->reset();
-            freeList.emplace_back(std::move(node));
-        }
-        usedList.clear();
-    }
+        StagingBlock* targetBlock = nullptr;
 
-    AllocRange RenderDataArena::allocateFromArena(size_t reqSize) {
-        assert(reqSize <= mPerArenaNodeSize && "Request size exceeds node size!");
+        if (frame.activeBlockIndex < frame.blocks.size()) {
+            StagingBlock* cur = frame.blocks[frame.activeBlockIndex];
+            uint32_t alignedOffset = (cur->currentOffset + 15) & ~15;
 
-        std::lock_guard<std::mutex> lock(*mFrameMutex[mCurFrameInFlight]);
-        FrameArenaNode* node = findArenaNode(reqSize, mCurFrameInFlight);
-
-        uint32_t offset = node->mHeadOffset;
-        node->mHeadOffset += static_cast<uint32_t>(reqSize);
-
-        AllocRange range;
-        range.data = node->mData;
-        range.offset = offset;
-        range.size = static_cast<uint32_t>(reqSize);
-        return range;
-    }
-
-    void RenderDataArena::cleanFrame(uint64_t frameIdx) {
-        uint32_t frameSlot = static_cast<uint32_t>(frameIdx % mMaxFrameInFlight);
-
-        auto& freeList = mFreeArena[frameSlot];
-
-        for (auto it = freeList.begin(); it != freeList.end(); ) {
-            if (frameIdx - (*it)->mLastActiveFrame > mMaxVacantFrame) {
-                delete (*it);
-                it = freeList.erase(it); // FrameArenaNode 自动析构释放 mData
+            if (alignedOffset + size <= cur->capacity) {
+                targetBlock = cur;
+                targetBlock->currentOffset = alignedOffset;
             }
             else {
-                ++it;
+                frame.activeBlockIndex++;
             }
         }
-    }
 
-    FrameArenaNode* RenderDataArena::findArenaNode(uint64_t reqSize, uint32_t frameIdx) {
-        auto& freeList = mFreeArena[frameIdx];
-
-        if (!freeList.empty()) {
-            // 复用一个 free 节点
-            FrameArenaNode* node = freeList.front();
-            freeList.pop_front();
-            node->reset();
-            node->update(mCurFrame);
-            mInUsedArena[frameIdx].push_back(node);
-            return mInUsedArena[frameIdx].back();
+        if (!targetBlock && frame.activeBlockIndex >= frame.blocks.size()) {
+            uint32_t allocSize = std::max(size, STAGING_BLOCK_SIZE);
+            targetBlock = createBlock(allocSize);
+            frame.blocks.push_back(targetBlock);
         }
+        else if (!targetBlock) {
+            targetBlock = frame.blocks[frame.activeBlockIndex];
+            targetBlock->currentOffset = 0;
+        }
+        targetBlock->lastUsedFrame = m_currentFrameIndex;
+        *outBuffer = targetBlock->buffer;
+        *outOffset = targetBlock->currentOffset;
+        *outMappedPtr = (uint8_t*)targetBlock->mappedPtr + targetBlock->currentOffset;
 
-        // 没有可用节点，新建一个
-        createNewNode(); // 创建后直接放入 used 桶
-        return mInUsedArena[frameIdx].back();
+        targetBlock->currentOffset += size;
     }
 
-    void RenderDataArena::createNewNode() {
-        FrameArenaNode* node = new FrameArenaNode(mPerArenaNodeSize);
-        node->update(mCurFrame);
-        mInUsedArena[mCurFrameInFlight].push_back(node);
+    void RenderDataArena::stageBufferUpdate(rs_buffer* dstBuffer, uint32_t dstOffset, const void* data, uint32_t size) {
+        if (size == 0) return;
+
+        rs_buffer* srcBuf = nullptr;
+        uint32_t srcOffset = 0;
+        void* mapPtr = nullptr;
+
+        allocateStagingMemory(size, m_currentFrameIndex, &srcBuf, &srcOffset, &mapPtr);
+
+        memcpy(mapPtr, data, size);
+
+        FrameData& frame = m_frames[m_currentFrameIndex];
+        CopyCommand cmd;
+        cmd.srcBuffer = srcBuf;
+        cmd.dstBuffer = dstBuffer;
+        cmd.srcOffset = srcOffset;
+        cmd.dstOffset = dstOffset;
+        cmd.size = size;
+
+        frame.pendingCopies.push_back(cmd);
     }
 
+    void RenderDataArena::executePendingCopies(rs_commandbuffer* cmd) {
+        FrameData& frame = m_frames[m_currentFrameIndex];
+
+        if (frame.pendingCopies.empty()) return;
+        //Excute copies
+        for (const auto& copy : m_frames[m_currentFrameIndex].pendingCopies){
+			RenderSystem::instance()->cmdCopyBufferToBuffer(cmd, copy.srcBuffer, copy.dstBuffer, copy.srcOffset, copy.dstOffset, copy.size);
+        }
+    }
+
+
+    RenderDataArena::StagingBlock* RenderDataArena::createBlock(uint32_t size) {
+        StagingBlock* block = new StagingBlock();
+        block->capacity = size;
+        block->currentOffset = 0;
+        auto ctx = RenderSystem::instance()->getRenderContext();
+        BufferDesc desc{};
+        desc.bufUsage = BufferType::BufferType_TransferSrc;
+        desc.byteSize = size;
+        desc.mappable = true;
+        //FIX ME: ignore queue type now.....   
+        block->buffer = RenderSystem::instance()->createBuffer(nullptr, size, desc);
+        return block;
+    }
+
+    void RenderDataArena::destroyBlock(StagingBlock* block) {
+        if (block) {
+            RenderSystem::instance()->destroyBuffer(block->buffer);
+            delete block;
+        }
+    }
 }

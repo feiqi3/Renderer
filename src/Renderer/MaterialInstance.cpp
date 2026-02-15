@@ -103,7 +103,7 @@ namespace Render {
     }
     void Material::uploadUniform(Pass* pass)
     {
-
+        this->OnUpdateParam();
         for (auto& [name, bpair] : mParameterMap) {
             if (bpair.rawPtr == nullptr && !bpair.var.hasResource()) {
                 continue;
@@ -141,5 +141,18 @@ namespace Render {
     MaterialPass* Material::getMaterialPass(const Name& name)
     {
         return m_template->getMaterialPass(name);
+    }
+
+    void Material::addMaterialPassToRender(const Name& passName)
+    {
+		this->passNamesToRender.push_back(passName);
+    }
+    void Material::setRenderOrder(u32 order)
+    {
+        mRenderOrder = order;
+    }
+    u32 Material::getRenderOrder() const
+    {
+        return u32();
     }
 }

@@ -9,7 +9,7 @@ namespace Render {
 	public:
 		MaterialTemplate* getMaterialTemplate();
 
-		void updateUniforms(rs_commandbuffer* cmd, MaterialPass* pass);
+		void updateUniforms( Pass* pass) override;
 
 		void setBaseColTex(TexturePtr tex);
 		TexturePtr getBaseColTex();

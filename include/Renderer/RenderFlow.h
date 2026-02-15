@@ -92,6 +92,7 @@ namespace Render {
 			auto RenderSys = RenderSystem::instance();
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
 			RenderSys->cmdBegin(cmdbufOffscreen);
+			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
 			mMainCamPass->draw(cmdbufOffscreen);
 			RenderSys->cmdEnd(cmdbufOffscreen);
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);
