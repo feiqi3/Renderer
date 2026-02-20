@@ -12,6 +12,8 @@
 #include "common/ResourceSystem.h"
 #include "Renderer/MaterialManager.h"
 #include "Renderer/SamplerResourceManager.h"
+#include "Renderer/ModelResourceManager.h"
+#include "Renderer/EnginePass.h"
 #include <vector>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -704,6 +706,21 @@ namespace Render {
         return innerModel;
     }
 
+    Model* GLTFLoader::gltfModelToEngimeModel(GLTFModel* gltfModel)
+    {
+		Model* model = new Model;
+        //set mesh and ptr
+        for (auto& mesh : gltfModel->meshes) {
+            std::vector<MaterialPtr> materials{};
+            for (auto& matid : mesh.materialIdx) {
+				auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(gltfModel, gltfModel->materials[matid]);
+                materials.push_back(matPtr);
+            }
+            model->addMesh(mesh.mesh, materials);
+        }
+        return model;
+    }
+
     Object* GLTFLoader::toEngineSceneNode(Scene* scene, GLTFModel* model)
     {
         //Root for model
@@ -720,6 +737,14 @@ namespace Render {
             if (node.meshIndex >= 0 && node.meshIndex < model->meshes.size()) {
                 auto& mesh = model->meshes[node.meshIndex];
                 auto renderComp = childObj->addComponent<Render::PBRRenderComponent>();
+                renderComp->setMesh(mesh.mesh);
+                int i = 0;
+                for (auto& materialIDX : mesh.materialIdx)
+                {
+                    auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(model, model->materials[materialIDX]);
+                    renderComp->setMaterial(i, matPtr);
+                    i++;
+                }
             }
             // Parent-child
 			obj->addChild(childObj);
@@ -728,7 +753,6 @@ namespace Render {
 
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)
     {
-        // 清理输出
         out.scenes.clear();
         out.nodes.clear();
         out.meshes.clear();
@@ -1235,6 +1259,7 @@ namespace Render {
         auto pbrMatPtr = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, matName);
         if (!pbrMatPtr) {
             pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName,getPBRMaterialTemplate(&gltfMat));
+            pbrMatPtr->addMaterialPassToRender(PassName::MainCameraPass);
         }
         else {
             return pbrMatPtr;

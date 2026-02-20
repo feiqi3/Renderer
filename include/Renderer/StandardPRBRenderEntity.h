@@ -7,64 +7,16 @@
 namespace Render {
 	class StandardPBRRenderEntity : public RenderEntity {
 	public:
-		MaterialTemplate* getMaterialTemplate();
-
-		void updateUniforms( Pass* pass) override;
-
-		void setBaseColTex(TexturePtr tex);
-		TexturePtr getBaseColTex();
-
-		void setNormalTex(TexturePtr tex);
-		TexturePtr getNormalTex();
-
-		void setMetallicRoughnessTex(TexturePtr tex);
-		TexturePtr getMetallicRoughnessTex();
-
-		void setAOTex(TexturePtr tex);
-		TexturePtr getAOTex();
-
-		void setBaseCol(vec4 col);
-		vec4 getBaseCol();
-
-		void setMetalRoughAO(vec4 v);
-		vec4 getMetalRoughAO();
-
-		void setEmissive(vec4 col);
-		vec4 getEmissive();
-
-		void setTexControl(vec4 v);
-		vec4 getTexControl();
-
+		Material* getMaterial()override { return mMaterial.get(); }
+		inline void setPBRMaterial(const MaterialPtr& mat) {
+			mMaterial = mat;
+		}
+		inline void updateUniforms(Pass* pass) override {
+		}
 	private:
-		void prepareBindingInfo();
-	private:
-		MaterialPass* mainPassMaterial;
-		Pass*	  mainPass;
-		//----------------------//
-		rs_binding_pos pbrDataBindingPos;
-		rs_binding_pos baseColTexBindingPos;
-		rs_binding_pos baseColSamplerBindingPos;
+		MaterialPtr mMaterial;
+		Pass*		mainPass;
 
-		rs_binding_pos normalTexBindingPos;
-		rs_binding_pos normalSamplerBindingPos;
-
-		rs_binding_pos metallicRoughnessTexBindingPos;
-		rs_binding_pos metallicRoughnessSamplerBindingPos;
-
-		rs_binding_pos AOTexBindingPos;
-		rs_binding_pos AOSamplerBindingPos;
-		//----------------------//
-		TexturePtr mBaseColorTex;
-		TexturePtr mNormalTex;
-		TexturePtr mMetallicRoughnessTex;
-		TexturePtr mAOTexture;
-		rs_sampler* mBaseColorSampler;
-		rs_sampler* mNormalSampler;
-		rs_sampler* mMetallicRoughnessSampler;
-		rs_sampler* mAOSampler;
-		MaterialTemplatePtr pbrMaterial = nullptr;
-		GPUShared::PBRData pbrData;
-		//----------------------//
 	};
 }
 

@@ -30,6 +30,8 @@ namespace Render {
         const LightManager& getLightMgr()const;
         rs_drawdata* getSceneDrawData()const;
         void update(float deltaTime);
+
+        virtual void renderOneFrame();
     private:
         void updateObjectsTransform();
 

@@ -7,28 +7,38 @@
 #include "Renderer/MaterialInstance.h"
 namespace Render {
 
-	class Model : public IResource {
-	public:
-		const std::map<Name, TexturePtr>& getTextureBindings()const;
-		const std::vector<MeshPtr>& getMeshs()				const;
-		std::vector<MaterialPtr>& getMaterials() { return mMaterials; }
-		std::map<Name, TexturePtr>& getTextureBindings();
-		std::vector<MeshPtr>& getMeshs()				;
-		void  addMesh(const MeshPtr& mesh) { mMeshs.push_back(mesh); }
-		void  addMaterial(const MaterialPtr& mat) { mMaterials.push_back(mat); }
+    class Model : public IResource {
+    public:
+        struct ModelPart {
+            MeshPtr mesh;
+            std::vector<MaterialPtr> materials; 
+        };
 
-		virtual const Name& getTypeName() const override;
-		static const Name& typeName();
-	
-		virtual ResourceMemory getMemory() const override;
+    public:
+        Model();
+        virtual ~Model();
 
-	private:
-		std::map<Name, TexturePtr>		mTextureBindings;
-		std::vector<MeshPtr>			mMeshs;
-		std::vector<MaterialPtr>        mMaterials;
-	};
+        static const Name& typeName();
+        virtual const Name& getTypeName() const override;
+        virtual ResourceMemory getMemory() const override;
+        virtual void OnUnload() override;
 
-	class ModelResourceManager : public ResourceManager<Model> {
+        // Getters
+        const std::vector<ModelPart>& getModelParts() const;
+        std::vector<ModelPart>& getModelParts();
+
+        void addMesh(const MeshPtr& mesh);
+        void addMesh(const MeshPtr& mesh, const std::vector<MaterialPtr>& materials);
+
+        void setMaterial(size_t partIndex, size_t subMeshIndex, const MaterialPtr& mat);
+
+        class Object* toSceneNode(class Scene* scene, const Name& nodeName);
+    private:
+        std::vector<ModelPart>      mModelParts;
+    };
+
+
+	class ModelResourceManager : public ResourceManager<Model>{
 	public:
 		ModelResourceManager();
 		~ModelResourceManager();

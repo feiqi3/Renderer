@@ -184,6 +184,10 @@ namespace Render {
         }
     }
 
+    void Scene::renderOneFrame()
+    {
+    }
+
     void Scene::updateObjectsTransform()
     {
         for (auto& obj : m_objects) {

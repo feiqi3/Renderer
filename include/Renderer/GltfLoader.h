@@ -122,6 +122,7 @@ namespace Render {
 		GLTFLoader();
 		~GLTFLoader();
 		GLTFModel*      createFromFilePath(const std::string& path);
+		class Model*    gltfModelToEngimeModel(GLTFModel* gltfModel);    
         Object*         toEngineSceneNode(Scene* scene,GLTFModel* model);
 	private:
 		GLTFLoaderPrivate* mDp = nullptr;

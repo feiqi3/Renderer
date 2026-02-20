@@ -4,17 +4,28 @@
 #include "function/Component.h"
 #include "Renderer/GltfLoader.h"
 #include "Renderer/MaterialInstance.h"
+#include "Renderer/Mesh.h"
 namespace Render {
 	class MaterialTemplate;
+	class RenderEntity;
 	class PBRRenderComponent : public Component{
 	public:
 		virtual void onAttach() override;
-		static MaterialPtr createPBRMaterial(GLTFMaterial* material);
+		virtual void setMesh(const MeshPtr& mesh);
+		virtual void setMaterial(int submeshId, MaterialPtr mat);
+		virtual MeshPtr getMesh(const MeshPtr& mesh);
+		virtual MaterialPtr getMaterial(int submeshID, MaterialPtr& mat);
 
-	private:
+		virtual void onUpdate(float dt)override;
 
+		~PBRRenderComponent();
+	private :
+		void updateRenderEntities();
+		RenderEntity* createRenderEntity(int submeshID, MaterialPtr mat);
 	private:
-		MaterialTemplate* mPBRMatTemp = nullptr;
+		MeshPtr mMesh;
+		std::vector<MaterialPtr> mMaterials;
+		std::vector<RenderEntity*> mRenderEntities;
 	};
 }
 
