@@ -119,6 +119,7 @@ namespace Render{
 		void resetFence(rs_fence* fence);
 
 		void setCurrentCamera(Camera* camera);
+		Camera* getCurrentCamera();
 
 		void setSignalCanRenderToPresentImageSemaphore(rs_semaphore*semaphores) {
 			SignalCanRenderToPresentImageSemaphore = semaphores;

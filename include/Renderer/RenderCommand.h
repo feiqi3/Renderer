@@ -5,16 +5,11 @@
 namespace Render {
 	struct rs_pipeline;
 	struct rs_drawdata;
-	
+	class RenderEntity;
 	struct RenderCommand {
-		//1. Pipeline to use
-		rs_pipeline* pipeline;
-		//2. Draw data
-		rs_drawdata* drawData;
-		//3. Render state 
-		RenderInfo renderInfo;
-		//4. Render mask
+		RenderEntity* entity;
 		u64 renderMask;
+		vec3 worldPos;
 	};
 }
 

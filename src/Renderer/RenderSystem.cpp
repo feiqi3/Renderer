@@ -70,6 +70,7 @@ namespace Render{
 		rs_drawdata* mCurrentCameraData = nullptr;
 		EngineEvent mEngineEvent;
 		ShaderIncFindFunc mShaderIncludeFunction;
+		Camera* mCurrentCamera = nullptr;
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -661,6 +662,11 @@ namespace Render{
 		}
 		//TOOD: use CameraManager::instance()->updateCamera();
 		mDp->mCurrentCameraData = ConstShaderDataManager::instance()->updateCameraDrawData(camera);
+	}
+
+	Camera* RenderSystem::getCurrentCamera()
+	{
+		return mDp->mCurrentCamera;
 	}
 
 	void RenderSystem::setEngineIdle()

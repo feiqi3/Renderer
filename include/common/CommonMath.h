@@ -75,6 +75,10 @@ namespace Render {
 	inline auto clamp(const auto& v, const auto& min, const auto& max) { return glm::clamp(v, min, max); }
 	inline auto smoothstep(float edge0, float edge1, float x) { return glm::smoothstep(edge0, edge1, x); }
 
+	inline vec3 getTranslateFromMatrix(const mat4& m) {
+		return vec3(m[3]);
+	}
+
 	inline auto fromEulerAngles(const vec3& angles) {
 		return glm::quat(angles);
 	}

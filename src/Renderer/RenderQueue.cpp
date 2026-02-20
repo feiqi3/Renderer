@@ -2,17 +2,66 @@
 #include "Renderer/MaterialInstance.h"
 
 namespace Render {
-    void RenderQueue::submit(RenderEntity* entity, Pass* matPass, u64 renderMask = UINT64_MAX)
+
+    class IViewImpl {
+    public:
+        IViewImpl(const RenderQueue::PriorityMap& map):mMap(map),mBeg(mMap.begin()),mEnd(mMap.end()),mCur(mBeg) {}
+        virtual const RenderCommand* next() = 0;
+        ~IViewImpl() = default;
+    protected:
+        RenderQueue::PriorityMap mMap;
+        RenderQueue::PriorityMap::iterator mBeg;
+        RenderQueue::PriorityMap::iterator mEnd;
+        RenderQueue::PriorityMap::iterator mCur;
+    };
+    class ViewImplPassNameMaskFilter : public IViewImpl {
+    public:
+        ViewImplPassNameMaskFilter(const RenderQueue::PriorityMap& map,Name passName, u64 mask):IViewImpl(map),mName(passName),mMask(mask) {
+        }
+
+        virtual const RenderCommand* next() {
+            RenderCommand* cmd = 0;
+            while (mCur != mEnd) {
+                cmd = &mCur->second;
+                mCur++;
+                if (cmd->renderMask & mMask) {
+                    Pass* pass = cmd->entity->getPass(mName);
+                    if (pass) {
+                        return cmd;
+                    }
+                }
+            }
+            return nullptr;
+        }
+
+        Name mName;
+        u64 mMask;
+    };
+    class ViewImplMaskFilter : public IViewImpl {
+        public:
+            ViewImplMaskFilter(const RenderQueue::PriorityMap& map, u64 mask) :IViewImpl(map), mMaskTag(mask) {
+            }
+            virtual const RenderCommand* next() {
+                RenderCommand* cmd = nullptr;
+                while (mCur != mEnd) {
+                    cmd = &mCur->second;
+                    mCur++;
+                    if (cmd->renderMask & mMaskTag) {
+                        return cmd;
+                    }
+                }
+                return nullptr;
+            }
+    private:
+        RenderQueue::PriorityMap::iterator saveItor;
+        u64 mMaskTag;
+    };
+    void RenderQueue::submit(RenderEntity* entity, u64 renderMask = UINT64_MAX)
     {
         RenderCommand cmd{};
-        cmd.pipeline = matPass->mMaterial->getRsPipeline();
-        cmd.drawData = matPass->mDrawData;
-        cmd.renderInfo = entity->getRenderInfo();
+        cmd.entity = entity;
         cmd.renderMask = renderMask;
-        //Update uniform data here 
-        
-        entity->getMaterial()->uploadUniform(matPass);
-        entity->updateUniforms(matPass);
+		cmd.worldPos = entity->getWorldPos();
         mCommands.emplace(entity->getMaterial()->getRenderOrder(), cmd);
     }
 
@@ -27,28 +76,29 @@ namespace Render {
     }
 
     RenderQueue::View::View(const PriorityMap& map, uint64_t tagMask)
-        : mMap(map), mIt(map.begin()), mEnd(map.end()), mTagMask(tagMask)
     {
+        mDp = new ViewImplMaskFilter(map, tagMask);
     }
 
-
-    const RenderCommand* RenderQueue::View::next()
+    RenderQueue::View::View(const PriorityMap& map, const Name& passName, uint64_t tagMask)
     {
-        while (mIt != mEnd)
-        {
-            const RenderCommand* candidate = &mIt->second;
-            ++mIt; 
-            if ((candidate->renderMask & mTagMask) != 0)
-            {
-                return candidate;
-            }
-        }
-        return nullptr;
+        mDp = new ViewImplPassNameMaskFilter(map,passName, tagMask);
+    }
+
+    RenderQueue::View::~View()
+    {
+        delete mDp;
+        mDp = 0;
     }
 
     RenderQueue::View RenderQueue::getView(uint64_t tagMask) const
     {
         return View(mCommands, tagMask);
+    }
+
+    RenderQueue::View RenderQueue::getView(const Name& name, uint64_t tagMask) const
+    {
+        return View(mCommands,name, tagMask);
     }
 
     RenderQueue& RenderGroup::getQueue(const Name& passName)

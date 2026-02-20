@@ -47,8 +47,8 @@ namespace Render {
 		RenderSystem::instance()->updateUniform(texturePos, texture->getRsImage(), mCubeB->getPass(PassName::MainCameraPass));
 		RenderSystem::instance()->updateUniform(samplerPos, sampler, mCubeB->getPass(PassName::MainCameraPass));
 		auto mainRenderQueue = RenderSystem::instance()->getMainRenderQueue();
-		mainRenderQueue->submit(mCube	,mCube->getPass(PassName::MainCameraPass));
-		mainRenderQueue->submit(mCubeB	,mCube->getPass(PassName::MainCameraPass));
+		mainRenderQueue->submit(mCube);
+		mainRenderQueue->submit(mCubeB);
 	}
 
 }

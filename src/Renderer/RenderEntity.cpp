@@ -1,6 +1,7 @@
 #include "Renderer/RenderEntity.h"
 #include "Renderer/RenderSystem.h"
 #include "Renderer/MaterialInstance.h"
+#include "Renderer/Camera.h"
 namespace Render {
 	RenderEntity::~RenderEntity()
 	{

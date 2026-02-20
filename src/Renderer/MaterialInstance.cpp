@@ -145,7 +145,17 @@ namespace Render {
 
     void Material::addMaterialPassToRender(const Name& passName)
     {
-		this->passNamesToRender.push_back(passName);
+		auto matPass = m_template->getMaterialPass(passName);
+        if(matPass)
+		    this->materialPassMap.insert({ passName, matPass });
+    }
+    MaterialPass* Material::getMaterialPassToRender(const Name& passName)
+    {
+		auto itor = this->materialPassMap.find(passName);
+        if (itor != materialPassMap.end()) {
+            return itor->second;
+        }
+        return nullptr;
     }
     void Material::setRenderOrder(u32 order)
     {

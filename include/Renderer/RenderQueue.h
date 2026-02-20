@@ -19,7 +19,7 @@ namespace Render {
         RenderQueue(const RenderQueue&) = delete;
         RenderQueue& operator=(const RenderQueue&) = delete;
 
-        void submit(RenderEntity* entity,Pass* pass,u64 renderMask = UINT64_MAX);
+        void submit(RenderEntity* entity,u64 renderMask = UINT64_MAX);
 
         void clear();
 
@@ -29,20 +29,16 @@ namespace Render {
         {
         public:
             View(const PriorityMap& map, uint64_t tagMask = UINT64_MAX);
-
+            View(const PriorityMap& map,const Name& passName, uint64_t tagMask = UINT64_MAX);
+            ~View();
             const RenderCommand* next();
 
         private:
-            const PriorityMap& mMap;
-            PriorityMap::const_iterator mIt;
-            PriorityMap::const_iterator mEnd;
-            uint64_t mTagMask;
-            bool mHasPrepared = false;     
-            bool mHasCachedNext = false; 
+            class IViewImpl* mDp = 0;
         };
 
         View getView(uint64_t tagMask = UINT64_MAX) const;
-
+        View getView(const Name& name, uint64_t tagMask = UINT64_MAX)const;
     private:
         PriorityMap mCommands;
     };

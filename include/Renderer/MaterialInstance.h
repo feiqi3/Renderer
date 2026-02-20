@@ -41,10 +41,12 @@ namespace Render {
 		void									uploadUniform(Pass* pass);
 		MaterialPass*							getMaterialPass(const Name& name);
 		void									addMaterialPassToRender(const Name& passName);
+		MaterialPass*							getMaterialPassToRender(const Name& passName);		
 		void									setRenderOrder(u32 order);
 		u32										getRenderOrder()const;
 	protected:
 		std::optional<_ParameterPair*>			getParameterInfo(const std::string& paramName);
+		std::map<Name, MaterialPass*>&			materialPassMap;
 		std::vector<Name>						passNamesToRender;
 		MaterialTemplatePtr m_template;
 		std::map < std::string, _ParameterPair> mParameterMap;
