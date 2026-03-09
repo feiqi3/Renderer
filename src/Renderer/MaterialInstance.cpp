@@ -145,9 +145,13 @@ namespace Render {
 
     void Material::addMaterialPassToRender(const Name& passName)
     {
-		auto matPass = m_template->getMaterialPass(passName);
-        if(matPass)
-		    this->materialPassMap.insert({ passName, matPass });
+        auto matPass = m_template->getMaterialPass(passName);
+        if (matPass)
+        {
+            this->materialPassMap.insert({ passName, matPass });
+            return true;
+        }
+        return false;
     }
     MaterialPass* Material::getMaterialPassToRender(const Name& passName)
     {

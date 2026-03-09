@@ -1,4 +1,5 @@
 #include "function/Object.h"
+#include "function/ComponentSystem.h"
 #include "common/CommonMath.h"
 #include <algorithm>
 #include <cassert>
@@ -14,18 +15,17 @@ namespace Render {
     }
 
     Object::~Object() {
+        setParent(nullptr);
         for (auto* child : m_children) {
             if (child) child->m_parent = nullptr;
         }
         m_children.clear();
-
-        for (auto& comp : m_components) {
+        
+        for (auto&& comp : m_components) {
             if (!comp) continue;
-            if (comp->enabled()) {
-                comp->onDisable();
-            }
-            comp->onDetach();
+            ComponentSystem::instance()->delegateDestroyComponent(comp);
         }
+
         m_components.clear();
     }
 
@@ -92,6 +92,14 @@ namespace Render {
         //Or faster:
         // GLM column-major: translation in column 3
         m_worldPosition = vec3(m_worldMatrix[3][0], m_worldMatrix[3][1], m_worldMatrix[3][2]);
+    }
+
+    void Object::destroyAllComponent()
+    {
+        for (auto&& cmpnt : this->m_components) {
+            cmpnt->onDetach();
+            cmpnt->onDestroy();
+        }
     }
 
     bool Object::parentCycleCheck(Object* target)

@@ -3,7 +3,6 @@
 
 #include "function/ObjectFwd.h"
 namespace Render {
-    class Object;
     class Scene;
 
     class Component {
@@ -20,6 +19,9 @@ namespace Render {
 
         virtual void onUpdate(float dt) {}
 
+        virtual void onDestroy() {};
+
+        virtual void onFrameEnd() {};
         bool enabled() const noexcept;
         void setEnabled(bool enabled);
 
@@ -34,6 +36,8 @@ namespace Render {
 
         Object* m_owner = nullptr;
         bool m_enabled = true;
+
+        friend class ComponentSystem;
     };
 };
 

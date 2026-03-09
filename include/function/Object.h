@@ -2,6 +2,8 @@
 #define _OBJECT_H_
 
 #include "function/ObjectFwd.h"
+#include "function/ComponentSystem.h"
+#include "function/ComponentFwd.h"
 #include "common/CommonMath.h"
 #include "common/Name.h"
 #include "function/Component.h"
@@ -70,6 +72,24 @@ namespace Render {
         template<typename T>
         bool hasComponent() const;
 
+		template<typename T>
+		int hasComponentsNum() const;
+
+		template<typename T>
+		T* getComponent(int idx) const;
+
+		template<typename T>
+		T* getComponents(int idx) const;
+
+		template<typename T>
+        void removeComponent();
+
+		template<typename T>
+		bool removeComponent(int idx);
+
+		template<typename T>
+		int removeComponents();
+
         std::span<const std::unique_ptr<Component>> components() const noexcept;
 
         virtual void onCreate() {}
@@ -88,6 +108,7 @@ namespace Render {
         void setScene(Scene* scene) noexcept;
         void updateTransformRecursive(bool needUpdate);
         void updateWorldTransform();
+        void destroyAllComponent();
     private:
         bool parentCycleCheck(Object* target);
 
@@ -111,7 +132,7 @@ namespace Render {
         std::vector<Object*> m_children;
 
         // components ownership
-        std::vector<std::unique_ptr<Component>> m_components;
+        std::vector<ComponentUniquePtr> m_components;
     };
 
 
@@ -148,7 +169,109 @@ namespace Render {
         return getComponent<T>() != nullptr;
     }
 
-    inline std::span<const std::unique_ptr<Component>> Object::components() const noexcept {
+	template<typename T>
+	int Object::hasComponentsNum() const
+	{
+        int num = 0;
+		for (const auto& c : m_components) {
+			if (auto ptr = dynamic_cast<T*>(c.get())) {
+                num++;
+			}
+		}
+        return num;
+	}
+
+    template<typename T>
+    inline T* Object::getComponent(int idx) const
+    {
+		int i = 0;
+		for (const auto& c : m_components) {
+			if (auto ptr = dynamic_cast<T*>(c.get())) {
+                if (i == idx) {
+                    return ptr;
+                }
+				i++;
+			}
+		}
+		return nullptr;
+    }
+
+    template<typename T>
+    inline T* Object::getComponents(int idx) const
+    {
+        std::vector<T*> components;
+		for (const auto& c : m_components) {
+			if (auto ptr = dynamic_cast<T*>(c.get())) {
+                components.push_back(ptr);
+			}
+		}
+		return components;
+    }
+
+	template<typename T>
+	void Object::removeComponent()
+	{
+        removeComponent<T>(0);
+	}
+
+	template<typename T>
+    bool Object::removeComponent(int idx)
+    {
+		bool begRemove = false;
+
+		int targetCmptCnt = 0;
+
+        for (int i = 1;i < m_components.size();++i) {
+            const auto& cmpt = m_components[i - 1];
+            if (!begRemove && dynamic_cast<T*>(cmpt.get()) != nullptr) {
+                targetCmptCnt++;
+                if (targetCmptCnt == idx) {
+                    begRemove = true;
+                }
+            }
+            std::swap(m_components[i - 1], m_components[i]);
+        }
+
+        if (!begRemove) {
+            if (dynamic_cast<T*>(m_components.back().get()) != nullptr) {
+                begRemove = true;
+            }
+        }
+
+        if (begRemove) {
+            ComponentSystem::instance()->delegateDestroyComponent(m_components.back());
+            m_components.resize(m_components.size() - 1);
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+	template<typename T>
+	int Object::removeComponents()
+	{
+        int removeCnt = 0;
+        auto removeItor = std::remove_if(
+            m_components.begin(), m_components.end(), [](const auto& cmpnt) {
+                if (dynamic_cast<T*>(cmpnt.get()) != nullptr) {
+                    removeCnt++;
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+        );
+		auto cmpntSys = ComponentSystem::instance();
+        for (auto itor = removeItor;itor != m_components.end();++itor) {
+            cmpntSys->delegateDestroyComponent(*itor);
+        }
+		m_components.erase(removeItor, m_components.end());
+        return removeCnt;
+	}
+
+	inline std::span<const std::unique_ptr<Component>> Object::components() const noexcept {
         return { m_components.data(), m_components.size() };
     }
 

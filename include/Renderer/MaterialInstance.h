@@ -40,7 +40,7 @@ namespace Render {
 
 		void									uploadUniform(Pass* pass);
 		MaterialPass*							getMaterialPass(const Name& name);
-		void									addMaterialPassToRender(const Name& passName);
+		bool									addMaterialPassToRender(const Name& passName);
 		MaterialPass*							getMaterialPassToRender(const Name& passName);		
 		void									setRenderOrder(u32 order);
 		u32										getRenderOrder()const;

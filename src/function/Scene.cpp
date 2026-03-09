@@ -105,14 +105,14 @@ namespace Render {
     {
         if (m_objects.empty() || objIdxInVec >= m_objects.size()) return;
         ObjectID objectToSwapId = INVALID_ID;
-        objectToSwapId = m_objects.back()->id();
-
-        std::swap(m_objects[objIdxInVec], m_objects.back());
-
-        m_objects.resize(m_objects.size() - 1);
 
 
-        m_objectIdx[objectToSwapId] = objIdxInVec;
+        if (objIdxInVec != m_objects.size() - 1) {
+            objectToSwapId = m_objects.back()->id();
+            std::swap(m_objects[objIdxInVec], m_objects.back());
+			m_objectIdx[objectToSwapId] = objIdxInVec;
+		}
+        m_objects.pop_back();
         m_objectIdx.erase(id);
     }
 
@@ -168,7 +168,6 @@ namespace Render {
     void Scene::update(float deltaTime) {
         _doDelayDestroy();
         updateObjectsTransform();
-
         for (auto& obj : m_objects) {
             Object* o = obj.get();
             if (!o) continue;

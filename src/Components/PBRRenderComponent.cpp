@@ -1,6 +1,8 @@
 #include "Components/PBRRenderComponent.h"
 #include "Renderer/RenderSystem.h"
+#include "Renderer/EnginePass.h"
 #include "Renderer/StandardPRBRenderEntity.h"
+#include "Renderer/RenderQueue.h"
 namespace Render {
 	void PBRRenderComponent::onAttach()
 	{
@@ -37,9 +39,26 @@ namespace Render {
 	void PBRRenderComponent::onUpdate(float dt)
 	{
 		auto sys = RenderSystem::instance();
-		RenderQueue* queue = sys->getMainRenderQueue();
+		auto queue = sys->getMainRenderQueue();
+		if (mRenderEntities.size() != mMaterials.size()) {
+			mRenderEntities.resize(mMaterials.size(), nullptr);
+		}
 		for (int i = 0; i < mMaterials.size(); ++i) {
-			
+			if (mRenderEntities[i] == nullptr) {
+				mRenderEntities[i] = createRenderEntity(i, mMaterials[i]);
+			}
+			auto* pass = mRenderEntities[i]->getPass(PassName::MainCameraPass);
+			if (pass) {
+				queue->submit(mRenderEntities[i]);
+			}
+		}
+	}
+
+	void PBRRenderComponent::onDestroy()
+	{
+		for (auto&& i : mRenderEntities) {
+			delete i;
+			i = 0;
 		}
 	}
 
@@ -59,7 +78,20 @@ namespace Render {
 	RenderEntity* PBRRenderComponent::createRenderEntity(int submeshID, MaterialPtr mat)
 	{
 		StandardPBRRenderEntity* entity = new StandardPBRRenderEntity;
-
+		auto& info = entity->getRenderInfo();
+		const auto& subMesh = this->mMesh->getSubMesh(submeshID);
+		info.idxCount = subMesh.indexCount;
+		info.idxOffset = subMesh.indexOffset;
+		info.indexType = mMesh->getIndexType();
+		info.instanceCount = 1;
+		info.vtxoffset = subMesh.vertexOffset;
+		info.indexBuffer = mMesh->getIndexBuffer();
+		info.bindingBuffers.resize(1);
+		info.bindingBuffers[0].buffer = mMesh->getVertexBuffer();
+		info.bindingBuffers[0].offset = 0;
+		
+		auto* mainPass = mat->getMaterialPassToRender(PassName::MainCameraPass);
+		entity->createPass(PassName::MainCameraPass);
 		return entity;
 	}
 

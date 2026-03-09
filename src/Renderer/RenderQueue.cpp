@@ -91,7 +91,13 @@ namespace Render {
         mDp = 0;
     }
 
-    RenderQueue::View RenderQueue::getView(uint64_t tagMask) const
+	const Render::RenderCommand* RenderQueue::View::next()
+	{
+        assert(mDp != nullptr && "No view imple has written");
+        return mDp->next();
+	}
+
+	RenderQueue::View RenderQueue::getView(uint64_t tagMask) const
     {
         return View(mCommands, tagMask);
     }

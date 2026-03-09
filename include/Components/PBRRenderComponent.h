@@ -17,7 +17,7 @@ namespace Render {
 		virtual MaterialPtr getMaterial(int submeshID, MaterialPtr& mat);
 
 		virtual void onUpdate(float dt)override;
-
+		virtual void onDestroy()override;
 		~PBRRenderComponent();
 	private :
 		void updateRenderEntities();

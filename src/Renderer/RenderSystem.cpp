@@ -17,6 +17,7 @@
 #include "common/ResourceSystem.h"
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/RenderDataAreana.h"
+#include "function/ComponentSystem.h"
 #include <set>
 namespace Render{
 
@@ -102,15 +103,18 @@ namespace Render{
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
 		new ConstShaderDataManager;
 		new CameraManager;
+		//TODO move it out;
+		new ComponentSystem;
 	}
 	void RenderSystem::destroyRenderSystem()
 	{
 		using namespace Vulkan;
 		if (!sRenderSystem)return;
+		delete ComponentSystem::instance();
+		delete CameraManager::instance();
 		sRenderSystem->mDp->mPassManager = 0;
 		sRenderSystem->mDp->mArena->shutdown();
 		sRenderSystem->mDp->mArena = 0;
-		delete CameraManager::instance();
 		deinitVulkanBackEnd((rs_context_vk*)sRenderSystem->mBackEndContext);
 		sRenderSystem->mWindow = 0;
 		sRenderSystem->mBackEndContext = 0;
@@ -126,6 +130,7 @@ namespace Render{
 	}
 	void RenderSystem::EndLogicFrame()
 	{
+		ComponentSystem::instance()->doDestroyComponents();
 		Vulkan::endRsFrameVk(getRenderContext());
 		if (this->FenceToWaitForRender && this->currentLogicFrame > 0)
 		{

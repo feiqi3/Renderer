@@ -49,7 +49,7 @@ namespace Render {
 		}
 		auto material = this->getMaterial();
 		if (material) {
-			auto Variant = getMaterial()->getMaterialPass(passName);
+			auto Variant = getMaterial()->getMaterialPassToRender(passName);
 			if (Variant) {
 				auto pass = new Pass;
 				pass->mDrawData = RenderSystem::instance()->createDrawData();
