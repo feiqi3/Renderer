@@ -1,4 +1,5 @@
 #include "Renderer/MaterialManager.h"
+#include "Renderer/MaterialTemplateManager.h"
 #include <exception>
 #include <stdexcept>
 #include <cassert>
@@ -26,4 +27,9 @@ namespace Render {
             delete res;
         }
     }
+
+	void MaterialManager::createNecessaryPersistenceResources()
+	{
+	}
+
 }

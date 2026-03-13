@@ -8,6 +8,60 @@
 #include <cassert>
 namespace Render {
 
+    static MaterialTemplate* createMaterialTemplateForBuiltinCube() {
+        ShaderStageInfo shaders = {
+            {ShaderStage::Vertex, "../shader/Normal.vs" },
+            {ShaderStage::Fragment, "../shader/Normal.ps" }
+        };
+		RenderState renderState{};
+        BlendState baseBlendState{};
+        baseBlendState.blendEnable = false;
+        renderState.blendStates.push_back(
+            baseBlendState
+        );
+        VertexInputDescription VtxIA{};
+        
+        InputBufferBinding bindingBufferVtx{};
+        bindingBufferVtx.perInstance = false;
+
+        u32 offset = 0;
+        {
+
+			uint32_t offset = 0;
+			//Vertex
+			InputAttribute AttVtx{
+			};
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float3;
+			AttVtx.location = 0;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 12;
+
+			//Normal
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float3;
+			AttVtx.location = 1;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 12;
+			//Texcord
+			AttVtx.binding = 0;
+			AttVtx.format = VertexFormat::Float2;
+			AttVtx.location = 2;
+			AttVtx.offset = offset;
+			VtxIA.attributes.push_back(AttVtx);
+			offset += 8;
+
+        }
+		bindingBufferVtx.perInstance = false;
+		bindingBufferVtx.stride = offset;
+        VtxIA.bindings.push_back(bindingBufferVtx);
+
+        MaterialTemplate* matTemplate = new MaterialTemplate(shaders, renderState, VtxIA);
+        return matTemplate;
+    }
+
     MaterialTemplateManager::MaterialTemplateManager()
     {
     }
@@ -65,7 +119,15 @@ namespace Render {
         delete res;
     }
 
-    void MaterialTemplateManager::broadcastPipelineRebuild(RenderPass* passChanged)
+	void MaterialTemplateManager::createNecessaryPersistenceResources()
+	{
+        this->registerResource(
+            Name("Builtin::CubeMateralTemplate"),
+            createMaterialTemplateForBuiltinCube(), ResourceLifetime::Persistent, nullptr
+        );
+	}
+
+	void MaterialTemplateManager::broadcastPipelineRebuild(RenderPass* passChanged)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         for (auto& [name, entry] : m_entries) {

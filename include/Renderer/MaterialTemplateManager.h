@@ -38,7 +38,7 @@ namespace Render {
         virtual void unloadImpl(MaterialTemplate* res) override;
 
     private:
-        virtual void createNecessaryPersistenceResources() override {}
+        virtual void createNecessaryPersistenceResources() override;
     };
 };
 

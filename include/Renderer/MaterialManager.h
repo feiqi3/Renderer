@@ -16,8 +16,15 @@ namespace Render {
         virtual ~MaterialManager();
 
         virtual const Name& typeName() const override;
+        inline MaterialPtr getMaterial(const Name& materialName) {
+			auto* entry = this->acquire(materialName);
+            if (entry == nullptr)return nullptr;
+			return ResourceHandle<Material>(this, entry);
+
+        }
+
         template <typename T, typename... Args>
-        MaterialPtr createMaterial(const Name& materialName, Args&&... args)
+        inline MaterialPtr createMaterial(const Name& materialName, Args&&... args)
         {
             static_assert(std::is_base_of<Material, T>::value, "T must inherit from Render::Material");
 
@@ -47,7 +54,7 @@ namespace Render {
         virtual void unloadImpl(Material* res) override;
 
     private:
-        virtual void createNecessaryPersistenceResources() override {}
+        virtual void createNecessaryPersistenceResources() override;
     };
 }
 
