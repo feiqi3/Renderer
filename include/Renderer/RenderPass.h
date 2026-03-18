@@ -25,8 +25,9 @@ namespace Render {
 		const Name& getPassName() { return mPassName; }
 	protected: 
 		friend class RenderPassManager;
-		virtual void drawImpl(rs_commandbuffer* cmdbuffer) = 0;
+		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
 		bool needRebuildPipeline(rs_rendertarget* oldrt,rs_rendertarget* newrt);
+		void updateEntityParameters(class RenderEntity*);
 	protected:
 		Name mPassName;
 		rs_rendertarget* mRendertarget = nullptr;

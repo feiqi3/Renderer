@@ -5,6 +5,7 @@
 #include "Renderer/RenderDebuger.h"
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/MaterialTemplateManager.h"
+#include "Renderer/RenderQueue.h"
 namespace Render {
 	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
 	{
@@ -36,6 +37,12 @@ namespace Render {
 		}
 		drawImpl(cmdbuffer);
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
+	}
+
+	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer)
+	{
+		auto mainRenderQueue = RenderSystem::instance()->getMainRenderQueue();
+		auto view = mainRenderQueue->getView(getPassName());
 	}
 
 	bool RenderPass::needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt)

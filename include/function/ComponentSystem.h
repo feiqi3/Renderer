@@ -4,9 +4,9 @@
 #include <memory>
 #include <mutex>
 
-#include "function/ComponentFwd.h"
 
 #include "common/Singleton.h"
+#include "function/ComponentFwd.h"
 #include "function/ObjectFwd.h"
 
 
@@ -15,7 +15,7 @@ class Component;
 namespace Render { 
 	class ComponentSystem :public Singleton<ComponentSystem>{
 	public:
-		ComponentSystem() = default;
+		ComponentSystem();
 		~ComponentSystem();
 
 	public:

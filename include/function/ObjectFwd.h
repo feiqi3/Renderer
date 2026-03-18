@@ -3,7 +3,6 @@
 #include "common/CoreDefs.h"
 namespace Render {
 	class Camera;
-	class Component;
 	class Object;
 	using ObjectID = u32;
 	const ObjectID INVALID_ID = 0;

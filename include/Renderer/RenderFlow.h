@@ -6,6 +6,8 @@
 #include "RenderPassManager.h"
 #include "RenderQueue.h"
 #include "Texture.h"
+#include "Renderer/Camera.h"
+
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -43,7 +45,7 @@ namespace Render {
 			RenderSys->setSignalCanPresentToPresentImageSemaphore(mPresentToScreenSemaphore);
 			//Is Rendered to present image finished?
 			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
-
+			mCamera = new Camera(Name("Scene"));
 		}
 
 		void initMainCamPass() {
@@ -58,8 +60,10 @@ namespace Render {
 
 		void initSwapChainPass() {
 			RenderSystem* renderSys = RenderSystem::instance();
-			mSwapchainPass->init();
 			renderSys->getRenderPassManager()->registerRenderPass(mSwapchainPass);
+			//Swapchain draw data rely on swapchain to be registered into pass manager.
+			RenderSystem::instance()->setCurrentCamera(mCamera);
+			mSwapchainPass->init();
 		};
 		void deinitSwapchainPass() {
 			RenderSystem* renderSys = RenderSystem::instance();
@@ -90,6 +94,7 @@ namespace Render {
 
 		void Excute(){
 			auto RenderSys = RenderSystem::instance();
+			RenderSys->setCurrentCamera(mCamera);
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
@@ -98,7 +103,7 @@ namespace Render {
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);
 
 			auto cmdbufSwapchain = RenderSys->GetCommandBufferCurFrameCurThread();
-
+			RenderSys->setCurrentCamera(nullptr);
 			RenderSys->cmdBegin(cmdbufSwapchain);
 			mSwapchainPass->setBlitRT(mCol);
 			mSwapchainPass->draw(cmdbufSwapchain);
@@ -122,6 +127,8 @@ namespace Render {
 		rs_image* mCol = nullptr;
 		rs_image* mDepth = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;
+
+		Camera* mCamera = nullptr;
 	};
 }
 

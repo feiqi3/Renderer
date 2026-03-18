@@ -27,7 +27,6 @@ namespace Render {
         u32 offset = 0;
         {
 
-			uint32_t offset = 0;
 			//Vertex
 			InputAttribute AttVtx{
 			};

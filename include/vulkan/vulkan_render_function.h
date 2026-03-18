@@ -122,7 +122,7 @@ namespace Render::Vulkan {
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
-	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*,3> drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
+	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif);
 	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);

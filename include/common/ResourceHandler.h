@@ -124,5 +124,15 @@ namespace Render {
             m_block = nullptr;
         }
     };
+
+	template<typename T>
+    inline bool operator ==(nullptr_t lhs, ResourceHandle<T> rhs) {
+        return rhs == lhs;
+    }
+
+	template<typename T>
+	inline bool operator !=(nullptr_t lhs, ResourceHandle<T> rhs) {
+		return rhs != lhs;
+	}
 }
 #endif

@@ -16,7 +16,9 @@
 #include "Renderer/TextureResourceMgr.h"
 #include "common/ResourceSystem.h"
 #include "Renderer/MaterialInstance.h"
+#include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/RenderDataAreana.h"
+#include "function/EngineResourceManager.h"
 #include "function/ComponentSystem.h"
 #include <set>
 namespace Render{
@@ -101,6 +103,7 @@ namespace Render{
 		new Platform::FileSystem;
 		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
+		RegisterAllEngineResourceManager();
 		new ConstShaderDataManager;
 		new CameraManager;
 		//TODO move it out;
@@ -112,6 +115,8 @@ namespace Render{
 		if (!sRenderSystem)return;
 		delete ComponentSystem::instance();
 		delete CameraManager::instance();
+		delete ConstShaderDataManager::instance();
+		UnRegisterAllEngineResourceManager();
 		sRenderSystem->mDp->mPassManager = 0;
 		sRenderSystem->mDp->mArena->shutdown();
 		sRenderSystem->mDp->mArena = 0;
@@ -251,7 +256,7 @@ namespace Render{
 
 	void RenderSystem::cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size)
 	{
-		Vulkan::cmdCopyBufferToBuffer((Vulkan::rs_commandbuffer_vk*)cmdbuf, getRenderContext(), (Vulkan::rs_buffer_vk*)srcBuffer, (Vulkan::rs_buffer_vk*)dstBuffer, srcOffset, dstOffset, size);
+		Vulkan::cmdCopyBufferToBuffer((Vulkan::rs_commandbuffer_vk*)cmdbuf, getRenderContext(), (Vulkan::rs_buffer_vk*)srcBuffer, (Vulkan::rs_buffer_vk*)dstBuffer, size, srcOffset, dstOffset);
 	}
 
 	rs_buffer* RenderSystem::createBuffer(void* data, uint32_t size, const BufferDesc& desc)
@@ -273,7 +278,9 @@ namespace Render{
 	void RenderSystem::updateBuffer(rs_buffer* buffer, void* data, uint32_t size, uint32_t offset)
 	{
 		if (buffer->mappedPtr) {
-			memcpy(buffer->mappedPtr, data, size);
+			if (data){
+				memcpy(buffer->mappedPtr, data, size);
+			}
 			return;
 		}
 		auto& renderArena = mDp->mArena;
@@ -533,7 +540,6 @@ namespace Render{
 	{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
-		entity->updateUniforms(pass);
 		drawIndexed(cmdBuffer, entity, pass);
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
@@ -541,20 +547,26 @@ namespace Render{
 		cmdBuffer->hasCommands = true;
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
-		std::array<Vulkan::rs_drawdata_vk*,3> drawDataArr{};
-		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityDrawData;
-		drawDataArr[1] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
+		entity->updateEntityCommonData();
+		auto entityCommonDrawData = entity->getEntityCommonDrawData();
+		Vulkan::DrawDataArray drawDataArr{};
+		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityCommonDrawData;
+		drawDataArr[1] = (Vulkan::rs_drawdata_vk*)entityDrawData;
+		drawDataArr[2] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
 		if (entity->getMaterial()) {
-			entity->getMaterial()->OnUpdateParam();
 			entity->getMaterial()->uploadUniform(pass);
 		}
+		else {
+			return;
+		}
+		entity->updateEntityCommonData();
 		entity->updateUniforms(pass);
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
-	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const std::array<rs_drawdata*, 3>& drawDatas)
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const DrawDataArray& drawDatas)
 	{
 		cmdBuffer->hasCommands = true;
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_pipeline_vk*)pipeline, info, (std::array<Vulkan::rs_drawdata_vk*, 3>&)drawDatas, getCurFif());
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{

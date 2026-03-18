@@ -1,12 +1,13 @@
 #ifndef MESH_RESOURCE_MANAGER_H_
 #define MESH_RESOURCE_MANAGER_H_
 
+#include "common/Singleton.h"
 #include "common/ResourceManager.h"
 #include "Renderer/Mesh.h" 
 
 namespace Render {
 
-	class MeshResourceManager : public ResourceManager<Mesh> {
+	class MeshResourceManager : public ResourceManager<Mesh>,public Singleton<MeshResourceManager> {
 	public:
 		MeshResourceManager();
 		virtual const Name& typeName() const override;

@@ -33,8 +33,8 @@ namespace Render {
 
 	inline auto translate(const mat4& m, const vec3& v) { return glm::translate(m, v); }
 	inline auto rotate(const mat4& m, float angle, const vec3& axis) { return glm::rotate(m, angle, axis); }
-	inline auto rotate(const mat4& m, const vec3& v) { return glm::mat4_cast(glm::quat(v)); }
-	inline auto rotate(const mat4& m, const quat& v) { return glm::mat4_cast(v); }
+	inline auto rotate(const mat4& m, const vec3& v) { return glm::mat4_cast(glm::quat(v)) * m; }
+	inline auto rotate(const mat4& m, const quat& v) { return glm::mat4_cast(v) * m; }
 	inline auto scale(const mat4& m, const vec3& v) { return glm::scale(m, v); }
 	inline auto getTRS(const vec3& t, const vec3& r, const vec3& s) {
 		return scale(rotate(translate(mat4(1.0), t), r), s);

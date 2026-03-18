@@ -29,7 +29,7 @@ namespace Render {
         void setTexControl(const vec4& control);
 
         void updatePBRParams();
-        virtual void OnUpdateParam() override;
+        virtual void OnUpdateParam(Pass* pass) override;
         virtual void OnUnload() override;
 
     private:

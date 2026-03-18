@@ -3,7 +3,6 @@
 #include "common/CommonMath.h"
 #include "Components/SimpleRenderComponent.h"
 namespace Render {
-	
 	class MoveComponent : public Component {
 	public:
 		MoveComponent(vec3 center, float r)
@@ -32,7 +31,8 @@ namespace Render {
 		objectA->addComponent<SimpleRenderComponent>();
 		auto objectB = naiveScene->createObject("CubeObject2");
 		objectB->addComponent<SimpleRenderComponent>();
-		objectB->addComponent<MoveComponent>( vec3(0,0,5),3 );
+		objectB->addComponent<MoveComponent>( vec3(0,0,15),3 );
+		return naiveScene;
 	}
 
 }

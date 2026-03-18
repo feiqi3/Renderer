@@ -1,11 +1,7 @@
 #version 450
 #include "CommonSets.inl"
-layout(set = 2, binding = 0) uniform UniformBufferObject {
-	mat4 MatTransform;
-} ObjectCommon;
-
-layout(set = 2, binding = 1) uniform texture2D BoxTex;
-layout(set = 2, binding = 2) uniform sampler  BoxSampler;
+layout(set = 3, binding = 1) uniform texture2D BoxTex;
+layout(set = 3, binding = 2) uniform sampler  BoxSampler;
 
 layout(location = 0) in vec3 inPosition;   // pos0
 layout(location = 1) in vec3 inNormal;     // pos1
@@ -18,7 +14,7 @@ layout(location = 2) out vec3 worldPos;
 void main()
 {
     fragTexCoord = inTexCoord;
-    worldPos = (ObjectCommon.MatTransform * vec4(inPosition,1.0f)).xyz;
-    fragNormal =  (mat4(mat3(ObjectCommon.MatTransform)) * vec4(inNormal,1.0f)).xyz;
-    gl_Position = CameraCommon.camera.MatProj * CameraCommon.camera.MatView * ObjectCommon.MatTransform * vec4(inPosition, 1.0);
+    worldPos = (ObjData.ObjData.worldMatrix * vec4(inPosition,1.0f)).xyz;
+    fragNormal =  (mat4(mat3(ObjData.ObjData.worldMatrix)) * vec4(inNormal,1.0f)).xyz;
+    gl_Position = CameraCommon.camera.MatProj * CameraCommon.camera.MatView * ObjData.ObjData.worldMatrix * vec4(inPosition, 1.0);
 }

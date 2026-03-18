@@ -11,6 +11,7 @@
 #include <mutex>
 #include "vulkan_render_resource.h"
 #include "common/RingBuffer.h"
+#include "render_log.h"
 namespace Render::Vulkan {
 
     constexpr int BITS_PER_BINDING = 11;
@@ -59,6 +60,14 @@ namespace Render::Vulkan {
             return true;
         }
         
+        inline const rs_descriptor& getDescriptor(int bindingIndex) const {
+            if (mDescriptors.size() <= bindingIndex) {
+                static rs_descriptor errorDescriptor{.type = UniformType::Count};
+                return errorDescriptor;
+            }
+            return mDescriptors[bindingIndex];
+        }
+
         inline void init() {
             assert(checkValid());
             std::map<int, rs_descriptor> mapSet;
@@ -66,13 +75,23 @@ namespace Render::Vulkan {
                 auto vk_binding_pos = toVkBindingPos(set.bindingPos);
                 vk_binding_pos.setIdx = -1;
                 set.bindingPos = toRsBindingPos(vk_binding_pos);
-                maxBinding = std::max(maxBinding,uint16_t(vk_binding_pos.bindingIdx));
+                maxBinding = std::max(maxBinding, uint16_t(vk_binding_pos.bindingIdx));
             }
-            std::sort(mDescriptors.begin(), mDescriptors.end(), [](const auto& a, const auto& b) {
-                vk_binding_pos A = toVkBindingPos(a.bindingPos);
-                vk_binding_pos B = toVkBindingPos(b.bindingPos);
-                return A.bindingIdx < B.bindingIdx;
-             });
+            rs_descriptor defaultDescriptor{};
+            defaultDescriptor.type = UniformType::Count;
+            std::vector< rs_descriptor> copyDescriptors(maxBinding + 1,defaultDescriptor);
+
+            for (const rs_descriptor& descriptor : mDescriptors) {
+                vk_binding_pos bindingPos = toVkBindingPos(descriptor.bindingPos);
+                if (copyDescriptors[bindingPos.bindingIdx].type != UniformType::Count) {
+                    Log::error("Data corrupt data in 'rs_vk_descriporset_layout_hash', Check at binding: { " + std::to_string(bindingPos.bindingIdx) + " }");
+                    assert(false);
+                }
+                copyDescriptors[bindingPos.bindingIdx] = descriptor;
+            }
+            mDescriptors = std::move(copyDescriptors);
+			//Now we can fetch descriptor directly by treating binding index as subscript of descriptor array
+
 
 
             struct {
@@ -91,6 +110,7 @@ namespace Render::Vulkan {
             mAllocaHint.hint.resize((int)UniformType::Count);
 
             for (auto&& i : mDescriptors) {
+                if (i.type == UniformType::Count)continue;
                 descripor.binding = i.bindingPos;
                 descripor.shaderVisibleStage = i.shaderVisibleStage;
                 descripor.count = i.count;

@@ -41,11 +41,12 @@ namespace Render{
 			auto entity = command->entity;
 			auto pass = entity->getPass(this->getPassName());
 			if (!pass) continue;
-			std::array<rs_drawdata*, 3> drawDataArr{};
-			drawDataArr[0] = pass->mDrawData;
-			drawDataArr[1] = curCamDrawData;
-			drawDataArr[2] = nullptr;
-			renderSys->drawIndexed(cmdbuffer, pass->mMaterial->getRsPipeline(), entity->getRenderInfo(), drawDataArr);
+			//std::array<rs_drawdata*, 3> drawDataArr{};
+			//drawDataArr[0] = pass->mDrawData;
+			//drawDataArr[1] = curCamDrawData;
+			//drawDataArr[2] = nullptr;
+			//renderSys->drawIndexed(cmdbuffer, pass->mMaterial->getRsPipeline(), entity->getRenderInfo(), drawDataArr);
+			renderSys->drawIndexed(cmdbuffer, entity, pass);
 		}
 	}
 	void MainCameraPass::addToDrawList(RenderEntity* Entity)

@@ -4,6 +4,11 @@
 namespace Render {
 	
 	
+	ComponentSystem::ComponentSystem()
+	{
+
+	}
+
 	ComponentSystem::~ComponentSystem()
 	{
 		doDestroyComponents();

@@ -56,12 +56,6 @@ namespace Render {
         const static Name typeName = Name("Model");
         return typeName;
     }
-    ResourceMemory Model::getMemory() const
-    {
-        ResourceMemory memory{};
-        memory.cpuMemory = sizeof(*this);
-        return memory;
-    }
 
     void Model::OnUnload() {
         mModelParts.clear();
@@ -72,7 +66,6 @@ namespace Render {
         ResourceMemory mem{ 0, 0 };
         mem.cpuMemory = (u32)sizeof(*this);
 
-        // 估算 ModelPart 占用的内存
         mem.cpuMemory += (u32)(mModelParts.capacity() * sizeof(ModelPart));
         for (const auto& part : mModelParts) {
             mem.cpuMemory += (u32)(part.materials.capacity() * sizeof(MaterialPtr));
@@ -136,9 +129,7 @@ namespace Render {
             auto renderComp = obj->addComponent<PBRRenderComponent>();
             renderComp->setMesh(part.mesh);
             for (size_t j = 0; j < part.materials.size(); ++j) {
-                if (part.materials[j]) {
-                    renderComp->addMaterial(part.materials[j], j);
-                }
+                renderComp->setMaterial(j, part.materials[j]);
             }
         }
 		return obj;

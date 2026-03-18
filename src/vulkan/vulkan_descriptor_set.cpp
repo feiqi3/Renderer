@@ -119,7 +119,8 @@ namespace Render::Vulkan {
         }
 
         if (!setlayout) {
-            assert(0);
+            Log::error("No DescriptorSet { " + std::to_string(setIdx) + " } in pipeline { " + std::to_string((uint64_t)pipeline->layout->native) + " }.");
+            assert(false);
             return nullptr;
         }
 
@@ -242,23 +243,16 @@ namespace Render::Vulkan {
         {
         //Check DescriptorSet
             const auto& layoutData =
-                descriptorSet->layout->bindingHash.mDescriptors;
-            
-            if (layoutData.size() <= binding|| layoutData[binding].type != UniformType::UniformBuffer || layoutData[binding].size < size) {
+                descriptorSet->layout->bindingHash;
+            const auto& descriptor = layoutData.getDescriptor(binding);
+            if (descriptor.type != UniformType::UniformBuffer || descriptor.size < size) {
 				assert(0 && "Wrong binding type");
 				Log::error("Wrong binding type in binding" + std::to_string(binding));
+                return;
             }
 
-            if (layoutData[binding].count > 1) {
+            if (descriptor.count > 1) {
                 assert(0 && "For UBO, descriptor count must equal to 1.");
-                return;
-            }
-
-            if (descriptorSet->mBindingData[binding].type == UniformType::Count) {
-                return;
-            }
-            else if (descriptorSet->mBindingData[binding].type != UniformType::UniformBuffer) {
-                assert(0 && "mismatch layout");
                 return;
             }
         }
@@ -314,7 +308,7 @@ namespace Render::Vulkan {
         if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
             return;
         }
-        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
         if (bindingInfo.type != UniformType::Sampler) {
             assert(0 && "Wrong binding type");
             Log::error("Wrong binding type in binding" + std::to_string(binding));
@@ -346,13 +340,12 @@ namespace Render::Vulkan {
 
     void DescriptorSetManager::updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType)
     {
-        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
-            return;
-        }
-        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+
+        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
         if (bindingInfo.type != UniformType::Texture) {
             assert(0 && "Wrong binding type");
-            return;
+			Log::error("Wrong binding type in binding" + std::to_string(binding));
+			return;
         }
 		if (descriptorSet->mBindingData[binding].native == (VkImageView)image->defaultView.native)return;
 		descriptorSet->mBindingData[binding].native = (VkImageView)image->defaultView.native;
@@ -374,18 +367,17 @@ namespace Render::Vulkan {
     void DescriptorSetManager::updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer)
     {
         //TODO: this function is ambiguous FIX ME
-        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
-            return;
-        }
 
 
         if (descriptorSet->mBindingData[binding].native == buffer->native)return;
 		descriptorSet->mBindingData[binding].native = buffer->native;
-		auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+		auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
 
         if (bindingInfo.type != UniformType::ConstantBuffer && bindingInfo.type != UniformType::StorageBuffer 
             && bindingInfo.type != UniformType::UniformBuffer) {
             assert(false && "Mis match layout");
+			Log::error("Wrong binding type in binding" + std::to_string(binding));
+			return;
         }
 
 
@@ -410,10 +402,8 @@ namespace Render::Vulkan {
 
     void DescriptorSetManager::updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType)
     {
-        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
-            return;
-        }
-        auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
+
+        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
         if (bindingInfo.type != UniformType::StorageBuffer) {
 			assert(0 && "Wrong binding type");
 			Log::error("Wrong binding type in binding" + std::to_string(binding));
@@ -527,6 +517,8 @@ namespace Render::Vulkan {
         vkBindings.reserve(bindings.size());
 
         for (auto&& binding : bindings) {
+            //Use 'count' to mark void position. 
+            if (binding.type == UniformType::Count)continue;
             VkDescriptorSetLayoutBinding b{};
             auto vkBinding = toVkBindingPos(binding.bindingPos);
             b.binding = vkBinding.bindingIdx;
@@ -536,7 +528,11 @@ namespace Render::Vulkan {
             b.pImmutableSamplers = 0;
             vkBindings.push_back(b);
         }
+
+        //IMPORTANT!!!!
         ci.pBindings = vkBindings.data();
+        ci.bindingCount = vkBindings.size();
+        
         VkDescriptorSetLayout layout;
         VK_CHECK(vkCreateDescriptorSetLayout(ctx->device, &ci, 0, &layout), {
             return nullptr;

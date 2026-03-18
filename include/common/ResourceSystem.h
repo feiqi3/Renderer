@@ -56,7 +56,7 @@ namespace Render {
 				return nullptr;
 			}
 			auto res = mgr->acquire(resource);
-			assert(res != nullptr && "No resource was found");
+			//assert(res != nullptr && "No resource was found");
 			if (!res && !mgr->getDefaultResourceName().isEmpty() && resource != mgr->getDefaultResourceName()) {
 				res = mgr->acquire(mgr->getDefaultResourceName());
 			}

@@ -2069,6 +2069,7 @@ namespace Render::Vulkan {
             targetSet = context->descriptorSetMgr->AllocateDescriptorSet(frame, context, pipeline, vkSet);
             if (!targetSet) {
                 assert(0);
+                return nullptr;
             }
             frameSets.push_back({ vkSet,targetSet });
         }
@@ -2223,7 +2224,7 @@ namespace Render::Vulkan {
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, std::array<rs_drawdata_vk*, 3> drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
     {
         if (pipeline == 0) {
             assert(0);

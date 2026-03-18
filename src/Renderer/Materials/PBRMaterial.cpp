@@ -52,7 +52,7 @@ namespace Render {
         mIsDirty = false;
     }
 
-    void PBRMaterial::OnUpdateParam()
+    void PBRMaterial::OnUpdateParam(Pass* pass)
     {
         updatePBRParams();
     }

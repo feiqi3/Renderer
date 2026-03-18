@@ -1,4 +1,5 @@
 #include "function/Object.h"
+#include "function/Component.h"
 #include "function/ComponentSystem.h"
 #include "common/CommonMath.h"
 #include <algorithm>

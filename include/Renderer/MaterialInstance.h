@@ -26,7 +26,7 @@ namespace Render {
 		virtual ResourceMemory getMemory() const override;
 		virtual void OnUnload() override;
 		virtual void OnLoaded() override {};
-		virtual void OnUpdateParam();
+		virtual void OnUpdateParam(Pass* pass);
 		struct _ParameterPair {
 			rs_binding_pos	bindingPos;
 			UniformType		parameterType;
@@ -40,13 +40,13 @@ namespace Render {
 
 		void									uploadUniform(Pass* pass);
 		MaterialPass*							getMaterialPass(const Name& name);
-		bool									addMaterialPassToRender(const Name& passName);
+		void									addMaterialPassToRender(const Name& passName);
 		MaterialPass*							getMaterialPassToRender(const Name& passName);		
 		void									setRenderOrder(u32 order);
 		u32										getRenderOrder()const;
+
 	protected:
 		std::optional<_ParameterPair*>			getParameterInfo(const std::string& paramName);
-		std::map<Name, MaterialPass*>&			materialPassMap;
 		std::vector<Name>						passNamesToRender;
 		MaterialTemplatePtr m_template;
 		std::map < std::string, _ParameterPair> mParameterMap;

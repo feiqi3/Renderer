@@ -56,7 +56,7 @@ namespace Render {
         RenderQueue::PriorityMap::iterator saveItor;
         u64 mMaskTag;
     };
-    void RenderQueue::submit(RenderEntity* entity, u64 renderMask = UINT64_MAX)
+    void RenderQueue::submit(RenderEntity* entity, u64 renderMask)
     {
         RenderCommand cmd{};
         cmd.entity = entity;

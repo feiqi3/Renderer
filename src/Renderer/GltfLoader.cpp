@@ -749,6 +749,7 @@ namespace Render {
             // Parent-child
 			obj->addChild(childObj);
         }
+        return obj;
     }
 
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)

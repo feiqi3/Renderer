@@ -35,7 +35,7 @@ namespace Render {
         mState = ResourceState::Unloaded;
     }
 
-    void Material::OnUpdateParam()
+    void Material::OnUpdateParam(Pass* pass)
     {
     }
 
@@ -103,7 +103,7 @@ namespace Render {
     }
     void Material::uploadUniform(Pass* pass)
     {
-        this->OnUpdateParam();
+        this->OnUpdateParam(pass);
         for (auto& [name, bpair] : mParameterMap) {
             if (bpair.rawPtr == nullptr && !bpair.var.hasResource()) {
                 continue;
@@ -145,21 +145,12 @@ namespace Render {
 
     void Material::addMaterialPassToRender(const Name& passName)
     {
-        auto matPass = m_template->getMaterialPass(passName);
-        if (matPass)
-        {
-            this->materialPassMap.insert({ passName, matPass });
-            return true;
-        }
-        return false;
+        this->passNamesToRender.push_back(passName);
     }
     MaterialPass* Material::getMaterialPassToRender(const Name& passName)
     {
-		auto itor = this->materialPassMap.find(passName);
-        if (itor != materialPassMap.end()) {
-            return itor->second;
-        }
-        return nullptr;
+        auto pass = this->m_template->getMaterialPass(passName);
+        return pass;
     }
     void Material::setRenderOrder(u32 order)
     {
@@ -169,4 +160,5 @@ namespace Render {
     {
         return u32();
     }
+
 }

@@ -52,7 +52,7 @@ namespace Render {
 				36,
 				IndexType::Uint16
 			);
-
+			cube->addSubMesh(0, 36, 0);
 			cube->setStride(sizeof(CubeVertex));
 			auto ret = cube->toMeshResource();
 			delete cube;

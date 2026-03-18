@@ -2,9 +2,18 @@
 #include "Renderer/RenderSystem.h"
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/Camera.h"
+#include "Renderer/ConstShaderDataManager.h"
+
+#include "Renderer/GPUShared/GPUSharedDef.h"
+#include "Renderer/GPUShared/ObjectData.h"
+
 namespace Render {
 	RenderEntity::~RenderEntity()
 	{
+		if (mEntityDrawData) {
+			RenderSystem::instance()->destroyDrawData(mEntityDrawData);
+		}
+
 		for (auto&& [passName, pass] : mPasses) {
 			destroyPass(pass);
 		}
@@ -120,4 +129,47 @@ namespace Render {
 		return translation;
 	}
 	
+	void RenderEntity::updateEntityCommonData()
+	{
+		auto nxtFrame = RenderSystem::instance()->getNextRenderFrame();
+		
+		//Update Entity perframe.
+		if (!mEntityDrawData || mEntityDrawDataUpdatedFrame != nxtFrame) {
+			mEntityDrawDataUpdatedFrame = nxtFrame;
+		}
+		else {
+			return;
+		}
+
+		auto itor = mPasses.begin();
+		if (itor == mPasses.end()) {
+			return;
+		}
+
+		if (!mEntityDrawData) {
+			mEntityDrawData = RenderSystem::instance()->createDrawData();
+		}
+		Pass mockPass{};
+		mockPass.mMaterial = itor->second->mMaterial;
+		mockPass.mDrawData = mEntityDrawData;
+
+		updateEntityCommonDataImpl(&mockPass);
+	}
+
+	void RenderEntity::updateEntityCommonDataImpl(Pass* pass)
+	{
+		if (pass == nullptr)return;
+		auto renderSys = RenderSystem::instance();
+		rs_binding_pos objCommonBindingPos = ConstShaderDataManager::instance()->getObjectCommonDataBindingPos();
+		GPUShared::ObjectCommonData objCommonData{};
+		objCommonData.worldMatrix = mModelMatrix;
+		objCommonData.invWorldMatrix = inverse(mModelMatrix);
+		renderSys->updateUniformBufferData(objCommonBindingPos, (void*)&objCommonData,sizeof(objCommonData), pass);
+	}
+
+	Render::rs_drawdata* RenderEntity::getEntityCommonDrawData() const
+	{
+		return mEntityDrawData;
+	}
+
 }

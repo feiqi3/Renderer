@@ -29,9 +29,6 @@ namespace Render {
         m_currentFrameIndex = frameIndex % m_maxFramesInFlight;
         FrameData& frame = m_frames[m_currentFrameIndex];
 
-        frame.pendingCopies.clear();
-
-
 
         std::vector<StagingBlock*> blocksToErase;
         
@@ -114,6 +111,7 @@ namespace Render {
         for (const auto& copy : m_frames[m_currentFrameIndex].pendingCopies){
 			RenderSystem::instance()->cmdCopyBufferToBuffer(cmd, copy.srcBuffer, copy.dstBuffer, copy.srcOffset, copy.dstOffset, copy.size);
         }
+        m_frames[m_currentFrameIndex].pendingCopies.clear();
     }
 
 
@@ -128,6 +126,7 @@ namespace Render {
         desc.mappable = true;
         //FIX ME: ignore queue type now.....   
         block->buffer = RenderSystem::instance()->createBuffer(nullptr, size, desc);
+        block->mappedPtr = block->buffer->mappedPtr;
         return block;
     }
 

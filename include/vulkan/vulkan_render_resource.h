@@ -15,6 +15,7 @@
 #define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x);Log::error(#x); stmt }
 
 namespace Render::Vulkan {
+	using DrawDataArray = std::array<struct rs_drawdata_vk*, 4>;
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;
 	using VkObjHandle = void*;

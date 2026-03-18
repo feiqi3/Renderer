@@ -16,6 +16,10 @@ namespace Render {
 			
 		};
 
+		virtual void updateEntityCommonDataImpl(Pass* pass) override{
+			return;
+		}
+
 		Material* getMaterial() override{
 			mMaterial = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, Name("SwapChainMat"));
 			if (!mMaterial) {

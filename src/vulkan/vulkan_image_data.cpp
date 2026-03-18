@@ -12,7 +12,10 @@ namespace Render::Vulkan {
     void ImageDataManager::updateImageData(uint32_t fif, rs_context_vk* ctx, rs_image_vk* image, void* data,size_t byteSize, int x, int y, int z, int width, int height, int depth, int layeroff, int layerSize, int mip)
     {
         CommandBufferDesc desc{.queueType = QueueType_Graphics,.transient = true };
-
+		if (!this->fence) {
+			fence = createRsFence(ctx);
+			resetRsFence(ctx, fence);
+		}
         auto cmd = createRsCommand(ctx, desc);
         cmd->hasCommands = true;
         cmdBeginRecord(cmd);

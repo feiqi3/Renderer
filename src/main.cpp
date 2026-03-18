@@ -13,6 +13,7 @@
 #include "SimpleScene.h"
 #include "common/ResourceSystem.h"
 #include "function/EngineResourceManager.h"
+#include "Renderer/NaiveScene.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -24,7 +25,6 @@ int main() {
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
 	setWindowEventsCallbacks(glfwWindow);
-	RegisterAllEngineResourceManager();
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
 	CreateAllPersistentResource();
@@ -36,12 +36,14 @@ int main() {
 	auto camera = new Render::Camera(Render::Name("Main"));
 	Render::CameraManager::instance()->RegisterCamera(camera,0);
 	auto* scene =new SimpleScene();
+	auto* naiveScene = createSceneByCode();
+
 	while (!glfwWindow->shouldClose()) {
 		auto frameBegin = std::chrono::system_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
 
-		scene->updateScene(0.01666);
-
+		//scene->updateScene(0.01666);
+		naiveScene->update(0.166666);
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();
 		glfwWindow->pollEvents();

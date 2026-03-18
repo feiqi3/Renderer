@@ -12,6 +12,7 @@
 #include "Renderer/MeshResourceManager.h"
 #include "function/Object.h"
 #include "Renderer/RenderQueue.h"
+#include "Renderer/MeshResourceManager.h"
 namespace Render {
 	class SimpleCubeRenderEntity : public RenderEntity{
 	public:
@@ -50,6 +51,23 @@ namespace Render {
 					"BoxSampler", samplerPtr
 				);
 			}
+			this->createPass(PassName::MainCameraPass);
+
+			auto cubeMesh = ResourceSystem::instance()->getResource<Mesh>(
+				Mesh::typeName(),
+				Name("Builtin::Cube")
+			);
+			VertexBindingInfo bindingInfo{};
+			bindingInfo.buffer = cubeMesh->getVertexBuffer();
+			bindingInfo.offset = cubeMesh->getSubMesh(0).vertexOffset;
+			
+			auto& renderInfo = this->getRenderInfo();
+			renderInfo.bindingBuffers.push_back(bindingInfo
+			);
+			renderInfo.indexBuffer = cubeMesh->getIndexBuffer();
+			renderInfo.indexType = cubeMesh->getIndexType();
+			renderInfo.idxCount = cubeMesh->getIndexCount();
+			renderInfo.vtxoffset = 0;
 
 		}
 		virtual void updateUniforms(Pass* pass) override {

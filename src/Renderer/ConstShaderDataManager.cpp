@@ -16,7 +16,8 @@ namespace Render {
 		MaterialTemplatePtr VirtualCameraTemplate = nullptr;
 		MaterialPass* MainPassVirtualMaterial = nullptr;
 		rs_binding_pos CameraCommonDataBindingPos;
-		rs_binding_pos  SceneCommonDataBindingPos;
+		rs_binding_pos SceneCommonDataBindingPos;
+		rs_binding_pos ObjectCommonBindingPos;
 	};
 
 	ConstShaderDataManager::ConstShaderDataManager()
@@ -46,9 +47,14 @@ namespace Render {
 		mDp->VirtualCameraTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("VirtualCamera"), VirtualCameraShaderStageInfo, renderState, vtxIA);
 		mDp->MainPassVirtualMaterial = mDp->VirtualCameraTemplate->createMaterialPass(pass, {});
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassVirtualMaterial);
-		mDp->SceneCommonDataBindingPos  = pSys->getBindingPos("SceneCommon" , mDp->MainPassVirtualMaterial);
-		assert(mDp->CameraCommonDataBindingPos != INVALID_BINDING_POS);
-		assert(mDp->SceneCommonDataBindingPos  != INVALID_BINDING_POS);
+		
+		//TODO: FIX ME
+		//mDp->SceneCommonDataBindingPos  = pSys->getBindingPos("SceneCommon" , mDp->MainPassVirtualMaterial);
+		
+		mDp->ObjectCommonBindingPos		= pSys->getBindingPos("ObjData", mDp->MainPassVirtualMaterial);
+		assert(mDp->CameraCommonDataBindingPos	!= INVALID_BINDING_POS);
+		//assert(mDp->SceneCommonDataBindingPos	!= INVALID_BINDING_POS);
+		assert(mDp->ObjectCommonBindingPos		!= INVALID_BINDING_POS);
 	}
 	rs_drawdata* ConstShaderDataManager::updateCameraDrawData(Camera* camera) {
 		auto camDrawData = camera->getDrawData();
@@ -71,4 +77,20 @@ namespace Render {
 		RenderSystem::instance()->updateUniformBufferData(mDp->SceneCommonDataBindingPos, (void*)&gptdata, sizeof(GPUShared::GPUSceneLightData), &tempPass);
 		return sceneDrawData;
 	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getObjectCommonDataBindingPos()
+	{
+		return mDp->ObjectCommonBindingPos;
+	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getSceneCommonDataBindingPos()
+	{
+		return mDp->SceneCommonDataBindingPos;
+	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getCameraCommonDataBindngPos()
+	{
+		return mDp->CameraCommonDataBindingPos;
+	}
+
 }

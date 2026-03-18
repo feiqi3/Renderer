@@ -80,6 +80,7 @@ namespace Render{
 
 		//In Logic Frame only
 		rs_binding_pos getBindingPos(const std::string& bindingName, MaterialPass* material);
+
 		void updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_image* image, Pass* pass);
@@ -91,7 +92,7 @@ namespace Render{
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
 		
-		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const std::array<rs_drawdata*, 3>& drawDatas);
+		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const DrawDataArray& drawDatas);
 		
 		void waitForFence(rs_fence* fence);
 		void clearRenderEntity(RenderEntity* entity);
@@ -138,6 +139,7 @@ namespace Render{
 		bool isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt);
 
 		void excutePendingBufferCopies(rs_commandbuffer* cmdbuf);
+
 	public:
 		void onWindowResize();
 	private:

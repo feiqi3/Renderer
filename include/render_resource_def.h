@@ -1,6 +1,7 @@
 #ifndef RENDER_RESOURCE_DEF_H_
 #define RENDER_RESOURCE_DEF_H_
 #include <stdint.h>
+#include <array>
 namespace Render {
     enum BufferType : uint32_t {
         BufferType_None = 0,
@@ -303,6 +304,8 @@ namespace Render {
         GLSL,
         MSL
     };
+
+	using DrawDataArray = std::array<struct rs_drawdata*, 4>;
 
 };
 
