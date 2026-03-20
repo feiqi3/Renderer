@@ -31,7 +31,7 @@ namespace Render {
 				}
 				mMaterial = materialManager->createMaterial<Material>(materialName, cubeMatTemplate);
 				mMaterial->addMaterialPassToRender(PassName::MainCameraPass);
-				auto texturePtr = ResourceSystem::instance()->getResource<Texture>(Texture::typeName(),Name("Builtin::ErrorRGB"));
+				auto texturePtr = ResourceSystem::instance()->getResource<Texture>(Texture::typeName(),Name("../resources/box.jpg"));
 				mMaterial->bindParameter(
 					"BoxTex", texturePtr
 				);

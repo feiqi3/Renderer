@@ -13,8 +13,8 @@ namespace Render {
 
 		virtual void onUpdate(float deltaTime)override {
 			auto obj = this->owner();
-			float speed = 0.1;
-			vec3 locationNow = centerOfCircle + vec3(0, 1, 0) * radius * std::sin(t++);
+			float speed = 0.25;
+			vec3 locationNow = centerOfCircle + vec3(0, 1, 0) * radius * std::sin((++t) * speed);
 			obj->setLocalPosition(locationNow);
 		};
 
@@ -29,9 +29,10 @@ namespace Render {
 		Scene* naiveScene = new Scene();
 		auto objectA = naiveScene->createObject("CubeObject1");
 		objectA->addComponent<SimpleRenderComponent>();
+		objectA->setLocalPosition(vec3(0, 0, -2));
 		auto objectB = naiveScene->createObject("CubeObject2");
 		objectB->addComponent<SimpleRenderComponent>();
-		objectB->addComponent<MoveComponent>( vec3(0,0,15),3 );
+		objectB->addComponent<MoveComponent>( vec3(0,0,-5),3 );
 		return naiveScene;
 	}
 
