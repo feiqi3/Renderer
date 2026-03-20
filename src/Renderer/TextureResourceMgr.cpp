@@ -6,15 +6,27 @@ namespace Render{
 		Texture* getErrorTexture() {
 			ImageRaw* imageRaw = ImageRaw::createImageRaw(8, 8, 4, false);
 			u8* imageData = (u8*)imageRaw->getImageRaw();
-			for (int i = 0; i < imageRaw->getWidth(); ++i) {
-				for (int j = 0; j < imageRaw->getHeight(); ++j) {
-					int idx = 4 * (i * imageRaw->getHeight() + j);
-					imageData[idx + 0] = 238;
-					imageData[idx + 1] = 130;
-					imageData[idx + 2] = 238;
-					imageData[idx + 3] = 255;
+
+			int width = imageRaw->getWidth();
+			int height = imageRaw->getHeight();
+
+			int checkSize = 4;
+
+			for (int i = 0; i < width; ++i) {
+				for (int j = 0; j < height; ++j) {
+					int idx = 4 * (i * height + j);
+
+					bool isWhite = ((i / checkSize) + (j / checkSize)) % 2 == 0;
+
+					u8 color = isWhite ? 255 : 0;
+
+					imageData[idx + 0] = color; // R
+					imageData[idx + 1] = color; // G
+					imageData[idx + 2] = color; // B
+					imageData[idx + 3] = 255;   // A 
 				}
 			}
+
 			auto texture = imageRaw->toTextureResource();
 			delete imageRaw;
 			return texture;
