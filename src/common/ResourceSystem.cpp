@@ -19,6 +19,14 @@ namespace Render {
 		mManagers.insert({ name,std::move(manager) });
 	}
 
+	void ResourceSystem::clearSystem(const Name& resourceType)
+	{
+		auto itor = mManagers.find(resourceType);
+		if (itor != mManagers.end()) {
+			itor->second->clearAll();
+		}
+	}
+
 	void ResourceSystem::unregisterSystem(const Name& resourceType)
 	{
 		auto itor = mManagers.find(resourceType);

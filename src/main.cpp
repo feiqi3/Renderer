@@ -65,8 +65,6 @@ int main() {
 		glfwWindow->setTitle((std::string("fps: ") + std::to_string(CurrentFPS)).c_str());
 	}
 	renderFlow->deinit();
-	delete Render::ResourceSystem::instance();
-
 	Render::RenderSystem::destroyRenderSystem();
 	delete glfwWindow;
 	glfwWindow = 0;

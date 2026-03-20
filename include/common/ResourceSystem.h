@@ -14,6 +14,7 @@ namespace Render {
 		void registerSystem(std::unique_ptr<IResourceManager> manager);
 		void unregisterSystem(const Name& resourceType);
 		IResourceManager* getResourceManager(const Name& name);
+		void clearSystem(const Name& resourceType);
 
 		template<typename T>
 		inline ResourceHandle<T> createResource(const Name& type, const Name& resource,ResourceLifetime lifeTime = ResourceLifetime::Transient) {

@@ -43,6 +43,11 @@ namespace Render {
 	
 	void UnRegisterAllEngineResourceManager() {
 		auto resSystem = ResourceSystem::instance();
+
+		for (const auto& name : sRegisteredResourceName) {
+			resSystem->clearSystem(name);
+		}
+
 		for (const auto& name : sRegisteredResourceName) {
 			resSystem->unregisterSystem(name);
 		}
