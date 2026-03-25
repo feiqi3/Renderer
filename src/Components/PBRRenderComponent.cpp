@@ -3,6 +3,7 @@
 #include "Renderer/EnginePass.h"
 #include "Renderer/StandardPRBRenderEntity.h"
 #include "Renderer/RenderQueue.h"
+#include "function/Object.h"
 namespace Render {
 	void PBRRenderComponent::onAttach()
 	{
@@ -47,6 +48,7 @@ namespace Render {
 			if (mRenderEntities[i] == nullptr) {
 				mRenderEntities[i] = createRenderEntity(i, mMaterials[i]);
 			}
+			mRenderEntities[i]->setModelMatrix(owner()->worldMatrix());
 			auto* pass = mRenderEntities[i]->getPass(PassName::MainCameraPass);
 			if (pass) {
 				queue->submit(mRenderEntities[i]);
