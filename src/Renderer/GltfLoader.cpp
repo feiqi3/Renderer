@@ -94,153 +94,144 @@ namespace {
         }
     }
 
-    static float ReadComponentAsFloat(const uint8_t* src, int componentType, bool normalized, int compIndex) {
-        // compIndex is index of component within element (for types with multi-components laid contiguous)
-        const uint8_t* ptr = src;
-        switch (componentType) {
-        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
-            uint8_t v = reinterpret_cast<const uint8_t*>(ptr)[compIndex];
-            if (normalized) return static_cast<float>(v) / 255.0f;
-            return static_cast<float>(v);
-        }
-        case TINYGLTF_COMPONENT_TYPE_BYTE: {
-            int8_t v = reinterpret_cast<const int8_t*>(ptr)[compIndex];
-            if (normalized) {
-                // SNORM8: -128 maps to -1, but typical practice divide by 127 and clamp
-                float f = static_cast<float>(v) / 127.0f;
-                if (f < -1.0f) f = -1.0f;
-                return f;
-            }
-            return static_cast<float>(v);
-        }
-        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
-            const uint16_t* p = reinterpret_cast<const uint16_t*>(ptr);
-            uint16_t v = p[compIndex];
-            if (normalized) return static_cast<float>(v) / 65535.0f;
-            return static_cast<float>(v);
-        }
-        case TINYGLTF_COMPONENT_TYPE_SHORT: {
-            const int16_t* p = reinterpret_cast<const int16_t*>(ptr);
-            int16_t v = p[compIndex];
-            if (normalized) {
-                float f = static_cast<float>(v) / 32767.0f;
-                if (f < -1.0f) f = -1.0f;
-                return f;
-            }
-            return static_cast<float>(v);
-        }
-        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
-            const uint32_t* p = reinterpret_cast<const uint32_t*>(ptr);
-            uint32_t v = p[compIndex];
-            if (normalized) {
-                // rarely used for attributes, but implement
-                return static_cast<float>(v) / 4294967295.0f;
-            }
-            return static_cast<float>(v);
-        }
-        case TINYGLTF_COMPONENT_TYPE_INT: {
-            const int32_t* p = reinterpret_cast<const int32_t*>(ptr);
-            int32_t v = p[compIndex];
-            if (normalized) {
-                float f = static_cast<float>(v) / 2147483647.0f;
-                if (f < -1.0f) f = -1.0f;
-                return f;
-            }
-            return static_cast<float>(v);
-        }
-        case TINYGLTF_COMPONENT_TYPE_FLOAT: {
-            const float* p = reinterpret_cast<const float*>(ptr);
-            return p[compIndex];
-        }
-        default:
-            return 0.0f;
-        }
-    }
+	template <typename T>
+	inline float ReadGltfFloat(const uint8_t* ptr, bool normalized) {
+		T val = *reinterpret_cast<const T*>(ptr);
+		return static_cast<float>(val);
+	}
 
-    static uint8_t ConvertComponentToUint8(const uint8_t* src, int componentType, bool normalized, int compIndex) {
-        // Convert a single source component into an 0..255 uint8 value.
-        // If source is unsigned byte and not normalized, return directly.
-        switch (componentType) {
-        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
-            return reinterpret_cast<const uint8_t*>(src)[compIndex];
-        }
-        case TINYGLTF_COMPONENT_TYPE_BYTE: {
-            int8_t v = reinterpret_cast<const int8_t*>(src)[compIndex];
-            if (normalized) {
-                float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 127.0f));
-                return static_cast<uint8_t>(std::round((f * 0.5f + 0.5f) * 255.0f)); // map [-1,1] -> [0,255]
-            }
-            else {
-                int x = static_cast<int>(v);
-                if (x < 0) x = 0;
-                if (x > 255) x = 255;
-                return static_cast<uint8_t>(x);
-            }
-        }
-        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
-            const uint16_t* p = reinterpret_cast<const uint16_t*>(src);
-            uint16_t v = p[compIndex];
-            if (normalized) {
-                float f = static_cast<float>(v) / 65535.0f;
-                return static_cast<uint8_t>(std::round(f * 255.0f));
-            }
-            else {
-                // scale-down/clamp
-                int x = (v > 255) ? 255 : static_cast<int>(v);
-                return static_cast<uint8_t>(x);
-            }
-        }
-        case TINYGLTF_COMPONENT_TYPE_SHORT: {
-            const int16_t* p = reinterpret_cast<const int16_t*>(src);
-            int16_t v = p[compIndex];
-            if (normalized) {
-                float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 32767.0f));
-                return static_cast<uint8_t>(std::round((f * 0.5f + 0.5f) * 255.0f));
-            }
-            else {
-                int x = v;
-                if (x < 0) x = 0;
-                if (x > 255) x = 255;
-                return static_cast<uint8_t>(x);
-            }
-        }
-        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
-            const uint32_t* p = reinterpret_cast<const uint32_t*>(src);
-            uint32_t v = p[compIndex];
-            if (normalized) {
-                float f = static_cast<float>(v) / 4294967295.0f;
-                return static_cast<uint8_t>(std::round(f * 255.0f));
-            }
-            else {
-                uint32_t x = (v > 255u) ? 255u : v;
-                return static_cast<uint8_t>(x);
-            }
-        }
-        case TINYGLTF_COMPONENT_TYPE_INT: {
-            const int32_t* p = reinterpret_cast<const int32_t*>(src);
-            int32_t v = p[compIndex];
-            if (normalized) {
-                float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 2147483647.0f));
-                return static_cast<uint8_t>(std::round((f * 0.5f + 0.5f) * 255.0f));
-            }
-            else {
-                int x = v;
-                if (x < 0) x = 0;
-                if (x > 255) x = 255;
-                return static_cast<uint8_t>(x);
-            }
-        }
-        case TINYGLTF_COMPONENT_TYPE_FLOAT: {
-            const float* p = reinterpret_cast<const float*>(src);
-            float v = p[compIndex];
-            // assume floats representing color/normalized in [0,1], but clamp
-            float f = std::max(0.0f, std::min(1.0f, v));
-            return static_cast<uint8_t>(std::round(f * 255.0f));
-        }
-        default:
-            return 0;
-        }
-    }
+	template <> inline float ReadGltfFloat<int8_t>(const uint8_t* ptr, bool normalized) {
+		int8_t v = *reinterpret_cast<const int8_t*>(ptr);
+		if (normalized) return std::max(-1.0f, static_cast<float>(v) / 127.0f);
+		return static_cast<float>(v);
+	}
+	template <> inline float ReadGltfFloat<uint8_t>(const uint8_t* ptr, bool normalized) {
+		uint8_t v = *reinterpret_cast<const uint8_t*>(ptr);
+		return normalized ? (static_cast<float>(v) / 255.0f) : static_cast<float>(v);
+	}
+	template <> inline float ReadGltfFloat<int16_t>(const uint8_t* ptr, bool normalized) {
+		int16_t v = *reinterpret_cast<const int16_t*>(ptr);
+		if (normalized) return std::max(-1.0f, static_cast<float>(v) / 32767.0f);
+		return static_cast<float>(v);
+	}
+	template <> inline float ReadGltfFloat<uint16_t>(const uint8_t* ptr, bool normalized) {
+		uint16_t v = *reinterpret_cast<const uint16_t*>(ptr);
+		return normalized ? (static_cast<float>(v) / 65535.0f) : static_cast<float>(v);
+	}
+	template <> inline float ReadGltfFloat<int32_t>(const uint8_t* ptr, bool normalized) {
+		int32_t v = *reinterpret_cast<const int32_t*>(ptr);
+		if (normalized) return std::max(-1.0f, static_cast<float>(v) / 2147483647.0f);
+		return static_cast<float>(v);
+	}
+	template <> inline float ReadGltfFloat<uint32_t>(const uint8_t* ptr, bool normalized) {
+		uint32_t v = *reinterpret_cast<const uint32_t*>(ptr);
+		return normalized ? (static_cast<float>(v) / 4294967295.0f) : static_cast<float>(v);
+	}
+
+	template <typename T>
+	inline uint8_t ReadGltfUint8(const uint8_t* ptr, bool normalized) {
+		float f = ReadGltfFloat<T>(ptr, normalized);
+		f = std::max(0.0f, std::min(1.0f, f));
+		return static_cast<uint8_t>(std::round(f * 255.0f));
+	}
+	template <> inline uint8_t ReadGltfUint8<int8_t>(const uint8_t* ptr, bool normalized) {
+		int8_t v = *reinterpret_cast<const int8_t*>(ptr);
+		if (normalized) {
+			float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 127.0f));
+			return static_cast<uint8_t>(std::round((f * 0.5f + 0.5f) * 255.0f));
+		}
+		return static_cast<uint8_t>(std::max(0, std::min(255, static_cast<int>(v))));
+	}
+	template <> inline uint8_t ReadGltfUint8<int16_t>(const uint8_t* ptr, bool normalized) {
+		int16_t v = *reinterpret_cast<const int16_t*>(ptr);
+		if (normalized) {
+			float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 32767.0f));
+			return static_cast<uint8_t>(std::round((f * 0.5f + 0.5f) * 255.0f));
+		}
+		return static_cast<uint8_t>(std::max(0, std::min(255, static_cast<int>(v))));
+	}
+	template <> inline uint8_t ReadGltfUint8<uint8_t>(const uint8_t* ptr, bool normalized) {
+		return *reinterpret_cast<const uint8_t*>(ptr);
+	}
+
+	inline float DispatchReadFloat(const uint8_t* ptr, int compType, bool normalized) {
+		switch (compType) {
+		case TINYGLTF_COMPONENT_TYPE_BYTE:           return ReadGltfFloat<int8_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:  return ReadGltfFloat<uint8_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_SHORT:          return ReadGltfFloat<int16_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: return ReadGltfFloat<uint16_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_INT:            return ReadGltfFloat<int32_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:   return ReadGltfFloat<uint32_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_FLOAT:          return ReadGltfFloat<float>(ptr, normalized);
+		default: return 0.0f;
+		}
+	}
+
+	inline uint8_t DispatchReadUint8(const uint8_t* ptr, int compType, bool normalized) {
+		switch (compType) {
+		case TINYGLTF_COMPONENT_TYPE_BYTE:           return ReadGltfUint8<int8_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:  return ReadGltfUint8<uint8_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_SHORT:          return ReadGltfUint8<int16_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: return ReadGltfUint8<uint16_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_INT:            return ReadGltfUint8<int32_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:   return ReadGltfUint8<uint32_t>(ptr, normalized);
+		case TINYGLTF_COMPONENT_TYPE_FLOAT:          return ReadGltfUint8<float>(ptr, normalized);
+		default: return 0;
+		}
+	}
+
+	class GltfAttributeReader {
+	public:
+		const uint8_t* basePtr = nullptr;
+		size_t stride = 0;
+		int compType = 0;
+		int numComps = 0;
+		bool normalized = false;
+		bool valid = false;
+
+		GltfAttributeReader(const tinygltf::Model& model, const tinygltf::Primitive& prim, const char* attrName) {
+			auto it = prim.attributes.find(attrName);
+			if (it == prim.attributes.end()) return;
+
+			const tinygltf::Accessor& acc = model.accessors[it->second];
+			const tinygltf::BufferView& view = model.bufferViews[acc.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
+
+			if (buffer.data.empty()) return;
+
+			basePtr = buffer.data.data() + view.byteOffset + acc.byteOffset;
+			stride = view.byteStride ? view.byteStride : (ComponentByteSize(acc.componentType) * NumComponentsInType(acc.type));
+			compType = acc.componentType;
+			numComps = NumComponentsInType(acc.type);
+			normalized = acc.normalized;
+			valid = true;
+		}
+
+		void getFloats(size_t vtxIdx, float* out, int maxOutComps) const {
+			if (!valid) return;
+			const uint8_t* ptr = basePtr + vtxIdx * stride;
+			int compsToRead = std::min(numComps, maxOutComps);
+
+			for (int i = 0; i < compsToRead; ++i) {
+				const uint8_t* compPtr = ptr + i * ComponentByteSize(compType);
+				out[i] = DispatchReadFloat(compPtr, compType, normalized);
+			}
+
+			if (maxOutComps == 4 && numComps == 3) out[3] = 1.0f;
+			else if (maxOutComps == 4 && numComps == 1) { out[1] = out[2] = 0.0f; out[3] = 1.0f; }
+		}
+
+		void getUint8s(size_t vtxIdx, uint8_t* out, int maxOutComps) const {
+			if (!valid) return;
+			const uint8_t* ptr = basePtr + vtxIdx * stride;
+			int compsToRead = std::min(numComps, maxOutComps);
+
+			for (int i = 0; i < compsToRead; ++i) {
+				const uint8_t* compPtr = ptr + i * ComponentByteSize(compType);
+				out[i] = DispatchReadUint8(compPtr, compType, normalized);
+			}
+		}
+	};
 
     Render::MaterialTemplatePtr getPBRMaterialTemplate(const Render::GLTFMaterial* material) {
         using namespace Render;
@@ -319,205 +310,109 @@ namespace {
         }
     }
 
-    bool packToVertex(
-        uint8_t* data,
-        int offsetInData,          // 当前 attribute 在 Vertex 内的 offset (bytes)
-        int offset,                // vertex 起始偏移（base vertex index）
-        TypeOfVertexElement type,  // 目标格式
-        int stride,                // Vertex stride (bytes)
-        const tinygltf::Accessor& acc,
-        const tinygltf::BufferView& view,
-        const tinygltf::Buffer& buffer
-    ) {
-        if (acc.count == 0) return false;
+	bool packPrimitiveToStandardVertices(
+		const tinygltf::Model& model,
+		const tinygltf::Mesh& mesh,
+		std::vector<Render::StandardModelVertex>& outVertices,
+		std::vector<uint32_t>& outIndice,
+		std::vector<Render::SubMesh>& outSubmeshes,
+		std::vector<int>& outMaterialIndex)
+	{
+		size_t totalCntVtx = 0;
+		size_t totalIndice = 0;
+		for (const auto& prim : mesh.primitives) {
+			auto itPos = prim.attributes.find("POSITION");
+			if (itPos == prim.attributes.end()) return false;
+			totalCntVtx += static_cast<size_t>(model.accessors[itPos->second].count);
+			totalIndice += static_cast<size_t>(model.accessors[prim.indices].count);
+		}
 
-        const int srcNumComp = NumComponentsInType(acc.type);
-        const int compByteSize = ComponentByteSize(acc.componentType);
-        if (compByteSize == 0) return false; // unknown component type
+		outVertices.resize(totalCntVtx);
+		outIndice.resize(totalIndice, 0);
 
-        const uint8_t* basePtr = buffer.data.empty() ? nullptr : buffer.data.data();
-        if (!basePtr) return false;
+		size_t baseVertexOffset = 0;
+		size_t baseIndiceOffset = 0;
 
-        // calculate source base offset
-        size_t viewByteOffset = static_cast<size_t>(view.byteOffset);
-        size_t accessorByteOffset = static_cast<size_t>(acc.byteOffset);
-        const uint8_t* srcElement0 = basePtr + viewByteOffset + accessorByteOffset;
+		for (const auto& prim : mesh.primitives) {
+			auto itPos = prim.attributes.find("POSITION");
+			size_t vertexCount = static_cast<size_t>(model.accessors[itPos->second].count);
+			if (vertexCount == 0) return false;
 
-        // source stride: either bufferView.byteStride or tightly packed
-        size_t srcStride = view.byteStride ? static_cast<size_t>(view.byteStride)
-            : static_cast<size_t>(compByteSize * srcNumComp);
+			GltfAttributeReader posReader(model, prim, "POSITION");
+			GltfAttributeReader normReader(model, prim, "NORMAL");
+			GltfAttributeReader uv0Reader(model, prim, "TEXCOORD_0");
+			GltfAttributeReader uv1Reader(model, prim, "TEXCOORD_1");
+			GltfAttributeReader colReader(model, prim, "COLOR_0");
 
-        // iterate through accessor elements, write into destination buffer
-        for (size_t i = 0; i < static_cast<size_t>(acc.count); ++i) {
-            const uint8_t* src = srcElement0 + i * srcStride;
-            uint8_t* dstVertexStart = data + (offset + static_cast<int>(i)) * stride;
-            uint8_t* dst = dstVertexStart + offsetInData;
+			for (size_t i = 0; i < vertexCount; ++i) {
+				Render::StandardModelVertex vtx{};
+				vtx.color_u8x4_pack = 0xFFFFFFFFu; 
 
-            if (type == TypeOfVertexElement::Uint8X4) {
-                // write 4 bytes into dst (no float conversion as primary goal)
-                // If accessor has fewer than 4 components, fill remaining with 0 (or 255 for alpha if you prefer)
-                for (int c = 0; c < 4; ++c) {
-                    if (c < srcNumComp) {
-                        uint8_t out = ConvertComponentToUint8(src, acc.componentType, acc.normalized, c);
-                        dst[c] = out;
-                    }
-                    else {
-                        // pad: for colors it's common to pad alpha as 255, for others 0.
-                        // choose 255 for 4th component if present, else 0.
-                        dst[c] = (c == 3) ? 255u : 0u;
-                    }
-                }
-            }
-            else {
-                // target is float vector (Vec2/3/4)
-                float comps[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-                // read available components into comps[]
-                for (int c = 0; c < srcNumComp && c < 4; ++c) {
-                    comps[c] = ReadComponentAsFloat(src, acc.componentType, acc.normalized, c);
-                }
-                // If target is Vec4 and source has 3 components, set w=1.0f (common for positions/normals)
-                if (type == TypeOfVertexElement::Vec4) {
-                    if (srcNumComp == 3) comps[3] = 1.0f;
-                    else if (srcNumComp == 1) {
-                        // if single scalar, place into x and set others appropriately (y,z=0, w=1)
-                        comps[1] = comps[2] = 0.0f;
-                        comps[3] = 1.0f;
-                    }
-                }
-                if (type == TypeOfVertexElement::Vec3) {
-                    // if source provided 4th component but target is Vec3, ignore w
-                }
-                if (type == TypeOfVertexElement::Vec2) {
-                    // only first two components kept
-                }
+				if (posReader.valid) {
+					float pos[3] = { 0.f, 0.f, 0.f };
+					posReader.getFloats(i, pos, 3);
+					memcpy(&vtx.position, pos, sizeof(float) * 3);
+				}
+				if (normReader.valid) {
+					float norm[3] = { 0.f, 0.f, 0.f };
+					normReader.getFloats(i, norm, 3);
+					memcpy(&vtx.normal, norm, sizeof(float) * 3);
+				}
+				if (uv0Reader.valid) {
+					float uv0[2] = { 0.f, 0.f };
+					uv0Reader.getFloats(i, uv0, 2);
+					memcpy(&vtx.uv_0, uv0, sizeof(float) * 2);
+				}
+				if (uv1Reader.valid) {
+					float uv1[2] = { 0.f, 0.f };
+					uv1Reader.getFloats(i, uv1, 2);
+					memcpy(&vtx.uv_1, uv1, sizeof(float) * 2);
+				}
+				if (colReader.valid) {
+					uint8_t col[4] = { 255, 255, 255, 255 };
+					colReader.getUint8s(i, col, 4);
+					memcpy(&vtx.color_u8x4_pack, col, sizeof(uint8_t) * 4);
+				}
 
-                // write floats to dst (assume dst is aligned enough; use memcpy to be safe)
-                if (type == TypeOfVertexElement::Vec4) {
-                    memcpy(dst, comps, sizeof(float) * 4);
-                }
-                else if (type == TypeOfVertexElement::Vec3) {
-                    memcpy(dst, comps, sizeof(float) * 3);
-                }
-                else if (type == TypeOfVertexElement::Vec2) {
-                    memcpy(dst, comps, sizeof(float) * 2);
-                }
-            }
-        }
-        return true;
-    }
+				outVertices[baseVertexOffset + i] = vtx;
+			}
 
-    
-    bool packPrimitiveToStandardVertices(
-        const tinygltf::Model& model,
-        const tinygltf::Mesh& mesh,
-        std::vector<Render::StandardModelVertex>& outVertices,
-        std::vector<uint32_t>& outIndice,
-        std::vector<Render::SubMesh>& outSubmeshes,
-        std::vector<int>& outMaterialIndex
-    )
-    {
-        size_t totalCntVtx = 0;
-        size_t totalIndice = 0;
-        for (auto& prim : mesh.primitives)
-        {
-            auto itPos = prim.attributes.find("POSITION");
-            if (itPos == prim.attributes.end()) {
-                return false;
-            }
-            const tinygltf::Accessor& posAcc = model.accessors[itPos->second];
-            size_t vertexCount = static_cast<size_t>(posAcc.count);
-            if (vertexCount == 0) return false;
-            totalCntVtx += vertexCount;
-            const tinygltf::Accessor& indiceAcc = model.accessors[prim.indices];
-            totalIndice += indiceAcc.count;
-        }
-        Render::StandardModelVertex vtx{};
-        vtx.color_u8x4_pack = 0xFFFFFFFFu;
-        outVertices.resize(totalCntVtx, vtx);
-        outIndice.resize(totalIndice, 0);
-        size_t baseVertexOffset = 0;
-        size_t baseIndiceOffset = 0;
-        uint8_t* dstBase = reinterpret_cast<uint8_t*>(outVertices.data());
-        int primIdx = 0;
-        for (auto& prim : mesh.primitives)
-        {
-            auto itPos = prim.attributes.find("POSITION");
-            const tinygltf::Accessor& posAcc = model.accessors[itPos->second];
-            size_t vertexCount = static_cast<size_t>(posAcc.count);
-            if (vertexCount == 0) return false;
+			const tinygltf::Accessor& indiceAcc = model.accessors[prim.indices];
+			const tinygltf::BufferView& view = model.bufferViews[indiceAcc.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
+			const uint8_t* src = buffer.data.data() + view.byteOffset + indiceAcc.byteOffset;
 
-            int stride = static_cast<int>(sizeof(Render::StandardModelVertex));
+			for (size_t i = 0; i < indiceAcc.count; ++i) {
+				uint32_t idx = 0;
+				switch (indiceAcc.componentType) {
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+					idx = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(src)[i]);
+					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+					idx = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(src)[i]);
+					break;
+				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+					idx = reinterpret_cast<const uint32_t*>(src)[i];
+					break;
+				default:
+					return false;
+				}
+				outIndice[baseIndiceOffset + i] = idx + static_cast<uint32_t>(baseVertexOffset);
+			}
 
-            auto tryPackAttribute = [&](const char* attrName, TypeOfVertexElement targetType, size_t offsetInStruct) {
-                auto it = prim.attributes.find(attrName);
-                if (it == prim.attributes.end()) return;
-                int accIdx = it->second;
-                if (accIdx < 0 || accIdx >= static_cast<int>(model.accessors.size())) return;
-                const tinygltf::Accessor& acc = model.accessors[accIdx];
-                if (acc.bufferView < 0 || acc.bufferView >= static_cast<int>(model.bufferViews.size())) return;
-                const tinygltf::BufferView& view = model.bufferViews[acc.bufferView];
-                if (view.buffer < 0 || view.buffer >= static_cast<int>(model.buffers.size())) return;
-                const tinygltf::Buffer& buffer = model.buffers[view.buffer];
+			Render::SubMesh sub;
+			sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
+			sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
+			sub.indexCount = static_cast<uint32_t>(indiceAcc.count);
+			outSubmeshes.push_back(sub);
 
-                packToVertex(
-                    dstBase,
-                    static_cast<int>(offsetInStruct),
-                    baseVertexOffset,
-                    targetType,
-                    stride,
-                    acc, view, buffer);
-                };
+			outMaterialIndex.push_back(prim.material);
 
-            // POSITION -> vec3
-            tryPackAttribute("POSITION", TypeOfVertexElement::Vec3, offsetof(Render::StandardModelVertex, position));
-
-            // NORMAL -> vec3
-            tryPackAttribute("NORMAL", TypeOfVertexElement::Vec3, offsetof(Render::StandardModelVertex, normal));
-
-            // TEXCOORD_0 -> vec2
-            tryPackAttribute("TEXCOORD_0", TypeOfVertexElement::Vec2, offsetof(Render::StandardModelVertex, uv_0));
-
-            // TEXCOORD_1 -> vec2
-            tryPackAttribute("TEXCOORD_1", TypeOfVertexElement::Vec2, offsetof(Render::StandardModelVertex, uv_1));
-
-            // COLOR_0 -> uint8x4 packed into uint32_t
-            tryPackAttribute("COLOR_0", TypeOfVertexElement::Uint8X4, offsetof(Render::StandardModelVertex, color_u8x4_pack));
-
-            const tinygltf::Accessor& indiceAcc = model.accessors[prim.indices];
-            const tinygltf::BufferView& view = model.bufferViews[indiceAcc.bufferView];
-            const tinygltf::Buffer& buffer = model.buffers[view.buffer];
-            const uint8_t* src = buffer.data.data() + view.byteOffset + indiceAcc.byteOffset;
-            for (size_t i = 0; i < indiceAcc.count; ++i) {
-                uint32_t idx = 0;
-                switch (indiceAcc.componentType) {
-                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-                    idx = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(src)[i]);
-                    break;
-                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-                    idx = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(src)[i]);
-                    break;
-                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-                    idx = reinterpret_cast<const uint32_t*>(src)[i];
-                    break;
-                default:
-                    return false;
-                }
-                outIndice[baseIndiceOffset + i] = idx + static_cast<uint32_t>(baseVertexOffset);
-            }
-            Render::SubMesh sub;
-            sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
-            sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
-            sub.indexCount = static_cast<uint32_t>(indiceAcc.count);
-            outSubmeshes.push_back(sub);
-            outMaterialIndex.push_back(prim.material);
-            baseIndiceOffset += indiceAcc.count;
-            baseVertexOffset += vertexCount;
-            primIdx ++ ;
-        }
-        return true;
-    }
-
-
+			baseIndiceOffset += indiceAcc.count;
+			baseVertexOffset += vertexCount;
+		}
+		return true;
+	}
 
 }
 
@@ -721,37 +616,58 @@ namespace Render {
         return model;
     }
 
-    Object* GLTFLoader::toEngineSceneNode(Scene* scene, GLTFModel* model)
-    {
-        //Root for model
-        Object* obj =  scene->createObject(model->modelName.c_str());
-        assert(obj != nullptr);
-        for (int i = 0; i < model->nodes.size(); ++i) {
-            auto node = model->nodes[i];
-			Object* childObj = scene->createObject(node.name.c_str());
-            // TRS
-            childObj->setLocalPosition(node.translation);
-            childObj->setLocalRotation(fromEulerAngles(node.rotation));
-            childObj->setLocalScale(node.scale);
-            // Mesh
-            if (node.meshIndex >= 0 && node.meshIndex < model->meshes.size()) {
-                auto& mesh = model->meshes[node.meshIndex];
-                auto renderComp = childObj->addComponent<Render::PBRRenderComponent>();
-                renderComp->setMesh(mesh.mesh);
-                int i = 0;
-                for (auto& materialIDX : mesh.materialIdx)
-                {
-                    auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(model, model->materials[materialIDX]);
-                    renderComp->setMaterial(i, matPtr);
-                    i++;
-                }
-            }
-            // Parent-child
-			obj->addChild(childObj);
-        }
-        return obj;
-    }
+	Object* GLTFLoader::toEngineSceneNode(Scene* scene, GLTFModel* model)
+	{
+		if (!model || model->scenes.empty()) {
+			return nullptr;
+		}
 
+		Object* rootObj = scene->createObject(model->modelName.c_str());
+		assert(rootObj != nullptr);
+
+		std::function<void(int, Object*)> processNode = [&](int nodeIndex, Object* parentObj) {
+			if (nodeIndex < 0 || nodeIndex >= model->nodes.size()) return;
+
+			const GLTFNode& node = model->nodes[nodeIndex];
+
+			std::string objName = node.name.empty() ? ("Node_" + std::to_string(nodeIndex)) : node.name;
+			Object* currentObj = scene->createObject(objName.c_str());
+
+			currentObj->setLocalPosition(node.translation);
+			currentObj->setLocalRotation(fromEulerAngles(node.rotation));
+			currentObj->setLocalScale(node.scale);
+
+			if (node.meshIndex >= 0 && node.meshIndex < model->meshes.size()) {
+				const auto& mesh = model->meshes[node.meshIndex];
+				auto renderComp = currentObj->addComponent<Render::PBRRenderComponent>();
+				renderComp->setMesh(mesh.mesh);
+
+				int submeshIdx = 0;
+				for (int materialIDX : mesh.materialIdx) {
+					if (materialIDX >= 0 && materialIDX < model->materials.size()) {
+						auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(model, model->materials[materialIDX]);
+						renderComp->setMaterial(submeshIdx, matPtr);
+					}
+					submeshIdx++;
+				}
+			}
+
+			if (parentObj) {
+				parentObj->addChild(currentObj);
+			}
+
+			for (int childIndex : node.children) {
+				processNode(childIndex, currentObj);
+			}
+			};
+
+		const GLTFScene& defaultScene = model->scenes[0];
+		for (int rootNodeIndex : defaultScene.nodes) {
+			processNode(rootNodeIndex, rootObj);
+		}
+
+		return rootObj;
+	}
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)
     {
         out.scenes.clear();
