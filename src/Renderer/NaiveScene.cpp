@@ -2,6 +2,7 @@
 #include "function/Object.h"
 #include "common/CommonMath.h"
 #include "Components/SimpleRenderComponent.h"
+#include "Renderer/GltfLoader.h"
 namespace Render {
 	class MoveComponent : public Component {
 	public:
@@ -33,6 +34,10 @@ namespace Render {
 		auto objectB = naiveScene->createObject("CubeObject2");
 		objectB->addComponent<SimpleRenderComponent>();
 		objectB->addComponent<MoveComponent>( vec3(0,0,-5),3 );
+		GLTFLoader loader;
+		auto model = loader.createFromFilePath("../resources/Fox/glTF/Fox.gltf");
+		loader.toEngineSceneNode(naiveScene, model);
+		delete model;
 		return naiveScene;
 	}
 

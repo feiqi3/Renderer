@@ -320,12 +320,18 @@ namespace {
 	{
 		size_t totalCntVtx = 0;
 		size_t totalIndice = 0;
-		for (const auto& prim : mesh.primitives) {
-			auto itPos = prim.attributes.find("POSITION");
-			if (itPos == prim.attributes.end()) return false;
-			totalCntVtx += static_cast<size_t>(model.accessors[itPos->second].count);
-			totalIndice += static_cast<size_t>(model.accessors[prim.indices].count);
-		}
+        for (const auto& prim : mesh.primitives) {
+            auto itPos = prim.attributes.find("POSITION");
+            if (itPos == prim.attributes.end()) return false;
+            totalCntVtx += static_cast<size_t>(model.accessors[itPos->second].count);
+            if (prim.indices < 0) {
+                //Generate by hand
+                totalIndice += static_cast<size_t>(model.accessors[itPos->second].count);
+            }
+            else {
+                totalIndice += static_cast<size_t>(model.accessors[prim.indices].count);
+            }
+        }
 
 		outVertices.resize(totalCntVtx);
 		outIndice.resize(totalIndice, 0);
@@ -377,38 +383,59 @@ namespace {
 				outVertices[baseVertexOffset + i] = vtx;
 			}
 
-			const tinygltf::Accessor& indiceAcc = model.accessors[prim.indices];
-			const tinygltf::BufferView& view = model.bufferViews[indiceAcc.bufferView];
-			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
-			const uint8_t* src = buffer.data.data() + view.byteOffset + indiceAcc.byteOffset;
+            if (prim.indices >= 0) {
 
-			for (size_t i = 0; i < indiceAcc.count; ++i) {
-				uint32_t idx = 0;
-				switch (indiceAcc.componentType) {
-				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-					idx = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(src)[i]);
-					break;
-				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-					idx = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(src)[i]);
-					break;
-				case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-					idx = reinterpret_cast<const uint32_t*>(src)[i];
-					break;
-				default:
-					return false;
-				}
-				outIndice[baseIndiceOffset + i] = idx + static_cast<uint32_t>(baseVertexOffset);
-			}
+                const tinygltf::Accessor& indiceAcc = model.accessors[prim.indices];
+                const tinygltf::BufferView& view = model.bufferViews[indiceAcc.bufferView];
+                const tinygltf::Buffer& buffer = model.buffers[view.buffer];
+                const uint8_t* src = buffer.data.data() + view.byteOffset + indiceAcc.byteOffset;
 
-			Render::SubMesh sub;
-			sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
-			sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
-			sub.indexCount = static_cast<uint32_t>(indiceAcc.count);
-			outSubmeshes.push_back(sub);
+                for (size_t i = 0; i < indiceAcc.count; ++i) {
+                    uint32_t idx = 0;
+                    switch (indiceAcc.componentType) {
+                    case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+                        idx = static_cast<uint32_t>(reinterpret_cast<const uint8_t*>(src)[i]);
+                        break;
+                    case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+                        idx = static_cast<uint32_t>(reinterpret_cast<const uint16_t*>(src)[i]);
+                        break;
+                    case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+                        idx = reinterpret_cast<const uint32_t*>(src)[i];
+                        break;
+                    default:
+                        return false;
+                    }
+                    outIndice[baseIndiceOffset + i] = idx + static_cast<uint32_t>(baseVertexOffset);
+                }
+
+                Render::SubMesh sub;
+                //bake into indice
+                //sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
+                sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
+                sub.indexCount = static_cast<uint32_t>(indiceAcc.count);
+                outSubmeshes.push_back(sub);
+				baseIndiceOffset += indiceAcc.count;
+            }
+            else {
+                //No indice condition
+				auto itPos = prim.attributes.find("POSITION");
+                if (itPos == prim.attributes.end()) {
+                    return false;
+                }
+                auto& posAcc = model.accessors[itPos->second];
+                for (int i = 0;i < posAcc.count; ++i) {
+					outIndice[baseIndiceOffset + i] = i + static_cast<uint32_t>(baseVertexOffset);
+                }
+				Render::SubMesh sub;
+				//bake into indice
+				//sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
+				sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
+				sub.indexCount = static_cast<uint32_t>(posAcc.count);
+				outSubmeshes.push_back(sub);
+				baseIndiceOffset += posAcc.count;
+            }
 
 			outMaterialIndex.push_back(prim.material);
-
-			baseIndiceOffset += indiceAcc.count;
 			baseVertexOffset += vertexCount;
 		}
 		return true;
@@ -1107,7 +1134,7 @@ namespace Render {
             return false;
         }
         const tinygltf::Image& image = model.images[imgIdx];
-        if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_BYTE) {
+        if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_BYTE || image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
             assert(false);
             return false;
         }
