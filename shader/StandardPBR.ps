@@ -8,11 +8,6 @@ layout(set = 2, binding = 1) uniform UniformBufferObject {
     PBRData pbrData
 } CBUFFER_pbrData;
 
-#define PBRDATA         CBUFFER_pbrData.pbrData
-#define OBJDATA         ObjData.ObjData
-#define CAMDATA         CameraCommon.camera
-#define LIGHTDATA       SceneCommon.sceneLights
-
 layout(set = 2, binding = 2) uniform texture2D      u_baseColorTex;
 layout(set = 2, binding = 3) uniform sampler        u_baseColorSampler;
 layout(set = 2, binding = 4) uniform texture2D      u_normalTex;

@@ -81,6 +81,11 @@ namespace Render {
 		return mat;
 	}
 
+	Render::MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass)
+	{
+		return createMaterialPass(pass, {});
+	}
+
 	MaterialPass* MaterialTemplate::getMaterialPass(const Name& name)
 	{
 		auto itor = mMaterialPassMap.find(name);

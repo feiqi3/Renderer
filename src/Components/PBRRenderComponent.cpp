@@ -93,6 +93,7 @@ namespace Render {
 		info.bindingBuffers[0].offset = 0;
 		
 		auto* mainPass = mat->getMaterialPassToRender(PassName::MainCameraPass);
+		assert(mainPass != nullptr);
 		entity->createPass(PassName::MainCameraPass);
 		return entity;
 	}

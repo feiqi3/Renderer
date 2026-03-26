@@ -303,7 +303,8 @@ namespace {
             vtxID.attributes.push_back(ia);
             offset += sizeof(uint32_t);
 
-            return materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,""},{ShaderStage::Fragment,psMarco} }, state, vtxID);
+            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,""},{ShaderStage::Fragment,psMarco} }, state, vtxID);
+            tplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass));
         }
         else {
             return pbrTplt;
@@ -1134,7 +1135,7 @@ namespace Render {
             return false;
         }
         const tinygltf::Image& image = model.images[imgIdx];
-        if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_BYTE || image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+        if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_BYTE && image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
             assert(false);
             return false;
         }
@@ -1184,6 +1185,11 @@ namespace Render {
             out.scale[0] = node.scale[0];
             out.scale[1] = node.scale[1];
             out.scale[2] = node.scale[2];
+        }
+        else {
+			out.scale[0] = 1;
+			out.scale[1] = 1;
+			out.scale[2] = 1;
         }
 
         for (auto&& idx : node.children) {

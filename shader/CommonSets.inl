@@ -10,3 +10,8 @@ layout(set = 0, binding = 0) uniform blockCamera {
 layout(set = 2, binding = 0) uniform UniformBufferObject {
     ObjectCommonData ObjData;
 } ObjData;
+
+#define PBRDATA         CBUFFER_pbrData.pbrData
+#define OBJDATA         ObjData.ObjData
+#define CAMDATA         CameraCommon.camera
+#define LIGHTDATA       SceneCommon.sceneLights
