@@ -81,6 +81,7 @@ namespace Render {
 	{
 		StandardPBRRenderEntity* entity = new StandardPBRRenderEntity;
 		auto& info = entity->getRenderInfo();
+		entity->setPBRMaterial(mat);
 		const auto& subMesh = this->mMesh->getSubMesh(submeshID);
 		info.idxCount = subMesh.indexCount;
 		info.idxOffset = subMesh.indexOffset;

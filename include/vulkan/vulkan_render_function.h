@@ -50,6 +50,7 @@ namespace Render::Vulkan {
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
+	void  flushRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer, uint32_t size);
 	uint64_t getOffsetAllocation(decltype(rs_buffer_vk::allocation) allocation);
 	VkDeviceMemory getDeviceMemory(decltype(rs_buffer_vk::allocation) allocation);
 	bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer);

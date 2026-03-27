@@ -41,19 +41,21 @@ namespace Render {
 		});
 
         for (auto* block : frame.blocks) {
-            block->currentOffset = 0;
+            if(frame.pendingCopies.size() == 0){
+                block->currentOffset = 0;
+            }
         }
         frame.activeBlockIndex = 0;
     }
 
     void RenderDataArena::allocateStagingMemory(uint32_t size, uint32_t frameIndex, rs_buffer** outBuffer, uint32_t* outOffset, void** outMappedPtr) {
-        FrameData& frame = m_frames[frameIndex];
+        FrameData& frame = m_frames[m_currentFrameIndex];
 
         StagingBlock* targetBlock = nullptr;
 
         if (frame.activeBlockIndex < frame.blocks.size()) {
             StagingBlock* cur = frame.blocks[frame.activeBlockIndex];
-            uint32_t alignedOffset = (cur->currentOffset + 15) & ~15;
+            uint32_t alignedOffset = (cur->currentOffset + 255) & ~255;
 
             if (alignedOffset + size <= cur->capacity) {
                 targetBlock = cur;
@@ -73,7 +75,7 @@ namespace Render {
             targetBlock = frame.blocks[frame.activeBlockIndex];
             targetBlock->currentOffset = 0;
         }
-        targetBlock->lastUsedFrame = m_currentFrameIndex;
+        targetBlock->lastUsedFrame = frameIndex;
         *outBuffer = targetBlock->buffer;
         *outOffset = targetBlock->currentOffset;
         *outMappedPtr = (uint8_t*)targetBlock->mappedPtr + targetBlock->currentOffset;
@@ -88,7 +90,7 @@ namespace Render {
         uint32_t srcOffset = 0;
         void* mapPtr = nullptr;
 
-        allocateStagingMemory(size, m_currentFrameIndex, &srcBuf, &srcOffset, &mapPtr);
+        allocateStagingMemory(size, RenderSystem::instance()->getNextRenderFrame(), &srcBuf, &srcOffset, &mapPtr);
 
         memcpy(mapPtr, data, size);
 
@@ -105,9 +107,15 @@ namespace Render {
 
     void RenderDataArena::executePendingCopies(rs_commandbuffer* cmd) {
         FrameData& frame = m_frames[m_currentFrameIndex];
-
+        for (auto block : frame.blocks) {
+            bool needFlushThis = block->lastUsedFrame == RenderSystem::instance()->getNextRenderFrame();
+            if (needFlushThis) {
+                RenderSystem::instance()->flushBuffer(block->buffer, block->buffer->byteSize);
+            }
+        }
         if (frame.pendingCopies.empty()) return;
         //Excute copies
+        std::atomic_thread_fence(std::memory_order_seq_cst);
         for (const auto& copy : m_frames[m_currentFrameIndex].pendingCopies){
 			RenderSystem::instance()->cmdCopyBufferToBuffer(cmd, copy.srcBuffer, copy.dstBuffer, copy.srcOffset, copy.dstOffset, copy.size);
         }

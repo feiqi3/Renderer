@@ -57,16 +57,20 @@ namespace Render {
 		);
 	}
 	inline auto getTRS(const vec3& t, const quat& r, const vec3& s) {
-		return scale(rotate(translate(mat4(1.0), t), r), s);
+		return translate(rotate(scale(mat4(1.0), s), r), t);
 	}
 	inline auto lookAt(const vec3& eye, const vec3& center, const vec3& up) {
 		return glm::lookAt(eye, center, up);
 	}
 	inline auto perspective(float fov, float aspect, float znear, float zfar) {
-		return glm::perspective(fov, aspect, znear, zfar);
+		auto matPerspective = glm::perspective(fov, aspect, znear, zfar);
+		matPerspective[1][1] *= -1;
+		return matPerspective;
 	}
 	inline auto ortho(float left, float right, float bottom, float top, float znear, float zfar) {
-		return glm::ortho(left, right, bottom, top, znear, zfar);
+		auto matOrtho = glm::ortho(left, right, bottom, top, znear, zfar);
+		matOrtho[1][1] *= -1;
+		return matOrtho;
 	}
 
 	inline auto radians(float degrees) { return glm::radians(degrees); }
@@ -81,6 +85,10 @@ namespace Render {
 
 	inline auto fromEulerAngles(const vec3& angles) {
 		return glm::quat(angles);
+	}
+
+	inline auto fromAxisAngle(const vec3& axis, float angle) {
+		return glm::angleAxis(angle,axis);
 	}
 }
 

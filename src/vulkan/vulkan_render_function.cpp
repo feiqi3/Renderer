@@ -1506,6 +1506,19 @@ namespace Render::Vulkan {
 		}
 	}
 
+	void flushRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer, uint32_t size)
+	{
+        uint64_t flushSize = VK_WHOLE_SIZE;
+        if (size <= buffer->byteSize) {
+            flushSize = size;
+        }
+
+        vmaFlushAllocation(
+            context->allocator, buffer->allocation, 0, flushSize
+        );
+
+	}
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {

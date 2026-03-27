@@ -53,6 +53,7 @@ namespace Render{
 		void destroyBuffer(rs_buffer* buffer);
 
 		void updateBuffer(rs_buffer* buffer,void* data, uint32_t size,uint32_t offset);
+		void flushBuffer(rs_buffer* buffer, uint32_t size);
 
 		rs_pipeline* createRenderPipeline(rs_renderpass* renderpass,PipelineDesc& pipelineDescription);
 		void destroyRenderPipeline(rs_pipeline* pipeline);

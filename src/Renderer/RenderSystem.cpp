@@ -286,6 +286,12 @@ namespace Render{
 		auto& renderArena = mDp->mArena;
 		renderArena->stageBufferUpdate(buffer, offset, data, size);
 	}
+
+	void RenderSystem::flushBuffer(rs_buffer* buffer, uint32_t size)
+	{
+		Vulkan::flushRsBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer, size);
+	}
+
 	rs_pipeline* RenderSystem::createRenderPipeline(rs_renderpass* renderpass, PipelineDesc& pipelineDescription)
 	{
 		return Vulkan::createRsPipeline(getRenderContext(), (Vulkan::rs_renderpass_vk*)renderpass, pipelineDescription);
@@ -559,7 +565,6 @@ namespace Render{
 		else {
 			return;
 		}
-		entity->updateEntityCommonData();
 		entity->updateUniforms(pass);
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}

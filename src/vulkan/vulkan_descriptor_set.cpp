@@ -404,7 +404,7 @@ namespace Render::Vulkan {
     {
 
         auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
-        if (bindingInfo.type != UniformType::StorageBuffer) {
+		if (bindingInfo.type != UniformType::StorageBuffer && bindingInfo.type != UniformType::ConstantBuffer) {
 			assert(0 && "Wrong binding type");
 			Log::error("Wrong binding type in binding" + std::to_string(binding));
 			return;

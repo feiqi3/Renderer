@@ -278,33 +278,39 @@ namespace {
             int offset = 0;
             InputAttribute ia{};
             ia.binding = 0;
+
             ia.location = 0;
             ia.format = VertexFormat::Float3;
-            ia.offset = 0;
+            ia.offset = offset;
 			vtxID.attributes.push_back(ia);
-			ia.offset += sizeof(float) * 3;
+			offset += sizeof(float) * 3;
 
             ia.location = 1;
-            vtxID.attributes.push_back(ia);
-            ia.offset += sizeof(float) * 3;
+			ia.offset = offset;
+			vtxID.attributes.push_back(ia);
+			offset += sizeof(float) * 3;
 
             ia.location = 2;
             ia.format = VertexFormat::Float2;
+			ia.offset = offset;
 			vtxID.attributes.push_back(ia);
 			offset += sizeof(float) * 2;
 
             ia.location = 3;
             ia.format = VertexFormat::Float2;
-            vtxID.attributes.push_back(ia);
-            offset += sizeof(float) * 2;
+			ia.offset = offset;
+			vtxID.attributes.push_back(ia);
+			offset += sizeof(float) * 2;
 
             ia.location = 4;
-            ia.format = VertexFormat::Uint4;
-            vtxID.attributes.push_back(ia);
-            offset += sizeof(uint32_t);
+            ia.format = VertexFormat::UByte4N;
+			ia.offset = offset;
+			vtxID.attributes.push_back(ia);
+			offset += sizeof(uint32_t);
 
-            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,""},{ShaderStage::Fragment,psMarco} }, state, vtxID);
+            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/SimpleLit.vs"},{ShaderStage::Fragment,"../shader/SimpleLit.ps"} }, state, vtxID);
             tplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass));
+            return tplt;
         }
         else {
             return pbrTplt;
@@ -1231,18 +1237,6 @@ namespace Render {
             gltfMat.emissiveFactor[1],
             gltfMat.emissiveFactor[2]
         ));
-        if (gltfMat.baseColorTexture >= 0) {
-            TexturePtr texture = model->textures[gltfMat.baseColorTexture].texture;
-            SamplerPtr sampler = nullptr;
-            if (texture) {
-				auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[model->textures[gltfMat.baseColorTexture].smaplerIndex]);
-                sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
-            }
-            pbrMat->setBaseColorTexture(texture, sampler);
-        }
-        else {
-            pbrMat->setBaseColorTexture(nullptr, nullptr);
-        }
 
         if (gltfMat.baseColorTexture >= 0) {
             const auto& gltfTex = model->textures[gltfMat.baseColorTexture];
