@@ -1,0 +1,98 @@
+#version 450
+#include "CommonSets.inl"
+
+#include "PBREntity.h"
+layout(set = 3, binding = 1) uniform MaterialData {
+    PBRData pbrData;
+} CBUFFER_pbrData;
+
+layout(set = 3, binding = 2) uniform texture2D      u_baseColorTex;
+layout(set = 3, binding = 3) uniform sampler        u_baseColorSampler;
+layout(set = 3, binding = 4) uniform texture2D      u_normalTex;
+layout(set = 3, binding = 5) uniform sampler        u_normalSampler;
+layout(set = 3, binding = 6) uniform texture2D      u_metallicRoughnessTex;
+layout(set = 3, binding = 7) uniform sampler        u_metallicRoughnessSampler;
+layout(set = 3, binding = 8) uniform texture2D      u_AOTex;
+layout(set = 3, binding = 9) uniform sampler        u_AOSampler;
+
+layout(location = 0) in vec3 i_worldPos;
+layout(location = 1) in vec3 i_normal;
+layout(location = 2) in vec2 i_texcoord0;
+layout(location = 3) in vec2 i_texcoord1;
+layout(location = 4) in vec3 i_color; 
+layout(location = 5) in vec3 i_viewDir;
+
+layout(location = 0) out vec4 outColor;
+
+vec2 getUV(float texID) {
+    return (texID > 0.5) ? i_texcoord1 : i_texcoord0; 
+}
+
+mat3 getTBN(vec3 N, vec3 p, vec2 uv) {
+    vec3 dp1 = dFdx(p);
+    vec3 dp2 = dFdy(p);
+    vec2 duv1 = dFdx(uv);
+    vec2 duv2 = dFdy(uv);
+
+    vec3 dp2perp = cross(dp2, N);
+    vec3 dp1perp = cross(N, dp1);
+    vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+    vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+
+    float invmax = inversesqrt(max(dot(T,T), dot(B,B)));
+    return mat3(T * invmax, B * invmax, N);
+}
+
+void main(){
+    vec4 tc = CBUFFER_pbrData.pbrData.texControl;
+
+    vec4 texBaseColor = vec4(1.0);
+    if (tc.x >= 0.0) {
+        texBaseColor = texture(sampler2D(u_baseColorTex, u_baseColorSampler), getUV(tc.x));
+    }
+    vec3 albedo = texBaseColor.rgb * CBUFFER_pbrData.pbrData.baseCol.rgb * i_color.rgb;
+    float alpha = 1.0;
+
+    float sampledRoughness = 1.0;
+    if (tc.y >= 0.0) {
+        sampledRoughness = texture(sampler2D(u_metallicRoughnessTex, u_metallicRoughnessSampler), getUV(tc.y)).g;
+    }
+    float roughness = sampledRoughness * CBUFFER_pbrData.pbrData.metalRoughAO.y;
+    float shininess = exp2(10.0 * (1.0 - roughness) + 1.0);
+
+    vec3 N = normalize(i_normal); 
+    if (tc.z >= 0.0) {
+        vec2 uv = getUV(tc.z);
+        vec3 sampledNormal = texture(sampler2D(u_normalTex, u_normalSampler), uv).rgb;
+        vec3 normalMap = sampledNormal * 2.0 - 1.0;
+        normalMap.xy *= CBUFFER_pbrData.pbrData.metalRoughAO.w; // 应用 Normal Scale
+        
+        mat3 TBN = getTBN(N, i_worldPos, uv);
+        N = normalize(TBN * normalMap); 
+    }
+
+    float sampledAO = 1.0;
+    if (tc.w >= 0.0) {
+        sampledAO = texture(sampler2D(u_AOTex, u_AOSampler), getUV(tc.w)).r;
+    }
+    float aoStrength = mix(1.0, sampledAO, CBUFFER_pbrData.pbrData.metalRoughAO.z);
+
+    vec3 V = normalize(i_viewDir);
+    vec3 L = normalize(vec3(0.0, 1.0, 1.0));
+    vec3 lightColor = vec3(1.0, 1.0, 1.0);
+
+    vec3 ambient = albedo * 0.1 * aoStrength;
+
+    float NdotL = max(dot(N, L), 0.0);
+    vec3 diffuse = albedo * NdotL * lightColor;
+
+    vec3 H = normalize(L + V);
+    float NdotH = max(dot(N, H), 0.0);
+    float specStrength = (NdotL > 0.0) ? pow(NdotH, shininess) : 0.0;
+    vec3 specular = lightColor * specStrength;
+
+    vec3 emissive = CBUFFER_pbrData.pbrData.emissiveFactor.xyz;
+
+    vec3 finalRGB = ambient + diffuse + specular + emissive;
+    outColor = vec4(finalRGB, alpha);
+}
