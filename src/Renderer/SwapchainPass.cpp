@@ -56,6 +56,7 @@ namespace Render {
 		SwapchainImgClrColor.rgba[2] = 0.f;
 		SwapchainImgClrColor.rgba[3] = 1.f;
 		this->setClearData({ SwapchainImgClrColor }, {});
+		this->setRenderTarget(nullptr);
 	}
 	void SwapchainPass::init()
 	{
@@ -96,7 +97,10 @@ namespace Render {
 		auto nextSwapchainRt = RenderSys->getNextSwapchainRendertarget();
 		RenderSys->cmdSetRendertarget(cmdbuffer, nextSwapchainRt);
 		updateViewportAndScissor(cmdbuffer, nextSwapchainRt);
-		RenderSys->updateUniform(BlitSampler, this->BlitRTSampler, BlitPass);
-		RenderSys->drawIndexed(cmdbuffer, BlitEntity, getPassName());
+		RenderSys->drawIndexed(cmdbuffer, BlitEntity, BlitPass);
+	}
+	void SwapchainPass::collectRenderEntities(std::vector<RenderPack>& pack)
+	{
+		pack.push_back({ BlitEntity,BlitPass });
 	}
 }

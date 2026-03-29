@@ -40,6 +40,7 @@ namespace Render {
 	//Actually this is created JIT and is hidden behind API specific functions
 	struct rs_image_view : rs_base {
 		ImageViewKey viewKey;
+		struct rs_image*	 image;
 	};
 
 	struct rs_image : rs_base {
@@ -52,7 +53,7 @@ namespace Render {
 		uint16_t arrayLayers;
 		uint32_t usage;
 		SampleCount sampleCount = SampleCount::Count1;
-
+		std::vector<ResourceState> subresourceStates;
 		//---------------------------//
 		rs_image_view defaultView;
 		//create in runtime.
@@ -64,6 +65,7 @@ namespace Render {
 		uint32_t byteSize = 0;
 		uint8_t queueType;
 		void* mappedPtr = 0;
+		ResourceState state = ResourceState::Common;
 	};
 
 	struct rs_sampler : rs_base {
@@ -104,6 +106,7 @@ namespace Render {
 	struct rs_binding_data : rs_base{
 		UniformType type;
 		uint32_t uboDyOffset;
+		rs_base* rsData = nullptr;
 	};
 
 	struct rs_descriptorSet : rs_base { 

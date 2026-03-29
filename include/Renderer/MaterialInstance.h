@@ -48,7 +48,6 @@ namespace Render {
 		MaterialPass* getMaterialPassToRender(const Name& passName);
 		void setRenderOrder(u32 order);
 		u32 getRenderOrder() const;
-
 	protected:
 		std::optional<_ParameterPair*> getParameterInfo(const std::string& paramName);
 		std::vector<Name>              passNamesToRender;

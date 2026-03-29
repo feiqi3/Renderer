@@ -1,6 +1,7 @@
 #include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_render_function.h"
 #include "render_log.h"
+#include "vulkan/vulkan_resource_state.h"
 #include <vulkan/vulkan_pipeline.h>
 #include <map>
 namespace Render::Vulkan {
@@ -75,6 +76,29 @@ namespace Render::Vulkan {
         //poolFactor.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         //poolFactor.descriptorCount = 10;
         //this->m_defaultSize.push_back(poolFactor);
+
+    }
+
+    void DescriptorSetManager::bindDefaultDybuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, QueueType queueType)
+    {
+        assert(curFrameDefaultUBO != nullptr);
+        const auto& layoutData =
+            descriptorSet->layout->bindingHash;
+        const auto& descriptor = layoutData.getDescriptor(binding);
+        if (descriptor.type != UniformType::UniformBuffer) {
+            assert(0 && "Wrong binding type");
+            Log::error("Wrong binding type in binding" + std::to_string(binding));
+            return;
+        }
+
+        if (descriptor.count > 1) {
+            assert(0 && "For UBO, descriptor count must equal to 1.");
+            return;
+        }
+        auto& bindingSlot = descriptorSet->mBindingData[binding];
+        updateBufferBind(frame, ctx, descriptorSet, binding, (rs_buffer_vk*)curFrameDefaultUBO->mBuffer);
+        bindingSlot.native = curFrameDefaultUBO;
+        bindingSlot.uboDyOffset = curFrameDyOffset;
 
     }
 
@@ -213,6 +237,36 @@ namespace Render::Vulkan {
     }
 
 
+    std::pair<UBO*, uint64_t> DescriptorSetManager::getDybuffer(uint64_t frame,uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue)
+    {
+        UBO* choosenUBO = nullptr;
+        uint32_t offsetPos = 0;
+
+        {
+            std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
+            for (auto&& ubo : mUniformBufferLists) {
+                if (ubo->mQueue == queue && ubo->allocateInFrame(data, size, fif, frame, offsetPos)) {
+                    choosenUBO = ubo;
+                    choosenUBO->mInUsedNum.fetch_add(1);
+                    break;
+                }
+            }
+        }
+        if (!choosenUBO) {
+            std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
+            choosenUBO = createUBO(ctx, RingBufferSize, RingBufferAlignedSize, queue);
+            mUniformBufferLists.push_back(choosenUBO);
+            if (!choosenUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
+                assert("ERROR");
+                return { choosenUBO  , 0};
+            }
+            else {
+                choosenUBO->mInUsedNum.fetch_add(1);
+            }
+        }
+        return { choosenUBO,offsetPos };
+    }
+
     UBO* DescriptorSetManager::createUBO(rs_context_vk* ctx, uint64_t createSize, uint32_t alignedSize, QueueType queue)
     {
         BufferDesc createBufferDesc{};
@@ -272,26 +326,9 @@ namespace Render::Vulkan {
         }
 
         if(!choosenUBO){
-            std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
-            for (auto&& ubo : mUniformBufferLists) {
-                if (ubo->mQueue == queue && ubo->allocateInFrame(data, size, fif, frame, offsetPos)) {
-                    choosenUBO = ubo;
-                    choosenUBO->mInUsedNum.fetch_add(1);
-                    break;
-                }
-            }
-        }
-        if (!choosenUBO) {
-            std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
-            choosenUBO = createUBO(ctx, RingBufferSize, RingBufferAlignedSize,queue);
-            mUniformBufferLists.push_back(choosenUBO);
-            if (!choosenUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
-                assert("ERROR");
-                return;
-            }
-            else {
-                choosenUBO->mInUsedNum.fetch_add(1);
-            }
+			auto pair = getDybuffer(frame, fif, ctx, data, size, queue);
+			choosenUBO = pair.first;
+            offsetPos = pair.second;
         }
         if (choosenUBO != bindingSlot.native) {
             updateBufferBind(frame, ctx, descriptorSet, binding, (rs_buffer_vk*)choosenUBO->mBuffer);
@@ -316,6 +353,7 @@ namespace Render::Vulkan {
         }
 		if (descriptorSet->mBindingData[binding].native == sampler->native)return;
 		descriptorSet->mBindingData[binding].native = sampler->native;
+        descriptorSet->mBindingData[binding].rsData = sampler;
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
         writeSet.dstArrayElement = 0;
@@ -349,6 +387,7 @@ namespace Render::Vulkan {
         }
 		if (descriptorSet->mBindingData[binding].native == (VkImageView)image->defaultView.native)return;
 		descriptorSet->mBindingData[binding].native = (VkImageView)image->defaultView.native;
+        descriptorSet->mBindingData[binding].rsData = &(image->defaultView);
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
         writeSet.dstArrayElement = 0;
@@ -371,7 +410,8 @@ namespace Render::Vulkan {
 
         if (descriptorSet->mBindingData[binding].native == buffer->native)return;
 		descriptorSet->mBindingData[binding].native = buffer->native;
-		auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
+        descriptorSet->mBindingData[binding].rsData = buffer;
+        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
 
         if (bindingInfo.type != UniformType::ConstantBuffer && bindingInfo.type != UniformType::StorageBuffer 
             && bindingInfo.type != UniformType::UniformBuffer) {
@@ -410,7 +450,7 @@ namespace Render::Vulkan {
 			return;
         }
 		if (descriptorSet->mBindingData[binding].native == buffer->native)return;
-		descriptorSet->mBindingData[binding].native = buffer->native;
+		descriptorSet->mBindingData[binding].rsData     = buffer;
 
         VkWriteDescriptorSet writeSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
         writeSet.                         dstBinding = binding;
@@ -458,6 +498,11 @@ namespace Render::Vulkan {
                 }
             }
         }
+
+		uint64_t data = 0xCDCDCDCDCDCDCDCD;
+		auto pair = getDybuffer(frame, frame % ctx->maxFrameInFlight, ctx, &data, 8, QueueType::QueueType_Graphics);
+		curFrameDefaultUBO = pair.first;
+		curFrameDyOffset = pair.second;
     }
 
     void DescriptorSetManager::endFrame(rs_context_vk* ctx, uint64_t frame)
@@ -580,7 +625,8 @@ namespace Render::Vulkan {
 		}
 		if (descriptorSet->mBindingData[binding].native == view->native)return;
 		descriptorSet->mBindingData[binding].native = view->native;
-		VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        descriptorSet->mBindingData[binding].rsData = view;
+        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 		writeSet.dstBinding = binding;
 		writeSet.dstArrayElement = 0;
 		writeSet.descriptorCount = 1;
@@ -620,6 +666,8 @@ namespace Render::Vulkan {
             FrameAllocInfo.headOffset = offsetInBuffer;
             mLastActiveFrame = frame;
         }
+        //NOTICE: ITS OK HERE, SINCE WE CAN ASSURE THIS BUFFER IS NOT TOUCHED BY GPU NOW
+        mBuffer->state = ResourceState::HostWrite;
         uint8_t* dataPtr = (uint8_t*)mBuffer->mappedPtr;
         memcpy(dataPtr + offsetInBuffer, (uint8_t*)data,size);
 		mFrameAllocateInfo[frameInFlight].totalAdvanceSize += reservation.total_advance;

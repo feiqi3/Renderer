@@ -8,7 +8,7 @@ namespace Render {
 
     Sampler::Sampler(const SamplerDesc& desc) : mDesc(desc) {
         mRsSampler = RenderSystem::instance()->createSampler(desc);
-        mState = ResourceState::Loaded;
+        mState = ResourceLoadState::Loaded;
     }
 
     Sampler::~Sampler() {

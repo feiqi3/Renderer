@@ -168,7 +168,7 @@ namespace Render::Vulkan {
         return layout;
     }
 
-    VkRenderPass createRenderPassVk(rs_context_vk* ctx, const PassDesc& desc)
+    VkRenderPass createRenderPassVk(rs_context_vk* ctx, const PassDesc& desc,std::vector<ResourceState>& finalStates)
     {
 
         std::vector<VkAttachmentDescription> vkAttachments;
@@ -221,6 +221,28 @@ namespace Render::Vulkan {
             // 布局
             ad.initialLayout = pickLayout(usage, attPassDesc.loadOp,desc.writeDepth);
             ad.finalLayout = usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(usage, attPassDesc.storeOp);
+            ResourceState stateAfterRenderPass = ResourceState::RenderTarget;
+
+            if (ad.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+				finalStates.push_back(ResourceState::Present);
+            }
+            else if (ad.finalLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+                finalStates.push_back(ResourceState::RenderTarget);
+            }
+            else if (ad.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL) {
+                finalStates.push_back(ResourceState::DepthStencilRead);
+            }
+            else if (ad.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+                finalStates.push_back(ResourceState::DepthStencilWrite);
+            }
+            else if (ad.finalLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+                finalStates.push_back(ResourceState::ShaderResource);
+            }
+            else {
+                assert(false && "UNKNOWN");
+                finalStates.push_back(ResourceState::RenderTarget);
+            }
+
             vkAttachments.push_back(ad);
         }
 
@@ -287,7 +309,7 @@ namespace Render::Vulkan {
         rp->passDesc = rpDesc;
         rp->haveDepth = rpDesc.lastDepth;
         rp->writeDepth = rpDesc.writeDepth;
-        rp->native = createRenderPassVk(ctx, rpDesc);
+        rp->native = createRenderPassVk(ctx, rpDesc,rp->finalStates);
         rp->passHash = CalcRenderPassHash(rp);
         return rp;
     }

@@ -108,7 +108,7 @@ namespace Render {
     {
         Texture* tex = new Texture();
         tex->pImage = this->updateToGPU();
-        tex->mState = ResourceState::Loaded;
+        tex->mState = ResourceLoadState::Loaded;
         return tex;
     }
     ImageRaw::~ImageRaw()

@@ -90,7 +90,7 @@ namespace Render {
 		mesh->mVertexLayout = this->getAttributes();
 		mesh->mSubMeshes = this->mSubMeshes;
 
-		mesh->mState = ResourceState::Loaded;
+		mesh->mState = ResourceLoadState::Loaded;
 		return mesh;
 	}
 

@@ -23,7 +23,8 @@ namespace Render::Vulkan {
 
 	VkRenderPass createRenderPassVk(
 		rs_context_vk* ctx,
-		PassDesc& rpDesc
+		PassDesc& rpDesc,
+		std::vector<ResourceState>& finalStates
 	);
 
 	rs_renderpass_vk* createRsRenderPassVk(

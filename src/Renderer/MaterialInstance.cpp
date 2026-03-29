@@ -11,7 +11,7 @@ namespace Render {
 	{
 		assert(matTplt.get() != nullptr);
 		m_template = matTplt;
-		mState = ResourceState::Loaded;
+		mState = ResourceLoadState::Loaded;
 	}
 
 	Material::~Material()
@@ -32,7 +32,7 @@ namespace Render {
 
 	void Material::OnUnload() {
 		mParameterMap.clear();
-		mState = ResourceState::Unloaded;
+		mState = ResourceLoadState::Unloaded;
 	}
 
 	void Material::OnUpdateParam(Pass* pass)

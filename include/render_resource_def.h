@@ -305,6 +305,55 @@ namespace Render {
         MSL
     };
 
+    enum class ResourceState : uint64_t {
+        // ==========================================
+        // Initial State
+        // ==========================================
+        Common = 0,          // Undefined
+
+        // ==========================================
+        // For Buffer
+        // ==========================================
+        VertexBuffer = 1ULL << 0,  // Read as Vertex Buffer
+        IndexBuffer = 1ULL << 1,  //  Read as Index Buffer
+        UniformBuffer = 1ULL << 2,  // Read as Uniform Buffer
+        IndirectArgument = 1ULL << 3,  // Read as  Indirect Buffer
+
+        // ==========================================
+        // Image & Buffer
+        // ==========================================
+        ShaderResource = 1ULL << 4,  // Shader Read (Sampled Image / Texture)
+        UnorderedAccess = 1ULL << 5,  // Shader Read/Write (Storage Image / Storage Buffer / UAV)
+
+        // ==========================================
+        // Render Target
+        // ==========================================
+        RenderTarget = 1ULL << 6,  // Color Attachment
+        DepthStencilWrite = 1ULL << 7,  // Write Depth Stencil Attachment
+        DepthStencilRead = 1ULL << 8,  // Read Depth Stencil Attachment
+
+        // ==========================================
+        // Copy / Blit / Resolve
+        // ==========================================
+        TransferSrc = 1ULL << 9,  
+        TransferDst = 1ULL << 10,
+        ResolveSrc = 1ULL << 11, 
+        ResolveDst = 1ULL << 12, 
+
+        // ==========================================
+        // Host 
+        // ==========================================
+        HostRead = 1ULL << 13, // VK_ACCESS_HOST_READ_BIT
+        HostWrite = 1ULL << 14, // VK_ACCESS_HOST_WRITE_BIT
+
+        // ==========================================
+        // 特殊状态
+        // ==========================================
+        Present = 1ULL << 15, 
+        GenericRead = 1ULL << 16,
+        General = 1ULL << 17  
+    };
+
 	using DrawDataArray = std::array<struct rs_drawdata*, 4>;
 
 };

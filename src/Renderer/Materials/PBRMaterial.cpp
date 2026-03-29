@@ -48,7 +48,7 @@ namespace Render {
     {
         if (!mIsDirty || !mPBRBuffer) return;
 
-        RenderSystem::instance()->updateBuffer(mPBRBuffer, &mPBRData, sizeof(GPUShared::PBRData),0);
+        RenderSystem::instance()->updateBufferData(mPBRBuffer, &mPBRData, sizeof(GPUShared::PBRData),0);
         mIsDirty = false;
     }
 

@@ -12,7 +12,7 @@ namespace Render {
 	MaterialTemplate::MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc)
 		: mRenderState(state), mShaderInfo(shaderInfo), mInputDesc(inputDesc)
 	{
-		mState = ResourceState::Loaded;
+		mState = ResourceLoadState::Loaded;
 	}
 
 	const Name& MaterialTemplate::typeName()
@@ -38,7 +38,7 @@ namespace Render {
 			destroyMaterialPass(mat);
 		}
 		mMaterialPassMap.clear();
-		mState = ResourceState::Unloaded;
+		mState = ResourceLoadState::Unloaded;
 	}
 
 	void MaterialTemplate::onRenderPassRTChangedNeedRebuild(RenderPass* pass)

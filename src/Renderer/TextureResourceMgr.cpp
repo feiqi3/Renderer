@@ -41,7 +41,7 @@ namespace Render{
 		}
 		Texture* ret = new Texture();
 		ret->pImage = imageRaw->updateToGPU();
-		ret->mState = ResourceState::Loaded;
+		ret->mState = ResourceLoadState::Loaded;
 		delete imageRaw;
 		return ret;
 	}

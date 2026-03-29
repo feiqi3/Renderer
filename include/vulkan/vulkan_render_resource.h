@@ -48,8 +48,11 @@ namespace Render::Vulkan {
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 		class DeferredDestroyer* destroyer = 0;
-		class ImageDataManager* imageDataMgr = 0;
 
+
+		struct rs_image_vk*	defalut_no_texture = nullptr;
+		struct rs_sampler_vk*	defalut_no_sampler = nullptr;
+		struct rs_buffer_vk*	defalut_no_buffer  = nullptr;
 	};
 
 	struct rs_queue_vk : rs_queue{
@@ -96,6 +99,7 @@ namespace Render::Vulkan {
 	struct rs_renderpass_vk :rs_renderpass {
 		//What does pass hash contains? 1. image format, 2. sample count 
 		uint64_t passHash = 0;
+		std::vector<ResourceState> finalStates;
 	};
 
 	struct rs_fence_vk : rs_fence {

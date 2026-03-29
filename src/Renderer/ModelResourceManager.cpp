@@ -59,7 +59,7 @@ namespace Render {
 
     void Model::OnUnload() {
         mModelParts.clear();
-        mState = ResourceState::Unloaded;
+        mState = ResourceLoadState::Unloaded;
     }
 
     ResourceMemory Model::getMemory() const {

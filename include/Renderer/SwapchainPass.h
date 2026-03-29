@@ -15,7 +15,7 @@ namespace Render {
 		void initBlitData();
 		void setBlitRT(rs_image* rt);
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
-
+		void collectRenderEntities(std::vector<RenderPack>& pack)override;
 	private:
 		class NormalEntity* BlitEntity = 0;
 		struct rs_sampler* BlitRTSampler = 0;

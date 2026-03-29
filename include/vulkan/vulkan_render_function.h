@@ -36,6 +36,8 @@ namespace Render::Vulkan {
 	VkShaderStageFlags toVkShaderStageFlags(uint16_t stage);
 
 	rs_context_vk* initVulkanBackEnd(const BackEndInitDesc& desc,Window::rs_window* window);
+	void createDefaultResources(rs_context_vk* ctx);
+	void destroyDefaultResources(rs_context_vk* ctx);
 	void queryAllImageFormatCaps(rs_context_vk* ctx);
 	void initRenderTextureFormatMapping(rs_context_vk* ctx);
 	
@@ -106,8 +108,6 @@ namespace Render::Vulkan {
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
-	void updateImage(rs_context_vk* context,rs_commandbuffer_vk* cmd, rs_image_vk* image, void* data, uint64_t size, int x, int y, int z, int width, int height, int depth, uint32_t mip, uint32_t layeroff,uint32_t layerSize,bool imm);
-	void updateBuffer(rs_context_vk* context, rs_commandbuffer_vk* cmd, rs_buffer_vk* buffer, void* data, uint64_t size,uint32_t offsetDst,bool imm = false);
 	rs_drawdata_vk* createDrawData(rs_context_vk* context);
 	void clearDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
@@ -126,12 +126,12 @@ namespace Render::Vulkan {
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif);
-	void cmdUpdateBufferData(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_buffer_vk* buffer, void* data, uint64_t size,uint64_t dstOffset = 0);
+	void cmdFillNullDescriptor(rs_context_vk* context, rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif, uint64_t frame);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
-	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context,rs_image_vk* image, void* data, uint64_t size,int x,int y,int z,int width,int height,int depth, uint32_t mip, int layeroff, int layerSize);
-	void cmdUpdateImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* pendingBuffer, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
-	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout newlayout, uint32_t mip, uint32_t mipSize, uint32_t layeroff, uint32_t layersize,uint32_t aspect);
-	void cmdImageLayoutTo(rs_commandbuffer_vk* cb, rs_image_vk* image, VkImageLayout fromlayout, VkImageLayout newlayout, uint32_t mip,uint32_t mipSize, uint32_t layeroff, uint32_t layersize, uint32_t aspect);
+	void cmdTransitDrawDataState(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif);
+	//Decrepted
+	void cmdCopyBufferToImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* buffer, uint32_t srcOffset, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
+	void cmdCopyImageToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* buffer, uint32_t bufferOffset, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore*> imageAvailableWaitSemaphores,std::vector<rs_semaphore*> renderFinishSignalSemphores,rs_fence_vk* fence);
 	void cmdBeginMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a);
 	void cmdEndMark(rs_commandbuffer_vk* cb);

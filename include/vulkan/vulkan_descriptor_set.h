@@ -199,6 +199,7 @@ namespace Render::Vulkan {
     public:
 
         DescriptorSetManager(rs_context_vk* ctx,int maxFrame);
+        void bindDefaultDybuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, QueueType queueType);
         void updateBufferData(uint64_t frame, rs_context_vk * ctx, rs_descriptorSet_vk * descriptorSet, int binding, void * data, int size, QueueType queueType);
         void updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer);
         void updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType);
@@ -253,6 +254,11 @@ namespace Render::Vulkan {
     public:
 
     private:
+        std::pair<UniformBufferObject*,uint64_t> getDybuffer(uint64_t frame, uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue);
+
+    private:
+        UniformBufferObject* curFrameDefaultUBO = nullptr;
+        uint32_t curFrameDyOffset = 0;
         std::list< UniformBufferObject* > mUniformBufferLists;
         std::mutex mAllocateUniformBufferLock;
         UniformBufferObject* createUBO(rs_context_vk* ctx, uint64_t createSize,uint32_t alignedSize,QueueType queue);

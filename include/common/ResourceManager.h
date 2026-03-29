@@ -18,7 +18,7 @@ namespace Render {
 		Manual          // Can only be destroyed manually, or when resource manager is destroyed
 	};
 
-	enum class ResourceState
+	enum class ResourceLoadState
 	{
 		Invalid,
 		Unloaded,
@@ -38,8 +38,8 @@ namespace Render {
 	// ==========================================
 	class IResource {
 	public:
-		inline ResourceState GetState() const { return mState; }
-		inline virtual bool IsReady() const { return mState == ResourceState::Loaded; }
+		inline ResourceLoadState GetState() const { return mState; }
+		inline virtual bool IsReady() const { return mState == ResourceLoadState::Loaded; }
 
 		virtual const Name& getTypeName() const = 0;
 		virtual ResourceMemory getMemory() const = 0;
@@ -52,7 +52,7 @@ namespace Render {
 		virtual void OnUnload();
 
 	protected:
-		ResourceState mState = ResourceState::Invalid;
+		ResourceLoadState mState = ResourceLoadState::Invalid;
 	};
 
 	using UserDeletor = std::function<bool(const Name&, IResource*)>;

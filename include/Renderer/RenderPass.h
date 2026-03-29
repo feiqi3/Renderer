@@ -15,19 +15,25 @@ namespace Render {
 		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer, rs_rendertarget* rt);
 		rs_renderpass* getRaw()const { return mRenderPass; }
 		void setRenderTarget(rs_rendertarget* renderTarget);
-		void draw(rs_commandbuffer* cmdbuffer);
-		void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
+		virtual void draw(rs_commandbuffer* cmdbuffer);
+		inline void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
 			mClrColor = clrColor;
 			mDsClear = dsClear;
 		}
 
+		struct RenderPack {
+			class RenderEntity* entity;
+			class Pass*			pass;
+		};
+		virtual void collectRenderEntities(std::vector<RenderPack>& pack);
 		virtual void beginFrame(uint64_t frame) {};
 		const Name& getPassName() { return mPassName; }
+	protected:
+		std::vector<RenderPack> mRenderPacks;
 	protected: 
 		friend class RenderPassManager;
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
 		bool needRebuildPipeline(rs_rendertarget* oldrt,rs_rendertarget* newrt);
-		void updateEntityParameters(class RenderEntity*);
 	protected:
 		Name mPassName;
 		rs_rendertarget* mRendertarget = nullptr;

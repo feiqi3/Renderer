@@ -47,12 +47,11 @@ namespace Render{
 		void cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth,const Rect2D& rect);
 
 		//Gain a better performance
-		void cmdUpdateBuffer(rs_commandbuffer* cmdbuf, rs_buffer* buffer, void* data, uint32_t size, uint32_t offset);
 		void cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
+		void cmdCopyBufferToImage(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_image* dstImg, uint32_t srcOffset, int x, int y, int z, int width, int height, int depth, uint32_t baseMip, uint32_t mipCount, int layeroff, int layerSize);
 		rs_buffer* createBuffer(void* data, uint32_t size, const BufferDesc& desc);
 		void destroyBuffer(rs_buffer* buffer);
 
-		void updateBuffer(rs_buffer* buffer,void* data, uint32_t size,uint32_t offset);
 		void flushBuffer(rs_buffer* buffer, uint32_t size);
 
 		rs_pipeline* createRenderPipeline(rs_renderpass* renderpass,PipelineDesc& pipelineDescription);
@@ -90,11 +89,14 @@ namespace Render{
 		void updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip);
 		void updateBufferData(rs_buffer* buffer,void* data,size_t byteSize,size_t dstOffset);
 		void submitCmdBuffer(rs_commandbuffer* cmdBuffer,const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal,rs_fence* fence);
+		void updateParameters(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
 		
-		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const DrawDataArray& drawDatas);
-		
+		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas);
+		void transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, rs_drawdata* drawdata);
+		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass);
+		void fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass);
 		void waitForFence(rs_fence* fence);
 		void clearRenderEntity(RenderEntity* entity);
 
@@ -140,6 +142,17 @@ namespace Render{
 		bool isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt);
 
 		void excutePendingBufferCopies(rs_commandbuffer* cmdbuf);
+
+		void cmdBufferStateTransfer(rs_commandbuffer* cmdbuf,rs_buffer* resource, ResourceState toState);
+		void cmdImageStateTransfer(rs_commandbuffer* cmdbuf,rs_image* resource,
+			ResourceState newState,
+			uint32_t baseMipLevel,
+			uint32_t mipLevelCount,
+			uint32_t baseArrayLayer,
+			uint32_t layerCount
+		);
+
+		void cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo);
 
 	public:
 		void onWindowResize();

@@ -30,6 +30,11 @@ namespace Render {
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer)
 	{
 		RenderMarker Marker(cmdbuffer, mPassName.c_str(), 1.f, 0.f, 0.f, 1.f);
+		collectRenderEntities(mRenderPacks);
+		//Update parameters must before renderpass begin.
+		for (auto&& pack : mRenderPacks) {
+			RenderSystem::instance()->updateParameters(cmdbuffer, pack.entity, pack.pass);
+		}
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
 		if (mRendertarget) {
 			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget);
@@ -37,12 +42,27 @@ namespace Render {
 		}
 		drawImpl(cmdbuffer);
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
+		mRenderPacks.clear();
+	}
+
+	void RenderPass::collectRenderEntities(std::vector<RenderPack>& packs)
+	{
+		auto view = RenderSystem::instance()->getMainRenderQueue()->getView(this->getPassName());
+		while (true) {
+			auto renderData = view.next();
+			if (renderData == nullptr)break;
+			RenderPack pack{ .entity = renderData->entity,
+				.pass = renderData->entity->getPass(this->getPassName())
+			};
+			packs.push_back(pack);
+		}
 	}
 
 	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer)
 	{
-		auto mainRenderQueue = RenderSystem::instance()->getMainRenderQueue();
-		auto view = mainRenderQueue->getView(getPassName());
+		for (auto& pack : mRenderPacks) {
+			RenderSystem::instance()->drawIndexed(cmdbuffer, pack.entity, pack.pass);
+		}
 	}
 
 	bool RenderPass::needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt)

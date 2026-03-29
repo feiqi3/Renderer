@@ -17,7 +17,7 @@
 #include "common/ResourceSystem.h"
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/MaterialTemplateManager.h"
-#include "Renderer/RenderDataAreana.h"
+#include "vulkan/vulkan_resource_state.h"
 #include "function/EngineResourceManager.h"
 #include "function/ComponentSystem.h"
 #include <set>
@@ -227,11 +227,29 @@ namespace Render{
 	}
 	void RenderSystem::cmdEndRenderPass(rs_commandbuffer* cmdbuf)
 	{
+		auto curRenderTarget = cmdbuf->currentRenderTarget;
 		Vulkan::cmdEndRenderPass((Vulkan::rs_commandbuffer_vk*)cmdbuf);
+		for (auto&& img : curRenderTarget->m_attachments) {
+			if (img->usage & ImageUsage_PresentSrc) {
+				//For render pass contains a present img --> should alawys be the last render pass of the renderflow.
+				cmdImageStateTransfer(cmdbuf, img, ResourceState::Present, 0, img->mipLevels, 0, img->arrayLayers);
+				break;
+			}
+		}
+	
 	}
 
 	void RenderSystem::cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget)
 	{
+		for (auto img : rendertarget->m_attachments) {
+			cmdImageStateTransfer(cmdbuf, img, ResourceState::RenderTarget, 0, img->mipLevels, 0, img->arrayLayers);
+		}
+		auto depthStencil = rendertarget->m_depthStencilAttachment;
+		if (depthStencil) {
+			ResourceState toState =
+				cmdbuf->currentRenderPass->writeDepth ? ResourceState::DepthStencilWrite : ResourceState::DepthStencilRead;
+			cmdImageStateTransfer(cmdbuf, depthStencil, toState, 0, depthStencil->mipLevels, 0, depthStencil->arrayLayers);
+		}
 		Vulkan::cmdsetRenderTarget(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_rendertarget_vk*)rendertarget);
 	}
 	void RenderSystem::cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect)
@@ -245,27 +263,42 @@ namespace Render{
 		Vulkan::cmdSetViewport((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect,minDepth,maxDepth,framebufferIdx);
 	}
 
-	void RenderSystem::cmdUpdateBuffer(rs_commandbuffer* cmdbuf, rs_buffer* buffer, void* data, uint32_t size, uint32_t offset)
-	{
-		if (buffer->mappedPtr) {
-			memcpy(buffer->mappedPtr, data, size);
-			return;
-		}
-		Vulkan::updateBuffer(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_buffer_vk*)buffer, data, size, offset,false);
-	}
-
 	void RenderSystem::cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size)
 	{
+		cmdbuf->hasCommands = true;
+		cmdBufferStateTransfer(cmdbuf, srcBuffer, ResourceState::TransferSrc);
+		cmdBufferStateTransfer(cmdbuf, dstBuffer, ResourceState::TransferDst);
 		Vulkan::cmdCopyBufferToBuffer((Vulkan::rs_commandbuffer_vk*)cmdbuf, getRenderContext(), (Vulkan::rs_buffer_vk*)srcBuffer, (Vulkan::rs_buffer_vk*)dstBuffer, size, srcOffset, dstOffset);
+	}
+
+	void RenderSystem::cmdCopyBufferToImage(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer,rs_image* dstImg,uint32_t srcOffset, int x, int y, int z, int width, int height, int depth, uint32_t baseMip,uint32_t mipCount, int layeroff, int layerSize)
+	{
+		cmdBufferStateTransfer(cmdbuf, srcBuffer, ResourceState::TransferSrc);
+		cmdImageStateTransfer(cmdbuf, dstImg, ResourceState::TransferDst,baseMip,mipCount,layeroff,layerSize);
+		for (int i = baseMip; i < baseMip + mipCount; ++i) {
+			Vulkan::cmdCopyBufferToImage(
+				(Vulkan::rs_commandbuffer_vk*)cmdbuf, getRenderContext(),
+				(Vulkan::rs_image_vk*)dstImg,
+				(Vulkan::rs_buffer_vk*)srcBuffer,
+				srcOffset,
+				x, y, z, width, height, depth, i, layeroff, layerSize
+			);
+		}
 	}
 
 	rs_buffer* RenderSystem::createBuffer(void* data, uint32_t size, const BufferDesc& desc)
 	{
 		rs_buffer* buffer = Vulkan::createRsBufferVk(getRenderContext(), desc);
 		if (desc.mappable) {
+			//User should notice the frame sync problem.
+			//And we just pretend no GPU is using this buffer now.
+			buffer->state = ResourceState::HostWrite;
+
 			Vulkan::mapRsBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer);
 		}
-		updateBuffer(buffer, data, size, 0);
+		if (data) {
+			updateBufferData(buffer, data, size, 0);
+		}
 		return buffer;
 	}
 
@@ -274,17 +307,6 @@ namespace Render{
 	{
 		auto rsBuffer = (Vulkan::rs_buffer_vk*)buffer;
 		Vulkan::destroyRsBuffer(getRenderContext(), rsBuffer, false);
-	}
-	void RenderSystem::updateBuffer(rs_buffer* buffer, void* data, uint32_t size, uint32_t offset)
-	{
-		if (buffer->mappedPtr) {
-			if (data){
-				memcpy(buffer->mappedPtr, data, size);
-			}
-			return;
-		}
-		auto& renderArena = mDp->mArena;
-		renderArena->stageBufferUpdate(buffer, offset, data, size);
 	}
 
 	void RenderSystem::flushBuffer(rs_buffer* buffer, uint32_t size)
@@ -350,8 +372,9 @@ namespace Render{
 		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst;
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
+		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
 		if (data) {
-			Vulkan::updateImage(getRenderContext(),nullptr, ret, data, byteSize, 0, 0, 0, x, y, z,0, 0,layer,true );
+			updateImageData(ret, data, byteSize, 0, 0, 0, x, y, z, 0, layer, mipmap);
 		}
 		return ret;
 
@@ -393,7 +416,9 @@ namespace Render{
 			desc.usage |= ImageUsage::ImageUsage_Sampled;
 		}
 
-		return Vulkan::createRsImage(getRenderContext(), desc);
+		auto ret =  Vulkan::createRsImage(getRenderContext(), desc);
+		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+		return ret;
 	}
 	rs_image* RenderSystem::createDepthStencilTexture(RenderTextureFormat format, int x, int y,bool needSample)
 	{
@@ -413,7 +438,9 @@ namespace Render{
 		if (needSample) {
 			desc.usage |= ImageUsage::ImageUsage_Sampled;
 		}
-		return Vulkan::createRsImage(getRenderContext(), desc);
+		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
+		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+		return ret;
 	}
 
 	rs_image_view* RenderSystem::_getViewFromImage(rs_image* image, const ImageViewKey& viewKey)
@@ -473,6 +500,7 @@ namespace Render{
 		auto ctx = getRenderContext();
 		auto pipeline = (Vulkan::rs_pipeline_vk*)(pass->mMaterial->getRsPipeline());
 		auto drawData = (Vulkan::rs_drawdata_vk*)(pass->mDrawData);
+		//We can use updateBufferData instead, but inside Vulkan::updateDrawData, we can gain a better performance by dynamic buffer and avoid some redundant buffer update operation.
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame,pipeline,drawData, binding, data, size);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass)
@@ -519,12 +547,26 @@ namespace Render{
 	void RenderSystem::updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip)
 	{
 		auto ctx = getRenderContext();
-		Vulkan::updateImage(ctx,nullptr, (Vulkan::rs_image_vk*)image, data, byteSize, x, y, z, width, height, depth, mip, layerOffset, layerSize, false);
+
+		assert((image->usage & ImageUsage_TransferDst) && "Image with error usage");
+
+		mDp->mArena->stageBufferUpdate(image, data, byteSize, x, y, z, width, height, depth,mip - 1,1, layerOffset, layerSize);
 	}
 	void RenderSystem::updateBufferData(rs_buffer* buffer, void* data, size_t byteSize, size_t dstOffset)
 	{
 		auto ctx = getRenderContext();
-		Vulkan::updateBuffer(getRenderContext(),nullptr, (Vulkan::rs_buffer_vk*)buffer, data, byteSize, dstOffset, false);
+		if (buffer->mappedPtr) {
+			if (buffer->byteSize - dstOffset < byteSize) {
+				assert(0 && "Buffer overflow in updateBufferData! Please check the dstOffset and byteSize!");
+				memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, buffer->byteSize - dstOffset);
+			}
+			else {
+				memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, buffer->byteSize);
+			}
+		}
+		else {
+			mDp->mArena->stageBufferUpdate(buffer, dstOffset, data, byteSize);
+		}
 	}
 
 	void RenderSystem::submitCmdBuffer(rs_commandbuffer* cmdBuffer, const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal, rs_fence* fence)
@@ -542,6 +584,26 @@ namespace Render{
 		};
 		mDp->mLogicThreadCommandBuffers.push_back(pair);
 	}
+
+	void RenderSystem::updateParameters(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
+	{
+		entity->updateEntityCommonData();
+		if (entity->getMaterial()) {
+			entity->getMaterial()->uploadUniform(pass);
+		}
+		entity->updateUniforms(pass);
+		cmdTransferRenderBufferState(cmdBuffer, entity->getRenderInfo());
+		auto entityDrawData = pass->mDrawData;
+		auto entityCommonDrawData = entity->getEntityCommonDrawData();
+		//Transit drawdata resource state to correct state for rendering. Mostly contains 'Image layout transit' or some 'barriers'
+		if(entityCommonDrawData)
+			Vulkan::cmdTransitDrawDataState((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)entityCommonDrawData, getCurFif());
+		if (entityDrawData)
+			Vulkan::cmdTransitDrawDataState((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)entityDrawData, getCurFif());
+		if (mDp->mCurrentCameraData)
+			Vulkan::cmdTransitDrawDataState((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData	, getCurFif());
+	}
+
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity,const Name& passName)
 	{
 		auto pass = entity->getPass(passName);
@@ -553,25 +615,37 @@ namespace Render{
 		cmdBuffer->hasCommands = true;
 		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
-		entity->updateEntityCommonData();
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};
-		drawDataArr[0] = (Vulkan::rs_drawdata_vk*)entityCommonDrawData;
-		drawDataArr[1] = (Vulkan::rs_drawdata_vk*)entityDrawData;
-		drawDataArr[2] = (Vulkan::rs_drawdata_vk*)mDp->mCurrentCameraData;
-		if (entity->getMaterial()) {
-			entity->getMaterial()->uploadUniform(pass);
-		}
-		else {
-			return;
-		}
-		entity->updateUniforms(pass);
+		fillDrawDataArray((DrawDataArray*)&drawDataArr, entity, pass);
+		fillEmptyParameters(cmdBuffer, (DrawDataArray&)drawDataArr, entity, pass);;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
-	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, const RenderInfo& info, const DrawDataArray& drawDatas)
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas)
 	{
 		cmdBuffer->hasCommands = true;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
+	}
+	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, rs_drawdata* drawdata)
+	{
+		Vulkan::cmdTransitDrawDataState((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)(drawdata), getCurFif());
+	}
+	void RenderSystem::fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass)
+	{
+		auto entityDrawData = pass->mDrawData;
+		auto entityCommonDrawData = entity->getEntityCommonDrawData();
+		(*arr)[0] = entityCommonDrawData;
+		(*arr)[1] = entityDrawData;
+		(*arr)[2] = mDp->mCurrentCameraData;
+
+	}
+	void RenderSystem::fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass)
+	{
+		for (int i = 0; i < arr.size(); ++i) {
+			if (arr[i] != nullptr) {
+				Vulkan::cmdFillNullDescriptor(getRenderContext(),(Vulkan::rs_commandbuffer_vk*)cb,(Vulkan::rs_drawdata_vk*)arr[i],getCurFif(), getNextRenderFrame());
+			}
+		}
 	}
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{
@@ -635,10 +709,12 @@ namespace Render{
 	void RenderSystem::cmdBegin(rs_commandbuffer* cmdBuffer)
 	{
 		Vulkan::cmdBeginRecord((Vulkan::rs_commandbuffer_vk*)cmdBuffer);
+		cmdBuffer->recording = true;
 	}
 
 	void RenderSystem::cmdEnd(rs_commandbuffer* cmdBuffer)
 	{
+		cmdBuffer->recording = false;
 		Vulkan::cmdEndRecord((Vulkan::rs_commandbuffer_vk*)cmdBuffer);
 	}
 
@@ -710,6 +786,47 @@ namespace Render{
 	{
 		mDp->mArena->executePendingCopies((Vulkan::rs_commandbuffer_vk*)cmdbuf);
 	}
+
+	void RenderSystem::cmdBufferStateTransfer(rs_commandbuffer* cmdbuf, rs_buffer* resource, ResourceState toState)
+	{
+		cmdbuf->hasCommands = true;
+		using namespace Vulkan;
+		Vulkan::transitionBufferState(
+			(rs_commandbuffer_vk*)cmdbuf,
+			(rs_buffer_vk*)resource,
+			toState
+		);
+	}
+
+	void RenderSystem::cmdImageStateTransfer(rs_commandbuffer* cmdbuf, rs_image* resource, ResourceState newState, uint32_t baseMipLevel, uint32_t mipLevelCount, uint32_t baseArrayLayer, uint32_t layerCount)
+	{
+		cmdbuf->hasCommands = true;
+		using namespace Vulkan;
+		Vulkan::transitionImageState(
+			(rs_commandbuffer_vk*)cmdbuf,
+			(rs_image_vk*)resource,
+			newState, 
+			baseMipLevel,
+			mipLevelCount, 
+			baseArrayLayer, 
+			layerCount
+		);
+	}
+
+	void RenderSystem::cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo)
+	{
+		cmdbuf->hasCommands = true;
+		if (renderInfo.indexBuffer != nullptr) {
+			cmdBufferStateTransfer(cmdbuf, renderInfo.indexBuffer, ResourceState::IndexBuffer);
+		}
+
+		for (auto bufferInfo : renderInfo.bindingBuffers) {
+			if (bufferInfo.buffer) {
+				cmdBufferStateTransfer(cmdbuf, bufferInfo.buffer, ResourceState::VertexBuffer);
+			}
+		}
+	}
+
 
 	void RenderSystem::onWindowResize()
 	{
