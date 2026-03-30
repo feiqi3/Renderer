@@ -61,6 +61,13 @@ namespace Render {
     {
     }
 
+    void Object::onUpdateTransform()
+    {
+        for (auto& comp : this->m_components) {
+            comp->onTransformChanged();
+        }
+    }
+
     void Object::setScene(Scene* scene) noexcept {
         m_scene = scene;
     }
@@ -72,6 +79,7 @@ namespace Render {
         if (updateFlag == true) {
             updateWorldTransform();
             m_transformDirty = false;
+            onUpdateTransform();
         }
         for (auto& child : children()) {
             child->updateTransformRecursive(updateFlag);

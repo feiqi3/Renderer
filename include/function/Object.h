@@ -103,7 +103,7 @@ namespace Render {
 
         virtual void onUpdate(float dt);
         virtual void onLateUpdate(float dt);
-
+        virtual void onUpdateTransform();
     protected:
         void setScene(Scene* scene) noexcept;
         void updateTransformRecursive(bool needUpdate);

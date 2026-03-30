@@ -6,6 +6,19 @@
 
 namespace Render {
 
+	static Scene* s_currentScene = nullptr;
+
+    void Scene::setCurrentScene(Scene* scene)
+    {
+		s_currentScene = scene;
+    }
+
+    Scene* Scene::getCurrentScene()
+    {
+        return s_currentScene;
+    }
+
+
     Scene::Scene() {
         m_lightMgr = std::make_unique<LightManager>();
         m_drawData = RenderSystem::instance()->createDrawData();

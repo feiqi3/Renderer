@@ -14,6 +14,7 @@ namespace Render {
 		void removeLight(int idx);
 		Light* getLight(int idx);
 		const Light* getLight(int idx) const;
+		void update();
 		const GPUShared::GPUSceneLightData& updateLightData();
 	private:
 		struct LightData {

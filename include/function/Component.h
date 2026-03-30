@@ -25,6 +25,8 @@ namespace Render {
         bool enabled() const noexcept;
         void setEnabled(bool enabled);
 
+        virtual void onTransformChanged() {};
+
         Object* owner() const noexcept;
 
     protected:

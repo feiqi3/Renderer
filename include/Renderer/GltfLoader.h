@@ -69,6 +69,7 @@ namespace Render {
     struct GLTFMesh {
         std::string         name;
         MeshPtr             mesh;
+        vec3                offsetByCenter;
         std::vector<int>    materialIdx; // For each submesh
     };
 
@@ -117,9 +118,12 @@ namespace Render {
 
 
 	class GLTFLoaderPrivate;
+    struct GLTFLoaderSetting {
+		bool offsetByCenter = false; //Whether to offset the mesh by its center. This is useful for gltf models exported from 3D software, which usually have their pivot point at the center of the model, but not necessarily at the bottom.
+    };
 	class GLTFLoader {
 	public:
-		GLTFLoader();
+        GLTFLoader(GLTFLoaderSetting loaderSetting = {});
 		~GLTFLoader();
 		GLTFModel*      createFromFilePath(const std::string& path);
 		class Model*    gltfModelToEngimeModel(GLTFModel* gltfModel);    

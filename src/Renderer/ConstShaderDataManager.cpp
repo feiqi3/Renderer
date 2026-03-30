@@ -49,11 +49,11 @@ namespace Render {
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassVirtualMaterial);
 		
 		//TODO: FIX ME
-		//mDp->SceneCommonDataBindingPos  = pSys->getBindingPos("SceneCommon" , mDp->MainPassVirtualMaterial);
+		mDp->SceneCommonDataBindingPos  = pSys->getBindingPos("SceneCommon" , mDp->MainPassVirtualMaterial);
 		
 		mDp->ObjectCommonBindingPos		= pSys->getBindingPos("ObjData", mDp->MainPassVirtualMaterial);
 		assert(mDp->CameraCommonDataBindingPos	!= INVALID_BINDING_POS);
-		//assert(mDp->SceneCommonDataBindingPos	!= INVALID_BINDING_POS);
+		assert(mDp->SceneCommonDataBindingPos	!= INVALID_BINDING_POS);
 		assert(mDp->ObjectCommonBindingPos		!= INVALID_BINDING_POS);
 	}
 	rs_drawdata* ConstShaderDataManager::updateCameraDrawData(Camera* camera) {
@@ -68,6 +68,7 @@ namespace Render {
 
 	rs_drawdata* ConstShaderDataManager::updateSceneDrawData(Scene* scene)
 	{	
+		if (!scene)return nullptr;
 		auto sceneDrawData = scene->getSceneDrawData();
 		Pass tempPass{};
 		tempPass.mDrawData = sceneDrawData;

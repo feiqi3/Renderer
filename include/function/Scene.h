@@ -15,6 +15,9 @@ namespace Render {
     struct rs_drawdata;
     class Scene {
     public:
+		static void setCurrentScene(Scene* scene);
+		static Scene* getCurrentScene();
+
         Scene();
         ~Scene();
 
@@ -51,7 +54,7 @@ namespace Render {
         std::vector<ObjectID> m_pendingDestroyObjectsID;
 
         std::unique_ptr<LightManager> m_lightMgr;
-        
+
         rs_drawdata* m_drawData = nullptr;
         uint32_t m_nextObjectID = 1;
         std::vector<std::unique_ptr<Object>> m_objects;

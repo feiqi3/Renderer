@@ -484,6 +484,7 @@ namespace Render{
 		mDp->cleanUpFramesPendingData(currentLogicFrame % mBackEndContext->maxFrameInFlight, currentLogicFrame);
 		mDp->mCurrentCameraData = nullptr;
 		getRenderPassManager()->onFrameBegin();
+		ConstShaderDataManager::instance()->updateSceneDrawData(Scene::getCurrentScene());
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)
@@ -637,7 +638,9 @@ namespace Render{
 		(*arr)[0] = entityCommonDrawData;
 		(*arr)[1] = entityDrawData;
 		(*arr)[2] = mDp->mCurrentCameraData;
-
+		if (Scene::getCurrentScene()) {
+			(*arr)[3] = Scene::getCurrentScene()->getSceneDrawData();
+		}
 	}
 	void RenderSystem::fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass)
 	{

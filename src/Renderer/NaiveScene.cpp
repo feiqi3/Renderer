@@ -3,26 +3,24 @@
 #include "common/CommonMath.h"
 #include "Components/SimpleRenderComponent.h"
 #include "Renderer/GltfLoader.h"
+#include "Components/LightComponent.h"
 namespace Render {
 	class MoveComponent : public Component {
 	public:
-		MoveComponent(vec3 center, float r)
-			: centerOfCircle(center), radius(r)
+		MoveComponent()
 		{
 			
 		}
 
 		virtual void onUpdate(float deltaTime)override {
-			auto obj = this->owner();
-			float speed = 0.25;
-			vec3 locationNow = centerOfCircle + vec3(0, 1, 0) * radius * std::sin((++t) * speed);
-			obj->setLocalPosition(locationNow);
+			t += deltaTime * 0.25f;
+			float x = sin(t) * 30;
+			auto loc = this->owner()->localPosition();
+			this->owner()->setLocalPosition(vec3(x, loc.y, loc.z));
 		};
 
 	private:
-		int t = 0;
-		vec3 centerOfCircle;
-		float radius;
+		float t = 0;
 	};
 	
 	class SpinComponent : public Component {
@@ -57,10 +55,19 @@ namespace Render {
 		GLTFLoader loader;
 		auto model = loader.createFromFilePath("../resources/Fox/fox.gltf");
 		auto node = loader.toEngineSceneNode(naiveScene, model);
-		node->setLocalScale(vec3(0.025, 0.025, 0.025));
-		node->setLocalPosition(vec3(0,-25, -50));
-		node->addComponent<SpinComponent>();
+		node->setLocalScale(vec3(0.25, 0.25, 0.25));
+		node->setLocalPosition(vec3(0,-10, -40));
+		node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
+		//node->addComponent<SpinComponent>();
+		auto nodeLight = naiveScene->createObject("DirLightNode");
+		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
+		nodeLight->setLocalPosition(vec3(0, 10, -35));
+		nodeLight->addComponent<MoveComponent>();
+		pointLightcomponent->setRange(150);
+		pointLightcomponent->setIntensity(50.f);
+		pointLightcomponent->setColor(vec3(1.));
 		delete model;
+		Scene::setCurrentScene(naiveScene);
 		return naiveScene;
 	}
 

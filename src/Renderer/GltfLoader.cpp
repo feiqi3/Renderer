@@ -14,6 +14,7 @@
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/ModelResourceManager.h"
 #include "Renderer/EnginePass.h"
+#include "function/AABB.h"
 #include <vector>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -513,7 +514,7 @@ namespace Render {
         bool            getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node);
     
 		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat);
-    
+		GLTFLoaderSetting setting;
     };
 
 
@@ -586,9 +587,10 @@ namespace Render {
     };
 
 
-    GLTFLoader::GLTFLoader()
+    GLTFLoader::GLTFLoader(GLTFLoaderSetting setting)
     {
         mDp = new GLTFLoaderPrivate;
+		mDp->setting = setting;
         tinygltf::FsCallbacks filestreamCB{
         .FileExists = &IsFileExist,
         .ExpandFilePath = &ExpandFilePath,
@@ -675,7 +677,7 @@ namespace Render {
 				const auto& mesh = model->meshes[node.meshIndex];
 				auto renderComp = currentObj->addComponent<Render::PBRRenderComponent>();
 				renderComp->setMesh(mesh.mesh);
-
+				currentObj->setLocalPosition(currentObj->localPosition() + mesh.offsetByCenter);
 				int submeshIdx = 0;
 				for (int materialIDX : mesh.materialIdx) {
 					if (materialIDX >= 0 && materialIDX < model->materials.size()) {
@@ -1052,9 +1054,28 @@ namespace Render {
         bool isSuccess = packPrimitiveToStandardVertices(model, mesh, vertex, indice, submeshes, matIdx);
         if (!isSuccess)return false;
         out.materialIdx = matIdx;
+        if (setting.offsetByCenter) {
+            //Offset position to center of bounding box
+            AxisAlignedBoundingBox aabb;
+            for (const auto& v : vertex) {
+                aabb.expand(v.position);
+            }
+            auto center = aabb.getCenter();
+            for (auto& v : vertex) {
+                v.position -= center;
+            }
+            out.offsetByCenter = center;
+        }
+        else {
+            out.offsetByCenter = vec3(0.f);
+        }
         MeshData meshdata = MeshData(
             (void*)vertex.data(),sizeof(StandardModelVertex) * vertex.size(), vertex.size(), (void*)indice.data(), indice.size(), IndexType::Uint32
         );
+
+
+
+
         meshdata.addAttribute(Render::VertexFormat::Float3,VertexSemantic::Position,offsetof(StandardModelVertex,position));
         meshdata.addAttribute(Render::VertexFormat::Float3, VertexSemantic::Normal, offsetof(StandardModelVertex, normal));
         meshdata.addAttribute(Render::VertexFormat::Float2, VertexSemantic::TexCoord0, offsetof(StandardModelVertex, uv_0));

@@ -2170,11 +2170,10 @@ namespace Render::Vulkan {
         if (bufferBinding.size() > 0) {
             vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
         }
-        VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)pipeline)->layout->native);
-
+        
         for (auto&& drawdata : drawDatas) {
             if (drawdata) {
-                cmdBindDrawData(cb, pLayout, drawdata, curFif);
+                cmdBindDrawData(cb, pipeline->layout, drawdata, curFif);
             }
         }
 
@@ -2223,9 +2222,8 @@ namespace Render::Vulkan {
         if (bufferBinding.size() > 0) {
             vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
         }
-        VkPipelineLayout pLayout = (VkPipelineLayout)(((rs_pipeline_vk*)pipeline)->layout->native);
 
-        cmdBindDrawData(cb, pLayout, drawData, curFif);
+        cmdBindDrawData(cb, pipeline->layout, drawData, curFif);
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
         if (donotuseidxdraw) {
@@ -2236,13 +2234,23 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif)
+    void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif)
     {
         static const int maxDynamicSize = 32;
         std::array<uint32_t, maxDynamicSize> dynamics;
         int dyNum = 0;
         auto& curFrameDescriptors = ((rs_drawdata_vk*)drawData)->DescriptorSets[curFif];
         for (const auto& [setIdx, descriptorSet] : curFrameDescriptors) {
+            
+            bool canBind = false;
+            for (const auto& [set, _] : layout->setLayouts) {
+                if (set == setIdx) {
+                    canBind = true;
+                    break;
+                }
+            }
+            if (!canBind)continue;
+
             auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
             for (auto&& binding : descriptorSet->mBindingData) {
                 if (binding.type == UniformType::UniformBuffer) {
@@ -2250,7 +2258,7 @@ namespace Render::Vulkan {
                     dyNum += 1;
                 }
             }
-            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setIdx, 1, &descriptorSetVk,dyNum, dynamics.data());
+            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipelineLayout)layout->native, setIdx, 1, &descriptorSetVk,dyNum, dynamics.data());
         }
     }
 

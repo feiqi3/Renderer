@@ -3,6 +3,7 @@ namespace Render {
 	LightManager::LightManager()
 	{
 	}
+
 	int LightManager::addLight(Light* light)
 	{
 		static int LightIDX = 0;
@@ -43,7 +44,7 @@ namespace Render {
 		int idx = 0;
 
 		for (auto& [lightIdx, lightData] : lightMap) {
-			auto light = lightData.light;
+			auto& light = lightData.light;
 			bool needUpdate = dirty;
 			if (light->isDirty()) {
 				lightData.data = light->toGPUData();
@@ -51,6 +52,7 @@ namespace Render {
 			}
 			if (needUpdate) {
 				mLightData.lights[idx] = lightData.data;
+				light->setDirty(false);
 			}
 			idx = idx + 1;
 		}

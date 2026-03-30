@@ -57,7 +57,15 @@ namespace Render {
 		);
 	}
 	inline auto getTRS(const vec3& t, const quat& r, const vec3& s) {
-		return translate(rotate(scale(mat4(1.0), s), r), t);
+		glm::mat4 model(1.0f);
+
+		model = glm::translate(model, t);
+
+		model = model * glm::mat4_cast(r);
+
+		model = glm::scale(model, s);
+
+		return model;
 	}
 	inline auto lookAt(const vec3& eye, const vec3& center, const vec3& up) {
 		return glm::lookAt(eye, center, up);
@@ -78,6 +86,8 @@ namespace Render {
 	inline auto mix(const auto& a, const auto& b, float t) { return glm::mix(a, b, t); }
 	inline auto clamp(const auto& v, const auto& min, const auto& max) { return glm::clamp(v, min, max); }
 	inline auto smoothstep(float edge0, float edge1, float x) { return glm::smoothstep(edge0, edge1, x); }
+
+	inline auto isInf(auto x) { return (decltype(x))glm::isinf(x); }
 
 	inline vec3 getTranslateFromMatrix(const mat4& m) {
 		return vec3(m[3]);

@@ -125,7 +125,7 @@ namespace Render::Vulkan {
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
-	void cmdBindDrawData(rs_commandbuffer_vk* cb, VkPipelineLayout pipelineLayout, rs_drawdata_vk* drawData, uint32_t curFif);
+	void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif);
 	void cmdFillNullDescriptor(rs_context_vk* context, rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif, uint64_t frame);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
 	void cmdTransitDrawDataState(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif);

@@ -4,9 +4,9 @@
 layout(set = 0, binding = 0) uniform blockCamera {
 	GPUCameraData		camera;
 }CameraCommon;
-// layout(set = 1, binding = 0)  uniform blockScene {
-// 	GPUSceneLightData	sceneLights;
-// }SceneCommon;
+ layout(set = 1, binding = 0)  uniform blockScene {
+ 	GPUSceneLightData	sceneLights;
+ }SceneCommon;
 layout(set = 2, binding = 0) uniform UniformBufferObject {
     ObjectCommonData ObjData;
 } ObjData;
