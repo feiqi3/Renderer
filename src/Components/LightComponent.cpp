@@ -2,19 +2,30 @@
 #include "function/Scene.h"
 #include "function/Object.h"
 namespace Render {
-	PointLightComponent::PointLightComponent()
+
+
+	LightComponent::LightComponent(LightType type)
 	{
-		mLight = std::make_unique<Light>(LightType::Point);
-		mLight->setRange(10.f);
+		mLight = std::make_unique<Light>(type);
 	}
 
-	void PointLightComponent::onEnable()
+	Render::Light* LightComponent::getLight()
 	{
-		mLight->setPosition(this->owner()->worldPosition());
+		return mLight.get();
+	}
+
+	PointLightComponent::PointLightComponent() : LightComponent(LightType::Point)
+	{
+		getLight()->setRange(10.f);
+	}
+
+	void LightComponent::onEnable()
+	{
+		getLight()->setPosition(this->owner()->worldPosition());
 		auto& lightMgr = this->owner()->scene()->getLightMgr();
 		mLightIdx = lightMgr.addLight(mLight.get());
 	}
-	void PointLightComponent::onDisable()
+	void LightComponent::onDisable()
 	{
 		auto& lightMgr = this->owner()->scene()->getLightMgr();
 		if(mLightIdx >= 0)
@@ -22,24 +33,35 @@ namespace Render {
 			lightMgr.removeLight(mLightIdx);
 		}
 	}
-	void PointLightComponent::onTransformChanged()
+	void LightComponent::onTransformChanged()
 	{
-		mLight->setPosition(this->owner()->worldPosition());
+		getLight()->setPosition(this->owner()->worldPosition());
 	}
 
-	void PointLightComponent::setColor(vec3 color)
+	void LightComponent::setColor(vec3 color)
 	{
-		mLight->setColor(color);
+		getLight()->setColor(color);
 	}
 
-	void PointLightComponent::setIntensity(float i)
+	void LightComponent::setIntensity(float i)
 	{
-		mLight->setIntensity(i);
+		getLight()->setIntensity(i);
 	}
 
 	void PointLightComponent::setRange(float r)
 	{
-		mLight->setRange(r);
+		getLight()->setRange(r);
 	}
+
+	DirectionalLightComponent::DirectionalLightComponent() : LightComponent(LightType::Directional)
+	{
+		setDirection(vec3(1., 1., 0.));
+	}
+
+	void DirectionalLightComponent::setDirection(const vec3& dir)
+	{
+		getLight()->setDirection(dir);
+	}
+
 
 };

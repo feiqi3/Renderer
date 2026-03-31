@@ -6,20 +6,38 @@
 #include "common/CommonMath.h"
 #include <memory>
 namespace Render {
-	class PointLightComponent : public  Component {
+	class LightComponent : public  Component {
 	public:
-		PointLightComponent();
+		inline LightComponent(LightType type);
+		Light* getLight();
 		void onEnable() override;
 		void onDisable() override;
 		void onTransformChanged() override;
-
 		void setColor(vec3 color);
 		void setIntensity(float i);
-		void setRange(float r);
-	private:
+
+	protected:
 		std::unique_ptr<Light> mLight = nullptr;
 		int mLightIdx = -1;
 	};
+
+	class PointLightComponent : public  LightComponent {
+	public:
+		PointLightComponent();
+
+		void setRange(float r);
+	private:
+		int mLightIdx = -1;
+	};
+
+	class DirectionalLightComponent : public  LightComponent {
+	public:
+		DirectionalLightComponent();
+		void setDirection(const vec3& dir);
+	private:
+		int mLightIdx = -1;
+	};
+
 }
 
 #endif

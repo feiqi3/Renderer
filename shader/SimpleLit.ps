@@ -89,7 +89,7 @@ void main(){
         float fade = 1.0;
         if( lightType == 0){
             //Dir
-            L = normalize(-LIGHTDATA.lights[i].positionType.xyz);
+            L = normalize(-LIGHTDATA.lights[i].directionRange.xyz);
         }else if(lightType == 1){
             //Point
             vec3 LtoP = (LIGHTDATA.lights[i].positionType.xyz - i_worldPos);

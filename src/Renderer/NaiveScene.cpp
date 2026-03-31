@@ -67,6 +67,10 @@ namespace Render {
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
 		delete model;
+
+		auto directionalLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
+		directionalLightcomponent->setDirection(vec3(0, 1, - 1));
+
 		Scene::setCurrentScene(naiveScene);
 		return naiveScene;
 	}
