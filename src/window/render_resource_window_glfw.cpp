@@ -4,8 +4,37 @@
 
 bool s_glfwInitialized = false;
 std::atomic_int s_glfwInstanceNum = 0;
+
 namespace Render::Window
 {
+    namespace {
+    
+        uint32_t ToGlfwKeyCode(KeyCode code);
+        KeyCode ToKeyCode(uint32_t glfwCode);
+
+        uint32_t ToGlfwKeyMouse(MouseButton btn);
+        MouseButton ToMouseButton(uint32_t glfwMus);
+
+
+        uint32_t ToGlfwKeyCode(KeyCode code)
+        {
+            return (uint32_t)code;
+        }
+
+        KeyCode ToKeyCode(uint32_t glfwCode)
+        {
+            return (KeyCode)glfwCode;
+        }
+        uint32_t ToGlfwKeyMouse(MouseButton btn)
+        {
+            return (uint32_t)btn;
+        }
+        MouseButton ToMouseButton(uint32_t glfwMus)
+        {
+            return (MouseButton)glfwMus;
+        }
+    }
+
     rs_window_glfw::rs_window_glfw(const char* title, int w, int h)
         : _width(w), _height(h)
     {
@@ -98,7 +127,7 @@ namespace Render::Window
             }
 
             if (_win) {
-                _win->KeyEvent.dispatch(key, scancode, actionKey, mods);
+                _win->KeyEvent.dispatch(toKeyCode(key), scancode, actionKey, mods);
             }
         });
 
@@ -112,6 +141,7 @@ namespace Render::Window
         glfwSetMouseButtonCallback(win, [](GLFWwindow* window, int button, int action, int mods) {
             rs_window_glfw* _win = (rs_window_glfw*)glfwGetWindowUserPointer(window);
             MouseAction actionMus;
+			MouseButton btn = toMouseButton(button);
             switch (action)
             {
             case GLFW_RELEASE:
@@ -124,7 +154,7 @@ namespace Render::Window
             }
 
             if (_win) {
-                _win->MouseBtnEvent.dispatch(button, mods, actionMus);
+                _win->MouseBtnEvent.dispatch(btn, mods, actionMus);
             }
         });
 
@@ -150,4 +180,27 @@ namespace Render::Window
             }
         });
     }
+
+    uint32_t rs_window_glfw::toGlfwKeyCode(KeyCode code)
+    {
+        return ToGlfwKeyCode(code);
+    }
+
+    KeyCode rs_window_glfw::toKeyCode(uint32_t glfwCode)
+    {
+        return ToKeyCode(glfwCode);
+    }
+
+    uint32_t rs_window_glfw::toGlfwKeyMouse(MouseButton btn)
+    {
+		return ToGlfwKeyMouse(btn);
+    }
+
+    MouseButton rs_window_glfw::toMouseButton(uint32_t glfwMus)
+    {
+        return ToMouseButton(glfwMus);
+    }
+
+
+
 }

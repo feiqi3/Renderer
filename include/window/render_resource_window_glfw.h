@@ -2,7 +2,7 @@
 #define RENDER_RESOURCE_WINDOW_GLFW_H
 #include "render_resource_window.h"
 #include "EventDispatcher.h"
-
+#include "function/InputDef.h"
 struct GLFWwindow;
 
 namespace Render::Window {
@@ -18,19 +18,8 @@ namespace Render::Window {
         WindowFocus,
     };
 
-    enum class KeyAction : uint8_t {
-        Press,  
-        Release, 
-        Repeat    
-    };
 
-    /// 通用鼠标按键动作
-    enum class MouseAction : uint8_t {
-        Press,    
-        Release   
-    };
 
-    /// 窗口焦点动作
     enum class FocusAction : uint8_t {
         Lost,     
         Gain      
@@ -57,7 +46,7 @@ namespace Render::Window {
         EventDispatcher<int, int>           ResizeEvent;
         EventDispatcher<>                   CloseEvent;
         //key ,scancode ,action ,mods
-        EventDispatcher<int, int, KeyAction, int> KeyEvent;
+        EventDispatcher<KeyCode, int, KeyAction, int> KeyEvent;
         EventDispatcher<unsigned int>       CharEvent;
         EventDispatcher<int, int, MouseAction>      MouseBtnEvent;
         EventDispatcher<double, double>     CursorEvent;
@@ -65,6 +54,11 @@ namespace Render::Window {
         EventDispatcher<FocusAction>                FocusEvent;
     private:
         void initCallback();
+		uint32_t toGlfwKeyCode(KeyCode code);
+		KeyCode toKeyCode(uint32_t glfwCode);
+
+        uint32_t toGlfwKeyMouse(MouseButton btn);
+        MouseButton toMouseButton(uint32_t glfwMus);
 
     private:
         struct GLFWwindow* _window = nullptr;
