@@ -16,7 +16,7 @@ namespace Render {
         float farPlane)
         : mCamName(name)
         , m_position(position)
-        , m_target(target)
+        , m_direction(target - position)
         , m_up(up)
         , m_fov(fovDegrees)
         , m_aspect(aspectRatio)
@@ -37,7 +37,7 @@ namespace Render {
 
     void Camera::updateView()
     {
-        m_view = lookAt(m_position, m_target, m_up);
+        m_view = lookAt(m_position, m_position + m_direction, m_up);
     }
 
     void Camera::updateProjection()
@@ -53,11 +53,17 @@ namespace Render {
 
     void Camera::setTarget(const vec3& tgt)
     {
-        m_target = normalize(tgt);
+        m_direction = normalize(tgt - m_position);
         updateView();
     }
 
-    void Camera::setUp(const vec3& up)
+	void Camera::setDirection(const vec3& dir)
+	{
+        m_direction = normalize(dir);
+		updateView();
+	}
+
+	void Camera::setUp(const vec3& up)
     {
         m_up = normalize(up);
         updateView();
@@ -102,7 +108,7 @@ namespace Render {
         common.CameraUp = vec4(getUp(), 0.0f);
 
         // Camera front: normalized (target - position) is usually the forward direction
-        common.CameraFront = vec4(normalize(getTarget() - getPosition()), 0.0f);
+        common.CameraFront = vec4(normalize(getDirection() - getPosition()), 0.0f);
 
         return common;
     }

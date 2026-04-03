@@ -22,11 +22,11 @@ namespace Render {
 		void deactiveCamera(Camera* cam);
 		void activeCamera(Camera* cam);
 		void updateAllCamera();
+		Camera* getCamera(const Name& cameraName);
 		friend class RenderSystem;
 	private:
-		rs_drawdata* updateCameraDrawData(Camera* camera);
-	private:
 		std::multimap<uint32_t, Camera*> mPriorityCameras;
+		std::map<Name, Camera*>			 mNameCameraMap;
 	};
 }
 

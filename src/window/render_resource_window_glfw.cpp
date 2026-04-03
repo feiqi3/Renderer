@@ -1,39 +1,57 @@
 #include "window/render_resource_window_glfw.h"
 #include "GLFW/glfw3.h"
 #include <stdexcept>
+#include "function/InputDef.h"
 
 bool s_glfwInitialized = false;
 std::atomic_int s_glfwInstanceNum = 0;
 
+namespace Render {
+	namespace {
+
+		uint32_t ToGlfwKeyCode(KeyCode code);
+		KeyCode ToKeyCode(uint32_t glfwCode);
+
+		uint32_t ToGlfwKeyMouse(MouseButton btn);
+		MouseButton ToMouseButton(uint32_t glfwMus);
+		KeyModifierFlags ToModifierFlags(int mod);
+
+		uint32_t ToGlfwKeyCode(KeyCode code)
+		{
+			return (uint32_t)code;
+		}
+
+		KeyCode ToKeyCode(uint32_t glfwCode)
+		{
+			return (KeyCode)glfwCode;
+		}
+		uint32_t ToGlfwKeyMouse(MouseButton btn)
+		{
+			return (uint32_t)btn;
+		}
+		MouseButton ToMouseButton(uint32_t glfwMus)
+		{
+			return (MouseButton)glfwMus;
+		}
+
+		KeyModifierFlags ToModifierFlags(int mod) {
+			KeyModifierFlags flags = KeyModifierFlag_None;
+
+			if (mod & GLFW_MOD_SHIFT)     flags |= KeyModifierFlag_Shift;
+			if (mod & GLFW_MOD_CONTROL)   flags |= KeyModifierFlag_Control;
+			if (mod & GLFW_MOD_ALT)       flags |= KeyModifierFlag_Alt;
+			if (mod & GLFW_MOD_SUPER)     flags |= KeyModifierFlag_Super;
+			if (mod & GLFW_MOD_CAPS_LOCK) flags |= KeyModifierFlag_CapsLock;
+			if (mod & GLFW_MOD_NUM_LOCK)  flags |= KeyModifierFlag_NumLock;
+
+			return flags;
+		}
+	}
+
+}
+
 namespace Render::Window
 {
-    namespace {
-    
-        uint32_t ToGlfwKeyCode(KeyCode code);
-        KeyCode ToKeyCode(uint32_t glfwCode);
-
-        uint32_t ToGlfwKeyMouse(MouseButton btn);
-        MouseButton ToMouseButton(uint32_t glfwMus);
-
-
-        uint32_t ToGlfwKeyCode(KeyCode code)
-        {
-            return (uint32_t)code;
-        }
-
-        KeyCode ToKeyCode(uint32_t glfwCode)
-        {
-            return (KeyCode)glfwCode;
-        }
-        uint32_t ToGlfwKeyMouse(MouseButton btn)
-        {
-            return (uint32_t)btn;
-        }
-        MouseButton ToMouseButton(uint32_t glfwMus)
-        {
-            return (MouseButton)glfwMus;
-        }
-    }
 
     rs_window_glfw::rs_window_glfw(const char* title, int w, int h)
         : _width(w), _height(h)
@@ -43,7 +61,6 @@ namespace Render::Window
                 m_init = false;
                 return;
             }
-            // 我们使用 GLFW 仅作窗口和事件，无 OpenGL 上下文
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             _window = glfwCreateWindow(w, h, title, nullptr, nullptr);
             if (!_window) {
@@ -54,6 +71,7 @@ namespace Render::Window
             s_glfwInstanceNum++;
             initCallback();
         }
+
     }
     rs_window_glfw::~rs_window_glfw()
     {
@@ -127,7 +145,7 @@ namespace Render::Window
             }
 
             if (_win) {
-                _win->KeyEvent.dispatch(toKeyCode(key), scancode, actionKey, mods);
+                _win->KeyEvent.dispatch(ToKeyCode(key), scancode, actionKey, ToModifierFlags(mods));
             }
         });
 
@@ -141,7 +159,6 @@ namespace Render::Window
         glfwSetMouseButtonCallback(win, [](GLFWwindow* window, int button, int action, int mods) {
             rs_window_glfw* _win = (rs_window_glfw*)glfwGetWindowUserPointer(window);
             MouseAction actionMus;
-			MouseButton btn = toMouseButton(button);
             switch (action)
             {
             case GLFW_RELEASE:
@@ -154,7 +171,7 @@ namespace Render::Window
             }
 
             if (_win) {
-                _win->MouseBtnEvent.dispatch(btn, mods, actionMus);
+                _win->MouseBtnEvent.dispatch(ToMouseButton(button),ToModifierFlags(mods), actionMus);
             }
         });
 
@@ -202,5 +219,9 @@ namespace Render::Window
     }
 
 
+	void rs_window_glfw::setCursorEnable(bool enable)
+	{
+        glfwSetInputMode(_window, GLFW_CURSOR, enable ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+	}
 
 }

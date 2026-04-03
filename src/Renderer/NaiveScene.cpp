@@ -4,6 +4,9 @@
 #include "Components/SimpleRenderComponent.h"
 #include "Renderer/GltfLoader.h"
 #include "Components/LightComponent.h"
+#include "Components/FPSControllerComponent.h"
+#include "Renderer/CameraManager.h"
+
 namespace Render {
 	class MoveComponent : public Component {
 	public:
@@ -67,6 +70,10 @@ namespace Render {
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
 		delete model;
+
+		auto cameraNode = naiveScene->createObject("Camera");
+		auto cameraComponent = cameraNode->addComponent<FPSControllerComponent>();
+		cameraComponent->setCamera(CameraManager::instance()->getCamera(Name("Scene")));
 
 		auto directionalLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
 		directionalLightcomponent->setDirection(vec3(0, 1, - 1));

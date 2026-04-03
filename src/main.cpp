@@ -14,6 +14,7 @@
 #include "common/ResourceSystem.h"
 #include "function/EngineResourceManager.h"
 #include "Renderer/NaiveScene.h"
+#include "function/InputManager.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -23,7 +24,11 @@ int main() {
 	backEndInit.engineName = "Feigen";
 	new Render::ResourceSystem();
 	Render::Window::rs_window_glfw* glfwWindow = new Render::Window::rs_window_glfw("Hello world", 800, 600);
+	new InputManager;
+	InputManager::instance()->initByWindowSystem(glfwWindow);
+
 	Render::RenderSystem::createRenderSystem(backEndInit, glfwWindow);
+
 	setWindowEventsCallbacks(glfwWindow);
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
@@ -33,9 +38,6 @@ int main() {
 	int CurrentFPS = 0;
 	int TargetFps = 60;
 	float TargetFrameTime = 1000. / TargetFps;
-	auto camera = new Render::Camera(Render::Name("Main"));
-	Render::CameraManager::instance()->RegisterCamera(camera,0);
-	auto* scene =new SimpleScene();
 	auto* naiveScene = createSceneByCode();
 
 	while (!glfwWindow->shouldClose()) {
@@ -43,10 +45,11 @@ int main() {
 		Render::RenderSystem::instance()->beginFrame();
 
 		//scene->updateScene(0.01666);
+		glfwWindow->pollEvents();
+		InputManager::instance()->beginFrame();
 		naiveScene->update(0.166666);
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();
-		glfwWindow->pollEvents();
 		renderSystem->BeginRenderFrame();
 		auto frameEnd = std::chrono::system_clock::now();
 		auto frameDuration = frameEnd - frameBegin;
@@ -64,8 +67,12 @@ int main() {
 		CurrentFPS = int(1000.f / frameNewTime);
 		glfwWindow->setTitle((std::string("fps: ") + std::to_string(CurrentFPS)).c_str());
 	}
+	delete naiveScene;
+
 	renderFlow->deinit();
 	Render::RenderSystem::destroyRenderSystem();
+	InputManager::instance()->deinitByWindowSystem(glfwWindow);
+	delete InputManager::instance();
 	delete glfwWindow;
 	glfwWindow = 0;
 }

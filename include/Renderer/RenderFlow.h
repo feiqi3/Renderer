@@ -7,7 +7,7 @@
 #include "RenderQueue.h"
 #include "Texture.h"
 #include "Renderer/Camera.h"
-
+#include "Renderer/CameraManager.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -46,7 +46,8 @@ namespace Render {
 			//Is Rendered to present image finished?
 			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
 			mCamera = new Camera(Name("Scene"));
-		}
+			CameraManager::instance()->RegisterCamera(mCamera, 0);
+;		}
 
 		void initMainCamPass() {
 			mMainCamPass->init();
@@ -79,6 +80,9 @@ namespace Render {
 		}
 
 		void deinit() {
+			CameraManager::instance()->UnregisterCamera(mCamera);
+			delete mCamera;
+			mCamera = nullptr;
 			deinitMainCamPass();
 			deinitSwapchainPass();
 

@@ -24,6 +24,13 @@ namespace Render {
 			assert(0);
 			return;
 		}
+
+		if (mNameCameraMap.find(camera->getName()) != mNameCameraMap.end()) {
+			assert(false && "Duplicated camera.");
+			return;
+		}
+		mNameCameraMap.insert({ camera->getName(),camera });
+
 		mPriorityCameras.insert({ priority,camera });
 	}
 
@@ -38,6 +45,7 @@ namespace Render {
 				++itor;
 			}
 		}
+		mNameCameraMap.erase(camera->getName());
 	}
 
 	void CameraManager::TraversalCameras(const std::function<bool(Camera*)>& func)
@@ -79,6 +87,13 @@ namespace Render {
 			}
 			return true;
 		});
+	}
+
+	Render::Camera* CameraManager::getCamera(const Name& cameraName)
+	{
+		auto itor = this->mNameCameraMap.find(cameraName);
+		if (itor != mNameCameraMap.end())return itor->second;
+		return nullptr;
 	}
 
 }

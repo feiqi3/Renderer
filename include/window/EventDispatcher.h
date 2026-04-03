@@ -13,8 +13,8 @@
 namespace Render::Window {
 
     // 回调标识
-    using CallbackID = uint64_t;
-
+    using CallbackID = int64_t;
+    inline CallbackID INVALID_CALLBACK_ID = -1;
     // 泛型事件分发器
     template<typename... Args>
     class EventDispatcher {

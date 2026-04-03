@@ -177,14 +177,19 @@ namespace Render {
         Release
     };
 
+	enum class FocusAction : uint8_t {
+		Lost,
+		Gain
+	};
+
     using KeyModifierFlags = uint8_t;
-    KeyModifierFlags KeyModifierFag_None        = 0;
-    KeyModifierFlags KeyModifierFag_Shift       = 0x0001;
-    KeyModifierFlags KeyModifierFag_Control     = 0x0002;
-    KeyModifierFlags KeyModifierFag_Alt         = 0x0004;
-    KeyModifierFlags KeyModifierFag_Super       = 0x0008;
-    KeyModifierFlags KeyModifierFag_CapsLock    = 0x0010;
-    KeyModifierFlags KeyModifierFag_NumLock     = 0x0020;
+    inline KeyModifierFlags KeyModifierFlag_None        = 0;
+    inline KeyModifierFlags KeyModifierFlag_Shift       = 0x0001;
+    inline KeyModifierFlags KeyModifierFlag_Control     = 0x0002;
+    inline KeyModifierFlags KeyModifierFlag_Alt         = 0x0004;
+    inline KeyModifierFlags KeyModifierFlag_Super       = 0x0008;
+    inline KeyModifierFlags KeyModifierFlag_CapsLock    = 0x0010;
+    inline KeyModifierFlags KeyModifierFlag_NumLock     = 0x0020;
 
 }
 

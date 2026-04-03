@@ -31,7 +31,8 @@ namespace Render{
 		inline Vulkan::rs_context_vk* getRenderContext()const {
 			return (Vulkan::rs_context_vk*)mBackEndContext;
 		}
-
+		void getWindowSize(int& x,int& y);
+		void setCursorEnable(bool enable);
 		RenderQueue* getMainRenderQueue()const;
 		RenderQueue* getRenderQueue(const Name& queueName)const;
 		class RenderPassManager* getRenderPassManager()const;

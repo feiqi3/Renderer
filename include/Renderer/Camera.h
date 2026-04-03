@@ -31,14 +31,15 @@ namespace Render {
         inline const mat4& getViewMatrix() const { return m_view; }
         inline const mat4& getProjectionMatrix() const { return m_projection; }
         inline const vec3& getPosition() const { return m_position; }
-        inline const vec3& getTarget() const { return m_target; }
+        inline const vec3& getDirection() const { return m_direction; }
         inline const vec3& getUp() const { return m_up; }
         inline const Name& getName() const { return mCamName; }
 
         // ========== Setters ==========
         void setPosition(const vec3& pos);
         void setTarget(const vec3& tgt);
-        void setUp(const vec3& up);
+		void setDirection(const vec3& dir);
+		void setUp(const vec3& up);
         void setPerspective(float fovDegrees, float aspect, float nearPlane, float farPlane);
 
         // 直接设置矩阵（如果你想自己传入）
@@ -59,7 +60,7 @@ namespace Render {
         Name mCamName;
 
         vec3 m_position;
-        vec3 m_target;
+        vec3 m_direction;
         vec3 m_up;
 
         float m_fov;

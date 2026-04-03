@@ -22,6 +22,8 @@ namespace Render::Window {
 
         virtual const char* getTitle() const = 0;
         virtual void setTitle(const char* title) = 0;
+    
+        virtual void setCursorEnable(bool enable) = 0;
     protected:
         bool m_init = false;
     };

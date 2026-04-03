@@ -18,13 +18,6 @@ namespace Render::Window {
         WindowFocus,
     };
 
-
-
-    enum class FocusAction : uint8_t {
-        Lost,     
-        Gain      
-    };
-
     class rs_window_glfw : public rs_window {
     public:
         rs_window_glfw(const char* title, int w, int h);
@@ -38,6 +31,7 @@ namespace Render::Window {
         bool shouldClose() const override;
 
         void* nativeHandle() const override;
+		virtual void setCursorEnable(bool enable) override;
 
         virtual const char* getTitle() const override;
         virtual void setTitle(const char* title) override;
@@ -46,9 +40,9 @@ namespace Render::Window {
         EventDispatcher<int, int>           ResizeEvent;
         EventDispatcher<>                   CloseEvent;
         //key ,scancode ,action ,mods
-        EventDispatcher<KeyCode, int, KeyAction, int> KeyEvent;
+        EventDispatcher<KeyCode, int, KeyAction, KeyModifierFlags> KeyEvent;
         EventDispatcher<unsigned int>       CharEvent;
-        EventDispatcher<int, int, MouseAction>      MouseBtnEvent;
+        EventDispatcher<MouseButton, KeyModifierFlags, MouseAction>      MouseBtnEvent;
         EventDispatcher<double, double>     CursorEvent;
         EventDispatcher<double, double>     ScrollEvent;
         EventDispatcher<FocusAction>                FocusEvent;
@@ -65,7 +59,7 @@ namespace Render::Window {
         int         _width;
         int         _height;
         bool        _resized = false;
-
+        bool        _firstMouse = true;
 
     };
 

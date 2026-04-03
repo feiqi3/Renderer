@@ -180,7 +180,6 @@ namespace Render {
 
     void Scene::update(float deltaTime) {
         _doDelayDestroy();
-        updateObjectsTransform();
         for (auto& obj : m_objects) {
             Object* o = obj.get();
             if (!o) continue;
@@ -188,7 +187,9 @@ namespace Render {
             o->onUpdate(deltaTime);
         }
 
-        for (auto& obj : m_objects) {
+		updateObjectsTransform();
+
+		for (auto& obj : m_objects) {
             Object* o = obj.get();
             if (!o) continue;
 

@@ -186,6 +186,25 @@ namespace Render{
 
 
 	}
+
+	void RenderSystem::getWindowSize(int& x, int& y)
+	{
+		if (this->mWindow) {
+			mWindow->getFramebufferSize(x, y);
+		}
+		else {
+			x = -1;
+			y = -1;
+		}
+	}
+
+	void RenderSystem::setCursorEnable(bool enable)
+	{
+		if (mWindow) {
+			mWindow->setCursorEnable(enable);
+		}
+	}
+
 	RenderQueue* RenderSystem::getMainRenderQueue()const
 	{
 		const static Name mainQueueName = Name("Main");
