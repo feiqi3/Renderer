@@ -15,7 +15,9 @@ namespace Render {
 		~InputManager();
 		void initByWindowSystem(Window::rs_window* window);
 		void deinitByWindowSystem(Window::rs_window* window);
-		void beginFrame();
+
+		void preUpdate();
+		void postUpdate();
 
 		KeyModifierFlags getKeyModifiers(KeyCode key);
 		bool isKeyDown(KeyCode key);
@@ -53,7 +55,9 @@ namespace Render {
 		double mCursorY = 0.0;
 		double mPrevCursorX = 0.0;
 		double mPrevCursorY = 0.0;
-		bool firstMouse = false;
+		bool isWindowFoused = false;
+		bool isCursorUpdated = false;
+		bool ignoreNextCursor = false;
 	private:
 		Window::CallbackID _callbackKeyId		= Window::INVALID_CALLBACK_ID;
 		Window::CallbackID _callbackMouseBtnId	= Window::INVALID_CALLBACK_ID;

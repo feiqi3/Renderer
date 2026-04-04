@@ -23,7 +23,7 @@ namespace Render {
 
 	FPSControllerComponent::FPSControllerComponent()
 	{
-		this->setSensitivity(200.f);
+		this->setSensitivity(0.1f);
 		this->setSpeed(1.f);
 	}
 
@@ -39,6 +39,8 @@ namespace Render {
 
 		double dx, dy;
 		inputMgr->getDeltaCursorPos(dx, dy);
+		std::cout << "Delta: " << dx << " " << dy << "\n";
+
 		mControl.setCursorDelta(dx, -dy);
 		mControl.update(dt);
 

@@ -76,7 +76,7 @@ namespace Render
 			return;
 		}
 
-		mYaw	+= deltaTime * mSensitivity * mCursorDx;
+		mYaw	+= mSensitivity * mCursorDx;
 		if (mYaw > 360.) {
 			mYaw -= 360.;
 		}
@@ -84,9 +84,9 @@ namespace Render
 			mYaw += 360.;
 		}
 
-		mPitch	+= deltaTime * mSensitivity * mCursorDy;
+		mPitch	+= mSensitivity * mCursorDy;
 
-		clamp(mPitch, -89.5f, 89.5f);
+		mPitch = clamp(mPitch, -89.5f, 89.5f);
 
 		mDirty = false;
 		mCursorDx = 0;

@@ -45,8 +45,9 @@ int main() {
 		Render::RenderSystem::instance()->beginFrame();
 
 		//scene->updateScene(0.01666);
+		InputManager::instance()->preUpdate();
 		glfwWindow->pollEvents();
-		InputManager::instance()->beginFrame();
+		InputManager::instance()->postUpdate();
 		naiveScene->update(0.166666);
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();

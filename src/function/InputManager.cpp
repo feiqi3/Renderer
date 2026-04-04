@@ -46,6 +46,9 @@ namespace Render {
 			auto window_glfw = dynamic_cast<Window::rs_window_glfw*>(window);
 			this->_callbackKeyId = window_glfw->KeyEvent += [this](KeyCode code,int _, KeyAction action, KeyModifierFlags flags) {
 				bool pressed = (action!= KeyAction::Release);
+				//GLFW will send KeyAction::Pressed once when key is down, and send KeyAction::Repeat if key is hold. We treat both of them as pressed state.
+				//And KeyAction::Released will only send once when key is released.
+				//So we need maintain a key state by ourselves to support isKeyPressed and isKeyReleased function.
 				this->setKeyState(code, pressed, flags);
 			};
 			this->_callbackMouseBtnId = window_glfw->MouseBtnEvent += [this](MouseButton btn, KeyModifierFlags flags, MouseAction action) {
@@ -53,22 +56,11 @@ namespace Render {
 				this->setMouseButtonState(btn, pressed,flags);
 				};
 			this->_callbackMousePosId = window_glfw->CursorEvent += [this](double posX, double posY) {
-				int wx = 0;
-				int hy = 0;
-				RenderSystem::instance()->getWindowSize(wx, hy);
-				if (wx == 0 || hy == 0) {
-					this->setCursorPos(0,0);
-				}
-				else {
-					this->setCursorPos(posX / wx, posY / hy);
-				}std::cout << "Mouse X:" << mCursorX << " Y:" << mCursorY << "\n";
-				std::cout << "Mouse DX:" << mCursorX - mPrevCursorX << " DY:" << mCursorY - mPrevCursorY <<"\n";
+				this->setCursorPos(posX , posY );
 				};
 
 			this->_callbackWindowFoucsId = window_glfw->FocusEvent += [this](FocusAction action) {
-				if (action == FocusAction::Lost) {
-					firstMouse = true;
-				}
+				isWindowFoused = (action == FocusAction::Gain);
 				};
 		}
 	}
@@ -84,23 +76,36 @@ namespace Render {
 		}
 	}
 
-	void InputManager::beginFrame()
+	void InputManager::preUpdate()
 	{
-		std::memcpy(mPrevKeyState, mCurrKeyState, MAX_KEY_CODE * sizeof(u16));
+		memcpy(mPrevKeyState, mCurrKeyState, MAX_KEY_CODE * sizeof(u16));
+		mPrevCursorX = mCursorX;
+		mPrevCursorY = mCursorY;
+	}
 
+	void InputManager::postUpdate()
+	{
 		int mouseBtnCount = (int)MouseButton::Last + 1;
 		std::memcpy(mPrevMouseState, mCurrMouseState, mouseBtnCount * sizeof(u16));
-		if (firstMouse) {
-			mPrevCursorX = mCursorX;
-			mPrevCursorY = mCursorY;
-			firstMouse = false;
-		}
-
-		if (this->isKeyDown(KeyCode::RightAlt)) {
+		if (this->isKeyReleased(KeyCode::RightAlt)) {
+			//GLFW will set cursor to a virtual position when 
+			//cursor is hidden, which will cause a large delta in cursor position when the window regain focus or cursor move. 
+			// To avoid this, we set a flag to ignore the next cursor position update.
+			ignoreNextCursor = true;
 			static bool cursorEnable = true;
 			cursorEnable = !cursorEnable;
 			RenderSystem::instance()->setCursorEnable(cursorEnable);
+			isCursorUpdated = false;
 		}
+
+		if (!isWindowFoused || !isCursorUpdated) {
+			// If the window is not focused or cursor is not updated, 
+			// Set prev cursor position to current cursor position to avoid large delta in next frame when the window regain focus or cursor move.
+			mPrevCursorX = mCursorX;
+			mPrevCursorY = mCursorY;
+		}
+		isCursorUpdated = false;
+
 	}
 
 	Render::KeyModifierFlags InputManager::getKeyModifiers(KeyCode key)
@@ -123,7 +128,14 @@ namespace Render {
 
 	bool InputManager::isKeyReleased(KeyCode key)
 	{
-		return isKeyStatePressed(mPrevKeyState[(int)key]) && !isKeyStatePressed(mCurrKeyState[(int)key]);
+		bool lastFramePressed = isKeyStatePressed(mPrevKeyState[(int)key]);
+		if (lastFramePressed) {
+			bool thisFramePressed = isKeyStatePressed(mCurrKeyState[(int)key]);
+			if (!thisFramePressed) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	bool InputManager::isKeyHold(KeyCode key)
@@ -186,6 +198,16 @@ namespace Render {
 
 	void InputManager::setCursorPos(double x, double y)
 	{
+		if (isCursorUpdated)return;
+		if (ignoreNextCursor) {
+			isCursorUpdated = true;
+			mPrevCursorX = mCursorX = x;
+			mPrevCursorY = mCursorY = y;
+			ignoreNextCursor = false;
+			return;
+		}
+		
+		isCursorUpdated = true;
 		mPrevCursorX = mCursorX;
 		mPrevCursorY = mCursorY;
 		mCursorX = x;
