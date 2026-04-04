@@ -12,7 +12,13 @@ namespace Render {
 		}
 	}
 
-	void FPSControllerComponent::setCamera(Camera* cam) { mCamera = cam; }
+	void FPSControllerComponent::setCamera(Camera* cam) { 
+		mCamera = cam; 
+		if (mCamera) {
+			mCamera->setPosition(owner()->worldPosition());
+			mControl.setDirection(mCamera->getDirection());
+		}
+	}
 	void FPSControllerComponent::setSensitivity(float s) {
 		mSensitivity = s;
 		mControl.setSensitivity(s);
@@ -39,7 +45,6 @@ namespace Render {
 
 		double dx, dy;
 		inputMgr->getDeltaCursorPos(dx, dy);
-		std::cout << "Delta: " << dx << " " << dy << "\n";
 
 		mControl.setCursorDelta(dx, -dy);
 		mControl.update(dt);
@@ -58,7 +63,6 @@ namespace Render {
 
 		if (length(moveDelta) > 0.001f) {
 			moveDelta = normalize(moveDelta) * getSpeed() * dt;
-			std::cout << "Move delta: " << moveDelta;
 			const auto& curPosition = owner()->localPosition();
 			owner()->setLocalPosition(curPosition + moveDelta);
 		}
