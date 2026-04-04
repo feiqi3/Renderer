@@ -280,36 +280,37 @@ namespace {
             InputAttribute ia{};
             ia.binding = 0;
 
+            //Pos
             ia.location = 0;
             ia.format = VertexFormat::Float3;
             ia.offset = offset;
 			vtxID.attributes.push_back(ia);
 			offset += sizeof(float) * 3;
-
+            //Norm
             ia.location = 1;
 			ia.offset = offset;
 			vtxID.attributes.push_back(ia);
 			offset += sizeof(float) * 3;
-
+            //Tangent
             ia.location = 2;
-            ia.format = VertexFormat::Float2;
+            ia.format = VertexFormat::Float4;
 			ia.offset = offset;
 			vtxID.attributes.push_back(ia);
-			offset += sizeof(float) * 2;
-
+			offset += sizeof(float) * 4;
+            //UV0
             ia.location = 3;
             ia.format = VertexFormat::Float2;
 			ia.offset = offset;
 			vtxID.attributes.push_back(ia);
 			offset += sizeof(float) * 2;
-
+            //Color
             ia.location = 4;
             ia.format = VertexFormat::UByte4N;
 			ia.offset = offset;
 			vtxID.attributes.push_back(ia);
 			offset += sizeof(uint32_t);
 
-            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/SimpleLit.vs"},{ShaderStage::Fragment,"../shader/SimpleLit.ps"} }, state, vtxID);
+            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/StandardPBR.vs"},{ShaderStage::Fragment,"../shader/StandardPBR.ps"} }, state, vtxID);
             tplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass));
             return tplt;
         }
@@ -354,8 +355,8 @@ namespace {
 
 			GltfAttributeReader posReader(model, prim, "POSITION");
 			GltfAttributeReader normReader(model, prim, "NORMAL");
-			GltfAttributeReader uv0Reader(model, prim, "TEXCOORD_0");
-			GltfAttributeReader uv1Reader(model, prim, "TEXCOORD_1");
+            GltfAttributeReader tangReader(model, prim, "TANGENT");
+            GltfAttributeReader uv0Reader(model, prim, "TEXCOORD_0");
 			GltfAttributeReader colReader(model, prim, "COLOR_0");
 
 			for (size_t i = 0; i < vertexCount; ++i) {
@@ -377,10 +378,10 @@ namespace {
 					uv0Reader.getFloats(i, uv0, 2);
 					memcpy(&vtx.uv_0, uv0, sizeof(float) * 2);
 				}
-				if (uv1Reader.valid) {
-					float uv1[2] = { 0.f, 0.f };
-					uv1Reader.getFloats(i, uv1, 2);
-					memcpy(&vtx.uv_1, uv1, sizeof(float) * 2);
+				if (tangReader.valid) {
+					float tangent[4] = {0., 0.f, 0.f,1.0f };
+                    tangReader.getFloats(i, tangent, 4);
+					memcpy(&vtx.tangent, tangent, sizeof(float) * 4);
 				}
 				if (colReader.valid) {
 					uint8_t col[4] = { 255, 255, 255, 255 };
@@ -1078,8 +1079,8 @@ namespace Render {
 
         meshdata.addAttribute(Render::VertexFormat::Float3,VertexSemantic::Position,offsetof(StandardModelVertex,position));
         meshdata.addAttribute(Render::VertexFormat::Float3, VertexSemantic::Normal, offsetof(StandardModelVertex, normal));
+        meshdata.addAttribute(Render::VertexFormat::Float4, VertexSemantic::Tangent, offsetof(StandardModelVertex, tangent));
         meshdata.addAttribute(Render::VertexFormat::Float2, VertexSemantic::TexCoord0, offsetof(StandardModelVertex, uv_0));
-        meshdata.addAttribute(Render::VertexFormat::Float2, VertexSemantic::TexCoord1, offsetof(StandardModelVertex, uv_1));
         meshdata.addAttribute(Render::VertexFormat::UByte4N, VertexSemantic::Color0, offsetof(StandardModelVertex, color_u8x4_pack));
         meshdata.setSubMeshes(submeshes);
         Name thisMeshResName = Name(name.str()+ "_" + mesh.name);
@@ -1284,7 +1285,8 @@ namespace Render {
                 auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
                 sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
                 useUV0 = (gltfMat.metallicRoughnessTexCoord == 0);
-                pbrMat->setMetallicRoughnessTexture(texture, sampler, useUV0);
+                assert(useUV0 == true);
+                pbrMat->setMetallicRoughnessTexture(texture, sampler);
             }
         }
         else {
@@ -1300,7 +1302,8 @@ namespace Render {
                 auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
                 sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
                 useUV0 = (gltfMat.normalTexCoord == 0);
-                pbrMat->setNormalTexture(texture, sampler, useUV0);
+                assert(useUV0 == true);
+                pbrMat->setNormalTexture(texture, sampler);
             }
         }
         else {
@@ -1316,7 +1319,8 @@ namespace Render {
                 auto samplerDesc = fromGltfSamplerToSamplerDesc(model->samplers[gltfTex.smaplerIndex]);
                 sampler = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
                 useUV0 = (gltfMat.occlusionTexCoord == 0);
-                pbrMat->setAOTexture(texture, sampler, useUV0);
+                assert(useUV0 == true);
+                pbrMat->setAOTexture(texture, sampler);
             }
         }
         else {

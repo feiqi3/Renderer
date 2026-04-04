@@ -100,50 +100,32 @@ namespace Render {
         mIsDirty = true;
     }
 
-    void PBRMaterial::setMetallicRoughnessTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0) {
+    void PBRMaterial::setMetallicRoughnessTexture(TexturePtr tex, SamplerPtr sampler) {
         bindParameter("u_metallicRoughnessTex", tex);
         bindParameter("u_metallicRoughnessSampler", sampler);
         if (!tex) {
             mPBRData.texControl.y = -1.0f;
             return;
         }
-        if (useUV0) {
-            mPBRData.texControl.y = 0.0f;
-        }
-        else {
-            mPBRData.texControl.y = 1.0f;
-        }
         mIsDirty = true;
     }
 
-    void PBRMaterial::setNormalTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0) {
+    void PBRMaterial::setNormalTexture(TexturePtr tex, SamplerPtr sampler) {
         bindParameter("u_normalTex", tex);
         bindParameter("u_normalSampler", sampler);
         if (!tex) {
             mPBRData.texControl.z = -1.f;
             return;
         }
-        if (useUV0) {
-            mPBRData.texControl.z = 0.0f;
-        }
-        else {
-            mPBRData.texControl.z = 1.0f;
-        }
         mIsDirty = true;
     }
 
-    void PBRMaterial::setAOTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0) {
+    void PBRMaterial::setAOTexture(TexturePtr tex, SamplerPtr sampler) {
         bindParameter("u_AOTex", tex);
         bindParameter("u_AOSampler", sampler);
         if (!tex) {
             mPBRData.texControl.w = -1.0f;
             return;
-        }
-        if (useUV0) {
-            mPBRData.texControl.w = 0.0f;
-        }
-        else {
-            mPBRData.texControl.w = 1.0f;
         }
         mIsDirty = true;
     }

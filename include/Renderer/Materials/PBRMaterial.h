@@ -18,10 +18,10 @@ namespace Render {
         void setMetallic(float metallic);
         void setRoughness(float roughness);
         void setAOStrength(float ao);
-        void setMetallicRoughnessTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0 = true);
-        void setAOTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0 = true);
+        void setMetallicRoughnessTexture(TexturePtr tex, SamplerPtr sampler);
+        void setAOTexture(TexturePtr tex, SamplerPtr sampler);
 
-        void setNormalTexture(TexturePtr tex, SamplerPtr sampler, bool useUV0 = true);
+        void setNormalTexture(TexturePtr tex, SamplerPtr sampler);
         void setNormalScale(float scale);
 
         void setEmissive(const vec3& factor);
