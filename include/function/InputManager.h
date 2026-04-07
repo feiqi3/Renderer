@@ -55,7 +55,7 @@ namespace Render {
 		double mCursorY = 0.0;
 		double mPrevCursorX = 0.0;
 		double mPrevCursorY = 0.0;
-		bool isWindowFoused = false;
+		bool isWindowFoused = true;
 		bool isCursorUpdated = false;
 		bool ignoreNextCursor = false;
 	private:
