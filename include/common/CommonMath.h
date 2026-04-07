@@ -100,6 +100,9 @@ namespace Render {
 	inline auto fromAxisAngle(const vec3& axis, float angle) {
 		return glm::angleAxis(angle,axis);
 	}
+
+	static inline double PI = 3.141592653589793238462643383279502884197;
+	static inline double PI2 = 2 * PI;
 }
 
 #endif

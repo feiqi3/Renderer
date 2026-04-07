@@ -11,16 +11,16 @@ namespace Render
 	}
 
 
-	void FPSCameraControl::setPitch(float angle)
+	void FPSCameraControl::setPitch(float rad)
 	{
 		markDirty();
-		mPitch = angle;
+		mPitch = rad;
 	}
 
-	void FPSCameraControl::setYaw(float angle)
+	void FPSCameraControl::setYaw(float rad)
 	{
 		markDirty();
-		mYaw = angle;
+		mYaw = rad;
 	}
 
 	float FPSCameraControl::getPitch() const
@@ -50,8 +50,8 @@ namespace Render
 
 	glm::vec3 FPSCameraControl::getDirection() const
 	{
-		float radYaw = radians(mYaw);
-		float radPitch = radians(mPitch);
+		float radYaw = (mYaw);
+		float radPitch = (mPitch);
 		vec3 ret;
 		ret.x = cos(radPitch) * cos(radYaw);
 		ret.y = sin(radPitch);
@@ -77,16 +77,16 @@ namespace Render
 		}
 
 		mYaw	+= mSensitivity * mCursorDx;
-		if (mYaw > 360.) {
-			mYaw -= 360.;
+		if (mYaw > PI2) {
+			mYaw -= PI2;
 		}
 		else if (mYaw < 0.) {
-			mYaw += 360.;
+			mYaw += PI2;
 		}
 
 		mPitch	+= mSensitivity * mCursorDy;
 
-		mPitch = clamp(mPitch, -89.5f, 89.5f);
+		mPitch = clamp(mPitch, radians(- 89.5f),radians(89.5f));
 
 		mDirty = false;
 		mCursorDx = 0;

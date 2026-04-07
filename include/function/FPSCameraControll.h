@@ -6,8 +6,8 @@ namespace Render {
 	class FPSCameraControl {
 	public:
 		FPSCameraControl		( );
-		void	setPitch		(float angle);
-		void	setYaw			(float angle);
+		void	setPitch		(float rad);
+		void	setYaw			(float rad);
 		
 		float	getPitch		( )const;
 		float	getYaw			( )const;
