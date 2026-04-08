@@ -10,6 +10,9 @@ namespace Render {
 		void unloadImpl(Texture* texture);
 		const Name& typeName()const override;
 		const Name& getDefaultResourceName()const override;
+
+		TexturePtr getOrCreateCubemap(const Name& name);
+
 	public:
 		void createNecessaryPersistenceResources()override;
 		Name mDefaultResourceName;

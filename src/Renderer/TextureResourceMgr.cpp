@@ -49,6 +49,7 @@ namespace Render{
 	void TextureResourceManager::unloadImpl(Texture* texture)
 	{
 		RenderSystem::instance()->destroyImage(texture->getRsImage());
+		delete texture;
 	}
 
 	const Name& TextureResourceManager::typeName() const
@@ -59,6 +60,11 @@ namespace Render{
 	const Name& TextureResourceManager::getDefaultResourceName() const
 	{
 		return mDefaultResourceName;
+	}
+
+	Render::TexturePtr TextureResourceManager::getOrCreateCubemap(const Name& name)
+	{
+
 	}
 
 	void TextureResourceManager::createNecessaryPersistenceResources() {

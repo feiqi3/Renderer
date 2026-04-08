@@ -7,6 +7,18 @@
 #include "Renderer/RenderCommand.h"
 #include <unordered_map>
 namespace Render {
+
+    namespace RenderOrder {
+        u32 Opaque = 1000;
+        u32 SkyBox = 9999;
+        u32 Transparent = 10000;
+    };
+
+    namespace RenderMask {
+        u64 Normal = 1ull << 0;
+		u64 SkyBox = 1ull << 32;
+    };
+
     class Pass;
     class RenderQueue
     {
