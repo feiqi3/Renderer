@@ -348,6 +348,43 @@ namespace Render::Vulkan {
                 bindingInfo.type = UniformType::ConstantBuffer;
             }
 
+            if (bindingInfo.type == UniformType::Texture) {
+                switch (binding->image.dim)
+                {
+                case SpvDim1D:
+                    bindingInfo.imageType = ImageType::V1D;
+                    break;
+                case SpvDim2D:
+                {
+                    if (binding->array.dims_count > 1) {
+                        bindingInfo.imageType = ImageType::V2D_Array;
+                    }
+                    else {
+						bindingInfo.imageType = ImageType::V2D;
+                    }
+					break;
+				}
+                case SpvDim3D:
+                {
+					bindingInfo.imageType = ImageType::V3D;
+                    break;
+                }
+				case SpvDimCube:
+				{
+					if (binding->array.dims_count > 1) {
+						bindingInfo.imageType = ImageType::VCube_Array;
+					}
+					else {
+						bindingInfo.imageType = ImageType::VCube;
+					}
+					break;
+				}
+                default:
+					bindingInfo.imageType = ImageType::V2D;
+					break;
+                }
+            }
+
             bindingInfo.size = binding->block.size;
             bindingInfo.shaderVisibleStage = (uint16_t)shader->shaderStage;
             bindings.emplace_back(std::move(bindingInfo));

@@ -162,6 +162,7 @@ namespace Render {
         uint16_t count = 0; 
         uint16_t size = 0; 
         UniformType type;
+        ImageType   imageType = ImageType::Invalid;
     };
 
     struct Rect2D {

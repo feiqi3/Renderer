@@ -385,8 +385,15 @@ namespace Render::Vulkan {
 			Log::error("Wrong binding type in binding" + std::to_string(binding));
 			return;
         }
+
 		if (descriptorSet->mBindingData[binding].native == (VkImageView)image->defaultView.native)return;
-		descriptorSet->mBindingData[binding].native = (VkImageView)image->defaultView.native;
+		
+
+		if (bindingInfo.imageType != ImageType::Invalid && bindingInfo.imageType != image->defaultView.viewKey.getViewType()) {
+			Log::warn("Wrong image view type in binding" + std::to_string(binding));
+		}
+
+        descriptorSet->mBindingData[binding].native = (VkImageView)image->defaultView.native;
         descriptorSet->mBindingData[binding].rsData = &(image->defaultView);
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         writeSet.dstBinding = binding;
@@ -623,7 +630,13 @@ namespace Render::Vulkan {
 			assert(0 && "Wrong binding type");
 			return;
 		}
+
 		if (descriptorSet->mBindingData[binding].native == view->native)return;
+
+		if (bindingInfo.imageType != ImageType::Invalid && bindingInfo.imageType != image->defaultView.viewKey.getViewType()) {
+			Log::warn("Wrong image view type in binding" + std::to_string(binding));
+		}
+
 		descriptorSet->mBindingData[binding].native = view->native;
         descriptorSet->mBindingData[binding].rsData = view;
         VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };

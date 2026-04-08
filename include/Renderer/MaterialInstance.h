@@ -30,6 +30,7 @@ namespace Render {
 		struct _ParameterPair {
 			rs_binding_pos        bindingPos;
 			UniformType           parameterType;
+			ImageType			  parameterImageType;
 			RenderResourceVariant var;
 		};
 

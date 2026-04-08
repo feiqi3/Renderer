@@ -49,11 +49,14 @@ namespace Render {
 					_ParameterPair bpair{};
 					bpair.bindingPos = bindingInfoOption->bindingPos;
 					bpair.parameterType = bindingInfoOption->type;
+					bpair.parameterImageType = ImageType::Invalid;
 					if (bindingInfoOption->type == UniformType::UniformBuffer) {
 						//Give a baisc size.
 						bpair.var.setUniformBuffer(nullptr, bindingInfoOption->size);
 					}
-
+					if (bindingInfoOption->type == UniformType::Texture) {
+						bpair.parameterImageType = bindingInfoOption->imageType;
+					}
 					auto ret = this->mParameterMap.insert({ paramName, std::move(bpair) });
 					return &(ret.first)->second;
 				}
@@ -68,7 +71,16 @@ namespace Render {
 	void Material::bindParameter(const std::string& paramName, TexturePtr tex)
 	{
 		auto bpair = this->getParameterInfo(paramName);
+
+
+
 		if (bpair.has_value()) {
+
+			auto viewType = tex->getRsImage()->defaultView.viewKey.getViewType();
+			if (viewType != ImageType::Invalid && viewType != (*bpair)->parameterImageType) {
+				//assert(false && "invalid binding");
+			}
+
 			auto& pair = *bpair.value();
 			if (pair.parameterType == UniformType::Texture ||
 				pair.parameterType == UniformType::StorageImage ||
@@ -173,7 +185,7 @@ namespace Render {
 	}
 	u32 Material::getRenderOrder() const
 	{
-		return u32();
+		return mRenderOrder;
 	}
 
 }
