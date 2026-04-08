@@ -931,6 +931,11 @@ namespace Render::Vulkan {
         ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
+        if (desc.type == ImageType::VCube || desc.type == ImageType::VCube_Array) {
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            ici.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+        }
+
         VmaAllocationCreateInfo ai{};
         ai.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         VmaAllocationInfo aif;

@@ -121,6 +121,10 @@ namespace Render {
         }
         pImageData = 0;
     }
+    ImageFormat ImageRaw::getFormat() const
+    {
+		return getImageFormat(getChannel(), isHdr());
+    }
     ImageRaw::ImageRaw(const std::string& path, int want_channels)
     {
         auto fileStream = Platform::FileSystem::instance()->openFileStream(path);

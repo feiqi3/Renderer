@@ -64,6 +64,7 @@ namespace Render{
 		void destroyDrawData(rs_drawdata* data);
 		rs_drawdata* getCurCameraDrawData();
 
+		rs_image* createCubemap(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int arrayLayers, int mipmap);
 		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap);
 		void destroyImage(rs_image* image);
 		//It's quite hard to calculate Device size of a texture...   

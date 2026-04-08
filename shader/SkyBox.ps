@@ -1,3 +1,5 @@
+#version 450
+#include "SkyBoxData.h"
 #include "CommonSets.inl"
 
 
@@ -5,10 +7,10 @@ layout(set = 4,binding = 0)uniform ObjectUniformData{
     SkyBoxData data;
 }skyboxData;
 
-#define skyboxData.data SKYBOX
+#define SKYBOX skyboxData.data 
 
-layout(set = 4,binding = 1)textureCube SkyboxCubeMap;
-layout(set = 4,binding = 2)sampler2D cubemapSampler;
+layout(set = 4,binding = 1)uniform textureCube SkyboxCubeMap;
+layout(set = 4,binding = 2)uniform sampler cubemapSampler;
 
 layout(location = 0) in vec2 v_uv;
 layout(location = 1) in vec3 o_viewDir;
@@ -17,7 +19,7 @@ layout(location = 0) out vec4 fragColor;
 
 void main() {
     vec4 cubemapAlbedo = texture(samplerCube(SkyboxCubeMap,cubemapSampler),o_viewDir);
-    vec3 exposureColor = pow(cubemapAlbedo.rgb * SKYBOX.colorexposureTuning.rgb,SKYBOX.colorexposureTuning.w);
+    vec3 exposureColor = pow(cubemapAlbedo.rgb * SKYBOX.colorexposureTuning.rgb,vec3(SKYBOX.colorexposureTuning.w));
     fragColor.xyz = exposureColor;
     fragColor.w = 1;
 }

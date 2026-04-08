@@ -76,16 +76,16 @@ namespace Render {
 
 		if (bpair.has_value()) {
 
-			auto viewType = tex->getRsImage()->defaultView.viewKey.getViewType();
-			if (viewType != ImageType::Invalid && viewType != (*bpair)->parameterImageType) {
-				//assert(false && "invalid binding");
-			}
-
 			auto& pair = *bpair.value();
 			if (pair.parameterType == UniformType::Texture ||
 				pair.parameterType == UniformType::StorageImage ||
 				pair.parameterType == UniformType::InputAttachment) {
 				if (tex != nullptr) {
+					auto viewType = tex->getRsImage()->defaultView.viewKey.getViewType();
+					if (viewType != ImageType::Invalid && viewType != (*bpair)->parameterImageType) {
+						//assert(false && "invalid binding");
+					}
+					
 					pair.var.set(tex);
 				}
 				else {
@@ -144,8 +144,13 @@ namespace Render {
 				break;
 
 			case UniformType::UniformBuffer:
-				assert(false && "Not supported here");
+			{
+				void* dataptr = nullptr;
+				uint32_t size = 0;
+				bpair.var.getData(&dataptr, &size);
+				sys->updateUniformBufferData(bpair.bindingPos, dataptr, size, pass);
 				break;
+			}
 
 			case UniformType::StorageImage:
 			case UniformType::Texture:

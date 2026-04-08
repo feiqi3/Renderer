@@ -106,6 +106,15 @@ namespace Render {
 		return nullptr;
 	}
 
+	void RenderResourceVariant::getData(void** data, uint32_t* size) const
+	{
+		if (isUniformBuffer()) {
+			auto& scopedShaderData = std::get<ShaderScopeDataPtr>(mData);
+			*data = scopedShaderData.get();
+			*size = scopedShaderData.size();
+		}
+	}
+
 	void RenderResourceVariant::setUniformBuffer(const void* data, u32 size) {
 		if (size == 0) return;
 		if (this->isUniformBuffer())

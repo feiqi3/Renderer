@@ -23,6 +23,7 @@ namespace Render {
 		rs_image* updateToGPU()const;
 		class Texture* toTextureResource();
 		~ImageRaw();
+		ImageFormat getFormat()const;
 	protected:
 		ImageRaw(const std::string& path,int want_channels = -1);
 		ImageRaw(int width, int height, int channel, bool hdr);

@@ -369,13 +369,38 @@ namespace Render{
 	{
 		return Vulkan::createDrawData(getRenderContext());
 	}
+	rs_image* RenderSystem::createCubemap(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int arrayLayers, int mipmap)
+	{
+		ImageDesc desc{};
+		desc.width = x;
+		desc.height = y;
+		desc.depth = z;
+		desc.mipLevels = mipmap;
+		desc.arrayLayers = arrayLayers * 6;
+		desc.format = format;
+		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst;
+		if (arrayLayers > 1)
+		{
+			desc.type = ImageType::VCube_Array;
+		}
+		else {
+			desc.type = ImageType::VCube;
+		}
+
+		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
+		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+		if (data && byteSize > 0) {
+			updateImageData(ret, data, byteSize, 0, 0, 0, x, y, z, 0, 6 * arrayLayers, mipmap);
+		}
+		return ret;
+	}
 	rs_image* RenderSystem::createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap)
 	{
 		ImageDesc desc{};
 		desc.width = x;
 		desc.height = y;
 		desc.depth = z;
-		desc.mipLevels = 1;
+		desc.mipLevels = mipmap;
 		desc.arrayLayers = layer;
 
 		ImageType type = ImageType::V2D;

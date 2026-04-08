@@ -3,6 +3,7 @@
 #include "function/Component.h"
 #include "common/CommonMath.h"
 #include "Renderer/Texture.h"
+#include "Renderer/SamplerResourceManager.h"
 #include "Renderer/GPUShared/SkyBoxData.h"
 namespace Render {
 	class SkyboxRenderComponent : public Component {

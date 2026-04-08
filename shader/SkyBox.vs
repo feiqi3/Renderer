@@ -1,12 +1,12 @@
 #version 450
 #include "CommonSets.inl"
 #include "CommonMath.inl"
-
+#include "SkyBoxData.h"
 layout(set = 4,binding = 0)uniform ObjectUniformData{
     SkyBoxData data;
 }skyboxData;
 
-#define skyboxData.data SKYBOX
+#define SKYBOX skyboxData.data 
 
 layout(location = 0) out vec2 v_uv;
 layout(location = 1) out vec3 o_viewDir;
@@ -25,7 +25,7 @@ void main() {
     vec4 targetInView = CAMDATA.MatInvProj * vec4(pos, 1.0, 1.0);
     //We dont care about vector's length,so only take its xyz
     vec3 viewSpaceDir = targetInView.xyz;
-    vec3 worldDir = (MatInvView * vec4(viewSpaceDir, 0.0)).xyz;
+    vec3 worldDir = ( CAMDATA.MatInvView * vec4(viewSpaceDir, 0.0)).xyz;
     vec3 viewDir = normalize(worldDir);
     viewDir = rotate_vector(viewDir, SKYBOX.rotateQuat);
     o_viewDir = viewDir;

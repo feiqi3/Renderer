@@ -32,6 +32,7 @@ namespace Render {
 			RenderState skyBoxRenderState{};
 			skyBoxRenderState.depthWriteEnable = true;
 			skyBoxRenderState.depthTestEnable = true;
+			skyBoxRenderState.depthCompareOp = CompareOp::LessOrEqual;
 			VertexInputDescription iaDesc{};
 			//1. Try create mat template
 			matTplt = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SkyBox"), {

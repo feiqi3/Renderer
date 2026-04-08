@@ -49,6 +49,7 @@ namespace Render {
 		TexturePtr getTexture() const;
 		SamplerPtr getSampler() const;
 		rs_buffer* getRsBuffer() const; 
+		void	   getData(void** data, uint32_t* size)const;
 
 		void setUniformBuffer(const void* data, u32 size);
 

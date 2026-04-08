@@ -3,9 +3,15 @@
 #include "common/CommonMath.h"
 #include "Components/SimpleRenderComponent.h"
 #include "Renderer/GltfLoader.h"
+
 #include "Components/LightComponent.h"
 #include "Components/FPSControllerComponent.h"
+#include "Components/SkyboxRenderComponent.h"
 #include "Renderer/CameraManager.h"
+
+#include "Renderer/TextureResourceMgr.h"
+#include "Renderer/SamplerResourceManager.h"
+#include "common/ResourceSystem.h"
 
 namespace Render {
 	class MoveComponent : public Component {
@@ -78,6 +84,12 @@ namespace Render {
 		auto directionalLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
 		directionalLightcomponent->setDirection(vec3(0, 1, - 1));
 
+		auto skyBoxNode = naiveScene->createObject("Skybox");
+		auto skyBoxComponent = skyBoxNode->addComponent<SkyboxRenderComponent>();
+		skyBoxComponent->setSkybox(TextureResourceManager::instance()->getOrCreateCubemap(Name("../resources/skyboxes/Test")));
+		skyBoxComponent->setSampler(
+			ResourceSystem::instance()->getDefaultResource<Sampler>(Sampler::typeName())
+		);
 		Scene::setCurrentScene(naiveScene);
 		return naiveScene;
 	}
