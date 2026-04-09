@@ -9,7 +9,7 @@ namespace Render {
 	{
 		//1. Set RenderInfo
 		auto& renderInfo = getRenderInfo();
-		renderInfo.idxCount = 6;
+		renderInfo.idxCount = 3;
 		this->mSkyboxMaterial = getSkyBoxMaterial();
 		this->createPass(PassName::MainCameraPass);
 		this->getMaterial()->setRenderOrder(RenderOrder::SkyBox);
