@@ -325,33 +325,35 @@ namespace Render {
         ShaderResource = 1ULL << 4,  // Shader Read (Sampled Image / Texture)
         UnorderedAccess = 1ULL << 5,  // Shader Read/Write (Storage Image / Storage Buffer / UAV)
 
+        ComputeShaderResource = 1ULL << 6, //Compute Shader Read (Sampled Image / Texture)
+        ComputeUnorderedAccess = 1ULL << 7, //Compute Shader Read/Write (Storage Image / Storage Buffer / UAV)
         // ==========================================
         // Render Target
         // ==========================================
-        RenderTarget = 1ULL << 6,  // Color Attachment
-        DepthStencilWrite = 1ULL << 7,  // Write Depth Stencil Attachment
-        DepthStencilRead = 1ULL << 8,  // Read Depth Stencil Attachment
+        RenderTarget = 1ULL << 8,  // Color Attachment
+        DepthStencilWrite = 1ULL << 9,  // Write Depth Stencil Attachment
+        DepthStencilRead = 1ULL << 10,  // Read Depth Stencil Attachment
 
         // ==========================================
         // Copy / Blit / Resolve
         // ==========================================
-        TransferSrc = 1ULL << 9,  
-        TransferDst = 1ULL << 10,
-        ResolveSrc = 1ULL << 11, 
-        ResolveDst = 1ULL << 12, 
+        TransferSrc = 1ULL << 11,  
+        TransferDst = 1ULL << 12,
+        ResolveSrc = 1ULL << 13, 
+        ResolveDst = 1ULL << 14, 
 
         // ==========================================
         // Host 
         // ==========================================
-        HostRead = 1ULL << 13, // VK_ACCESS_HOST_READ_BIT
-        HostWrite = 1ULL << 14, // VK_ACCESS_HOST_WRITE_BIT
+        HostRead = 1ULL << 15, // VK_ACCESS_HOST_READ_BIT
+        HostWrite = 1ULL << 16, // VK_ACCESS_HOST_WRITE_BIT
 
         // ==========================================
         // 特殊状态
         // ==========================================
-        Present = 1ULL << 15, 
-        GenericRead = 1ULL << 16,
-        General = 1ULL << 17  
+        Present = 1ULL << 17, 
+        GenericRead = 1ULL << 18,
+        General = 1ULL << 19  
     };
 
 	using DrawDataArray = std::array<struct rs_drawdata*, 4>;

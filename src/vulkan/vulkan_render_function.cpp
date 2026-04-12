@@ -2139,6 +2139,18 @@ namespace Render::Vulkan {
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
 
+    void cmdDispatch(rs_commandbuffer_vk* cb, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData, uint32_t curFIF, int x, int y, int z)
+    {
+        if (pipeline == 0) {
+            assert(0);
+            return;
+        }
+        auto cmd = (VkCommandBuffer)cb->native;
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, (VkPipeline)pipeline->native);
+		cmdBindDrawData(cb, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawData, curFIF);
+		vkCmdDispatch(cmd, x, y, z);
+    }
+
     void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
     {
         if (pipeline == 0) {
@@ -2318,7 +2330,7 @@ namespace Render::Vulkan {
         vkCmdCopyBuffer2(cmd, &cpInfo);
     }
 
-    void cmdTransitDrawDataState(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif)
+    void cmdTransitDrawDataState(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData,PipelineType pipelineType, uint32_t curFif)
     {
         auto& curFrameDescriptors = ((rs_drawdata_vk*)drawData)->DescriptorSets[curFif];
         for (const auto& [setIdx, descriptorSet] : curFrameDescriptors) {
@@ -2332,14 +2344,17 @@ namespace Render::Vulkan {
                     break;
                 }
                 case    UniformType::StorageBuffer: {
-                    transitionBufferState(cb, (rs_buffer_vk*)binding.rsData, ResourceState::UnorderedAccess);
+                    transitionBufferState(cb, (rs_buffer_vk*)binding.rsData,
+                        pipelineType == PipelineType::Compute ? ResourceState::ComputeUnorderedAccess : ResourceState::UnorderedAccess);
                     break;
                 }
                 case    UniformType::StorageImage: {
                     auto* view = (rs_image_view*)binding.rsData;
                     auto& viewkey = view->viewKey;
                     rs_image_vk* image = (rs_image_vk*)view->image;
-                    transitionImageState(cb, image, ResourceState::UnorderedAccess, viewkey.getBaseMip(),
+                    transitionImageState(cb, image,
+                        pipelineType == PipelineType::Compute ? ResourceState::ComputeUnorderedAccess : ResourceState::UnorderedAccess,
+                        viewkey.getBaseMip(),
                         viewkey.getMipCount(), viewkey.getBaseLayer(), viewkey.getLayerCount());
                     break;
                 }
@@ -2347,7 +2362,9 @@ namespace Render::Vulkan {
                     auto* view = (rs_image_view*)binding.rsData;
                     auto& viewkey = view->viewKey;
                     rs_image_vk* image = (rs_image_vk*)view->image;
-                    transitionImageState(cb, image, ResourceState::ShaderResource, viewkey.getBaseMip(),
+                    transitionImageState(cb, image,
+                        pipelineType == PipelineType::Compute ? ResourceState::ComputeShaderResource : ResourceState::ShaderResource,
+                        viewkey.getBaseMip(),
                         viewkey.getMipCount(), viewkey.getBaseLayer(), viewkey.getLayerCount());
                     break;
                 }
@@ -2355,7 +2372,9 @@ namespace Render::Vulkan {
                     auto* view = (rs_image_view*)binding.rsData;
                     auto& viewkey = view->viewKey;
                     rs_image_vk* image = (rs_image_vk*)view->image;
-                    transitionImageState(cb, image, ResourceState::ShaderResource, viewkey.getBaseMip(),
+                    transitionImageState(cb, image,
+                        pipelineType == PipelineType::Compute ? ResourceState::ComputeShaderResource : ResourceState::ShaderResource,
+                        viewkey.getBaseMip(),
                         viewkey.getMipCount(), viewkey.getBaseLayer(), viewkey.getLayerCount());
                     break;
                 }

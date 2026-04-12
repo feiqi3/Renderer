@@ -123,12 +123,13 @@ namespace Render::Vulkan {
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
+	void cmdDispatch(rs_commandbuffer_vk* cb, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData,uint32_t curFIF,int x,int y,int z);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_graphic_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif);
 	void cmdFillNullDescriptor(rs_context_vk* context, rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif, uint64_t frame);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
-	void cmdTransitDrawDataState(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, uint32_t curFif);
+	void cmdTransitDrawDataState(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, PipelineType pipelineType, uint32_t curFif);
 	//Decrepted
 	void cmdCopyBufferToImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* buffer, uint32_t srcOffset, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdCopyImageToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* buffer, uint32_t bufferOffset, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);

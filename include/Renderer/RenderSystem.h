@@ -83,21 +83,32 @@ namespace Render{
 
 		//In Logic Frame only
 		rs_binding_pos getBindingPos(const std::string& bindingName, MaterialPass* material);
-
 		void updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_image* image, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_image* image,ImageViewKey viewkey, Pass* pass);
 		void updateUniform(rs_binding_pos binding, rs_sampler* sampler, Pass* pass);
+
+		rs_binding_pos getBindingPos(const std::string& bindingName, rs_pipeline* pipelineLayout);
+		void updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, rs_pipeline* pipelineupdateUniformBufferData, rs_drawdata* drawData);
+		void updateUniform(rs_binding_pos binding, rs_buffer* buffer, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
+		void updateUniform(rs_binding_pos binding, rs_image* image, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
+		void updateUniform(rs_binding_pos binding, rs_image* image, ImageViewKey viewkey, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
+		void updateUniform(rs_binding_pos binding, rs_sampler* sampler, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
+
+
 		void updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip);
 		void updateBufferData(rs_buffer* buffer,void* data,size_t byteSize,size_t dstOffset);
 		void submitCmdBuffer(rs_commandbuffer* cmdBuffer,const std::vector<rs_semaphore*>& wait, const std::vector<rs_semaphore*>& singal,rs_fence* fence);
 		void updateParameters(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
+
+		void dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ);
+
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
 		
 		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas);
-		void transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, rs_drawdata* drawdata);
+		void transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type , rs_drawdata* drawdata);
 		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass);
 		void fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass);
 		void waitForFence(rs_fence* fence);
