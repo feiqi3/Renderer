@@ -35,12 +35,11 @@ namespace Render {
 			mSwapchainPass = new SwapchainPass;
 			initMainCamPass();
 			initSwapChainPass();
-			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemphore();
-			this->mAccquireImgSemaphore = RenderSystem::instance()->createSemphore();
-			this->mPresentToScreenSemaphore = RenderSystem::instance()->createSemphore();
+			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemaphore();
+			this->mAccquireImgSemaphore = RenderSystem::instance()->createSemaphore();
+			this->mPresentToScreenSemaphore = RenderSystem::instance()->createSemaphore();
 			mWaitForRenderEndFence = RenderSystem::instance()->createFence();
 			auto RenderSys = RenderSystem::instance();
-			RenderSys->setRenderFence(mWaitForRenderEndFence);
 			//Is Present image accquired?  
 			RenderSys->setSignalCanPresentToPresentImageSemaphore(mPresentToScreenSemaphore);
 			//Is Rendered to present image finished?
@@ -86,9 +85,9 @@ namespace Render {
 			deinitMainCamPass();
 			deinitSwapchainPass();
 
-			RenderSystem::instance()->destroySemphore(mOffscreenFinishSemaphore);
-			RenderSystem::instance()->destroySemphore(mAccquireImgSemaphore);
-			RenderSystem::instance()->destroySemphore(mPresentToScreenSemaphore);
+			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
+			RenderSystem::instance()->destroySemaphore(mAccquireImgSemaphore);
+			RenderSystem::instance()->destroySemaphore(mPresentToScreenSemaphore);
 			RenderSystem::instance()->destroyFence(mWaitForRenderEndFence);
 		}
 
@@ -114,6 +113,12 @@ namespace Render {
 			RenderSys->cmdEnd(cmdbufSwapchain);
 			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
 			RenderSys->getMainRenderQueue()->clear();
+			
+			//Wait for last time frame Render finished
+			//Like frame 1 is wait for frame 0 to render finished
+			if(RenderSys->getNextRenderFrame() != 0)
+				RenderSys->waitForFence(mWaitForRenderEndFence,RenderSys->getCurRenderFif());
+			RenderSys->resetFence(mWaitForRenderEndFence, RenderSys->getCurRenderFif());
 		}
 	private:
 		MainCameraPass* mMainCamPass = 0;

@@ -99,7 +99,6 @@ namespace Render{
 		sRenderSystem->mDp->mRenderDispatcher = std::make_unique<RenderGroup>();
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
-
 		new Platform::FileSystem;
 		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
@@ -137,11 +136,7 @@ namespace Render{
 	{
 		ComponentSystem::instance()->doDestroyComponents();
 		Vulkan::endRsFrameVk(getRenderContext());
-		if (this->FenceToWaitForRender && this->currentLogicFrame > 0)
-		{
-			waitForFence(FenceToWaitForRender);
-			resetFence(FenceToWaitForRender);
-		}
+
 		currentLogicFrame++;
 		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
 		getRenderContext()->canRenderNextFrame = true;
@@ -272,7 +267,6 @@ namespace Render{
 		Vulkan::cmdsetRenderTarget(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_rendertarget_vk*)rendertarget);
 	}
 	void RenderSystem::cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect)
-
 	{
 		Vulkan::cmdSetScissor((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect, framebufferIdx);
 	}
@@ -694,9 +688,15 @@ namespace Render{
 			}
 		}
 	}
+
+	void RenderSystem::waitForFence(rs_fence* fence,u32 fif)
+	{
+		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, -1, fif);
+	}
+
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{
-		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,-1,getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
+		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,-1,getCurFif());
 	}
 	void RenderSystem::clearRenderEntity(RenderEntity* entity)
 	{
@@ -715,6 +715,11 @@ namespace Render{
 		static const std::vector<std::string> ret{ "../shader","shader"
 			,"../include/Renderer/GPUShared", "include/Renderer/GPUShared" };
 		return ret;
+	}
+
+	glm::u32 RenderSystem::getCurRenderFif() const
+	{
+		return getRenderContext()->RenderFrameFif;
 	}
 
 	uint64_t RenderSystem::getNextRenderFrame() const
@@ -765,12 +770,12 @@ namespace Render{
 		Vulkan::cmdEndRecord((Vulkan::rs_commandbuffer_vk*)cmdBuffer);
 	}
 
-	rs_semaphore* RenderSystem::createSemphore()
+	rs_semaphore* RenderSystem::createSemaphore()
 	{
 		return Vulkan::createRsSemaphore(getRenderContext());
 	}
 
-	void RenderSystem::destroySemphore(rs_semaphore* semphore)
+	void RenderSystem::destroySemaphore(rs_semaphore* semphore)
 	{
 		auto vkSem = (Vulkan::rs_semaphore_vk*)semphore;
 		Vulkan::destroyRsSemaphore(getRenderContext(), vkSem);
@@ -791,6 +796,11 @@ namespace Render{
 	void RenderSystem::resetFence(rs_fence* fence)
 	{
 		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
+	}
+
+	void RenderSystem::resetFence(rs_fence* fence, uint32_t FiF)
+	{
+		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, FiF);
 	}
 
 	void RenderSystem::setCurrentCamera(Camera* camera)

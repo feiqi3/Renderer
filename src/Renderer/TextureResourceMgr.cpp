@@ -74,18 +74,19 @@ namespace Render{
 		std::vector<std::string> listOfFoundFace;
 		listOfFoundFace.reserve(6);
 		for (const auto& name : nameOfCubeMapFace) {
+			bool found = false;
 			for (const auto& fileName : listFilesOfDirectory) {
-				bool found = false;
-				if (fileName.starts_with(fileName)) {
+				if (fileName.starts_with(name)) {
 					listOfFoundFace.push_back(fileName);
 					found = true;
 					break;
 				}
-				if (!found)
-				{
-					assert(0 && "Cubemap face not found");
-					return nullptr;
-				}
+			}
+
+			if (!found)
+			{
+				assert(0 && "CubeMap face not found");
+				return nullptr;
 			}
 		}
 		int x = -1,y = -1,channel = -1;

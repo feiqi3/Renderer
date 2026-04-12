@@ -101,11 +101,13 @@ namespace Render{
 		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass);
 		void fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass);
 		void waitForFence(rs_fence* fence);
+		void waitForFence(rs_fence* fence, u32 frameInFlight);
 		void clearRenderEntity(RenderEntity* entity);
 
 		ShaderIncFindFunc getShaderIncludeSearchFunc()const;
 		const std::vector<std::string>& getShaderIncludeSearchDir()const;
 
+		u32		 getCurRenderFif()const;
 		uint64_t getNextRenderFrame()const;
 		uint32_t getCurFif()const;
 
@@ -118,12 +120,15 @@ namespace Render{
 		void cmdBegin(rs_commandbuffer* cmdBuffer);
 		void cmdEnd(rs_commandbuffer* cmdBuffer);
 
-		rs_semaphore* createSemphore();
-		void destroySemphore(rs_semaphore* semphore);
+		rs_semaphore* createSemaphore();
+		//Set to -1 to wait for current frame
+		void destroySemaphore(rs_semaphore* semphore);
 
+		//Not signaled state.
 		rs_fence* createFence();
 		void destroyFence(rs_fence* fence);
 		void resetFence(rs_fence* fence);
+		void resetFence(rs_fence* fence,uint32_t FiF);
 
 		void setCurrentCamera(Camera* camera);
 		Camera* getCurrentCamera();
@@ -133,10 +138,6 @@ namespace Render{
 		}
 		void setSignalCanPresentToPresentImageSemaphore(rs_semaphore* semaphores) {
 			SignalCanPresentToPresentImageSemaphore = semaphores;
-		}
-
-		void setRenderFence(rs_fence* fence) {
-			FenceToWaitForRender = fence;
 		}
 
 		void setEngineIdle();
@@ -173,7 +174,6 @@ namespace Render{
 
 		rs_semaphore* SignalCanRenderToPresentImageSemaphore ;
 		rs_semaphore* SignalCanPresentToPresentImageSemaphore ;
-		rs_fence* FenceToWaitForRender = 0;
 		
 	private: 
 		static RenderSystem* sRenderSystem;

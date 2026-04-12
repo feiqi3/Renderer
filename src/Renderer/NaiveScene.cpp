@@ -86,7 +86,7 @@ namespace Render {
 
 		auto skyBoxNode = naiveScene->createObject("Skybox");
 		auto skyBoxComponent = skyBoxNode->addComponent<SkyboxRenderComponent>();
-		skyBoxComponent->setSkybox(TextureResourceManager::instance()->getOrCreateCubemap(Name("../resources/skyboxes/Test")));
+		skyBoxComponent->setSkybox(TextureResourceManager::instance()->getOrCreateCubemap(Name("../resources/skyboxes/CityViewHdr")));
 		skyBoxComponent->setSampler(
 			ResourceSystem::instance()->getDefaultResource<Sampler>(Sampler::typeName())
 		);
