@@ -50,7 +50,7 @@ namespace Render {
 		for (auto&& [name, matVariant] : this->mMaterialPassMap) {
 			if (matVariant->getRenderPass() == pass) {
 				//1. destroy old pipeline.
-				auto pipeline = (Vulkan::rs_pipeline_vk*)matVariant->getRsPipeline();
+				auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)matVariant->getRsPipeline();
 				RenderState oldstate = pipeline->renderState;
 				Vulkan::destroyRsPipeline(ctx, pipeline);
 				matVariant->mRsPipeline = createVariantPipeline(pass, matVariant->getShaderStageInfo(), oldstate);
@@ -148,7 +148,7 @@ namespace Render {
 			.vertexInputDesc = getInputVertexDesc()
 		};
 
-		auto pipeline = Vulkan::createRsPipeline(ctx, (Vulkan::rs_renderpass_vk*)pass->getRaw(), desc);
+		auto pipeline = Vulkan::createRsGraphicPipeline(ctx, (Vulkan::rs_renderpass_vk*)pass->getRaw(), desc);
 		for (auto sdm : modules) {
 			auto mod = (Vulkan::rs_shader_module_vk*)sdm;
 			Vulkan::destroyRsShader(ctx, mod);
@@ -160,7 +160,7 @@ namespace Render {
 	void MaterialTemplate::destroyMaterialPass(MaterialPass* mat)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)mat->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)mat->getRsPipeline();
 		Vulkan::destroyRsPipeline(ctx, pipeline);
 		delete mat;
 	}

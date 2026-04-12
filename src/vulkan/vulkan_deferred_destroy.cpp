@@ -39,7 +39,7 @@ namespace Render::Vulkan {
 		mFrameSamplers[f].push_back(sampler);
 	}
 
-	void DeferredDestroyer::destroyPipeline(uint64_t frame, rs_pipeline_vk* pipeline)
+	void DeferredDestroyer::destroyPipeline(uint64_t frame, rs_pipeline* pipeline)
 	{
 		int f = frame % mMaxFrameInFlight;
 		mFramePipelines[f].push_back(pipeline);

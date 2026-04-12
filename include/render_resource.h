@@ -71,10 +71,21 @@ namespace Render {
 	struct rs_sampler : rs_base {
 	};
 
-	struct rs_pipeline : rs_base {
-		VertexInputDescription vtxInput;
-		RenderState renderState;
+	struct rs_pipeline_layout : rs_base {
 		std::vector<BindingInfo> bindingInfo;
+	};
+
+	struct rs_pipeline : rs_base {
+		rs_pipeline_layout* pipelineLayout;
+		PipelineType type{};
+	};
+
+	struct rs_graphic_pipeline : rs_pipeline {
+		RenderState renderState;
+		VertexInputDescription vtxInput;
+	};
+
+	struct rs_compute_pipeline : rs_pipeline {
 	};
 
 	struct rs_renderpass : rs_base {

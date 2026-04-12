@@ -333,13 +333,13 @@ namespace Render{
 		Vulkan::flushRsBuffer(getRenderContext(), (Vulkan::rs_buffer_vk*)buffer, size);
 	}
 
-	rs_pipeline* RenderSystem::createRenderPipeline(rs_renderpass* renderpass, PipelineDesc& pipelineDescription)
+	rs_graphic_pipeline* RenderSystem::createGraphicPipeline(rs_renderpass* renderpass, PipelineDesc& pipelineDescription)
 	{
-		return Vulkan::createRsPipeline(getRenderContext(), (Vulkan::rs_renderpass_vk*)renderpass, pipelineDescription);
+		return Vulkan::createRsGraphicPipeline(getRenderContext(), (Vulkan::rs_renderpass_vk*)renderpass, pipelineDescription);
 	}
-	void RenderSystem::destroyRenderPipeline(rs_pipeline* pipeline)
+	void RenderSystem::destroyPipeline(rs_pipeline* pipeline)
 	{
-		auto plVk = (Vulkan::rs_pipeline_vk*)pipeline;
+		auto plVk = (Vulkan::rs_graphic_pipeline_vk*)pipeline;
 		Vulkan::destroyRsPipeline(getRenderContext(), plVk);
 	}
 	rs_sampler* RenderSystem::createSampler(const SamplerDesc& desc)
@@ -543,7 +543,7 @@ namespace Render{
 	void RenderSystem::updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass)
 	{	
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)(pass->mMaterial->getRsPipeline());
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)(pass->mMaterial->getRsPipeline());
 		auto drawData = (Vulkan::rs_drawdata_vk*)(pass->mDrawData);
 		//We can use updateBufferData instead, but inside Vulkan::updateDrawData, we can gain a better performance by dynamic buffer and avoid some redundant buffer update operation.
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame,pipeline,drawData, binding, data, size);
@@ -551,14 +551,14 @@ namespace Render{
 	void RenderSystem::updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass)
 	{
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_buffer_vk*)buffer);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, Pass* pass)
 	{
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		auto imageToBind = image;
 		if (imageToBind == nullptr) {
@@ -570,7 +570,7 @@ namespace Render{
 	void RenderSystem::updateUniform(rs_binding_pos binding, rs_sampler* sampler, Pass* pass)
 	{
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_sampler_vk*)sampler);
 	}
@@ -578,7 +578,7 @@ namespace Render{
 	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, ImageViewKey viewkey, Pass* pass)
 	{
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		rs_image_view* view = _getViewFromImage(image, viewkey);
 		if (view == nullptr) {
@@ -658,7 +658,7 @@ namespace Render{
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
 	{
 		cmdBuffer->hasCommands = true;
-		auto pipeline = (Vulkan::rs_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};
@@ -666,10 +666,10 @@ namespace Render{
 		fillEmptyParameters(cmdBuffer, (DrawDataArray&)drawDataArr, entity, pass);;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
-	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas)
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas)
 	{
 		cmdBuffer->hasCommands = true;
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_graphic_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
 	}
 	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, rs_drawdata* drawdata)
 	{

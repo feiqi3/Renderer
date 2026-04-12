@@ -75,7 +75,7 @@ namespace Render::Vulkan {
 
 	struct rs_sampler_vk : rs_sampler {};
 
-	struct rs_pipeline_layout_vk : rs_base {
+	struct rs_pipeline_layout_vk : rs_pipeline_layout {
 		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;
 	};
 
@@ -90,10 +90,11 @@ namespace Render::Vulkan {
 		std::mutex mMutex;
 	};
 
-	struct rs_pipeline_vk: rs_pipeline {
+	struct rs_graphic_pipeline_vk: rs_graphic_pipeline {
 		VkObjHandle wireFramePipeline = nullptr;
-		PipelineType type{};
-		rs_pipeline_layout_vk* layout = nullptr;
+	};
+
+	struct rs_compute_pipeline_vk : rs_compute_pipeline {
 	};
 
 	struct rs_renderpass_vk :rs_renderpass {
@@ -163,9 +164,6 @@ namespace Render::Vulkan {
 			>
 		> DescriptorSets; //per frame in flight, per descriptor
 	};
-
-
-
 
 };
 

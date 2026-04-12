@@ -140,7 +140,7 @@ namespace {
 }
 
 namespace Render::Vulkan {
-    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context, uint64_t frame, uint32_t fif, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet);
+    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context, uint64_t frame, uint32_t fif, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet);
 
     ImageFormat ToImageFormat(VkFormat format) {
         switch (format) {
@@ -1448,7 +1448,7 @@ namespace Render::Vulkan {
         return &image->imageViews.back();
 	}
 
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,rs_image_view* view)
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,rs_image_view* view)
 	{
 		auto vkPos = toVkBindingPos(pos);
 		auto fif = context->LogicFrameFif;
@@ -2004,7 +2004,7 @@ namespace Render::Vulkan {
         delete drawdata;
     }
     
-    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
+    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
         auto& frameSets = drawdata->DescriptorSets[fif];
         rs_descriptorSet_vk* targetSet = 0;
         for (auto& [idx, descriptor] : frameSets) {
@@ -2027,7 +2027,7 @@ namespace Render::Vulkan {
 
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size)
     {
         auto vkPos = toVkBindingPos(pos);
         auto fif = context->LogicFrameFif;
@@ -2042,7 +2042,7 @@ namespace Render::Vulkan {
 
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* image)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* image)
     {
         auto vkPos = toVkBindingPos(pos);
         auto fif = context->LogicFrameFif;
@@ -2054,7 +2054,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk)
     {
         auto vkPos = toVkBindingPos(pos);
         auto fif = context->LogicFrameFif;
@@ -2067,7 +2067,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk)
     {
         auto vkPos = toVkBindingPos(pos);
         auto fif = context->LogicFrameFif;
@@ -2139,7 +2139,7 @@ namespace Render::Vulkan {
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
     {
         if (pipeline == 0) {
             assert(0);
@@ -2178,7 +2178,7 @@ namespace Render::Vulkan {
         
         for (auto&& drawdata : drawDatas) {
             if (drawdata) {
-                cmdBindDrawData(cb, pipeline->layout, drawdata, curFif);
+                cmdBindDrawData(cb, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawdata, curFif);
             }
         }
 
@@ -2191,7 +2191,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced, bool wireFrame)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced, bool wireFrame)
     {
         if (pipeline == 0) {
             assert(0);
@@ -2228,7 +2228,7 @@ namespace Render::Vulkan {
             vkCmdBindVertexBuffers(cmd, 0, bufferBinding.size(), bindingBuffers.data(), bufferoffsets.data());
         }
 
-        cmdBindDrawData(cb, pipeline->layout, drawData, curFif);
+        cmdBindDrawData(cb, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawData, curFif);
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
         if (donotuseidxdraw) {

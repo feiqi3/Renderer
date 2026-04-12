@@ -11,7 +11,7 @@ namespace Render {
 	{
 		mRsPipeline = pipeline;
 		//Construct a binding table
-		for (auto&& binding : pipeline->bindingInfo) {
+		for (auto&& binding : getBindingInfo()) {
 			mBindingTable.insert({ binding.bindingItemName,binding });
 		}
 	}

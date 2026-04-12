@@ -55,8 +55,9 @@ namespace Render{
 
 		void flushBuffer(rs_buffer* buffer, uint32_t size);
 
-		rs_pipeline* createRenderPipeline(rs_renderpass* renderpass,PipelineDesc& pipelineDescription);
-		void destroyRenderPipeline(rs_pipeline* pipeline);
+		rs_compute_pipeline* createComputePipeline(rs_shader_module* module);
+		rs_graphic_pipeline* createGraphicPipeline(rs_renderpass* renderpass,PipelineDesc& pipelineDescription);
+		void destroyPipeline(rs_pipeline* pipeline);
 		rs_sampler* createSampler(const SamplerDesc& desc);
 		void destroyRsSampler(rs_sampler* sampler);
 		rs_drawdata* createDrawData();
@@ -95,7 +96,7 @@ namespace Render{
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
 		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
 		
-		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas);
+		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas);
 		void transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, rs_drawdata* drawdata);
 		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass);
 		void fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass);

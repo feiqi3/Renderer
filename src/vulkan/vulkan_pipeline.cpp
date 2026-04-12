@@ -441,7 +441,7 @@ namespace Render::Vulkan {
         return VK_BLEND_OP_ADD;
     }
 
-    rs_pipeline_vk* createRsPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc)
+    rs_graphic_pipeline_vk* createRsGraphicPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc)
     {
         VkGraphicsPipelineCreateInfo ci{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 
@@ -615,14 +615,14 @@ namespace Render::Vulkan {
             return nullptr;
         });
 
-        rs_pipeline_vk* ret = new rs_pipeline_vk;
+        rs_graphic_pipeline_vk* ret = new rs_graphic_pipeline_vk;
         ret->native = pipeline;
         ret->renderState = desc.renderState;
         ret->type = PipelineType::Graphics;
         ret->vtxInput = desc.vertexInputDesc;
-        ret->layout = pipelineLayout;
+        ret->pipelineLayout = pipelineLayout;
 
-        auto& bindingInfo = ret->bindingInfo;
+        auto& bindingInfo = ret->pipelineLayout->bindingInfo;
         //Build binding info   
         for (auto&& setLayout : pipelineLayout->setLayouts) {
             for (auto&& descriptor : setLayout.second->bindingHash.mDescriptors) {
@@ -651,6 +651,40 @@ namespace Render::Vulkan {
         return ret;
     }
 
+    rs_compute_pipeline_vk* createRsComputePipeline(rs_context_vk* ctx, rs_shader_module_vk* shader)
+    {
+
+        auto descritporSetInfos = getPipelineShaderInfo(&shader,1);
+
+        auto pipelineLayout = createRsPipelineLayout(ctx, descritporSetInfos);
+
+
+		VkComputePipelineCreateInfo ci{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+        ci.flags = 0;
+
+        VkPipelineShaderStageCreateInfo csCI{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+        csCI.module = (VkShaderModule)shader->native;
+        csCI.pName = shader->entryPoint.c_str();
+        csCI.stage = toVkShaderStageBit(shader->shaderStage);
+        csCI.pSpecializationInfo = 0;
+
+		ci.stage = csCI;
+		ci.layout = (VkPipelineLayout)pipelineLayout->native;
+        
+        VkPipeline pipeline;
+        if (vkCreateComputePipelines(ctx->device, VK_NULL_HANDLE, 1, &ci, 0, &pipeline) == VK_SUCCESS) {
+            rs_compute_pipeline_vk* ret = new rs_compute_pipeline_vk;
+            ret->native = pipeline;
+            ret->type = PipelineType::Compute;
+            ret->pipelineLayout = pipelineLayout;
+            return ret;
+        }
+        else {
+			destroyRsPipelineLayout(ctx, pipelineLayout);
+            return nullptr;
+        }
+    }
+
     inline void destroySetLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
     {
         if (!layout) {
@@ -662,7 +696,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void destroyRsPipeline(rs_context_vk* ctx, rs_pipeline_vk*& pipeline, bool immediately)
+    void destroyRsPipeline(rs_context_vk* ctx, rs_pipeline* pipeline, bool immediately)
     {
         if (!immediately)
         {
@@ -670,14 +704,21 @@ namespace Render::Vulkan {
             return;
         }
         vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->native, 0);
-        if (pipeline->wireFramePipeline != nullptr) {
-            vkDestroyPipeline(ctx->device, (VkPipeline)pipeline->wireFramePipeline, 0);
+
+        if (pipeline->type == PipelineType::Graphics) {
+            auto pipelineGraphics = static_cast<rs_graphic_pipeline_vk*>(pipeline);
+             if (pipelineGraphics->wireFramePipeline != nullptr) {
+                vkDestroyPipeline(ctx->device, (VkPipeline)pipelineGraphics->wireFramePipeline, 0);
+			 }
         }
-        destroyRsPipelineLayout(ctx, pipeline->layout);
+        else if (pipeline->type == PipelineType::Compute) {
+            
+        }
+        destroyRsPipelineLayout(ctx, (rs_pipeline_layout_vk*)pipeline->pipelineLayout);
         delete pipeline;
         pipeline = 0;
     }
-    void destroyRsPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk*& layout)
+    void destroyRsPipelineLayout(rs_context_vk* ctx, rs_pipeline_layout_vk* layout)
     {
         if (!layout)return;
         destroySetLayout(ctx, layout);
@@ -685,7 +726,6 @@ namespace Render::Vulkan {
             ctx->device, (VkPipelineLayout)layout->native, 0
         );
         delete layout;
-        layout = 0;
         return;
     }
     rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const std::vector<DescritporSetInfo>& descriptorInfos)

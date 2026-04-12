@@ -131,9 +131,9 @@ namespace Render::Vulkan {
         return desSet;
     }
 
-    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_pipeline_vk* pipeline, uint32_t setIdx)
+    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, uint32_t setIdx)
     {
-        auto pipelineLayout = pipeline->layout;
+        auto pipelineLayout = (rs_pipeline_layout_vk*)pipeline->pipelineLayout;
         rs_descriptorset_layout_vk* setlayout = nullptr;
         for (const auto& [idx, layout] : pipelineLayout->setLayouts) {
             if (idx == setIdx) {
@@ -143,7 +143,7 @@ namespace Render::Vulkan {
         }
 
         if (!setlayout) {
-            Log::error("No DescriptorSet { " + std::to_string(setIdx) + " } in pipeline { " + std::to_string((uint64_t)pipeline->layout->native) + " }.");
+            Log::error("No DescriptorSet { " + std::to_string(setIdx) + " } in pipeline { " + std::to_string((uint64_t)pipeline->pipelineLayout->native) + " }.");
             assert(false);
             return nullptr;
         }

@@ -20,7 +20,7 @@ namespace Render {
 		inline RenderPass* getRenderPass()const { return mRenderPass; }
 
 		inline const std::vector<BindingInfo>& getBindingInfo()const {
-			return mRsPipeline->bindingInfo;
+			return mRsPipeline->pipelineLayout->bindingInfo;
 		}
 
 		inline const std::optional<BindingInfo> getBindingInfoByName(const std::string& name) {
