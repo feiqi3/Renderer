@@ -39,6 +39,9 @@ namespace Render {
 		}
 		return it->second.light;
 	}
+	void LightManager::calculateIBLData(TexturePtr irradianceMap, TexturePtr brdfLUT)
+	{
+	}
 	const GPUShared::GPUSceneLightData& LightManager::updateLightData()
 	{
 		int idx = 0;

@@ -305,6 +305,12 @@ namespace Render {
         MSL
     };
 
+    enum class UAVAccess : uint8_t {
+        ReadOnly,
+        WriteOnly,
+        ReadWrite
+	};
+
     enum class ResourceState : uint64_t {
         // ==========================================
         // Initial State

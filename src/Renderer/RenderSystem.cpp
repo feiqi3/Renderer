@@ -694,6 +694,7 @@ namespace Render{
 
 	void RenderSystem::dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ)
 	{
+		transitDrawdataResourceState(cmdBuffer, PipelineType::Compute, drawData);
 		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer,(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData, getCurFif(), groupX, groupY, groupZ);
 	}
 

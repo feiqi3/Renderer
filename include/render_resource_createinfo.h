@@ -163,6 +163,7 @@ namespace Render {
         uint16_t size = 0; 
         UniformType type;
         ImageType   imageType = ImageType::Invalid;
+        UAVAccess   access =    UAVAccess::ReadOnly;           //For Storagebuffer and StorageImage
     };
 
     struct Rect2D {

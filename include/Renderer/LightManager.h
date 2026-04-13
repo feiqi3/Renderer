@@ -5,7 +5,9 @@
 #include <memory>
 #include <map>
 #include "renderer/GPUShared/SceneData.h"
+#include "renderer/Texture.h"
 namespace Render {
+	class ComputeKernel;
 	class LightManager{
 	public:
 		LightManager();
@@ -15,6 +17,7 @@ namespace Render {
 		Light* getLight(int idx);
 		const Light* getLight(int idx) const;
 		void update();
+		void calculateIBLData(TexturePtr irradianceMap,TexturePtr brdfLUT);
 		const GPUShared::GPUSceneLightData& updateLightData();
 	private:
 		struct LightData {
@@ -25,6 +28,9 @@ namespace Render {
 		std::map<int, LightData> lightMap;
 		GPUShared::GPUSceneLightData mLightData;
 		bool dirty = true;
+
+		ComputeKernel* irradianceMapKernel	= nullptr;
+		ComputeKernel* brdfLUTKernel		= nullptr;
 	};
 }
 

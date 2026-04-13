@@ -46,7 +46,7 @@ namespace {
         }
     }
 
-    VkFormat SpvReflectFormatToVkFormat(SpvReflectFormat fmt) {
+    constexpr VkFormat SpvReflectFormatToVkFormat(SpvReflectFormat fmt) {
         switch (fmt) {
         case SPV_REFLECT_FORMAT_UNDEFINED:           return VK_FORMAT_UNDEFINED;
 
@@ -385,6 +385,16 @@ namespace Render::Vulkan {
                 }
             }
 
+            if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_UAV) {
+                if (binding->decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE) {
+					bindingInfo.access = UAVAccess::ReadOnly;
+				}
+                else if (binding->decoration_flags & SPV_REFLECT_DECORATION_NON_READABLE) {
+					bindingInfo.access = UAVAccess::WriteOnly;
+                }
+            }
+
+            
             bindingInfo.size = binding->block.size;
             bindingInfo.shaderVisibleStage = (uint16_t)shader->shaderStage;
             bindings.emplace_back(std::move(bindingInfo));
