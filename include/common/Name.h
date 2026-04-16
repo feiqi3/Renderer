@@ -14,29 +14,40 @@ namespace Render {
 		size_t hash_;
 
 	public:
-		explicit Name(const char* str, u32 strLength)
+		inline explicit Name(const char* str, u32 strLength)
 			: data_(StringPool::instance()->getOrGenStringData(str, strLength)),hash_(data_ != nullptr ? data_->mHash : 0) {
 		}
 
-		explicit Name(const char* str)
+		inline explicit Name(const char* str)
 			: Name(str, str != nullptr ? u32(strlen(str)) : 0) {
 		}
 
-		explicit Name(const ::std::string& str)
+		inline explicit Name(const ::std::string& str)
 			: Name(str.data(),str.size()){
 		}
 
-		bool isEmpty()const { return data_ == nullptr; }
+		inline bool isEmpty()const { return data_ == nullptr; }
 
-		Name(::std::string_view sv) : Name(sv.data(),sv.size()) {}
-		Name() :Name(nullptr, 0) {}
+		inline Name(::std::string_view sv) : Name(sv.data(),sv.size()) {}
+		inline Name() :Name(nullptr, 0) {}
 		~Name() {}
 		Name(const Name& other) = default;
 		Name(Name&& other) noexcept = default;
 		Name& operator=(const Name& other) = default;
 		Name& operator=(Name&& other) noexcept = default;
-		bool operator<(const Name& other) const noexcept {
+		inline bool operator<(const Name& other) const noexcept {
 			return view() < other.view();
+		}
+
+		inline bool isEqual(const char* rhs) const noexcept {
+			if (rhs == nullptr)return false;
+			if (data_ == nullptr)return false;
+			return (strcmp(this->c_str(), rhs) == 0);
+		}
+
+		inline bool isEqual(const std::string& rhs)const noexcept {
+			if (data_ == nullptr)return false;
+			return (strcmp(this->c_str(), rhs.c_str()) == 0);
 		}
 
 		bool operator==(const Name& other) const noexcept {
@@ -48,17 +59,17 @@ namespace Render {
 			}
 		}
 
-		bool operator!=(const Name& other) const noexcept {
+		inline bool operator!=(const Name& other) const noexcept {
 			return !(*this == other);
 		}
 
-		const char* c_str() const noexcept { 
+		inline const char* c_str() const noexcept {
 			if (data_)
 				return data_->mStringVal;
 			else
 				return nullptr;
 		}
-		::std::string_view view() const noexcept { 
+		inline ::std::string_view view() const noexcept {
 			if (data_ == nullptr) {
 				return ::std::string_view();
 			}
@@ -67,9 +78,9 @@ namespace Render {
 			}
 		}
 
-		size_t hash() const noexcept { return hash_; }
+		inline size_t hash() const noexcept { return hash_; }
 
-		::std::string str() const noexcept {
+		inline ::std::string str() const noexcept {
 			if (data_ == nullptr) {
 				return std::string();
 			}
@@ -79,7 +90,7 @@ namespace Render {
 		}
 
 		static const Name _emptyName;
-		static Name Empty() { return _emptyName; }
+		inline static Name Empty() { return _emptyName; }
 
 	};
 

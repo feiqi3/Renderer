@@ -157,12 +157,17 @@ namespace Render::Vulkan {
 		return bindingPosRs;
 	}
 
+	struct descriptor_set_pack {
+		int16_t setIdx = -1;
+		std::vector<rs_descriptorSet_vk*> descriptorSets;
+		std::vector<rs_binding_slot> bindingTracker;
+	};
+
 	struct rs_drawdata_vk : rs_drawdata {
-		std::vector <			//For each Frame
-			std::vector<		//Each Descriptorset
-				std::pair<uint16_t, rs_descriptorSet_vk*>
+		std::vector <			
+			descriptor_set_pack
 			>
-		> DescriptorSets; //per frame in flight, per descriptor
+		DescriptorSets; //per frame in flight, per descriptor
 	};
 
 };

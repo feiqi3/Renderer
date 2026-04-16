@@ -565,7 +565,7 @@ namespace Render{
 			return INVALID_BINDING_POS;
 		rs_binding_pos retPos = INVALID_BINDING_POS;
 		for (const auto& binding : pipelineLayout->bindingInfo) {
-			if (binding.bindingItemName == bindingName) {
+			if (binding.bindingItemName.isEqual(bindingName)) {
 				retPos = binding.bindingPos;
 				break;
 			}

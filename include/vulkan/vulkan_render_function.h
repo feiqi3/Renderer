@@ -111,11 +111,12 @@ namespace Render::Vulkan {
 	rs_drawdata_vk* createDrawData(rs_context_vk* context);
 	void clearDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
+	void updateDrawData(rs_context_vk* context, rs_binding_slot& slot, rs_binding_pos pos, int subscript, void* base, uint32_t dyOffset);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size);
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk);
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk, rs_image_view* view);
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk);
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_image_vk* vk);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_image_vk* vk, rs_image_view* view);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_sampler_vk* vk);
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_buffer_vk* vk);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
 	//-------------------------------------------------------------------------------------//     
 	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt);

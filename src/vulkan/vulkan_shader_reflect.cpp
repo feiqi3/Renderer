@@ -1,5 +1,6 @@
 #include "render_log.h"
 #include "render_function.h"
+#include "common/Name.h"
 #include "vulkan/vulkan_shader_reflect.h"
 #include "vulkan/vulkan_render_function.h"
 #include "../3rd/spirv-reflect/spirv_reflect.h"
@@ -340,11 +341,11 @@ namespace Render::Vulkan {
                 bindingInfo.bindingPos = rsBindingPos;
             }
 
-            bindingInfo.bindingItemName = std::string(binding->name);
+            bindingInfo.bindingItemName = Name(binding->name);
             bindingInfo.count = binding->count;
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
 
-            if (bindingInfo.type == UniformType::UniformBuffer && bindingInfo.bindingItemName.starts_with("CBUFFER_")) {
+            if (bindingInfo.type == UniformType::UniformBuffer && bindingInfo.bindingItemName.str().starts_with("CBUFFER_")) {
                 bindingInfo.type = UniformType::ConstantBuffer;
             }
 

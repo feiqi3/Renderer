@@ -197,7 +197,6 @@ namespace Render::Vulkan {
     class DescriptorSetManager {
 
     public:
-
         DescriptorSetManager(rs_context_vk* ctx,int maxFrame);
         void bindDefaultDybuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, QueueType queueType);
         void updateBufferData(uint64_t frame, rs_context_vk * ctx, rs_descriptorSet_vk * descriptorSet, int binding, void * data, int size, QueueType queueType);
@@ -248,12 +247,10 @@ namespace Render::Vulkan {
         
         VkDescriptorSetLayout mEmptyDescriptorSet = VK_NULL_HANDLE;
         int m_maxFrame = 1;
-
+        int curFif = -1;
         inline static const int Max_Vacant_Frame = 10;
         inline static const int Max_Uniform_Buffer_Block_Size = 1024 * 256; //256k
     public:
-
-    private:
         std::pair<UniformBufferObject*,uint64_t> getDybuffer(uint64_t frame, uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue);
 
     private:

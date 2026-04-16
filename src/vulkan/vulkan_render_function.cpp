@@ -140,7 +140,7 @@ namespace {
 }
 
 namespace Render::Vulkan {
-    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context, uint64_t frame, uint32_t fif, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet);
+    std::pair<rs_descriptorSet_vk*,descriptor_set_pack*> _findOrCreateDescripotrSet(rs_context_vk* context, uint64_t frame, uint32_t fif, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet);
 
     ImageFormat ToImageFormat(VkFormat format) {
         switch (format) {
@@ -1448,18 +1448,52 @@ namespace Render::Vulkan {
         return &image->imageViews.back();
 	}
 
-	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* vk,rs_image_view* view)
+	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos,int subscript, rs_image_vk* vk,rs_image_view* view)
 	{
 		auto vkPos = toVkBindingPos(pos);
 		auto fif = context->LogicFrameFif;
-		auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-        if (descriptorSet) {
-			context->descriptorSetMgr->updateImageDetailed(frame, context, descriptorSet, vkPos.bindingIdx, vk, view, QueueType_Graphics);
-		}
-		else {
-			Log::error("Update descripotSet error");
-		}
-	}
+		auto [descriptorSet,setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+		//1. to see if binding is correct
+		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
+        auto& slot  =setPack->bindingTracker[vkPos.bindingIdx];
+        if (slot.type != UniformType::StorageImage &&
+            slot.type != UniformType::Texture &&
+            slot.type != UniformType::InputAttachment
+            ) {
+            Log::error("Binding error for type wrong.");
+        }
+        updateDrawData(context, slot, pos, subscript, view->native, 0);
+    }
+
+	void updateDrawData(rs_context_vk* context,rs_binding_slot& slot, rs_binding_pos pos, int subscript, void* base, uint32_t dyOffset)
+	{
+        if (!base)return;
+        if (dyOffset > 0) {
+            assert(subscript == 0 && "This is not support");
+            return;
+        }
+        //1. get real binding pos 
+        auto vkPos = toVkBindingPos(pos);
+	    //2. find target descriptorSet,and setpack
+		auto fif = context->LogicFrameFif;
+        //3 update tracker's data and update dirty flag
+        auto& binding = slot;
+        //3.1 compare if resource is the same
+        if (subscript >= binding.rsData.size()) {
+            Log::error("Binding Error: subscript out of range.");
+            return;
+        }
+        if (binding.rsData[subscript] == base) {
+            //notice: dynamic Offset may be different.
+			binding.uboDyOffset = dyOffset;
+			return;
+        }
+        else {
+            binding.rsData[subscript] = base;
+            binding.fifDirtyFlag = 0xFFFF;
+            binding.uboDyOffset = dyOffset;
+        }
+    }
 
 	void flushRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer, uint32_t size)
 	{
@@ -1982,102 +2016,178 @@ namespace Render::Vulkan {
 
     void clearDrawData(rs_context_vk* ctx, rs_drawdata_vk* drawdata)
     {
-        std::vector <			//For each Frame
-            std::vector<		//Each Descriptorset
-            std::pair<uint16_t, rs_descriptorSet_vk*>
-            >
-        > DescriptorSets;
-        for (auto& frame : drawdata->DescriptorSets) {
-            for (auto& [setIdx, descriptorset] : frame) {
-                ctx->descriptorSetMgr->ReturnDescriptorSet(ctx,descriptorset);
+
+        for (auto& setPack : drawdata->DescriptorSets) {
+            for (auto& set : setPack.descriptorSets) {
+				ctx->descriptorSetMgr->ReturnDescriptorSet(ctx, set);
             }
         }
     }
 
-    void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata)
+    void destroyDrawData(rs_context_vk* ctx, rs_drawdata_vk* drawdata)
     {
-        for (auto&& frame : drawdata->DescriptorSets) {
-            for (auto& [idx, descriptor] : frame) {
-                context->descriptorSetMgr->ReturnDescriptorSet(context, descriptor);
-            }
-        }
+        clearDrawData(ctx, drawdata);
         delete drawdata;
     }
     
-    rs_descriptorSet_vk* _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
+    std::pair<rs_descriptorSet_vk*, descriptor_set_pack*> _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
         auto& frameSets = drawdata->DescriptorSets[fif];
         rs_descriptorSet_vk* targetSet = 0;
-        for (auto& [idx, descriptor] : frameSets) {
-            if (idx == vkSet) {
-                targetSet = descriptor;
-                break;
+        descriptor_set_pack* tarSetPack = nullptr;
+        bool isOneShot = drawdata->isOneShot;
+        for (auto& descriptorSetPack : drawdata->DescriptorSets) {
+            if (descriptorSetPack.setIdx == vkSet) {
+                tarSetPack = &descriptorSetPack;
+                if (!isOneShot)
+                {
+                    //Not one shot situation, we will leave room for multi fif situation
+                    if (descriptorSetPack.descriptorSets.size() < fif + 1) {
+                        descriptorSetPack.descriptorSets.resize(fif + 1);
+                        break;
+                    }
+                    else {
+                        if (descriptorSetPack.descriptorSets[fif] == nullptr) {
+                            break;
+                        }
+                        targetSet = descriptorSetPack.descriptorSets[fif];
+                        break;
+                    }
+                }
+                else {
+					//One shot situation, just keep one 
+                    if (descriptorSetPack.descriptorSets.size() < 1) {
+                        descriptorSetPack.descriptorSets.resize(1, nullptr);
+						break;
+					}
+                    else {
+                        if (descriptorSetPack.descriptorSets[0] == nullptr) {
+                            break;
+                        }
+                        else {
+							targetSet = descriptorSetPack.descriptorSets[0];
+							break;
+                        }
+                    }
+                }
             }
+        }
+
+        bool bindingTackerNeedToCreate = false;
+        if (!tarSetPack){
+            bindingTackerNeedToCreate = true;
+            descriptor_set_pack pack{};
+            pack.setIdx = vkSet;
+            drawdata->DescriptorSets.push_back(pack);
+            tarSetPack = &drawdata->DescriptorSets.back();
         }
 
         if (!targetSet) {
             targetSet = context->descriptorSetMgr->AllocateDescriptorSet(frame, context, pipeline, vkSet);
             if (!targetSet) {
                 assert(0);
-                return nullptr;
+                return {nullptr,nullptr};
             }
-            frameSets.push_back({ vkSet,targetSet });
+
+            tarSetPack->descriptorSets[isOneShot ? 0 : fif] = targetSet;
+			//Create binding tracker
+
+                if (bindingTackerNeedToCreate) {
+					if (!isOneShot) {
+						const auto& bindingInfos = targetSet->layout->bindingHash
+							.mDescriptors;
+
+                    //create a vector with size maxof binding
+                    uint16_t binding = 0;
+                    for (auto& bindingItem : bindingInfos) {
+                        binding = std::max(binding,uint16_t(toVkBindingPos(bindingItem.bindingPos).bindingIdx));
+                    }
+                    rs_binding_slot slot{};
+                    slot.type = UniformType::Count;
+                    tarSetPack->bindingTracker.resize(binding + 1, slot);
+                    for (auto& bindingItem : bindingInfos) {
+						rs_binding_slot slot{};
+						slot.type = bindingItem.type;
+						slot.rsData.resize(bindingItem.count);
+						tarSetPack->bindingTracker[toVkBindingPos(bindingItem.bindingPos).bindingIdx] = (std::move(slot));
+                    }
+                }
+            }
         }
 
-        return targetSet;
+        return {targetSet,tarSetPack};
 
     }
 
     void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, void* data, size_t size)
     {
-        auto vkPos = toVkBindingPos(pos);
-        auto fif = context->LogicFrameFif;
+		auto vkPos = toVkBindingPos(pos);
+		auto fif = context->LogicFrameFif;
+		auto [descriptorSet, setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
 
-        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-        if (descriptorSet) {
-            context->descriptorSetMgr->updateBufferData(frame, context, descriptorSet, vkPos.bindingIdx, data, size, QueueType_Graphics);
-        }
-        else {
-            Log::error("Update descripotSet error");
-        }
+		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
+		auto& slot = setPack->bindingTracker[vkPos.bindingIdx];
 
+		if (slot.type != UniformType::UniformBuffer) {
+			Log::error("Binding error for type wrong.");
+			return;
+		}
+
+		auto pair = context->descriptorSetMgr->getDybuffer(frame, fif, context, data, size, QueueType_Graphics);
+		UniformBufferObject* ubo = pair.first;
+		uint32_t dyOffset = pair.second;
+
+		updateDrawData(context, slot, pos, 0, ubo->mBuffer->native, dyOffset);
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_image_vk* image)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_image_vk* image)
     {
-        auto vkPos = toVkBindingPos(pos);
-        auto fif = context->LogicFrameFif;
-        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-        if (descriptorSet) {
-            context->descriptorSetMgr->updateImage(frame, context, descriptorSet, vkPos.bindingIdx, image, QueueType_Graphics);
-        }else {
-            Log::error("Update descripotSet error");
-        }
+		auto vkPos = toVkBindingPos(pos);
+		auto fif = context->LogicFrameFif;
+		auto [descriptorSet, setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+
+		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
+		auto& slot = setPack->bindingTracker[vkPos.bindingIdx];
+
+		if (slot.type != UniformType::StorageImage && slot.type != UniformType::Texture && slot.type != UniformType::InputAttachment) {
+			Log::error("Binding error for type wrong.");
+			return;
+		}
+
+		updateDrawData(context, slot, pos, subscript, image->defaultView.native, 0);
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_sampler_vk* vk)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos,int subscript, rs_sampler_vk* vk)
     {
-        auto vkPos = toVkBindingPos(pos);
-        auto fif = context->LogicFrameFif;
-        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-        if (descriptorSet) {
-            context->descriptorSetMgr->updateSampler(frame, context, descriptorSet, vkPos.bindingIdx, vk, QueueType_Graphics);
-        }
-        else {
-            Log::error("Update descripotSet error");
-        }
+		auto vkPos = toVkBindingPos(pos);
+		auto fif = context->LogicFrameFif;
+		auto [descriptorSet, setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+
+		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
+		auto& slot = setPack->bindingTracker[vkPos.bindingIdx];
+
+		if (slot.type != UniformType::Sampler) {
+			Log::error("Binding error for type wrong.");
+			return;
+		}
+
+		updateDrawData(context, slot, pos, subscript, vk->native, 0);
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, rs_buffer_vk* vk)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_buffer_vk* vk)
     {
-        auto vkPos = toVkBindingPos(pos);
-        auto fif = context->LogicFrameFif;
-        auto descriptorSet = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-        if (descriptorSet) {
-            context->descriptorSetMgr->updateBuffer(frame, context, descriptorSet, vkPos.bindingIdx, vk, QueueType_Graphics);
-        }
-        else {
-            Log::error("Update descripotSet error");
-        }
+		auto vkPos = toVkBindingPos(pos);
+		auto fif = context->LogicFrameFif;
+		auto [descriptorSet, setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
+
+		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
+		auto& slot = setPack->bindingTracker[vkPos.bindingIdx];
+
+		if (slot.type != UniformType::ConstantBuffer && slot.type != UniformType::StorageBuffer) {
+			Log::error("Binding error for type wrong.");
+			return;
+		}
+
+		updateDrawData(context, slot, pos, 0, vk->native, 0);
     }
 
     rs_buffer_vk* createStageBufferTemp(rs_context_vk* context, uint64_t size)

@@ -36,6 +36,7 @@ namespace Render {
 
         inline void error(const std::string& message) {
             log(Level::ERR, message);
+            assert(false);
         }
     }
 }

@@ -1,5 +1,6 @@
 #ifndef RENDER_RESOURCE_CREATE_INFO
 #define RENDER_RESOURCE_CREATE_INFO
+#include "common/Name.h"
 #include "render_resource_def.h"
 #include <string>
 #include <Vector>
@@ -156,7 +157,7 @@ namespace Render {
     using rs_binding_pos = uint32_t;
 #define INVALID_BINDING_POS UINT_MAX
     struct BindingInfo {
-        std::string bindingItemName;
+        Name bindingItemName;
         rs_binding_pos bindingPos; //Platform related
         uint16_t shaderVisibleStage = 0; //shader stage
         uint16_t count = 0; 

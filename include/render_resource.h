@@ -5,6 +5,7 @@
 #include <array>
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
+#include "common/SmallVector.h"
 namespace Render {
 
 	struct rs_context{
@@ -114,14 +115,14 @@ namespace Render {
 		bool hasCommands = false;
 	};
 
-	struct rs_binding_data : rs_base{
+	struct rs_binding_slot{
 		UniformType type;
+		uint16_t fifDirtyFlag = 0xFFFF;
 		uint32_t uboDyOffset;
-		rs_base* rsData = nullptr;
+		SmallVector<void*,1> rsData;
 	};
 
 	struct rs_descriptorSet : rs_base { 
-		std::vector<rs_binding_data> mBindingData;
 	};
 
 	struct rs_swapchain : rs_base {
@@ -139,8 +140,11 @@ namespace Render {
 		rs_image_view* m_dsView;
 	};
 
+
+
 	struct rs_drawdata {
-	
+		uint32_t FiFDirtyFlag = 0xFFFFFFFF;
+		bool isOneShot = false; //This will lead to some optimize
 	};
 
 	using rs_descriptor = BindingInfo;

@@ -150,7 +150,7 @@ namespace Render::Vulkan {
 
         auto ret = AllocateDescriptorSet(frame, ctx, setlayout);
         
-        rs_binding_data binding{};
+        rs_binding_slot binding{};
         binding.type = UniformType::Count;
         ret->mBindingData.resize(setlayout->bindingHash.maxBinding + 1, binding);
         for (auto& bindingSlot : setlayout->bindingHash.mDescriptors) {
@@ -193,7 +193,7 @@ namespace Render::Vulkan {
         else {
             assert(0);
         }
-        for (const rs_binding_data& bindingData : descriptorSet->mBindingData) {
+        for (const rs_binding_slot& bindingData : descriptorSet->mBindingData) {
             switch (bindingData.type)
             {
             case Render::UniformType::UniformBuffer:
@@ -217,7 +217,6 @@ namespace Render::Vulkan {
         
         }
         delete descriptorSet;
-        descriptorSet = 0;
     }
 
     DescriptorPoolBlock* DescriptorSetManager::createNewPool(rs_context_vk* ctx)
@@ -477,14 +476,14 @@ namespace Render::Vulkan {
 
     void DescriptorSetManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
     {  
-        int curframeIdx = frame % m_maxFrame;
-        for (auto i = m_pools[curframeIdx].begin(); i != m_pools[curframeIdx].end(); ) {
+        curFif = frame % m_maxFrame;
+        for (auto i = m_pools[curFif].begin(); i != m_pools[curFif].end(); ) {
             auto poolBlock = (*i);
             if (poolBlock->mReturnedNum == poolBlock->mInUseNum && frame - poolBlock->lastActiveFrame > Max_Vacant_Frame) {
                 vkResetDescriptorPool(ctx->device, poolBlock->pool, 0);
                 vkDestroyDescriptorPool(ctx->device, poolBlock->pool, 0);
                 delete poolBlock;
-                i = m_pools[curframeIdx].erase(i);
+                i = m_pools[curFif].erase(i);
             }
             else {
                 ++i;
@@ -495,7 +494,7 @@ namespace Render::Vulkan {
             std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
             for (auto i = this->mUniformBufferLists.begin(); i != mUniformBufferLists.end(); ) {
                 auto UBO = *i;
-                UBO->releaseFrame(curframeIdx);
+                UBO->releaseFrame(curFif);
                 if (UBO->mInUsedNum == 0 && frame - UBO->mLastActiveFrame >= Max_Vacant_Frame) {
                     destroyUBO(ctx, UBO);
                     i = mUniformBufferLists.erase(i);
