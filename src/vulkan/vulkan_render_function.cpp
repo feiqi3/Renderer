@@ -562,13 +562,21 @@ namespace Render::Vulkan {
 		ctx->defalut_no_sampler = createRsSampler(ctx, SamplerDesc{});
         BufferDesc descBuf{};
         descBuf.byteSize = 8;
-		descBuf.bufUsage = BufferType::BufferType_Uniform;
+        descBuf.bufUsage = BufferType::BufferType_Uniform | BufferType::BufferType_TransferSrc;
         descBuf.mappable = true;
 		ctx->defalut_no_buffer = (rs_buffer_vk*)createRsBufferVk(ctx, descBuf);
         uint64_t data = 0xFFFFFFFFFFFFFFFF;
         mapRsBuffer(ctx, ctx->defalut_no_buffer);
 		memcpy(ctx->defalut_no_buffer->mappedPtr, &data, 8);
         
+        descBuf.bufUsage = BufferType::BufferType_Storage;
+        descBuf.mappable = false;
+        ctx->defalut_no_buffer_UAV = (rs_buffer_vk*)createRsBufferVk(ctx, descBuf);
+		auto cmdBuffer =ctx->cmdBufferMgr->getCmdBufferLocalThread(ctx, 0, QueueType_Graphics, true);
+        cmdBeginRecord(cmdBuffer);
+        transitionBufferState(cmdBuffer, ctx->defalut_no_buffer, ResourceState::TransferSrc);
+        transitionBufferState(cmdBuffer, ctx->defalut_no_buffer_UAV, ResourceState::TransferDst);
+		cmdCopyBufferToBuffer(cmdBuffer,ctx, ctx->defalut_no_buffer, ctx->defalut_no_buffer_UAV, 0, 0, 8);
         ImageDesc descImg{};
         descImg.arrayLayers = 1;
         descImg.mipLevels = 1;
@@ -579,22 +587,29 @@ namespace Render::Vulkan {
         descImg.format = ImageFormat::BGRA8_UNORM;
 
 		ctx->defalut_no_texture = (rs_image_vk*)createRsImage(ctx, descImg);
-        auto cmdbuffer = ctx->cmdBufferMgr->getCmdBufferLocalThread(ctx, 0, QueueType_Graphics, true);
-        cmdBeginRecord(cmdbuffer);
+		descImg.usage = ImageUsage_Storage | ImageUsage_TransferDst;
+        ctx->defalut_no_texture_UAV = (rs_image_vk*)createRsImage(ctx, descImg);
         auto tempBuffer = createStageBufferTemp(ctx, 4);
 		uint32_t imageRGBA = 0xFF0000FF; // Opaque red
         mapRsBuffer(ctx, tempBuffer);
         memcpy(tempBuffer->mappedPtr, &imageRGBA, 4);
-        cmdCopyBufferToImage(cmdbuffer,ctx, ctx->defalut_no_texture, tempBuffer, 0, 0, 0, 0, 1, 1,1,0,0,1);
+		transitionBufferState(cmdBuffer, tempBuffer, ResourceState::TransferSrc);
+		transitionImageState(cmdBuffer, ctx->defalut_no_texture, ResourceState::TransferDst);
+		transitionImageState(cmdBuffer, ctx->defalut_no_texture_UAV, ResourceState::TransferDst);
+        cmdCopyBufferToImage(cmdBuffer,ctx, ctx->defalut_no_texture, tempBuffer, 0, 0, 0, 0, 1, 1,1,0,0,1);
+        cmdCopyBufferToImage(cmdBuffer, ctx, ctx->defalut_no_texture_UAV, tempBuffer, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1);
         destroyRsBuffer(ctx, tempBuffer);
-        cmdEndRecord(cmdbuffer);
+        cmdEndRecord(cmdBuffer);
+        cmdSubmitOneShotAndWait(ctx, cmdBuffer);
     }
 
     void destroyDefaultResources(rs_context_vk* ctx)
     {
 		destroyRsSampler(ctx, ctx->defalut_no_sampler);
 		destroyRsBuffer(ctx, ctx->defalut_no_buffer);
-		destroyRsImage(ctx, ctx->defalut_no_texture);
+        destroyRsBuffer(ctx, ctx->defalut_no_buffer_UAV);
+        destroyRsImage(ctx, ctx->defalut_no_texture);
+        destroyRsImage(ctx, ctx->defalut_no_texture_UAV);
     }
 
     void deinitVulkanBackEnd(rs_context_vk* ctx)
@@ -1465,7 +1480,7 @@ namespace Render::Vulkan {
         updateDrawData(context, slot, pos, subscript, view->native, 0);
     }
 
-	void updateDrawData(rs_context_vk* context,rs_binding_slot& slot, rs_binding_pos pos, int subscript, void* base, uint32_t dyOffset)
+	void updateDrawData(rs_context_vk* context,rs_binding_slot& slot, rs_binding_pos pos, int subscript, void* base, uint32_t dyOffset, uint32_t bufferOffset, uint32_t bufferSize)
 	{
         if (!base)return;
         if (dyOffset > 0) {
@@ -1484,7 +1499,14 @@ namespace Render::Vulkan {
             return;
         }
         if (binding.rsData[subscript] == base) {
-            //notice: dynamic Offset may be different.
+            if (binding.bufferSize != bufferSize || binding.bufferOffset != bufferOffset) {
+                //This will cause set dirty.
+                binding.fifDirtyFlag = 0xFFFF;
+                binding.bufferOffset = bufferOffset;
+                binding.bufferSize   = bufferSize;
+            }
+
+            //notice: If buffer binding still same ,then dynamic offset change is OK.
 			binding.uboDyOffset = dyOffset;
 			return;
         }
@@ -1799,7 +1821,14 @@ namespace Render::Vulkan {
         createVkQueue(context, context->initDesc.asyncTransferCompute, context->initDesc.asyncTransferCompute);
         auto extensionRequired = getExtensionEnableDevice(context);
         auto deviceFeatureEnable = getExtensionEnablePhysicalDevice(context);
+        auto deviceFeatureEnable2 = getExtensionEnablePhysicalDevice2(context);
+        auto indexingFeature = getExtensionEnablePhysicalDeviceDescriptorIndexingFeatures(context);
+		deviceFeatureEnable2.pNext = &indexingFeature;
+        if (indexingFeature.descriptorBindingPartiallyBound == true) {
+            context->partialBindEnable = true;
+        }
         VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
+        createInfo.pNext = &deviceFeatureEnable2;
         float unifiedPriorities = 1.0f;
         int graphicQueueCount = 1;
         std::vector< VkDeviceQueueCreateInfo> queueInfos;
@@ -1943,6 +1972,18 @@ namespace Render::Vulkan {
         VkPhysicalDeviceFeatures2 referenceFeature;
         vkGetPhysicalDeviceFeatures2(context->physicalDevice, &referenceFeature);
         return referenceFeature;
+    }
+
+    VkPhysicalDeviceDescriptorIndexingFeatures getExtensionEnablePhysicalDeviceDescriptorIndexingFeatures(rs_context_vk* context)
+    {
+        VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
+        indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+        VkPhysicalDeviceFeatures2 deviceFeatures2{};
+        deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures2.pNext = &indexingFeatures;
+        vkGetPhysicalDeviceFeatures2(context->physicalDevice, &deviceFeatures2);
+        return indexingFeatures;
     }
 
     std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context)
@@ -2173,12 +2214,12 @@ namespace Render::Vulkan {
 		updateDrawData(context, slot, pos, subscript, vk->native, 0);
     }
 
-    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_buffer_vk* vk)
+    void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_buffer_vk* vk,uint32_t offset,uint32_t size)
     {
 		auto vkPos = toVkBindingPos(pos);
 		auto fif = context->LogicFrameFif;
 		auto [descriptorSet, setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-
+        assert(offset + size <= vk->byteSize && "Buffer size limitation.");
 		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
 		auto& slot = setPack->bindingTracker[vkPos.bindingIdx];
 
@@ -2361,31 +2402,255 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif)
+    inline void descriptorSetWriteArray(rs_context_vk* context, VkDescriptorSet set, uint32_t binding, rs_binding_slot& slot, std::vector<uint32_t>& dynamicOffset) {
+        assert(slot.rsData.size() > 1);
+		VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        writeSet.dstSet = set;
+        writeSet.dstBinding = binding;
+        writeSet.dstArrayElement = 0;
+        writeSet.descriptorCount = static_cast<uint32_t>(slot.rsData.size());
+        writeSet.descriptorType = toVkDescriptorType(slot.type);
+
+        bool enableNullBinding = context->partialBindEnable;
+        switch (slot.type)
+        {
+        case UniformType::UniformBuffer:
+        {
+            assert(false && "Error this should not happen");
+            return;
+        }
+        case UniformType::ConstantBuffer:
+        case UniformType::StorageBuffer:
+        {
+            std::vector<VkDescriptorBufferInfo> bufferInfos;
+            bufferInfos.reserve(slot.rsData.size());
+			rs_buffer_vk* defaultBuffer = context->defalut_no_buffer;
+            if (slot.type == UniformType::StorageBuffer) {
+                defaultBuffer = context->defalut_no_buffer_UAV;
+            }
+            for (size_t i = 0; i < slot.rsData.size(); ++i) {
+                VkDescriptorBufferInfo info{};
+                //No buffer offset/size for array binding.
+                if (slot.rsData[i] == nullptr) {
+                    if (!enableNullBinding) {
+                        slot.fifDirtyFlag = 0xFFFF; //Set to dirty all;
+                        slot.rsData[i] = defaultBuffer->native;
+                    }
+                }
+                info.buffer = (VkBuffer)slot.rsData[i];
+                info.offset = 0;
+                info.range  = VK_WHOLE_SIZE;
+                bufferInfos.push_back(info);
+            }
+            writeSet.pBufferInfo = bufferInfos.data();
+            vkUpdateDescriptorSets(context->device, 1, &writeSet, 0, nullptr);
+            break;
+        }
+        case UniformType::StorageImage:
+        case UniformType::Texture:
+        case UniformType::InputAttachment:
+        {
+            std::vector<VkDescriptorImageInfo> imageInfos;
+            imageInfos.reserve(slot.rsData.size());
+            VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			rs_image_vk* defaultImage = context->defalut_no_texture;
+            if (slot.type == UniformType::StorageImage) {
+                layout = VK_IMAGE_LAYOUT_GENERAL;
+                defaultImage = context->defalut_no_texture_UAV;
+            }
+
+            for (size_t i = 0; i < slot.rsData.size(); ++i) {
+                VkDescriptorImageInfo info{};
+                info.imageLayout = layout;
+                if (slot.rsData[i] == nullptr) {
+                    if (!enableNullBinding)
+                    {
+                        slot.fifDirtyFlag = 0xFFFF; //Set to dirty all;
+                        slot.rsData[i] = (defaultImage->defaultView.native);
+                    }
+                    else {
+                        info.imageLayout =(VkImageLayout) 0;
+                    }
+                }
+                info.imageView = (VkImageView)slot.rsData[i];
+                imageInfos.push_back(info);
+            }
+            writeSet.pImageInfo = imageInfos.data();
+            vkUpdateDescriptorSets(context->device, 1, &writeSet, 0, nullptr);
+            break;
+        }
+        case UniformType::Sampler:
+        {
+            std::vector<VkDescriptorImageInfo> imageInfos;
+            for (size_t i = 0; i < slot.rsData.size(); ++i) {
+                VkDescriptorImageInfo info{};
+                if (slot.rsData[i] == nullptr) {
+                    if (!enableNullBinding)
+                    {
+                        slot.fifDirtyFlag = 0xFFFF; //Set to dirty all;
+                        slot.rsData[i] = (context->defalut_no_sampler->native);
+                    }
+                    else {
+                        info.imageLayout = (VkImageLayout)0;
+                    }
+                }
+
+				info.sampler = (VkSampler)slot.rsData[i];
+                imageInfos.push_back(info);
+            }
+            writeSet.pImageInfo = imageInfos.data();
+            vkUpdateDescriptorSets(context->device, 1, &writeSet, 0, nullptr);
+            break;
+        }
+        default:
+            assert(false && "Unsupported UniformType in Array Write");
+            return;
+        }
+
+    }
+    inline void descriptorSetWrite(rs_context_vk* context, VkDescriptorSet set, uint32_t binding, rs_binding_slot& slot, std::vector<uint32_t>& dynamicOffset) {
+        VkDevice device = context->device;
+        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        writeSet.dstSet = set;
+        writeSet.dstBinding = binding;
+        writeSet.dstArrayElement = 0;
+        writeSet.descriptorCount = 1;
+        writeSet.descriptorType = toVkDescriptorType(slot.type);
+
+        bool isNull = slot.rsData[0] == nullptr;
+        bool enableNullBinding = context->partialBindEnable;
+
+        switch (slot.type)
+        {
+            //Buffer Like
+        case UniformType::UniformBuffer:
+        {
+            dynamicOffset.push_back(slot.uboDyOffset);
+            [[fallthrough]];
+        }
+        case UniformType::ConstantBuffer:
+        case UniformType::StorageBuffer:
+        {
+            VkDescriptorBufferInfo bufferInfo{};
+            if (isNull) {
+                if (!enableNullBinding) {
+                    rs_buffer_vk* defaultBuf = (slot.type == UniformType::StorageBuffer)
+                        ? context->defalut_no_buffer_UAV
+                        : context->defalut_no_buffer;
+                    bufferInfo.buffer = (VkBuffer)defaultBuf->native;
+                    slot.fifDirtyFlag = 0xFFFF;
+                }
+                else {
+                    bufferInfo.buffer = VK_NULL_HANDLE;
+                }
+            }
+            else {
+                bufferInfo.buffer = (VkBuffer)slot.rsData[0];
+            }
+
+            bufferInfo.offset = slot.bufferOffset;
+            bufferInfo.range = (slot.bufferSize == 0) ? VK_WHOLE_SIZE : slot.bufferSize;
+
+            writeSet.pBufferInfo = &bufferInfo;
+            vkUpdateDescriptorSets(device, 1, &writeSet, 0, nullptr);
+            break;
+        }
+
+        //Image like
+        case UniformType::Texture:
+        case UniformType::InputAttachment:
+        case UniformType::StorageImage:
+        {
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = (slot.type == UniformType::StorageImage)
+                ? VK_IMAGE_LAYOUT_GENERAL
+                : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            if (isNull) {
+                if (!enableNullBinding) {
+                    rs_image_vk* defaultImg = (slot.type == UniformType::StorageImage)
+                        ? context->defalut_no_texture_UAV
+                        : context->defalut_no_texture;
+                    imageInfo.imageView = (VkImageView)defaultImg->defaultView.native;
+                    slot.fifDirtyFlag = 0xFFFF;
+                }
+                else {
+                    imageInfo.imageView = VK_NULL_HANDLE;
+                }
+            }
+            else {
+                imageInfo.imageView = (VkImageView)slot.rsData[0];
+            }
+
+            writeSet.pImageInfo = &imageInfo;
+            vkUpdateDescriptorSets(device, 1, &writeSet, 0, nullptr);
+            break;
+        }
+
+        //Sampler
+        case UniformType::Sampler:
+        {
+            VkDescriptorImageInfo samplerInfo{};
+            if (isNull) {
+                if (!enableNullBinding) {
+                    samplerInfo.sampler = (VkSampler)context->defalut_no_sampler->native;
+                    slot.fifDirtyFlag = 0xFFFF;
+                }
+                else {
+                    samplerInfo.sampler = VK_NULL_HANDLE;
+                }
+            }
+            else {
+                samplerInfo.sampler = (VkSampler)slot.rsData[0];
+            }
+
+            writeSet.pImageInfo = &samplerInfo;
+            vkUpdateDescriptorSets(device, 1, &writeSet, 0, nullptr);
+            break;
+        }
+        default:
+            assert(false && "Unsupported UniformType");
+            break;
+        }
+    }
+
+    void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif)
     {
         static const int maxDynamicSize = 32;
         std::array<uint32_t, maxDynamicSize> dynamics;
         int dyNum = 0;
-        auto& curFrameDescriptors = ((rs_drawdata_vk*)drawData)->DescriptorSets[curFif];
-        for (const auto& [setIdx, descriptorSet] : curFrameDescriptors) {
-            
-            bool canBind = false;
-            for (const auto& [set, _] : layout->setLayouts) {
-                if (set == setIdx) {
-                    canBind = true;
-                    break;
+        auto& descriptorPacks = ((rs_drawdata_vk*)drawData)->DescriptorSets;
+        std::vector<uint32_t> dyOffsets;
+        //Do real write in here
+        for (auto& descriptorPack : descriptorPacks) {
+			auto setIdx = descriptorPack.setIdx;
+            VkDescriptorSet set = (VkDescriptorSet)descriptorPack.descriptorSets[curFif]->native;
+            int bindingIdx = 0;
+            for (auto& bindingSlot : descriptorPack.bindingTracker) {
+                int curBindingIdx = bindingIdx;
+                bindingIdx++;
+                auto type = bindingSlot.type;
+                if (type == UniformType::Count) {
+                    //Not valid
+                    continue;
                 }
-            }
-            if (!canBind)continue;
+                if ((bindingSlot.fifDirtyFlag & (1u<<curFif)) != 0) {
+                    //Clear cur frame dirty flag.
+					bindingSlot.fifDirtyFlag &= ~(1u << curFif);
+                    //Binding to descriptor by type.
+                    if (bindingSlot.rsData.size() > 1) {
+                        descriptorSetWriteArray(ctx, set, curBindingIdx, bindingSlot, dyOffsets);
+                    }
+                    else {
+                        descriptorSetWrite(ctx, set, curBindingIdx, bindingSlot, dyOffsets);
+                    }
 
-            auto descriptorSetVk = (VkDescriptorSet)descriptorSet->native;
-            for (auto&& binding : descriptorSet->mBindingData) {
-                if (binding.type == UniformType::UniformBuffer) {
-                    dynamics[dyNum] = (binding.uboDyOffset);
-                    dyNum += 1;
                 }
             }
-            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipelineLayout)layout->native, setIdx, 1, &descriptorSetVk,dyNum, dynamics.data());
+            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipelineLayout)layout->native, setIdx, 1, &set, dynamics.size(), dynamics.data());
+
         }
     }
 
@@ -2604,6 +2869,13 @@ namespace Render::Vulkan {
     void cmdEndRecord(rs_commandbuffer_vk* cb)
     {
         vkEndCommandBuffer((VkCommandBuffer)cb->native);
+    }
+
+    void cmdSubmitOneShotAndWait(rs_context_vk* ctx, rs_commandbuffer_vk* cb)
+    {
+        auto fence = createRsFence(ctx);
+        cmdSubmitCmdBuffer(ctx, cb, QueueType_Graphics, {}, {}, fence);
+        destroyRsFence(ctx,fence);
     }
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)

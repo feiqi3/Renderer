@@ -116,9 +116,11 @@ namespace Render {
 	};
 
 	struct rs_binding_slot{
-		UniformType type;
+		UniformType type = UniformType::Count;
 		uint16_t fifDirtyFlag = 0xFFFF;
-		uint32_t uboDyOffset;
+		uint32_t bufferOffset = 0;
+		uint32_t bufferSize = 0;
+		uint32_t uboDyOffset = 0;
 		SmallVector<void*,1> rsData;
 	};
 

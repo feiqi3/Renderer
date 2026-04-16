@@ -43,7 +43,7 @@ namespace Render::Vulkan {
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
 		bool dynamicWireFrameStateSupported = false;
-		//
+		bool partialBindEnable = false;
 
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
@@ -51,8 +51,10 @@ namespace Render::Vulkan {
 
 
 		struct rs_image_vk*	defalut_no_texture = nullptr;
+		struct rs_image_vk* defalut_no_texture_UAV = nullptr;
 		struct rs_sampler_vk*	defalut_no_sampler = nullptr;
 		struct rs_buffer_vk*	defalut_no_buffer  = nullptr;
+		struct rs_buffer_vk*	defalut_no_buffer_UAV = nullptr;
 	};
 
 	struct rs_queue_vk : rs_queue{
