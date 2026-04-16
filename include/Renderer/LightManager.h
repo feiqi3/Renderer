@@ -11,6 +11,7 @@ namespace Render {
 	class LightManager{
 	public:
 		LightManager();
+		~LightManager();
 		//Do a copy internal
 		int addLight(Light* light);
 		void removeLight(int idx);
@@ -20,6 +21,9 @@ namespace Render {
 		void calculateIBLData(TexturePtr irradianceMap,TexturePtr brdfLUT);
 		const GPUShared::GPUSceneLightData& updateLightData();
 	private:
+
+		void calcMipMap(TexturePtr tex);
+
 		struct LightData {
 			Light* light;
 			GPUShared::GPULightData data;
@@ -28,7 +32,8 @@ namespace Render {
 		std::map<int, LightData> lightMap;
 		GPUShared::GPUSceneLightData mLightData;
 		bool dirty = true;
-
+		ComputeKernel* mipmapGenKernel		= nullptr;
+		ComputeKernel* mipmapGenKernelCube = nullptr;
 		ComputeKernel* irradianceMapKernel	= nullptr;
 		ComputeKernel* brdfLUTKernel		= nullptr;
 	};
