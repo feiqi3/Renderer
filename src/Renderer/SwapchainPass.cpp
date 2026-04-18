@@ -87,7 +87,7 @@ namespace Render {
 	void SwapchainPass::setBlitRT(rs_image* rt)
 	{
 		auto RenderSys = RenderSystem::instance();
-		RenderSys->updateUniform(BlitTarget, rt, BlitPass);
+		RenderSys->updateUniform(BlitTarget,0, rt, BlitPass);
 	}
 
 	void SwapchainPass::drawImpl(rs_commandbuffer* cmdbuffer)

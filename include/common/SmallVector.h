@@ -1,100 +1,159 @@
 #ifndef SMALL_VECTOR_H
 #define SMALL_VECTOR_H
+
 #include <cstdint>
-#include <cstring>
 #include <cassert>
 #include <type_traits>
+#include <algorithm>
+#include <memory>  
+#include <new>  
 
 template <typename T, size_t N = 1>
 class SmallVector {
-	static_assert(std::is_trivial_v<T>, "SmallVector is optimized for trivial types (like pointers)!");
+private:
+    size_t m_size = 0;
+
+    union {
+        alignas(T) unsigned char m_inline_raw[N * sizeof(T)];
+        T* m_heap;
+    };
 
 private:
-	size_t m_size = 0;
-	bool m_isHeap = false;
+    inline bool isHeap() const {
+        return m_size > N;
+    }
 
-	union {
-		T m_inline[N];
-		T* m_heap;
-	};
+    inline T* inline_ptr() {
+        return reinterpret_cast<T*>(m_inline_raw);
+    }
+    inline const T* inline_ptr() const {
+        return reinterpret_cast<const T*>(m_inline_raw);
+    }
 
 public:
-	inline SmallVector() : m_size(0), m_isHeap(false) {
-		std::memset(m_inline, 0, sizeof(T) * N);
-	}
+    inline SmallVector() : m_size(0) {}
 
-	inline ~SmallVector() {
-		if (m_isHeap) {
-			delete[] m_heap;
-		}
-	}
+    inline ~SmallVector() {
+        std::destroy_n(data(), m_size);
+        if (isHeap()) {
+            ::operator delete(m_heap);
+        }
+    }
 
-	inline SmallVector(const SmallVector&) = delete;
-	inline SmallVector& operator=(const SmallVector&) = delete;
+    inline SmallVector(const SmallVector& other) : m_size(other.m_size) {
+        if (other.isHeap()) {
+            m_heap = static_cast<T*>(::operator new(m_size * sizeof(T)));
+            std::uninitialized_copy_n(other.m_heap, m_size, m_heap);
+        }
+        else {
+            std::uninitialized_copy_n(other.inline_ptr(), m_size, inline_ptr());
+        }
+    }
 
-	inline SmallVector(SmallVector&& other) noexcept {
-		m_size = other.m_size;
-		m_isHeap = other.m_isHeap;
-		if (m_isHeap) {
-			m_heap = other.m_heap;
-			other.m_heap = nullptr;
-		}
-		else {
-			std::memcpy(m_inline, other.m_inline, sizeof(T) * N);
-		}
-		other.m_size = 0;
-		other.m_isHeap = false;
-	}
+    inline SmallVector& operator=(const SmallVector& other) {
+        if (this == &other) return *this; 
 
-	inline SmallVector& operator=(SmallVector&& other) noexcept {
-		if (this != &other) {
-			if (m_isHeap) delete[] m_heap;
+        std::destroy_n(data(), m_size);
+        if (isHeap()) {
+            ::operator delete(m_heap);
+        }
 
-			m_size = other.m_size;
-			m_isHeap = other.m_isHeap;
-			if (m_isHeap) {
-				m_heap = other.m_heap;
-				other.m_heap = nullptr;
-			}
-			else {
-				std::memcpy(m_inline, other.m_inline, sizeof(T) * N);
-			}
-			other.m_size = 0;
-			other.m_isHeap = false;
-		}
-		return *this;
-	}
+        m_size = other.m_size;
+        if (other.isHeap()) {
+            m_heap = static_cast<T*>(::operator new(m_size * sizeof(T)));
+            std::uninitialized_copy_n(other.m_heap, m_size, m_heap);
+        }
+        else {
+            std::uninitialized_copy_n(other.inline_ptr(), m_size, inline_ptr());
+        }
 
-	inline void resize(size_t new_size) {
-		if (new_size <= N) {
-			if (m_isHeap) {
-				delete[] m_heap;
-				m_isHeap = false;
-			}
-			m_size = new_size;
-			std::memset(m_inline, 0, sizeof(T) * N);
-		}
-		else {
-			T* new_heap = new T[new_size]{};
-			if (m_isHeap) {
-				std::memcpy(new_heap, m_heap, std::min(m_size, new_size) * sizeof(T));
-				delete[] m_heap;
-			}
-			else {
-				std::memcpy(new_heap, m_inline, std::min(m_size, new_size) * sizeof(T));
-			}
-			m_heap = new_heap;
-			m_isHeap = true;
-			m_size = new_size;
-		}
-	}
+        return *this;
+    }
 
-	inline inline T& operator[](size_t idx) {
-		assert(idx < m_size);
-		return m_isHeap ? m_heap[idx] : m_inline[idx];
-	}
+    inline SmallVector(SmallVector&& other) noexcept : m_size(other.m_size) {
+        if (other.isHeap()) {
+            this->m_heap = other.m_heap;
+        }
+        else {
+            std::uninitialized_move_n(other.inline_ptr(), m_size, this->inline_ptr());
+            std::destroy_n(other.inline_ptr(), m_size);
+        }
+        other.m_size = 0;
+    }
 
-	inline T* data() { return m_isHeap ? m_heap : m_inline; }
-	inline size_t size() const { return m_size; }
+    inline SmallVector& operator=(SmallVector&& other) noexcept {
+        if (this == &other) return *this;
+
+        std::destroy_n(data(), m_size);
+        if (isHeap()) {
+            ::operator delete(m_heap);
+        }
+
+        m_size = other.m_size;
+        if (other.isHeap()) {
+            this->m_heap = other.m_heap;
+        }
+        else {
+            std::uninitialized_move_n(other.inline_ptr(), m_size, this->inline_ptr());
+            std::destroy_n(other.inline_ptr(), m_size);
+        }
+
+        other.m_size = 0;
+        return *this;
+    }
+
+    inline void resize(size_t new_size) {
+        if (new_size == m_size) return;
+
+        T* old_data = data();
+
+        if (new_size <= N) {
+            if (isHeap()) {
+                std::uninitialized_move_n(old_data, new_size, inline_ptr());
+                std::destroy_n(old_data, m_size);
+                ::operator delete(old_data);
+            }
+            else {
+                if (new_size > m_size) {
+                    std::uninitialized_value_construct_n(inline_ptr() + m_size, new_size - m_size);
+                }
+                else {
+                    std::destroy_n(inline_ptr() + new_size, m_size - new_size);
+                }
+            }
+        }
+        else {
+            T* new_heap = static_cast<T*>(::operator new(new_size * sizeof(T)));
+            size_t move_count = std::min(m_size, new_size);
+
+            std::uninitialized_move_n(old_data, move_count, new_heap);
+
+            if (new_size > m_size) {
+                std::uninitialized_value_construct_n(new_heap + m_size, new_size - m_size);
+            }
+
+            std::destroy_n(old_data, m_size);
+            if (isHeap()) {
+                ::operator delete(old_data);
+            }
+            m_heap = new_heap;
+        }
+        m_size = new_size;
+    }
+
+    inline T& operator[](size_t idx) {
+        assert(idx < m_size);
+        return data()[idx];
+    }
+
+    inline const T& operator[](size_t idx) const {
+        assert(idx < m_size);
+        return data()[idx];
+    }
+
+    inline T* data() { return isHeap() ? m_heap : inline_ptr(); }
+    inline const T* data() const { return isHeap() ? m_heap : inline_ptr(); }
+    inline size_t size() const { return m_size; }
 };
-#endif SMALL_VECTOR_H
+
+#endif // SMALL_VECTOR_H

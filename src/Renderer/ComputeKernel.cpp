@@ -45,7 +45,7 @@ namespace Render {
         if (mPipeline) {
             rs_pipeline* basePipeline = reinterpret_cast<rs_pipeline*>(mPipeline);
             for (auto&& binding : basePipeline->pipelineLayout->bindingInfo) {
-                mBindingTable.insert({ binding.bindingItemName, binding });
+                mBindingTable.insert({ binding.bindingItemName.str(), binding});
             }
         }
     }
@@ -103,13 +103,13 @@ namespace Render {
             if (!infoOpt) continue;
 
             if (variant.isRsBuffer()) {
-                sys->updateUniform(infoOpt->bindingPos, variant.getRsBuffer(), basePipeline, mCurrentDrawData);
+                sys->updateUniform(infoOpt->bindingPos,0, variant.getRsBuffer(), basePipeline, mCurrentDrawData);
             }
             else if (variant.isTexture()) {
-                sys->updateUniform(infoOpt->bindingPos, variant.getTexture()->getRsImage(), basePipeline, mCurrentDrawData);
+                sys->updateUniform(infoOpt->bindingPos,0, variant.getTexture()->getRsImage(), basePipeline, mCurrentDrawData);
             }
             else if (variant.isSampler()) {
-                sys->updateUniform(infoOpt->bindingPos, variant.getSampler()->getRsSampler(), basePipeline, mCurrentDrawData);
+                sys->updateUniform(infoOpt->bindingPos,0, variant.getSampler()->getRsSampler(), basePipeline, mCurrentDrawData);
             }
             else if (variant.isUniformBuffer()) {
                 void* dataPtr = nullptr;

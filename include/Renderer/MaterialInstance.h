@@ -11,7 +11,7 @@
 #include <map>
 #include "Renderer/ResourceVariant.h"
 #include "Renderer/SamplerResourceManager.h"
-
+#include "common/SmallVector.h"
 namespace Render {
 
 	class RenderPass;
@@ -31,12 +31,12 @@ namespace Render {
 			rs_binding_pos        bindingPos;
 			UniformType           parameterType;
 			ImageType			  parameterImageType;
-			RenderResourceVariant var;
+			SmallVector<RenderResourceVariant,1> varArr;
 		};
 
-		void bindParameter(const std::string& paramName, TexturePtr tex);
-		void bindParameter(const std::string& paramName, rs_buffer* buffer);
-		void bindParameter(const std::string& paramName, SamplerPtr sampler);
+		void bindParameter(const std::string& paramName, TexturePtr tex,int element = 0);
+		void bindParameter(const std::string& paramName, rs_buffer* buffer, int element = 0);
+		void bindParameter(const std::string& paramName, SamplerPtr sampler, int element = 0);
 
 		template<class T>
 		void bindParameter(const std::string& paramName, const T& data);

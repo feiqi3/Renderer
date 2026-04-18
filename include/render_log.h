@@ -4,6 +4,7 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#include <cassert>
 namespace Render {
     namespace Log {
         enum class Level { INFO, WARN, ERR };
@@ -36,7 +37,7 @@ namespace Render {
 
         inline void error(const std::string& message) {
             log(Level::ERR, message);
-            assert(false);
+            //assert(false);
         }
     }
 }

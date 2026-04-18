@@ -79,29 +79,6 @@ namespace Render::Vulkan {
 
     }
 
-    void DescriptorSetManager::bindDefaultDybuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, QueueType queueType)
-    {
-        assert(curFrameDefaultUBO != nullptr);
-        const auto& layoutData =
-            descriptorSet->layout->bindingHash;
-        const auto& descriptor = layoutData.getDescriptor(binding);
-        if (descriptor.type != UniformType::UniformBuffer) {
-            assert(0 && "Wrong binding type");
-            Log::error("Wrong binding type in binding" + std::to_string(binding));
-            return;
-        }
-
-        if (descriptor.count > 1) {
-            assert(0 && "For UBO, descriptor count must equal to 1.");
-            return;
-        }
-        auto& bindingSlot = descriptorSet->mBindingData[binding];
-        updateBufferBind(frame, ctx, descriptorSet, binding, (rs_buffer_vk*)curFrameDefaultUBO->mBuffer);
-        bindingSlot.native = curFrameDefaultUBO;
-        bindingSlot.uboDyOffset = curFrameDyOffset;
-
-    }
-
     VkDescriptorSet DescriptorSetManager::tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx, DescriptorPoolBlock* block, rs_descriptorset_layout_vk* layout) {
         auto& type = layout->bindingHash.mDescriptors;
 
@@ -150,13 +127,6 @@ namespace Render::Vulkan {
 
         auto ret = AllocateDescriptorSet(frame, ctx, setlayout);
         
-        rs_binding_slot binding{};
-        binding.type = UniformType::Count;
-        ret->mBindingData.resize(setlayout->bindingHash.maxBinding + 1, binding);
-        for (auto& bindingSlot : setlayout->bindingHash.mDescriptors) {
-            auto vkBindingPos = toVkBindingPos(bindingSlot.bindingPos);
-            ret->mBindingData[vkBindingPos.bindingIdx].type = bindingSlot.type;
-        }
         return ret;
     }
 
@@ -193,29 +163,6 @@ namespace Render::Vulkan {
         else {
             assert(0);
         }
-        for (const rs_binding_slot& bindingData : descriptorSet->mBindingData) {
-            switch (bindingData.type)
-            {
-            case Render::UniformType::UniformBuffer:
-            {
-                UniformBufferObject* ubo = (UBO*)bindingData.native;
-                if (ubo) {
-                    ubo->mInUsedNum.fetch_sub(1);
-                }
-            }
-            break;
-            case      Render::UniformType::ConstantBuffer:
-            case      Render::UniformType::StorageBuffer:
-            case       Render::UniformType::StorageImage:
-            case      Render::UniformType::Texture:
-            case        Render::UniformType::InputAttachment:
-            case  Render::UniformType::Sampler:
-            //case Render::UniformType::AccelerationStructure:
-            default:
-                break;
-            }
-        
-        }
         delete descriptorSet;
     }
 
@@ -236,8 +183,23 @@ namespace Render::Vulkan {
     }
 
 
-    std::pair<UBO*, uint64_t> DescriptorSetManager::getDybuffer(uint64_t frame,uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue)
+    std::pair<UniformBufferObject*, uint32_t> DescriptorSetManager::getCurFrameDefaultUBO()
     {
+        return {curFrameDefaultUBO,curFrameDyOffset};
+    }
+
+    std::pair<UBO*, uint32_t> DescriptorSetManager::getDybuffer(uint64_t frame,uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue, UniformBufferObject* formerUBO)
+    {
+        if (formerUBO) {
+            returnDybuffer(formerUBO);
+            std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
+            uint32_t offsetPos = 0;
+            if (formerUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
+                formerUBO->mInUsedNum.fetch_add(1);
+                return { formerUBO,offsetPos };
+            }
+        }
+
         UBO* choosenUBO = nullptr;
         uint32_t offsetPos = 0;
 
@@ -266,6 +228,11 @@ namespace Render::Vulkan {
         return { choosenUBO,offsetPos };
     }
 
+    void DescriptorSetManager::returnDybuffer(UniformBufferObject* ubo)
+    {
+        ubo->mInUsedNum.fetch_sub(1);
+    }
+
     UBO* DescriptorSetManager::createUBO(rs_context_vk* ctx, uint64_t createSize, uint32_t alignedSize, QueueType queue)
     {
         BufferDesc createBufferDesc{};
@@ -290,82 +257,6 @@ namespace Render::Vulkan {
         delete ubo;
     }
 
-    void DescriptorSetManager::updateDynamicBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, void* data, uint64_t size,QueueType queue)
-    {
-
-        {
-        //Check DescriptorSet
-            const auto& layoutData =
-                descriptorSet->layout->bindingHash;
-            const auto& descriptor = layoutData.getDescriptor(binding);
-            if (descriptor.type != UniformType::UniformBuffer || descriptor.size < size) {
-				assert(0 && "Wrong binding type");
-				Log::error("Wrong binding type in binding" + std::to_string(binding));
-                return;
-            }
-
-            if (descriptor.count > 1) {
-                assert(0 && "For UBO, descriptor count must equal to 1.");
-                return;
-            }
-        }
-
-        auto fif = frame % ctx->maxFrameInFlight;
-        UBO* choosenUBO = nullptr;
-        uint32_t offsetPos = 0;
-        auto& bindingSlot = descriptorSet->mBindingData[binding];
-        //Use former uniform buffer bind in descriptor set.
-        if (descriptorSet->mBindingData[binding].native) {
-            std::lock_guard<std::mutex> lock(mAllocateUniformBufferLock);
-            choosenUBO = (UBO*)bindingSlot.native;
-            if (!choosenUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
-                choosenUBO->mInUsedNum.fetch_sub(1);
-                choosenUBO = 0;
-            }
-        }
-
-        if(!choosenUBO){
-			auto pair = getDybuffer(frame, fif, ctx, data, size, queue);
-			choosenUBO = pair.first;
-            offsetPos = pair.second;
-        }
-        if (choosenUBO != bindingSlot.native) {
-            updateBufferBind(frame, ctx, descriptorSet, binding, (rs_buffer_vk*)choosenUBO->mBuffer);
-        }
-        bindingSlot.native = choosenUBO;
-        bindingSlot.uboDyOffset = offsetPos;
-    }
-
-    void DescriptorSetManager::updateBufferData(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, void* data, int size, QueueType queueType)
-    {
-        updateDynamicBuffer(frame, ctx, descriptorSet, binding, data, size, queueType);
-    }
-    void DescriptorSetManager::updateSampler(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType) {
-        if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
-            return;
-        }
-        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
-        if (bindingInfo.type != UniformType::Sampler) {
-            assert(0 && "Wrong binding type");
-            Log::error("Wrong binding type in binding" + std::to_string(binding));
-            return;
-        }
-		if (descriptorSet->mBindingData[binding].native == sampler->native)return;
-		descriptorSet->mBindingData[binding].native = sampler->native;
-        descriptorSet->mBindingData[binding].rsData = sampler;
-        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        writeSet.dstBinding = binding;
-        writeSet.dstArrayElement = 0;
-        writeSet.descriptorCount = 1;
-        writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
-        VkDescriptorImageInfo iInfo{};
-        iInfo.sampler = (VkSampler)sampler->native;
-        writeSet.pImageInfo = &iInfo;
-        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
-        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
-
-    }
-
     rs_pipeline_layout_vk* DescriptorSetManager::createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders)
     {
 
@@ -373,105 +264,6 @@ namespace Render::Vulkan {
             getPipelineShaderInfo(shaders.data(), shaders.size());
 
         return createRsPipelineLayout(ctx, setLayouts);
-    }
-
-    void DescriptorSetManager::updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType)
-    {
-
-        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
-        if (bindingInfo.type != UniformType::Texture) {
-            assert(0 && "Wrong binding type");
-			Log::error("Wrong binding type in binding" + std::to_string(binding));
-			return;
-        }
-
-		if (descriptorSet->mBindingData[binding].native == (VkImageView)image->defaultView.native)return;
-		
-
-		if (bindingInfo.imageType != ImageType::Invalid && bindingInfo.imageType != image->defaultView.viewKey.getViewType()) {
-			Log::warn("Wrong image view type in binding" + std::to_string(binding));
-		}
-
-        descriptorSet->mBindingData[binding].native = (VkImageView)image->defaultView.native;
-        descriptorSet->mBindingData[binding].rsData = &(image->defaultView);
-        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        writeSet.dstBinding = binding;
-        writeSet.dstArrayElement = 0;
-        writeSet.descriptorCount = 1;
-        writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
-        VkDescriptorImageInfo iInfo{};
-        iInfo.imageView = (VkImageView)image->defaultView.native;
-        iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        writeSet.pImageInfo = &iInfo;
-        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
-
-        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
-
-    }
-
-    void DescriptorSetManager::updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer)
-    {
-        //TODO: this function is ambiguous FIX ME
-
-
-        if (descriptorSet->mBindingData[binding].native == buffer->native)return;
-		descriptorSet->mBindingData[binding].native = buffer->native;
-        descriptorSet->mBindingData[binding].rsData = buffer;
-        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
-
-        if (bindingInfo.type != UniformType::ConstantBuffer && bindingInfo.type != UniformType::StorageBuffer 
-            && bindingInfo.type != UniformType::UniformBuffer) {
-            assert(false && "Mis match layout");
-			Log::error("Wrong binding type in binding" + std::to_string(binding));
-			return;
-        }
-
-
-        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        writeSet.dstBinding = binding;
-        writeSet.dstArrayElement = 0;
-        writeSet.descriptorCount = 1;
-        writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
-        VkDescriptorBufferInfo bInfo{};
-        bInfo.buffer = (VkBuffer)buffer->native;
-        bInfo.offset = 0;
-        if (bindingInfo.type == UniformType::UniformBuffer) {
-            bInfo.range = bindingInfo.size;
-        }
-        else {
-            bInfo.range = buffer->byteSize;
-        }
-        writeSet.pBufferInfo = &bInfo;
-        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
-        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
-    }
-
-    void DescriptorSetManager::updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType)
-    {
-
-        auto& bindingInfo = descriptorSet->layout->bindingHash.getDescriptor(binding);
-		if (bindingInfo.type != UniformType::StorageBuffer && bindingInfo.type != UniformType::ConstantBuffer) {
-			assert(0 && "Wrong binding type");
-			Log::error("Wrong binding type in binding" + std::to_string(binding));
-			return;
-        }
-		if (descriptorSet->mBindingData[binding].native == buffer->native)return;
-		descriptorSet->mBindingData[binding].rsData     = buffer;
-
-        VkWriteDescriptorSet writeSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        writeSet.                         dstBinding = binding;
-        writeSet.                         dstArrayElement = 0;
-        writeSet.                         descriptorCount = 1;
-        writeSet.                         descriptorType = toVkDescriptorType(bindingInfo.type);
-        VkDescriptorBufferInfo bInfo{};
-        bInfo.buffer = (VkBuffer)buffer->native;
-        bInfo.offset = 0;
-        bInfo.range = buffer->byteSize;
-        writeSet.pBufferInfo = &bInfo;
-        writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
-
-        vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
-
     }
 
     void DescriptorSetManager::beginFrame(rs_context_vk* ctx, uint64_t frame)
@@ -506,8 +298,10 @@ namespace Render::Vulkan {
         }
 
 		uint64_t data = 0xCDCDCDCDCDCDCDCD;
-		auto pair = getDybuffer(frame, frame % ctx->maxFrameInFlight, ctx, &data, 8, QueueType::QueueType_Graphics);
-		curFrameDefaultUBO = pair.first;
+		auto pair = getDybuffer(frame, frame % ctx->maxFrameInFlight, ctx, &data, 8, QueueType::QueueType_Graphics,nullptr);
+        //return it immediately
+        returnDybuffer(pair.first);
+        curFrameDefaultUBO = pair.first;
 		curFrameDyOffset = pair.second;
     }
 
@@ -619,43 +413,10 @@ namespace Render::Vulkan {
         rs = 0;
     }
 
-	void DescriptorSetManager::updateImageDetailed(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, rs_image_view* view, uint8_t queueType)
-	{
-		if (descriptorSet->layout->bindingHash.mDescriptors.size() <= binding) {
-			return;
-		}
-		auto& bindingInfo = descriptorSet->layout->bindingHash.mDescriptors[binding];
-		if (bindingInfo.type != UniformType::Texture) {
-			assert(0 && "Wrong binding type");
-			return;
-		}
-
-		if (descriptorSet->mBindingData[binding].native == view->native)return;
-
-		if (bindingInfo.imageType != ImageType::Invalid && bindingInfo.imageType != image->defaultView.viewKey.getViewType()) {
-			Log::warn("Wrong image view type in binding" + std::to_string(binding));
-		}
-
-		descriptorSet->mBindingData[binding].native = view->native;
-        descriptorSet->mBindingData[binding].rsData = view;
-        VkWriteDescriptorSet writeSet{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-		writeSet.dstBinding = binding;
-		writeSet.dstArrayElement = 0;
-		writeSet.descriptorCount = 1;
-		writeSet.descriptorType = toVkDescriptorType(bindingInfo.type);
-		VkDescriptorImageInfo iInfo{};
-		iInfo.imageView = (VkImageView)view->native;
-		iInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		writeSet.pImageInfo = &iInfo;
-		writeSet.dstSet = (VkDescriptorSet)descriptorSet->native;
-
-		vkUpdateDescriptorSets(ctx->device, 1, &writeSet, 0, 0);
-
-	}
-
 	UniformBufferObject::UniformBufferObject(uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize)
         :mRingBufferAllocator(bufferSize, alignedSize,true,true),mFrameAllocateInfo(maxFrameInFlight),mAlignment(alignedSize)
     {
+        
     }
     void UniformBufferObject::releaseFrame(uint32_t frameInFlight)
     {

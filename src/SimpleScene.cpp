@@ -40,12 +40,12 @@ namespace Render {
 		matrix = rotate(matrix, deltatime, vec3(1, 1, 1));
 
 		RenderSystem::instance()->updateUniformBufferData(bindingPos, &matrix, sizeof(mat4), mCube->getPass(PassName::MainCameraPass));
-		RenderSystem::instance()->updateUniform(texturePos, texture->getRsImage(), mCube->getPass(PassName::MainCameraPass));
-		RenderSystem::instance()->updateUniform(samplerPos, sampler, mCube->getPass(PassName::MainCameraPass));
+		RenderSystem::instance()->updateUniform(texturePos,0, texture->getRsImage(), mCube->getPass(PassName::MainCameraPass));
+		RenderSystem::instance()->updateUniform(samplerPos,0, sampler, mCube->getPass(PassName::MainCameraPass));
 
 		RenderSystem::instance()->updateUniformBufferData(bindingPos, &matrixB, sizeof(mat4), mCubeB->getPass(PassName::MainCameraPass));
-		RenderSystem::instance()->updateUniform(texturePos, texture->getRsImage(), mCubeB->getPass(PassName::MainCameraPass));
-		RenderSystem::instance()->updateUniform(samplerPos, sampler, mCubeB->getPass(PassName::MainCameraPass));
+		RenderSystem::instance()->updateUniform(texturePos,0, texture->getRsImage(), mCubeB->getPass(PassName::MainCameraPass));
+		RenderSystem::instance()->updateUniform(samplerPos,0, sampler, mCubeB->getPass(PassName::MainCameraPass));
 		auto mainRenderQueue = RenderSystem::instance()->getMainRenderQueue();
 		mainRenderQueue->submit(mCube);
 		mainRenderQueue->submit(mCubeB);

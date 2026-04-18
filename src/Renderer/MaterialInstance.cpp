@@ -47,12 +47,13 @@ namespace Render {
 				auto bindingInfoOption = pass->getBindingInfoByName(paramName);
 				if (bindingInfoOption.has_value()) {
 					_ParameterPair bpair{};
+					bpair.varArr.resize(bindingInfoOption->count);
 					bpair.bindingPos = bindingInfoOption->bindingPos;
 					bpair.parameterType = bindingInfoOption->type;
 					bpair.parameterImageType = ImageType::Invalid;
 					if (bindingInfoOption->type == UniformType::UniformBuffer) {
 						//Give a baisc size.
-						bpair.var.setUniformBuffer(nullptr, bindingInfoOption->size);
+						bpair.varArr[0].setUniformBuffer(nullptr, bindingInfoOption->size);
 					}
 					if (bindingInfoOption->type == UniformType::Texture) {
 						bpair.parameterImageType = bindingInfoOption->imageType;
@@ -68,13 +69,17 @@ namespace Render {
 		return std::nullopt;
 	}
 
-	void Material::bindParameter(const std::string& paramName, TexturePtr tex)
+	void Material::bindParameter(const std::string& paramName, TexturePtr tex, int element)
 	{
 		auto bpair = this->getParameterInfo(paramName);
 
 
-
 		if (bpair.has_value()) {
+			if (element >= bpair.value()->varArr.size()) {
+				// Handle out-of-bounds element index
+				assert(false && "Out of bounds");
+				return;
+			}
 
 			auto& pair = *bpair.value();
 			if (pair.parameterType == UniformType::Texture ||
@@ -86,34 +91,34 @@ namespace Render {
 						//assert(false && "invalid binding");
 					}
 					
-					pair.var.set(tex);
+					pair.varArr[element].set(tex);
 				}
 				else {
-					pair.var.set(ResourceSystem::instance()->getDefaultResource<Texture>(ResourceName::Texture));
+					pair.varArr[element].set(ResourceSystem::instance()->getDefaultResource<Texture>(ResourceName::Texture));
 				}
 			}
 		}
 	}
 
-	void Material::bindParameter(const std::string& paramName, rs_buffer* buffer)
+	void Material::bindParameter(const std::string& paramName, rs_buffer* buffer, int element)
 	{
 		auto bpair = this->getParameterInfo(paramName);
 		if (bpair.has_value()) {
 			auto& pair = *bpair.value();
 			if (pair.parameterType == UniformType::ConstantBuffer ||
 				pair.parameterType == UniformType::StorageBuffer) {
-				pair.var.set(buffer); 
+				pair.varArr[element].set(buffer);
 			}
 		}
 	}
 
-	void Material::bindParameter(const std::string& paramName, SamplerPtr sampler)
+	void Material::bindParameter(const std::string& paramName, SamplerPtr sampler, int element)
 	{
 		auto bpair = this->getParameterInfo(paramName);
 		if (bpair.has_value()) {
 			auto& pair = *bpair.value();
 			if (pair.parameterType == UniformType::Sampler) {
-				pair.var.set(sampler);
+				pair.varArr[element].set(sampler);
 			}
 		}
 	}
@@ -124,7 +129,7 @@ namespace Render {
 		if (bpair.has_value()) {
 			auto& pair = *bpair.value();
 			if (pair.parameterType == UniformType::UniformBuffer) {
-				pair.var.setUniformBuffer(data, size);
+				pair.varArr[0].setUniformBuffer(data, size);
 			}
 		}
 	}
@@ -133,39 +138,43 @@ namespace Render {
 	{
 		this->OnUpdateParam(pass);
 		for (auto& [name, bpair] : mParameterMap) {
-			if (!bpair.var.hasResource()) {
-				continue;
-			}
-			auto sys = RenderSystem::instance();
-			switch (bpair.parameterType) {
-			case UniformType::StorageBuffer:
-			case UniformType::ConstantBuffer:
-				sys->updateUniform(bpair.bindingPos, bpair.var.getRsBuffer(), pass);
-				break;
+			auto& vars = bpair.varArr;
+			for (int i = 0; i < vars.size(); ++i) {
+				auto& var = vars[i];
+				if (!var.hasResource()) {
+					continue;
+				}
+				auto sys = RenderSystem::instance();
+				switch (bpair.parameterType) {
+				case UniformType::StorageBuffer:
+				case UniformType::ConstantBuffer:
+					sys->updateUniform(bpair.bindingPos,i, var.getRsBuffer(),0,0, pass);
+					break;
 
-			case UniformType::UniformBuffer:
-			{
-				void* dataptr = nullptr;
-				uint32_t size = 0;
-				bpair.var.getData(&dataptr, &size);
-				sys->updateUniformBufferData(bpair.bindingPos, dataptr, size, pass);
-				break;
-			}
+				case UniformType::UniformBuffer:
+				{
+					void* dataptr = nullptr;
+					uint32_t size = 0;
+					var.getData(&dataptr, &size);
+					sys->updateUniformBufferData(bpair.bindingPos, dataptr, size, pass);
+					break;
+				}
 
-			case UniformType::StorageImage:
-			case UniformType::Texture:
-			case UniformType::InputAttachment:
-				sys->updateUniform(bpair.bindingPos, bpair.var.getTexture()->getRsImage(), pass);
-				break;
+				case UniformType::StorageImage:
+				case UniformType::Texture:
+				case UniformType::InputAttachment:
+					sys->updateUniform(bpair.bindingPos,i, var.getTexture()->getRsImage(), pass);
+					break;
 
-			case UniformType::Sampler:
-				sys->updateUniform(bpair.bindingPos, bpair.var.getSampler()->getRsSampler(), pass);
-				break;
+				case UniformType::Sampler:
+					sys->updateUniform(bpair.bindingPos,i, var.getSampler()->getRsSampler(), pass);
+					break;
 
-			case UniformType::Count:
-			default:
-				assert(false && "Invalid UniformType encountered!");
-				break;
+				case UniformType::Count:
+				default:
+					assert(false && "Invalid UniformType encountered!");
+					break;
+				}
 			}
 		}
 	}

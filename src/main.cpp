@@ -83,7 +83,7 @@ void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window)
 	//1. OnResize
 	window->ResizeEvent += [](int x, int y) {
 		std::cout << "Window Resize: x:" << x << " y:" << y << "\n";
-		Render::RenderSystem::instance()->onWindowResize();
+		Render::RenderSystem::instance()->onWindowResize(x,y);
 		return true;
 		};
 }

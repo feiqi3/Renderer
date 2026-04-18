@@ -3,9 +3,11 @@
 #include <string>
 #include <atomic>
 #include <array>
+#include <set>
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
 #include "common/SmallVector.h"
+#include <vector>
 namespace Render {
 
 	struct rs_context{
@@ -113,6 +115,7 @@ namespace Render {
 		bool recording = false;
 		uint32_t lastActiveFrames = 0;
 		bool hasCommands = false;
+		std::vector<std::set<void*>> resourceToBeTransit;
 	};
 
 	struct rs_binding_slot{
@@ -121,7 +124,7 @@ namespace Render {
 		uint32_t bufferOffset = 0;
 		uint32_t bufferSize = 0;
 		uint32_t uboDyOffset = 0;
-		SmallVector<void*,1> rsData;
+		SmallVector<void*, 1> rsData = {};
 	};
 
 	struct rs_descriptorSet : rs_base { 

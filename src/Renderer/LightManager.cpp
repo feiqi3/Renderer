@@ -7,14 +7,14 @@ namespace Render {
 		{
 			//1. mipmap gen kernel
 			std::string macro2D = "#define USE_SAMPLER\nUSE_TARGET_IMAGE_TYPE TARGET_IMAGE_TYPE_2D";
-			mipmapGenKernel = new ComputeKernel("../shader/mipmapGen.cs", macro2D);
+			//mipmapGenKernel = new ComputeKernel("../shader/mipmapGen.cs", macro2D);
 			std::string macroArray = "#define USE_SAMPLER\nUSE_TARGET_IMAGE_TYPE TARGET_IMAGE_TYPE_2D_ARRAY";
-			mipmapGenKernelCube = new ComputeKernel("../shader/mipmapGen.cs", macroArray);
+			//mipmapGenKernelCube = new ComputeKernel("../shader/mipmapGen.cs", macroArray);
 			SamplerDesc linearSampler{};
 			linearSampler.addressU = AddressMode::ClampToEdge;
 			linearSampler.addressV = AddressMode::ClampToEdge;
-			mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
-			mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
+			//mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
+			//mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
 
 		}
 	}

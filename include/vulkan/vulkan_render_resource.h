@@ -14,7 +14,10 @@
 #define VK_RS_DEF(x) typedef x x##_vk;
 #define VK_CHECK(x,stmt) if(x != VK_SUCCESS){assert(0 && #x);Log::error(#x); stmt }
 
+
 namespace Render::Vulkan {
+	inline uint32_t VulkanVersion = VK_API_VERSION_1_3;
+	inline bool     Synchronize2Enable = false;
 	using DrawDataArray = std::array<struct rs_drawdata_vk*, 4>;
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;
@@ -43,18 +46,11 @@ namespace Render::Vulkan {
 		uint32_t viewportCount = 1;
 		uint32_t scissorCount = 1;
 		bool dynamicWireFrameStateSupported = false;
-		bool partialBindEnable = false;
 
 		class DescriptorSetManager* descriptorSetMgr = 0;
 		class CommandBufferManager* cmdBufferMgr = 0;
 		class DeferredDestroyer* destroyer = 0;
 
-
-		struct rs_image_vk*	defalut_no_texture = nullptr;
-		struct rs_image_vk* defalut_no_texture_UAV = nullptr;
-		struct rs_sampler_vk*	defalut_no_sampler = nullptr;
-		struct rs_buffer_vk*	defalut_no_buffer  = nullptr;
-		struct rs_buffer_vk*	defalut_no_buffer_UAV = nullptr;
 	};
 
 	struct rs_queue_vk : rs_queue{
@@ -161,6 +157,7 @@ namespace Render::Vulkan {
 
 	struct descriptor_set_pack {
 		int16_t setIdx = -1;
+		int16_t setUpdatedFif = -1;
 		std::vector<rs_descriptorSet_vk*> descriptorSets;
 		std::vector<rs_binding_slot> bindingTracker;
 	};
@@ -169,7 +166,7 @@ namespace Render::Vulkan {
 		std::vector <			
 			descriptor_set_pack
 			>
-		DescriptorSets; //per frame in flight, per descriptor
+		DescriptorSets; //per set index
 	};
 
 };

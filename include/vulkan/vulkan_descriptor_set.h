@@ -27,7 +27,7 @@ namespace Render::Vulkan {
         rs_buffer_vk* mBuffer = 0;
         uint64_t mLastActiveFrame = 0;
         std::atomic_int32_t mInUsedNum = 0;
-        QueueType mQueue;
+        QueueType mQueue = QueueType::QueueType_Graphics;
 
     private:
         Render::Common::RingBufferAllocator mRingBufferAllocator;
@@ -99,7 +99,7 @@ namespace Render::Vulkan {
                 uint16_t shaderVisibleStage = 0; //shader stage
                 uint16_t count = 0;
                 uint16_t size = 0;
-                UniformType type;
+                UniformType type = UniformType::Count;
             }descripor;
 
             const uint64_t FNV_offset = 0xcbf29ce484222325ULL;
@@ -198,14 +198,6 @@ namespace Render::Vulkan {
 
     public:
         DescriptorSetManager(rs_context_vk* ctx,int maxFrame);
-        void bindDefaultDybuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, QueueType queueType);
-        void updateBufferData(uint64_t frame, rs_context_vk * ctx, rs_descriptorSet_vk * descriptorSet, int binding, void * data, int size, QueueType queueType);
-        void updateBufferBind(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer);
-        void updateBuffer(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_buffer_vk* buffer, uint8_t queueType);
-        void updateImage(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image, uint8_t queueType);
-		void updateImageDetailed(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_image_vk* image,
-            rs_image_view* view, uint8_t queueType);
-        void updateSampler(uint64_t frame, rs_context_vk* ctx, rs_descriptorSet_vk* descriptorSet, int binding, rs_sampler_vk* sampler, uint8_t queueType);
 
         rs_pipeline_layout_vk* createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders);
 
@@ -251,8 +243,9 @@ namespace Render::Vulkan {
         inline static const int Max_Vacant_Frame = 10;
         inline static const int Max_Uniform_Buffer_Block_Size = 1024 * 256; //256k
     public:
-        std::pair<UniformBufferObject*,uint64_t> getDybuffer(uint64_t frame, uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue);
-
+        std::pair<UniformBufferObject*, uint32_t>getCurFrameDefaultUBO();
+        std::pair<UniformBufferObject*, uint32_t> getDybuffer(uint64_t frame, uint32_t fif, rs_context_vk* ctx, void* data, uint64_t size, QueueType queue, UniformBufferObject* formerUBO);
+        void returnDybuffer(UniformBufferObject* ubo);
     private:
         UniformBufferObject* curFrameDefaultUBO = nullptr;
         uint32_t curFrameDyOffset = 0;

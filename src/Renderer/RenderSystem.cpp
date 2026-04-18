@@ -22,7 +22,6 @@
 #include "function/ComponentSystem.h"
 #include <set>
 namespace Render{
-
 	TexturePtr geterrorTexture(class RenderSystemPrivate* dp);
 
 	ShaderIncludeRes ShaderIncludeFindingFunction(const std::vector<std::string>& findDirectiories, const std::string& name) {
@@ -49,6 +48,7 @@ namespace Render{
 	struct EngineEvent {
 		bool WindowResize = false;
 		std::atomic_bool EngineIdle = false;
+		bool IsEngineInBackEnd = false;
 	};
 
 	struct CommandPair {
@@ -89,9 +89,7 @@ namespace Render{
 		sRenderSystem = new RenderSystem;
 		sRenderSystem->mWindow = window;
 		sRenderSystem->mBackEndContext = initVulkanBackEnd(backEndDesc, window);
-		for (int i = 0; i < sRenderSystem->getRenderContext()->maxFrameInFlight; ++i) {
-			auto render_context = sRenderSystem->getRenderContext();
-		}
+		auto render_context = sRenderSystem->getRenderContext();
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>();
 		sRenderSystem->mDp->mArena->init(sRenderSystem->getRenderContext()->maxFrameInFlight, Render::STAGING_BLOCK_SIZE);
@@ -157,7 +155,7 @@ namespace Render{
 					Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait ,  cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence );
 				}
 				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
-				ctx->currentSwapchainImage = (ctx->currentSwapchainImage + 1) % ctx->maxSwapChainImages;
+				ctx->currentSwapchainImage = nxtImg;
 				if (mDp->mEngineEvent.EngineIdle) {
 					Vulkan::WaitForDeviceIdel(getRenderContext());
 					mDp->mEngineEvent.EngineIdle = false;
@@ -172,7 +170,7 @@ namespace Render{
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait , cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence);
 			}
 			submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
-			ctx->currentSwapchainImage = (ctx->currentSwapchainImage + 1) % ctx->maxSwapChainImages;
+			ctx->currentSwapchainImage = nxtImg;
 			if (mDp->mEngineEvent.EngineIdle) {
 				Vulkan::WaitForDeviceIdel(getRenderContext());
 				mDp->mEngineEvent.EngineIdle = false;
@@ -543,17 +541,17 @@ namespace Render{
 	{	
 		this->updateUniformBufferData(binding, data, size, pass->mMaterial->getRsPipeline(), pass->mDrawData);
 	}
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_buffer* buffer, Pass* pass)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_buffer* buffer, uint32_t offset, uint32_t size, Pass* pass)
 	{
-		this->updateUniform(binding, buffer, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniform(binding, dstArrayElement, buffer, pass->mMaterial->getRsPipeline(), pass->mDrawData, offset,size);
 	}
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, Pass* pass)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, Pass* pass)
 	{
-		this->updateUniform(binding, image, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniform(binding, dstArrayElement, image, pass->mMaterial->getRsPipeline(), pass->mDrawData);
 	}
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_sampler* sampler, Pass* pass)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, Pass* pass)
 	{
-		this->updateUniform(binding, sampler, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniform(binding, dstArrayElement, sampler, pass->mMaterial->getRsPipeline(), pass->mDrawData);
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, rs_pipeline* pipeline)
@@ -579,23 +577,23 @@ namespace Render{
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipeline, (Vulkan::rs_drawdata_vk*)drawData, binding, data, size);
 	}
 
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_buffer* buffer, rs_pipeline* pipeline, rs_drawdata* drawData)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_buffer* buffer, rs_pipeline* pipeline, rs_drawdata* drawData,uint32_t offset,uint32_t size)
 	{
 		auto ctx = getRenderContext();
-		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipeline, (Vulkan::rs_drawdata_vk*)drawData, binding, (Vulkan::rs_buffer_vk*)buffer);
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipeline, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_buffer_vk*)buffer, offset, size);
 	}
 
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
 	{
 		auto ctx = getRenderContext();
 		auto imageToBind = image;
 		if (imageToBind == nullptr) {
 			imageToBind = geterrorTexture(mDp.get())->getRsImage();
 		}
-		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, (Vulkan::rs_image_vk*)imageToBind);
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)imageToBind);
 	}
 
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, ImageViewKey viewkey, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, ImageViewKey viewkey, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
 	{
 		auto ctx = getRenderContext();
 		auto imageToBind = image;
@@ -605,20 +603,20 @@ namespace Render{
 		rs_image_view* view = _getViewFromImage(imageToBind, viewkey);
 		if (view == nullptr) {
 			auto errImage = geterrorTexture(mDp.get())->getRsImage();
-			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, (Vulkan::rs_image_vk*)errImage);
+			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)errImage);
 			return;
 		}
-		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, (Vulkan::rs_image_vk*)imageToBind, view);
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)imageToBind, view);
 	}
 
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_sampler* sampler, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
 	{
 		auto ctx = getRenderContext();
-		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, (Vulkan::rs_sampler_vk*)sampler);
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding,dstArrayElement, (Vulkan::rs_sampler_vk*)sampler);
 	}
 
 
-	void RenderSystem::updateUniform(rs_binding_pos binding, rs_image* image, ImageViewKey viewkey, Pass* pass)
+	void RenderSystem::updateUniform(rs_binding_pos binding,int dstArrayElement, rs_image* image, ImageViewKey viewkey, Pass* pass)
 	{
 		auto ctx = getRenderContext();
 		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
@@ -626,10 +624,10 @@ namespace Render{
 		rs_image_view* view = _getViewFromImage(image, viewkey);
 		if (view == nullptr) {
 			auto errImage = geterrorTexture(mDp.get())->getRsImage();
-			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_image_vk*)errImage);
+			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)errImage);
 			return;
 		}
-		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, (Vulkan::rs_image_vk*)image, view);
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)image, view);
 	}
 
 	void RenderSystem::updateImageData(rs_image* image, void* data, size_t byteSize, int x, int y, int z, int width, int height, int depth, int layerOffset, int layerSize, int mip)
@@ -695,7 +693,7 @@ namespace Render{
 	void RenderSystem::dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ)
 	{
 		transitDrawdataResourceState(cmdBuffer, PipelineType::Compute, drawData);
-		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer,(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData, getCurFif(), groupX, groupY, groupZ);
+		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(),(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData, getCurFif(), groupX, groupY, groupZ);
 	}
 
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity,const Name& passName)
@@ -712,17 +710,17 @@ namespace Render{
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};
 		fillDrawDataArray((DrawDataArray*)&drawDataArr, entity, pass);
-		fillEmptyParameters(cmdBuffer, (DrawDataArray&)drawDataArr, entity, pass);;
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer,getRenderContext(), pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas)
 	{
 		cmdBuffer->hasCommands = true;
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_graphic_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(), (Vulkan::rs_graphic_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
 	}
 	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type, rs_drawdata* drawdata)
 	{
-		Vulkan::cmdTransitDrawDataState((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)(drawdata), type, getCurFif());
+		//defered to begin render pass phase
+		Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)(drawdata), type, getCurFif());
 	}
 	void RenderSystem::fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass)
 	{
@@ -733,14 +731,6 @@ namespace Render{
 		(*arr)[2] = mDp->mCurrentCameraData;
 		if (Scene::getCurrentScene()) {
 			(*arr)[3] = Scene::getCurrentScene()->getSceneDrawData();
-		}
-	}
-	void RenderSystem::fillEmptyParameters(rs_commandbuffer* cb, DrawDataArray& arr, RenderEntity* entity, Pass* pass)
-	{
-		for (int i = 0; i < arr.size(); ++i) {
-			if (arr[i] != nullptr) {
-				Vulkan::cmdFillNullDescriptor(getRenderContext(),(Vulkan::rs_commandbuffer_vk*)cb,(Vulkan::rs_drawdata_vk*)arr[i],getCurFif(), getNextRenderFrame());
-			}
 		}
 	}
 
@@ -792,7 +782,7 @@ namespace Render{
 	rs_rendertarget* RenderSystem::getNextSwapchainRendertarget()
 	{
 		auto ctx = getRenderContext();
-		uint32_t NxtImageIdx = ctx->currentSwapchainImage;
+		uint32_t NxtImageIdx = (ctx->currentSwapchainImage + 1) % ctx->maxSwapChainImages;
 		return mDp->mSwapchainRT[NxtImageIdx];
 	}
 
@@ -940,10 +930,11 @@ namespace Render{
 	}
 
 
-	void RenderSystem::onWindowResize()
+	void RenderSystem::onWindowResize(int x, int y)
 	{
 		setEngineIdle();
 		mDp->mEngineEvent.WindowResize = true;
+		mDp->mEngineEvent.IsEngineInBackEnd = true;
 	}
 
 	RenderSystem::RenderSystem()
