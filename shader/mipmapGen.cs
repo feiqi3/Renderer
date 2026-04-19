@@ -1,11 +1,8 @@
 #version 450
-#extension GL_GOOGLE_include_directive : enable
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-#extension GL_ARB_compute_shader : enable
-#extension GL_ARB_shader_group_vote : enable
+#extension GL_EXT_shader_image_load_formatted : require
+//TODO: can use half version of spd instead of packed version. Which may gains a better performance
 
-##TODO: can use half version of spd instead of packed version. Which may gains a better performance
+#include "MipmapGenConfig.h"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -32,24 +29,14 @@ layout(set=0, binding=0) uniform TARGET_IMAGE_TYPE imgDst[MAX_MIPS_SPD_GEN + 1];
 
 #ifdef USE_SAMPLER
 #define SPD_LINEAR_SAMPLER
-layout(set=0, binding=1) uniform Sampler samplerSrc;
+layout(set=0, binding=1) uniform sampler samplerSrc;
 #endif
-
-struct MipMapGenCfg{
-    uint mipsCount;
-    uint numWorkGroups;// use dispatch z as total slice count
-    uint workGroupOffset;
-    uint imageSizeX;
-    uint imageSizeY;
-    float invImageSizeX;
-    float invImageSizeY;
-};
 
 struct _SPDGlobalAtomic{
     uint counter[MAX_SLICE_SPD_PROCESS];
 };
 
-## Mip Map generate control parameters
+// Mip Map generate control parameters
 layout(set = 0, binding = 2) uniform UBOBlock {
     MipMapGenCfg cfg;
 }MipMapGen;
@@ -63,6 +50,7 @@ layout(set = 0, binding = 3) coherent buffer spdGlobalAtomicBuffer {
 #define A_GLSL
 #define A_GPU
 #include "3rd/ffx_a.h"
+
 shared AU1 spdCounter;
 
 shared AF1 spdIntermediateR[16][16];
@@ -76,10 +64,10 @@ AF4 SpdLoadSourceImage(ASU2 p, AU1 slice)
 {
     vec2 imgSize = vec2(MIP_GEN_CFG.imageSizeX, MIP_GEN_CFG.imageSizeY);
     #if USE_TARGET_IMAGE_TYPE == TARGET_IMAGE_TYPE_2D_ARRAY
-    p = clamp(p, AU2(0), AU2(imgSize) - AU2(1));
+    p = clamp(p, ASU2(0), ASU2(imgSize) - ASU2(1));
     return imageLoad(imgDst[0], ivec3(p,slice));
     #elif USE_TARGET_IMAGE_TYPE == TARGET_IMAGE_TYPE_2D
-    p = clamp(p, AU2(0), AU2(imgSize) - AU2(1));
+    p = clamp(p, ASU2(0), ASU2(imgSize) - ASU2(1));
     return imageLoad(imgDst[0],p);
     #elif defined(SPD_LINEAR_SAMPLER)
     vec2 invSrcSize = vec2(MIP_GEN_CFG.invImageSizeX, MIP_GEN_CFG.invImageSizeY);
@@ -89,11 +77,13 @@ AF4 SpdLoadSourceImage(ASU2 p, AU1 slice)
 }
 AF4 SpdLoad(ASU2 p, AU1 slice)
 {
-    vec2 imgSize = imageSize(imgDst[5]);
-    p = clamp(p, AU2(0), AU2(imgSize) - AU2(1));
     #if USE_TARGET_IMAGE_TYPE == TARGET_IMAGE_TYPE_2D_ARRAY
+    vec3 imgSize = imageSize(imgDst[5]);
+    p = clamp(p, ASU2(0), ASU2(imgSize.xy) - ASU2(1));
     return imageLoad(imgDst[5],ivec3(p,slice));
     #else
+    vec2 imgSize = imageSize(imgDst[5]);
+    p = clamp(p, ASU2(0), ASU2(imgSize.xy) - ASU2(1));
     return imageLoad(imgDst[5],p);
     #endif
 

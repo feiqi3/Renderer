@@ -18,8 +18,15 @@ namespace Render {
 		Light* getLight(int idx);
 		const Light* getLight(int idx) const;
 		void update();
+
 		void calculateIBLData(TexturePtr irradianceMap,TexturePtr brdfLUT);
 		const GPUShared::GPUSceneLightData& updateLightData();
+
+	public:
+		void setSkybox(TexturePtr skybox);
+		void setSkyboxRotation(quat rotation);
+		void setSkyboxExposure(float exposure);
+
 	private:
 
 		void calcMipMap(TexturePtr tex);
@@ -28,10 +35,10 @@ namespace Render {
 			Light* light;
 			GPUShared::GPULightData data;
 		};
-
+		TexturePtr mSkybox;
 		std::map<int, LightData> lightMap;
 		GPUShared::GPUSceneLightData mLightData;
-		bool dirty = true;
+		bool lightDataDirty = true;
 		ComputeKernel* mipmapGenKernel		= nullptr;
 		ComputeKernel* mipmapGenKernelCube = nullptr;
 		ComputeKernel* irradianceMapKernel	= nullptr;

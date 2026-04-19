@@ -27,7 +27,7 @@ void main() {
     vec3 viewSpaceDir = targetInView.xyz;
     vec3 worldDir = ( CAMDATA.MatInvView * vec4(viewSpaceDir, 0.0)).xyz;
     vec3 viewDir = normalize(worldDir);
-    viewDir = rotate_vector(viewDir, SKYBOX.rotateQuat);
+    viewDir = RotateVector(viewDir, SKYBOX.rotateQuat);
     o_viewDir = viewDir;
     v_uv = pos * 0.5 + 0.5;
     gl_Position = vec4(pos, 1.0, 1.0);

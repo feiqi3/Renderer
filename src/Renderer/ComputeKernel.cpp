@@ -3,6 +3,7 @@
 #include "vulkan/vulkan_render_function.h"
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_shader_module.h"
+#include "platform/FileSystem/FileSystem.h"
 #include <stdio.h>
 #include <cassert>
 
@@ -11,20 +12,17 @@ namespace Render {
     ComputeKernel::ComputeKernel(const std::string& shaderPath, const MacroPairs& macros) {
         auto ctx = RenderSystem::instance()->getRenderContext();
         auto sys = RenderSystem::instance();
-
-        FILE* File = fopen(shaderPath.c_str(), "r");
-        if (!File) {
-            assert(0 && "Compute shader file not found!");
-            return;
-        }
-        fseek(File, 0, SEEK_END);
-        uint32_t size = ftell(File);
-        rewind(File);
-
         std::string shaderCode;
-        shaderCode.resize(size);
-        fread(shaderCode.data(), 1, size, File);
-        fclose(File);
+        {
+            auto streamPtr = Platform::FileSystem::instance()->openFileStream(shaderPath);
+            if (!streamPtr) {
+                assert(0 && "Compute shader file not found!");
+                return;
+            }
+
+            shaderCode.resize(streamPtr->getSize());
+            streamPtr->read(shaderCode.data(), streamPtr->getSize());
+        }
 
         ShaderDesc sd{};
         ShaderCompileDesc compileDesc{};

@@ -1,10 +1,11 @@
 #include "Renderer/TextureResourceMgr.h"
 #include "Common/ResourceSystem.h"
 #include "platform/FileSystem/FileSystem.h"
+#include "Renderer/GPUShared/MipmapGenConfig.h"
+#include "Renderer/GPUShared/IBLGenConfig.h"
 namespace Render{
 
 	static std::vector<std::string> nameOfCubeMapFace = { "px","nx","py","ny","pz","nz" };
-
 	namespace {
 		Texture* getErrorTexture() {
 			ImageRaw* imageRaw = ImageRaw::createImageRaw(8, 8, 4, false);

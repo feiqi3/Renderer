@@ -33,7 +33,7 @@ namespace Render {
         float getOuterCone() const;
 
         // Dirty flag control
-        void setDirty(bool dirty = true);
+        void setDirty(bool lightDataDirty = true);
         bool isDirty() const;
 
         // GPU data

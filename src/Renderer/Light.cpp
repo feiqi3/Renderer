@@ -76,8 +76,8 @@ namespace Render {
     }
 
     // Dirty flag
-    void Light::setDirty(bool dirty) {
-        m_dirty = dirty;
+    void Light::setDirty(bool lightDataDirty) {
+        m_dirty = lightDataDirty;
     }
 
     bool Light::isDirty() const {

@@ -22,7 +22,7 @@ namespace Render {
 			linearSampler.addressV = AddressMode::ClampToEdge;
 			mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
 			mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
-
+			irradianceMapKernel = new ComputeKernel("../shader/PreFilterIrradianceMap.cs", {});
 		}
 	}
 
@@ -30,6 +30,8 @@ namespace Render {
 	{
 		delete mipmapGenKernel;
 		delete mipmapGenKernelCube;
+		delete irradianceMapKernel;
+		delete brdfLUTKernel;
 	}
 
 	int LightManager::addLight(Light* light)
@@ -39,7 +41,7 @@ namespace Render {
 		if (size > RENDER_MAX_LIGHT_PER_SCENE) {
 			return -1;
 		}
-		dirty = true;
+		lightDataDirty = true;
 		int idxCur = LightIDX++;
 		lightMap.insert({ idxCur,LightData{.light = light} });
 		return idxCur;
@@ -47,7 +49,7 @@ namespace Render {
 	void LightManager::removeLight(int idx)
 	{
 		if (lightMap.find(idx) != lightMap.end()) {
-			dirty = true;
+			lightDataDirty = true;
 			lightMap.erase(idx);
 		}
 	}
@@ -67,8 +69,16 @@ namespace Render {
 		}
 		return it->second.light;
 	}
+	void LightManager::setSkybox(TexturePtr skybox)
+	{
+		mSkybox = skybox;
+	}
 	void LightManager::calculateIBLData(TexturePtr irradianceMap, TexturePtr brdfLUT)
 	{
+		//1. 
+		if (mSkybox == nullptr) {
+			return;
+		}
 	}
 	const GPUShared::GPUSceneLightData& LightManager::updateLightData()
 	{
@@ -76,7 +86,7 @@ namespace Render {
 
 		for (auto& [lightIdx, lightData] : lightMap) {
 			auto& light = lightData.light;
-			bool needUpdate = dirty;
+			bool needUpdate = lightDataDirty;
 			if (light->isDirty()) {
 				lightData.data = light->toGPUData();
 				needUpdate = true;
@@ -88,7 +98,7 @@ namespace Render {
 			idx = idx + 1;
 		}
 		mLightData.sceneLightInfo.x = idx;
-		dirty = false;
+		lightDataDirty = false;
 		return mLightData;
 	}
 	void LightManager::calcMipMap(TexturePtr tex)
