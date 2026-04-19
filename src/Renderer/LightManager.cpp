@@ -5,16 +5,23 @@ namespace Render {
 	LightManager::LightManager()
 	{
 		{
+
 			//1. mipmap gen kernel
-			std::string macro2D = "#define USE_SAMPLER\nUSE_TARGET_IMAGE_TYPE TARGET_IMAGE_TYPE_2D";
-			//mipmapGenKernel = new ComputeKernel("../shader/mipmapGen.cs", macro2D);
-			std::string macroArray = "#define USE_SAMPLER\nUSE_TARGET_IMAGE_TYPE TARGET_IMAGE_TYPE_2D_ARRAY";
-			//mipmapGenKernelCube = new ComputeKernel("../shader/mipmapGen.cs", macroArray);
+			MacroPairs pairs2D{
+				{"USE_SAMPLER",{}},
+				{"USE_TARGET_IMAGE_TYPE","0"}
+			};
+			mipmapGenKernel = new ComputeKernel("../shader/mipmapGen.cs", pairs2D);
+			MacroPairs pairs2DArray{
+			{"USE_SAMPLER",{}},
+			{"USE_TARGET_IMAGE_TYPE","1"}
+			};
+			mipmapGenKernelCube = new ComputeKernel("../shader/mipmapGen.cs", pairs2DArray);
 			SamplerDesc linearSampler{};
 			linearSampler.addressU = AddressMode::ClampToEdge;
 			linearSampler.addressV = AddressMode::ClampToEdge;
-			//mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
-			//mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
+			mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
+			mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
 
 		}
 	}

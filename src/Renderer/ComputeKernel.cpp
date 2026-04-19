@@ -8,7 +8,7 @@
 
 namespace Render {
 
-    ComputeKernel::ComputeKernel(const std::string& shaderPath, const std::string& marco) {
+    ComputeKernel::ComputeKernel(const std::string& shaderPath, const MacroPairs& macros) {
         auto ctx = RenderSystem::instance()->getRenderContext();
         auto sys = RenderSystem::instance();
 
@@ -30,10 +30,13 @@ namespace Render {
         ShaderCompileDesc compileDesc{};
         compileDesc.generateDebugInfo = true;
         compileDesc.langType = ShaderLang::GLSL;
-        compileDesc.shaderSrcCode = marco + shaderCode;
+        compileDesc.shaderSrcCode = shaderCode;
         compileDesc.stage = ShaderStage::Compute;
         compileDesc.shaderName = shaderPath;
-
+        compileDesc.shaderIncludeFindFunc = RenderSystem::instance()->getShaderIncludeSearchFunc();
+        compileDesc.shaderIncludeDirectories = RenderSystem::instance()->getShaderIncludeSearchDir();
+        compileDesc.generateDebugInfo = true;
+        compileDesc.macros = macros;
         sd.shaderCode = 0;
         sd.codeSizeByte = 0;
         sd.stage = ShaderStage::Compute;

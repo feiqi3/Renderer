@@ -1173,9 +1173,9 @@ namespace Render {
         );
         assert(imageRaw->getByteSize() == image.image.size());
         memcpy(imageRaw->getImageRaw(), image.image.data(), image.image.size());
-        Name textureName = Name(name.str() + "_" + texture.name);
-        out.name = textureName.str();
-        out.texture = ResourceSystem::instance()->registerResource(ResourceName::Texture, textureName, imageRaw->toTextureResource());
+        Name imageName = Name(name.str() + "_" + image.name);
+        out.name = imageName.str();
+        out.texture = ResourceSystem::instance()->registerResource(ResourceName::Texture, imageName, imageRaw->toTextureResource());
         out.smaplerIndex = texture.sampler;
         delete imageRaw;
         imageRaw = nullptr;

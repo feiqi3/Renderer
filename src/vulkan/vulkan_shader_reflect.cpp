@@ -259,6 +259,21 @@ namespace Render::Vulkan {
         }
 
         options.SetSourceLanguage(lang);
+
+        //Set macros:
+        
+        for (const auto& [name, val] : desc.macros) {
+            if (name.length() == 0) {
+                continue;
+            }
+            if (val.empty()) {
+                options.AddMacroDefinition(name);
+            }
+            else {
+                options.AddMacroDefinition(name, val);
+            }
+        }
+
         //---------------------------------------------//
 
         //Bug: If any '\0' exist, shader compile will fail;

@@ -60,12 +60,12 @@ namespace Render {
 
 	}
 
-	MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco)
+	MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco)
 	{
 		return createMaterialPass(pass, shaderMarco, mRenderState);
 	}
 
-	Render::MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
+	Render::MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco, const RenderState& state)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 
@@ -100,7 +100,7 @@ namespace Render {
 		OnUnload();
 	}
 
-	rs_pipeline* MaterialTemplate::createVariantPipeline(RenderPass* pass,const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state)
+	rs_pipeline* MaterialTemplate::createVariantPipeline(RenderPass* pass,const std::vector<std::pair<ShaderStage, MacroPairs>>& shaderMarco, const RenderState& state)
 	{
 
 		auto ctx = RenderSystem::instance()->getRenderContext();
@@ -127,13 +127,14 @@ namespace Render {
 			sd.stage = stage;
 			compileDesc.generateDebugInfo = true;
 			compileDesc.langType = ShaderLang::GLSL;
-			std::string marco;
+			MacroPairs macroPairs;
 			for (auto& [mstage, mmarco] : shaderMarco) {
 				if (mstage == stage) {
-					marco = mmarco;
+					compileDesc.macros = mmarco;
+					break;
 				}
 			}
-			compileDesc.shaderSrcCode = marco + shaderCode;
+			compileDesc.shaderSrcCode = shaderCode;
 			compileDesc.stage = stage;
 			compileDesc.shaderName = shader;
 			compileDesc.generateDebugInfo = true;

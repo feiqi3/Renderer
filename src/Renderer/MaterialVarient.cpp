@@ -7,7 +7,7 @@
 #include <stdio.h>
 namespace Render {
 
-	MaterialPass::MaterialPass(RenderPass* renderPass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline, const ShaderStageInfo& stageInfo):mRenderPass(renderPass),mMaterialTemplate(fromTemplate), mRsPipeline(pipeline),mShaderMacro(stageInfo)
+	MaterialPass::MaterialPass(RenderPass* renderPass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline, const StageMacroPairs& stageInfo):mRenderPass(renderPass),mMaterialTemplate(fromTemplate), mRsPipeline(pipeline),mShaderMacro(stageInfo)
 	{
 		mRsPipeline = pipeline;
 		//Construct a binding table

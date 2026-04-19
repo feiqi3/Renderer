@@ -13,7 +13,7 @@ namespace Render {
 			return mRsPipeline && mRenderPass;
 		}
 
-		inline const ShaderStageInfo& getShaderStageInfo()const { return mShaderMacro; }
+		inline const StageMacroPairs& getShaderStageInfo()const { return mShaderMacro; }
 
 		inline rs_pipeline* getRsPipeline()const { return mRsPipeline; }
 		
@@ -32,13 +32,13 @@ namespace Render {
 		}
 
 	private:
-		MaterialPass(RenderPass* renderpass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const ShaderStageInfo& stageInfo);
+		MaterialPass(RenderPass* renderpass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const StageMacroPairs& stageInfo);
 	private:
 		friend class MaterialTemplate;
 		RenderPass* mRenderPass;
 		MaterialTemplate* mMaterialTemplate = nullptr;
 		rs_pipeline* mRsPipeline = 0;
-		ShaderStageInfo mShaderMacro;
+		StageMacroPairs mShaderMacro;
 		std::map<std::string, BindingInfo> mBindingTable;
 	};
 

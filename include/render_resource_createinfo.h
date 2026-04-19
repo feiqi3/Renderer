@@ -233,14 +233,23 @@ namespace Render {
     };
 
     using ShaderIncFindFunc = std::function<ShaderIncludeRes(const std::vector<std::string>&, const std::string&)>;
-    
+
+    struct ShaderMacroPair {
+        std::string Name;
+        std::string Value;
+    };
+    using MacroPairs = std::vector<ShaderMacroPair>;
+    using StageMacroPairs = std::vector<std::pair<ShaderStage, MacroPairs>>;
     struct ShaderCompileDesc {
+
+        
         ShaderStage stage;
         ShaderLang langType = ShaderLang::GLSL;
         std::string shaderName;
         std::string shaderSrcCode;
         bool enableOptimize = false;
         bool generateDebugInfo = false;
+        MacroPairs macros;
         std::vector<std::string> shaderIncludeDirectories;
         ShaderIncFindFunc shaderIncludeFindFunc = nullptr;
     };

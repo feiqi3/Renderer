@@ -125,9 +125,14 @@ namespace Render {
     {
 		return getImageFormat(getChannel(), isHdr());
     }
-    ImageRaw::ImageRaw(const std::string& path, int want_channels)
+    ImageRaw::ImageRaw(const std::string& path, int want_channels):mMannul(false)
     {
         auto fileStream = Platform::FileSystem::instance()->openFileStream(path);
+        if (!fileStream) {
+            this->pImageData = nullptr;
+            std::cerr << "Load texture failed: reason: " << "open \"" << path << "\" Failed\n";
+            return;
+        }
         int req_channel = 4;
         stbi_io_callbacks iocb{ .read = stbReadCb,.skip = stbSkipCb,.eof = stbEofCb };
         if (want_channels <= 0) {

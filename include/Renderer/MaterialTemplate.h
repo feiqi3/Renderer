@@ -31,15 +31,15 @@ namespace Render {
         virtual void onRenderPassRTChangedNeedRebuild(RenderPass* pass);
 
 		MaterialPass* createMaterialPass(RenderPass* pass);
-		MaterialPass* createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco);
-        MaterialPass* createMaterialPass(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state);
+		MaterialPass* createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco);
+        MaterialPass* createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco, const RenderState& state);
         MaterialPass* getMaterialPass(const Name& passName);
         inline const std::map<Name, MaterialPass*>& getMaterialMap()const {
             return mMaterialPassMap;
         }
 
     private:
-        rs_pipeline* createVariantPipeline(RenderPass* pass, const std::vector<std::pair<ShaderStage, std::string>>& shaderMarco, const RenderState& state);
+        rs_pipeline* createVariantPipeline(RenderPass* pass, const StageMacroPairs& shaderMarco, const RenderState& state);
         void destroyMaterialPass(MaterialPass* material);
 
     private:
