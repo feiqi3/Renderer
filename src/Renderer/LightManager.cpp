@@ -23,6 +23,7 @@ namespace Render {
 			mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
 			mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
 			irradianceMapKernel = new ComputeKernel("../shader/PreFilterIrradianceMap.cs", {});
+			brdfLUTKernel = new ComputeKernel("../shader/BRDFLut.cs", {});
 		}
 	}
 
