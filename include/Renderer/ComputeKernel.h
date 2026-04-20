@@ -27,6 +27,7 @@ namespace Render {
 
         void setParameter(const std::string& name, rs_buffer* buffer);
         void setParameter(const std::string& name, TexturePtr texture);
+        void setParameter(const std::string& name, TexturePtr texture,ImageViewKey key);
         void setParameter(const std::string& name, SamplerPtr sampler);
         void setParameter(const std::string& name, const void* data, uint32_t size);
 

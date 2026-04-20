@@ -677,6 +677,20 @@ namespace Render::Vulkan {
             ret->native = pipeline;
             ret->type = PipelineType::Compute;
             ret->pipelineLayout = pipelineLayout;
+
+            auto& bindingInfo = ret->pipelineLayout->bindingInfo;
+            //Build binding info   
+            for (auto&& setLayout : pipelineLayout->setLayouts) {
+                for (auto&& descriptor : setLayout.second->bindingHash.mDescriptors) {
+                    rs_descriptor descriptorNew = descriptor;
+                    auto vkBindingpos = toVkBindingPos(descriptorNew.bindingPos);
+                    vkBindingpos.setIdx = setLayout.first;
+                    auto rsBindingPos = toRsBindingPos(vkBindingpos);
+                    descriptorNew.bindingPos = rsBindingPos;
+                    bindingInfo.push_back(descriptorNew);
+                }
+            }
+
             return ret;
         }
         else {

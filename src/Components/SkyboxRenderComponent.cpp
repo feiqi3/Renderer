@@ -1,6 +1,9 @@
 #include "Components/SkyboxRenderComponent.h"
 #include "Renderer/SkyboxRenderEntity.h"
 #include "Renderer/RenderQueue.h"
+#include "function/Object.h"
+#include "function/Scene.h"
+#include "Renderer/LightManager.h"
 namespace Render {
 	Render::SkyboxRenderComponent::SkyboxRenderComponent()
 	{
@@ -18,6 +21,7 @@ namespace Render {
 	{
 		mSkyboxCubeMap = texture;
 		mDataDirty = true;
+		this->owner()->scene()->getLightMgr().setSkybox(texture);
 	}
 
 	void SkyboxRenderComponent::setSampler(SamplerPtr sampler)

@@ -6,8 +6,10 @@
 #include "RenderPassManager.h"
 #include "RenderQueue.h"
 #include "Texture.h"
+#include "function/Scene.h"
 #include "Renderer/Camera.h"
 #include "Renderer/CameraManager.h"
+#include "Renderer/LightManager.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -99,8 +101,12 @@ namespace Render {
 			auto RenderSys = RenderSystem::instance();
 			RenderSys->setCurrentCamera(mCamera);
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
+
+
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
+			/////////////////////////////////////////////////////
+			Scene::getCurrentScene()->getLightMgr().calculateIBLData(cmdbufOffscreen);
 			mMainCamPass->draw(cmdbufOffscreen);
 			RenderSys->cmdEnd(cmdbufOffscreen);
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);

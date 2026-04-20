@@ -108,7 +108,7 @@ namespace Render::Vulkan {
         return desSet;
     }
 
-    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, uint32_t setIdx)
+    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_pipeline* pipeline, uint32_t setIdx)
     {
         auto pipelineLayout = (rs_pipeline_layout_vk*)pipeline->pipelineLayout;
         rs_descriptorset_layout_vk* setlayout = nullptr;

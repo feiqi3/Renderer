@@ -34,7 +34,7 @@ vec4 ImportanceSampleGGX( vec2 E, float Roughness4 )
     float D = m2 / ( PI*d*d );
     float PDF = D * CosTheta;
 
-    return vec4( H, PDF );
+    return vec4( normalize(H), PDF );
 }
 
 vec3 PrefilterEnvMap( uvec2 Random, float Roughness, vec3 R )
@@ -86,14 +86,26 @@ vec3 TexelToCubeMapDir(ivec2 texelCoord, int faceIndex, ivec2 faceSize)
 }
 
 void main(){
-    ivec2 imgSize = imageSize(OutPrefilterEnvCubeMap).xy;
-
-    if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y || gl_GlobalInvocationID.z >= 6){
-        return;        
+    ivec3 totalInvocations = ivec3(gl_NumWorkGroups * gl_WorkGroupSize);
+    ivec2 imgSizeOrigin = textureSize(samplerCube(EnvCubeMap, EnvCubeMapSampler),0);
+    ivec2 imgSizeOut = imageSize(OutPrefilterEnvCubeMap);
+    
+    if (gl_GlobalInvocationID.x >= imgSizeOrigin.x || gl_GlobalInvocationID.y >= imgSizeOrigin.y || gl_GlobalInvocationID.z >= 6) {
+        return;
     }
 
-    vec3 dir = TexelToCubeMapDir(ivec2(gl_GlobalInvocationID.xy),int(gl_GlobalInvocationID.z),ivec2(imgSize));
+    vec3 dir = TexelToCubeMapDir(ivec2(gl_GlobalInvocationID.xy),int(gl_GlobalInvocationID.z), totalInvocations.xy);
     float roughness = PrefilterCfg.cfg.curRoughness;
     vec3 filterRGB = PrefilterEnvMap(gl_GlobalInvocationID.xy, roughness, dir);
-    imageStore(OutPrefilterEnvCubeMap,ivec3(gl_GlobalInvocationID.xyz),vec4(filterRGB,1.));
+
+
+    ivec3 savePix;
+    vec2 uv = vec2(
+        float(gl_GlobalInvocationID.x) / float(imgSizeOrigin.x),
+        float(gl_GlobalInvocationID.y) / float(imgSizeOrigin.y)
+        );
+    savePix.x = int( float(uv.x) * float(imgSizeOut.x) );
+    savePix.y = int( float(uv.y) * float(imgSizeOut.y) );
+    savePix.z = int( gl_GlobalInvocationID.z ); 
+    imageStore(OutPrefilterEnvCubeMap, savePix, vec4(filterRGB,1.));
 }

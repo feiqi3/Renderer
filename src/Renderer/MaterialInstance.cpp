@@ -163,9 +163,15 @@ namespace Render {
 				case UniformType::StorageImage:
 				case UniformType::Texture:
 				case UniformType::InputAttachment:
-					sys->updateUniform(bpair.bindingPos,i, var.getTexture()->getRsImage(), pass);
+				{
+					if (var.isTexture()) {
+						sys->updateUniform(bpair.bindingPos, i, var.getTexture()->getRsImage(), pass);
+					}
+					else if(var.isTextureView()){
+						sys->updateUniform(bpair.bindingPos, i, var.getTextureView()->view, pass);
+					}
 					break;
-
+				}
 				case UniformType::Sampler:
 					sys->updateUniform(bpair.bindingPos,i, var.getSampler()->getRsSampler(), pass);
 					break;

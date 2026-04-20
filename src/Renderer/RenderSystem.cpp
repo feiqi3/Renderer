@@ -375,7 +375,7 @@ namespace Render{
 		desc.mipLevels = mipmap;
 		desc.arrayLayers = arrayLayers * 6;
 		desc.format = format;
-		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst;
+		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst | ImageUsage_Storage;
 		if (arrayLayers > 1)
 		{
 			desc.type = ImageType::VCube_Array;
@@ -410,7 +410,7 @@ namespace Render{
 
 		desc.type = type;
 		desc.format = format;
-		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst;
+		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst | ImageUsage_Storage;
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
 		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
@@ -484,7 +484,7 @@ namespace Render{
 		return ret;
 	}
 
-	rs_image_view* RenderSystem::_getViewFromImage(rs_image* image, const ImageViewKey& viewKey)
+	rs_image_view* RenderSystem::getViewFromImage(rs_image* image, const ImageViewKey& viewKey)
 	{
 		return Vulkan::getRsImageView( this->getRenderContext(), image, viewKey);
 	}
@@ -549,6 +549,10 @@ namespace Render{
 	{
 		this->updateUniform(binding, dstArrayElement, image, pass->mMaterial->getRsPipeline(), pass->mDrawData);
 	}
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image_view* view, Pass* pass)
+	{
+		this->updateUniform(binding, dstArrayElement, view, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, Pass* pass)
 	{
 		this->updateUniform(binding, dstArrayElement, sampler, pass->mMaterial->getRsPipeline(), pass->mDrawData);
@@ -600,13 +604,25 @@ namespace Render{
 		if (imageToBind == nullptr) {
 			imageToBind = geterrorTexture(mDp.get())->getRsImage();
 		}
-		rs_image_view* view = _getViewFromImage(imageToBind, viewkey);
+		rs_image_view* view = getViewFromImage(imageToBind, viewkey);
 		if (view == nullptr) {
 			auto errImage = geterrorTexture(mDp.get())->getRsImage();
 			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)errImage);
 			return;
 		}
 		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)imageToBind, view);
+	}
+
+	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image_view* view, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
+	{
+		auto ctx = getRenderContext();
+		if (view == nullptr) {
+			auto errImage = geterrorTexture(mDp.get())->getRsImage();
+			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)errImage);
+			return;
+		}
+		Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, (Vulkan::rs_graphic_pipeline_vk*)pipelineLayout, (Vulkan::rs_drawdata_vk*)drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)view->image, view);
+
 	}
 
 	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, rs_pipeline* pipelineLayout, rs_drawdata* drawData)
@@ -621,7 +637,7 @@ namespace Render{
 		auto ctx = getRenderContext();
 		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
-		rs_image_view* view = _getViewFromImage(image, viewkey);
+		rs_image_view* view = getViewFromImage(image, viewkey);
 		if (view == nullptr) {
 			auto errImage = geterrorTexture(mDp.get())->getRsImage();
 			Vulkan::updateDrawData(ctx, ctx->nextRenderFrame, pipeline, drawData, binding, dstArrayElement, (Vulkan::rs_image_vk*)errImage);

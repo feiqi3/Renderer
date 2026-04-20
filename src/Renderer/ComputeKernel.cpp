@@ -79,6 +79,11 @@ namespace Render {
         mPendingParams[name] = RenderResourceVariant(texture);
     }
 
+    void ComputeKernel::setParameter(const std::string& name, TexturePtr texture, ImageViewKey key)
+    {
+        mPendingParams[name] = RenderResourceVariant(texture,key);
+    }
+
     void ComputeKernel::setParameter(const std::string& name, SamplerPtr sampler) {
         mPendingParams[name] = RenderResourceVariant(sampler);
     }
@@ -108,6 +113,9 @@ namespace Render {
             }
             else if (variant.isTexture()) {
                 sys->updateUniform(infoOpt->bindingPos,0, variant.getTexture()->getRsImage(), basePipeline, mCurrentDrawData);
+            }
+            else if (variant.isTextureView()) {
+                sys->updateUniform(infoOpt->bindingPos, 0, variant.getTextureView()->view, basePipeline, mCurrentDrawData);
             }
             else if (variant.isSampler()) {
                 sys->updateUniform(infoOpt->bindingPos,0, variant.getSampler()->getRsSampler(), basePipeline, mCurrentDrawData);

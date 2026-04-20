@@ -72,7 +72,7 @@ namespace Render{
 		size_t getImageSize(rs_image* img);
 		rs_image* createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer,bool needSample);
 		rs_image* createDepthStencilTexture(RenderTextureFormat format, int x, int y, bool needSample);
-		rs_image_view* _getViewFromImage(rs_image* image,const ImageViewKey& viewKey);
+		rs_image_view* getViewFromImage(rs_image* image,const ImageViewKey& viewKey);
 		//Create more rendertarget with more detailed control settings
 		rs_rendertarget* createRendertargetDetailed( std::vector<rs_image*>& images, std::vector<ImageViewKey>& viewKeys,bool lastDepth);
 		
@@ -86,6 +86,7 @@ namespace Render{
 		void updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_buffer* buffer,uint32_t offset,uint32_t size, Pass* pass);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, Pass* pass);
+		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image_view* view, Pass* pass);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image,ImageViewKey viewkey, Pass* pass);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, Pass* pass);
 
@@ -94,6 +95,7 @@ namespace Render{
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_buffer* buffer, rs_pipeline* pipelineLayout, rs_drawdata* drawData,uint32_t offset = 0,uint32_t size = 0);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, ImageViewKey viewkey, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
+		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image_view* view, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
 		void updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, rs_pipeline* pipelineLayout, rs_drawdata* drawData);
 
 

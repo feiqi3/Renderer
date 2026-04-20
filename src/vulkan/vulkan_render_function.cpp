@@ -2089,15 +2089,17 @@ namespace Render::Vulkan {
 
         for (auto& setPack : drawdata->DescriptorSets) {
             for (auto& set : setPack.descriptorSets) {
-				ctx->descriptorSetMgr->ReturnDescriptorSet(ctx, set);
+                if (set)
+                {
+                    ctx->descriptorSetMgr->ReturnDescriptorSet(ctx, set);
+                }
             }
         }
     }
 
     void destroyDrawData(rs_context_vk* ctx, rs_drawdata_vk* drawdata)
     {
-        clearDrawData(ctx, drawdata);
-        delete drawdata;
+        ctx->destroyer->destroyDrawData(ctx->nextRenderFrame, drawdata);
     }
     
     std::pair<rs_descriptorSet_vk*, descriptor_set_pack*> _findOrCreateDescripotrSet(rs_context_vk* context,uint64_t frame, uint32_t fif,rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet) {
@@ -2346,7 +2348,7 @@ namespace Render::Vulkan {
         }
         auto cmd = (VkCommandBuffer)cb->native;
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, (VkPipeline)pipeline->native);
-		cmdBindDrawData(cb,ctx, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawData, curFIF);
+		cmdBindDrawData(cb,ctx, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawData, curFIF,QueueType_Compute);
         cmdTransitPendingResource(cb, true);
 		vkCmdDispatch(cmd, x, y, z);
     }
@@ -2390,7 +2392,7 @@ namespace Render::Vulkan {
         
         for (auto&& drawdata : drawDatas) {
             if (drawdata) {
-                cmdBindDrawData(cb, ctx,(rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawdata, curFif);
+                cmdBindDrawData(cb, ctx,(rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawdata, curFif,QueueType_Graphics);
             }
         }
 
@@ -2680,7 +2682,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif)
+    void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif, QueueType bindPoint)
     {
         auto& descriptorPacks = ((rs_drawdata_vk*)drawData)->DescriptorSets;
 
@@ -2750,7 +2752,8 @@ namespace Render::Vulkan {
 					collectDyoffset(bindingSlot, dynamics, dyNum);
                 }
             }
-            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipelineLayout)layout->native, setIdx, 1, &set, dyNum, dynamics.data());
+            VkPipelineBindPoint point = (bindPoint == QueueType_Graphics ? VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS : VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE);
+            vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, point, (VkPipelineLayout)layout->native, setIdx, 1, &set, dyNum, dynamics.data());
 
         }
     }

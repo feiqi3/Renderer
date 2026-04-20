@@ -1,6 +1,10 @@
 #include "Renderer/LightManager.h"
 #include "Renderer/ComputeKernel.h"
 #include "Renderer/SamplerResourceManager.h"
+#include "Renderer/TextureResourceMgr.h"
+#include "Renderer/GPUShared/IBLGenConfig.h"
+
+static const int BRDF_LUT_MIPS = 6;
 namespace Render {
 	LightManager::LightManager()
 	{
@@ -20,9 +24,11 @@ namespace Render {
 			SamplerDesc linearSampler{};
 			linearSampler.addressU = AddressMode::ClampToEdge;
 			linearSampler.addressV = AddressMode::ClampToEdge;
-			mipmapGenKernel->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
+			auto linearSamplerPtr = SamplerResourceManager::instance()->getOrCreateSampler(linearSampler);
+			mipmapGenKernel->setParameter("samplerSrc", linearSamplerPtr);
 			mipmapGenKernelCube->setParameter("samplerSrc", SamplerResourceManager::instance()->getOrCreateSampler(linearSampler));
 			irradianceMapKernel = new ComputeKernel("../shader/PreFilterIrradianceMap.cs", {});
+			irradianceMapKernel->setParameter("EnvCubeMapSampler", linearSamplerPtr);
 			brdfLUTKernel = new ComputeKernel("../shader/BRDFLut.cs", {});
 		}
 	}
@@ -70,16 +76,55 @@ namespace Render {
 		}
 		return it->second.light;
 	}
+
+	void LightManager::update()
+	{
+		
+	}
+
 	void LightManager::setSkybox(TexturePtr skybox)
 	{
 		mSkybox = skybox;
+		if(skybox)
+			prefilterMapNeedGenerate = true;
 	}
-	void LightManager::calculateIBLData(TexturePtr irradianceMap, TexturePtr brdfLUT)
+	void LightManager::calculateIBLData(rs_commandbuffer* cmdbuf)
 	{
-		//1. 
 		if (mSkybox == nullptr) {
 			return;
 		}
+		auto rsys = RenderSystem::instance();
+		if (!mBRDFLut) {
+			auto brdfLutImg = rsys->createImage2D(nullptr, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, 1);
+			mBRDFLut = TextureResourceManager::instance()->createFromRsImage(Name("LightManager::BRDFLUT"),brdfLutImg);
+			this->brdfLUTKernel->setParameter("OutBrdfLUT", mBRDFLut);
+			brdfLUTKernel->dispatch(cmdbuf, 1024 / 8, 1024 / 8, 1);
+		}
+		if (!mPrefilterSkymap) {
+			auto prefilterSkymap = rsys->createCubemap(0, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, BRDF_LUT_MIPS);
+			mPrefilterSkymap = TextureResourceManager::instance()->createFromRsImage(Name("LightManager::ENVMAP"), prefilterSkymap);
+		}
+
+		if (prefilterMapNeedGenerate) {
+			prefilterMapNeedGenerate = false;
+			GPUShared::PrefilterEnvMapCfg cfg{};
+
+			irradianceMapKernel->setParameter("EnvCubeMap", this->mSkybox);
+
+			for (float i = 0; i < BRDF_LUT_MIPS; i ++ ) {
+
+				ImageViewKey key;
+				key.setViewType(ImageType::VCube);
+				key.setBaseMip(i).setMipCount(1).setLayerCount(6);
+				irradianceMapKernel->setParameter("OutPrefilterEnvCubeMap", mPrefilterSkymap, key);
+
+				cfg.curRoughness = i / (BRDF_LUT_MIPS - 1);
+				irradianceMapKernel->setParameter("PrefilterCfg", cfg);
+				irradianceMapKernel->dispatch(cmdbuf, 1024, 1024, 6);
+			}
+
+		}
+
 	}
 	const GPUShared::GPUSceneLightData& LightManager::updateLightData()
 	{

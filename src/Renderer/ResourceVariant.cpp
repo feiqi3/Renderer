@@ -43,11 +43,32 @@ namespace Render {
 
 	RenderResourceVariant::RenderResourceVariant() : mData(std::monostate{}) {}
 
-	RenderResourceVariant::RenderResourceVariant(TexturePtr tex) : mData(std::move(tex)) {}
+	RenderResourceVariant::RenderResourceVariant(TexturePtr tex){
+		mData = std::move(tex);
+	}
+
+	RenderResourceVariant::RenderResourceVariant(TexturePtr tex, ImageViewKey viewKey)
+	{
+		auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), viewKey);
+		if (view) {
+			TextureViewPair pair{};
+			pair.tex = std::move(tex);
+			pair.view = view;
+			mData = std::move(pair);
+		}
+		else {
+			mData = std::move(tex);
+		}
+	}
 
 	RenderResourceVariant::RenderResourceVariant(SamplerPtr sampler) : mData(std::move(sampler)) {}
 
 	RenderResourceVariant::RenderResourceVariant(rs_buffer* buffer) : mData(buffer) {}
+
+	bool RenderResourceVariant::isTextureView() const
+	{
+		return std::holds_alternative<TextureViewPair>(mData);
+	}
 
 	bool RenderResourceVariant::isTexture() const {
 		return std::holds_alternative<TexturePtr>(mData);
@@ -88,6 +109,14 @@ namespace Render {
 	TexturePtr RenderResourceVariant::getTexture() const {
 		if (isTexture()) {
 			return std::get<TexturePtr>(mData);
+		}
+		return nullptr;
+	}
+
+	const TextureViewPair* RenderResourceVariant::getTextureView() const
+	{
+		if (isTextureView()) {
+			return &(std::get<TextureViewPair>(mData));
 		}
 		return nullptr;
 	}

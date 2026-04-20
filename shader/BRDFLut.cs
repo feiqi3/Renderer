@@ -25,7 +25,7 @@ vec4 ImportanceSampleGGX( vec2 E, float Roughness4 )
     float D = m2 / ( PI*d*d );
     float PDF = D * CosTheta;
 
-    return vec4( H, PDF );
+    return vec4( normalize(H) , PDF );
 }
 
 float G1_smith(float roughness,float NoX){

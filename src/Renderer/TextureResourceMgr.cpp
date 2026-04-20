@@ -66,9 +66,25 @@ namespace Render{
 		return mDefaultResourceName;
 	}
 
-
-	Render::TexturePtr TextureResourceManager::getOrCreateCubemap(const Name& name)
+	TexturePtr TextureResourceManager::createFromRsImage(const Name& name, rs_image* img)
 	{
+		if (!img)return nullptr;
+		
+		auto entry = this->registerResource(name, Texture::fromRsImage(img), ResourceLifetime::Transient, nullptr);
+		return ResourceHandle<Texture>(this, entry);
+	}
+
+
+	Render::TexturePtr TextureResourceManager::getOrCreateCubemap(const Name& name, int mip)
+	{
+		int mipsToCreate = 0;
+		if (mip <= 0) {
+			//Let engine decide?
+			mipsToCreate = 1;
+		}
+		else {
+			mipsToCreate = mip;
+		}
 		//1. open folder   
 		Platform::FileSystem* fs = Platform::FileSystem::instance();
 		auto listFilesOfDirectory = fs->listDirectory(name.str());
@@ -131,7 +147,7 @@ namespace Render{
 			RenderSystem::instance()->updateImageData(
 				image,
 				images[i]->getImageRaw(), images[i]->getByteSize(),
-				0, 0, 0, x, y, 1,i, 1, 1
+				0, 0, 0, x, y, 1,i, 1, mipsToCreate
 			);
 			delete images[i];
 		}

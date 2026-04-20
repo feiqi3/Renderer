@@ -9,7 +9,7 @@ mat3 MatTangentToWorld(vec3 N)
     vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
     
     vec3 tangent   = normalize(cross(up, N));
-    vec3 bitangent = cross(N, tangent);
+    vec3 bitangent = normalize(cross(N, tangent));
     
     return mat3(tangent, bitangent, N);
 }
@@ -18,7 +18,7 @@ vec3 TangentToWorld(vec3 v, vec3 N){
     vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangent   = normalize(cross(up, N));
     vec3 bitangent = cross(N, tangent);
-    return vec3(dot(tangent,N),dot(bitangent,N),dot(up,N));
+    return normalize(vec3(dot(tangent,N),dot(bitangent,N),dot(up,N)));
 }
 
 float RadicalInverse_VdC_Scrambled(uint bits, uint scramble) 

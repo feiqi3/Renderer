@@ -13,7 +13,14 @@ namespace Render::Vulkan {
 		this->mFrameRenderPasses.resize(mMaxFrameInFlight);
 		this->mFrameSemaphores.resize(mMaxFrameInFlight);
 		this->mFrameFences.resize(mMaxFrameInFlight);
+		this->mFrameDrawDatas.resize(mMaxFrameInFlight);
 	}
+	void DeferredDestroyer::destroyDrawData(uint64_t frame, rs_drawdata_vk* drawData)
+	{
+		int f = frame % mMaxFrameInFlight;
+		mFrameDrawDatas[f].push_back(drawData);
+	}
+
 	void DeferredDestroyer::destroyBuffer(uint64_t frame, rs_buffer_vk* buffer)
 	{
 		int f = frame % mMaxFrameInFlight;
@@ -130,6 +137,13 @@ namespace Render::Vulkan {
 			vkDestroyFence(ctx->device, fen, nullptr);
 		}
 		fences.clear();
+
+		auto& drawdatas = mFrameDrawDatas[f];
+		for (auto&& drawdata : drawdatas) {
+			clearDrawData(ctx, drawdata);
+			delete drawdata;
+		}
+		drawdatas.clear();
 	}
 
 	void DeferredDestroyer::clearAll(rs_context_vk* ctx)
