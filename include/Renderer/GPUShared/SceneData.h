@@ -27,6 +27,8 @@ GPU_SHARED_NAMESPACE_BEGIN
 
 
 	GPU_STRUCT_BEGIN(GPUSceneLightData)
+		// x. Prefilter ENV MAP mips | y z w padding
+		vec4 IBLControl;
 		// x: total light num, y, z, w unused
 		vec4 sceneLightInfo;
 		GPULightData lights[RENDER_MAX_LIGHT_PER_SCENE];

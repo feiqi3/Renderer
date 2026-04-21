@@ -107,6 +107,12 @@ namespace Render {
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
 			/////////////////////////////////////////////////////
 			Scene::getCurrentScene()->getLightMgr().calculateIBLData(cmdbufOffscreen);
+
+			//Transit common data
+			RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, RenderSys->getCurCameraDrawData());
+			RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneDrawData());
+
+
 			mMainCamPass->draw(cmdbufOffscreen);
 			RenderSys->cmdEnd(cmdbufOffscreen);
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);

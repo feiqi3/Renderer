@@ -67,7 +67,8 @@ vec2 IntegrateBRDF(float Roughness,float NoV /*Cos ThetaV*/){
 
 void main(){
     ivec2 imgSize = imageSize(OutBrdfLUT);
-    if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y) return;    float NoV       = max((float(gl_GlobalInvocationID.x) + 0.5) / float(imgSize.x), 0.001);
+    if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y) return;    
+    float NoV       = max((float(gl_GlobalInvocationID.x) + 0.5) / float(imgSize.x), 0.001);
     float roughness = max((float(gl_GlobalInvocationID.y) + 0.5) / float(imgSize.y), 0.001);
     
     vec2 diffuse_specular = IntegrateBRDF(roughness, NoV);

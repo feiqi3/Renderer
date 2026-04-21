@@ -6,6 +6,7 @@
 #include <map>
 #include "renderer/GPUShared/SceneData.h"
 #include "renderer/Texture.h"
+#include "renderer/SamplerResourceManager.h"
 namespace Render {
 	class ComputeKernel;
 	class LightManager{
@@ -19,7 +20,9 @@ namespace Render {
 		const Light* getLight(int idx) const;
 		void update();
 
-
+		TexturePtr getBRDFLut();
+		TexturePtr getPrefilterEnvMap();
+		SamplerPtr getIBLSampler();
 		void calculateIBLData(rs_commandbuffer* cmdbuf);
 		const GPUShared::GPUSceneLightData& updateLightData();
 
@@ -42,10 +45,12 @@ namespace Render {
 		TexturePtr mSkybox;
 		TexturePtr mBRDFLut;
 		TexturePtr mPrefilterSkymap;
+		SamplerPtr mSampler;
 		std::map<int, LightData> lightMap;
 		GPUShared::GPUSceneLightData mLightData;
 		bool lightDataDirty = true;
 		bool prefilterMapNeedGenerate = false;
+		bool brdfLutNeedGenerate = true;
 
 		ComputeKernel* mipmapGenKernel		= nullptr;
 		ComputeKernel* mipmapGenKernelCube = nullptr;

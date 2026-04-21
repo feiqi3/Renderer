@@ -18,6 +18,9 @@ namespace Render {
 		rs_binding_pos CameraCommonDataBindingPos;
 		rs_binding_pos SceneCommonDataBindingPos;
 		rs_binding_pos ObjectCommonBindingPos;
+		rs_binding_pos PrefilterEnvMapBindingPos;
+		rs_binding_pos BRDFLutBindingPos;
+		rs_binding_pos EnvMapSamplerBIndingPos;
 	};
 
 	ConstShaderDataManager::ConstShaderDataManager()
@@ -55,6 +58,14 @@ namespace Render {
 		assert(mDp->CameraCommonDataBindingPos	!= INVALID_BINDING_POS);
 		assert(mDp->SceneCommonDataBindingPos	!= INVALID_BINDING_POS);
 		assert(mDp->ObjectCommonBindingPos		!= INVALID_BINDING_POS);
+
+		mDp->PrefilterEnvMapBindingPos  = pSys->getBindingPos("PreFilterEnvMap", mDp->MainPassVirtualMaterial);
+		mDp->BRDFLutBindingPos			= pSys->getBindingPos("BRDFLut", mDp->MainPassVirtualMaterial);
+		mDp->EnvMapSamplerBIndingPos	= pSys->getBindingPos("SceneTextureSampler", mDp->MainPassVirtualMaterial);
+
+		assert(mDp->PrefilterEnvMapBindingPos != INVALID_BINDING_POS);
+		assert(mDp->BRDFLutBindingPos != INVALID_BINDING_POS);
+		assert(mDp->EnvMapSamplerBIndingPos != INVALID_BINDING_POS);
 	}
 	rs_drawdata* ConstShaderDataManager::updateCameraDrawData(Camera* camera) {
 		auto camDrawData = camera->getDrawData();
@@ -76,6 +87,18 @@ namespace Render {
 		auto& lightMgr = scene->getLightMgr();
 		auto& gptdata = lightMgr.updateLightData();
 		RenderSystem::instance()->updateUniformBufferData(mDp->SceneCommonDataBindingPos, (void*)&gptdata, sizeof(GPUShared::GPUSceneLightData), &tempPass);
+
+		if (lightMgr.getPrefilterEnvMap()) {
+			RenderSystem::instance()->updateUniform(mDp->PrefilterEnvMapBindingPos,0, lightMgr.getPrefilterEnvMap()->getRsImage(), &tempPass);
+		}
+
+		if (lightMgr.getBRDFLut()) {
+			RenderSystem::instance()->updateUniform(mDp->BRDFLutBindingPos, 0, lightMgr.getBRDFLut()->getRsImage(), &tempPass);
+		}
+
+		if (lightMgr.getIBLSampler()) {
+			RenderSystem::instance()->updateUniform(mDp->EnvMapSamplerBIndingPos, 0, lightMgr.getIBLSampler()->getRsSampler(), &tempPass);
+		}
 		return sceneDrawData;
 	}
 

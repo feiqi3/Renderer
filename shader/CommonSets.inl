@@ -7,6 +7,11 @@ layout(set = 0, binding = 0) uniform blockCamera {
  layout(set = 1, binding = 0)  uniform blockScene {
  	GPUSceneLightData	sceneLights;
  }SceneCommon;
+
+ layout(set = 1, binding = 1 ) uniform textureCube 		PreFilterEnvMap;
+ layout(set = 1, binding = 2 ) uniform texture2D 		BRDFLut;
+ layout(set = 1, binding = 3 ) uniform sampler			SceneTextureSampler; 
+
 layout(set = 2, binding = 0) uniform UniformBufferObject {
     ObjectCommonData ObjData;
 } ObjData;

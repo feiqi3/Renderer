@@ -4,6 +4,10 @@
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
+
+#include "CommonMath.inl"
+#include "CommonLight.inl"
+
 layout(set = 3, binding = 1) uniform PerMaterialObject {
     PBRData pbrData;
 } CBUFFER_pbrData;
@@ -26,8 +30,6 @@ layout(location = 5) in vec3 i_color;
 layout(location = 6) in vec3 i_viewDir;
 
 layout(location = 0) out vec4 outColor;
-
-const float PI = 3.14159265359;
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -64,21 +66,13 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
-vec3 FresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-vec3 PBR_DirectLight(vec3 V, vec3 L, vec3 N, vec3 albedo, float metallic, float roughness, vec3 radiance)
+vec3 PBR_DirectLight(vec3 V, vec3 L, vec3 N, vec3 albedo, float metallic, float roughness,vec3 F0, vec3 radiance)
 {
     vec3 H = normalize(V + L);
     
     float NdotL = max(dot(N, L), 0.0); 
     float NdotV = max(dot(N, V), 0.0); 
     float HdotV = max(dot(H, V), 0.0);
-
-    vec3 F0 = vec3(0.04); 
-    F0 = mix(F0, albedo, metallic);
 
     float D = DistributionGGX(N, H, roughness);   
     float G = GeometrySmith(N, V, L, roughness);      
@@ -96,6 +90,7 @@ vec3 PBR_DirectLight(vec3 V, vec3 L, vec3 N, vec3 albedo, float metallic, float 
 
 vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const float metallic){
     vec3 col = vec3(0.f,0.f,0.f);
+    vec3 F0 = CalcF0(albedo, metallic);
     for( int i = 0;i < int(LIGHTDATA.sceneLightInfo.x);++i ){
         GPULightData light = LIGHTDATA.lights[i];
         vec3 lightPos = vec3(light.positionType.xyz);
@@ -104,10 +99,10 @@ vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const f
         if(lightType == 0){
             //Dir
             vec3 L = light.directionRange.xyz;
-            col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,radiance);
+            col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,F0,radiance);
         }else{
             //Spot/Point
-            vec3 L = lightPos - pos;
+            vec3 L = normalize(lightPos - pos);
             float radius = light.directionRange.w;
             float distance = length(lightPos - pos);
             float distance2 = distance * distance;
@@ -116,10 +111,12 @@ vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const f
             float factor4 = factor * factor * factor * factor; // ^4
             float window = clamp(1.0 - factor4, 0.0, 1.0);
             float fadeFactor = attenuation * (window * window);
-            col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,radiance * fadeFactor);
+            col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,F0,radiance * fadeFactor);
         }
     }
-    return col;
+
+    vec3 specularLightIBL = IBLCalculate(V,N,F0,roughness);
+    return col + specularLightIBL;
 }
 
 vec3 ApplyNormalMap(vec3 N, vec3 normalSample, float normalScale)

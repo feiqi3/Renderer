@@ -30,6 +30,10 @@ namespace Render {
 			irradianceMapKernel = new ComputeKernel("../shader/PreFilterIrradianceMap.cs", {});
 			irradianceMapKernel->setParameter("EnvCubeMapSampler", linearSamplerPtr);
 			brdfLUTKernel = new ComputeKernel("../shader/BRDFLut.cs", {});
+
+			auto brdfLutImg = RenderSystem::instance()->createImage2D(nullptr, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, 1);
+			mBRDFLut = TextureResourceManager::instance()->createFromRsImage(Name("LightManager::BRDFLUT"), brdfLutImg);
+
 		}
 	}
 
@@ -108,15 +112,33 @@ namespace Render {
 			prefilterMapNeedGenerate = true;
 		}
 	}
+	TexturePtr LightManager::getBRDFLut()
+	{
+		return mBRDFLut;
+	}
+	TexturePtr LightManager::getPrefilterEnvMap()
+	{
+		return mPrefilterSkymap;
+	}
+	SamplerPtr LightManager::getIBLSampler()
+	{
+		if (!mSampler) {
+			SamplerDesc desc{};
+			desc.addressU = AddressMode::ClampToEdge;
+			desc.addressV = AddressMode::ClampToEdge;
+			desc.addressW = AddressMode::ClampToEdge;
+			desc.mipmapMode = MipMapMode::Cubic;
+			mSampler = SamplerResourceManager::instance()->getOrCreateSampler(desc);
+		}
+		return mSampler;
+	}
 	void LightManager::calculateIBLData(rs_commandbuffer* cmdbuf)
 	{
 		if (mSkybox == nullptr) {
 			return;
 		}
 		auto rsys = RenderSystem::instance();
-		if (!mBRDFLut) {
-			auto brdfLutImg = rsys->createImage2D(nullptr, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, 1);
-			mBRDFLut = TextureResourceManager::instance()->createFromRsImage(Name("LightManager::BRDFLUT"),brdfLutImg);
+		if (brdfLutNeedGenerate) {
 			this->brdfLUTKernel->setParameter("OutBrdfLUT", mBRDFLut);
 			brdfLUTKernel->dispatch(cmdbuf, 1024 / 8, 1024 / 8, 1);
 		}
@@ -150,7 +172,10 @@ namespace Render {
 	const GPUShared::GPUSceneLightData& LightManager::updateLightData()
 	{
 		int idx = 0;
-
+		vec4 sceneLightData;
+		if (this->mPrefilterSkymap) {
+			sceneLightData.x = mPrefilterSkymap->getRsImage()->mipLevels;
+		}
 		for (auto& [lightIdx, lightData] : lightMap) {
 			auto& light = lightData.light;
 			bool needUpdate = lightDataDirty;
