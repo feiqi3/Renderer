@@ -28,9 +28,9 @@ vec4 ImportanceSampleGGX( vec2 E, float Roughness4 )
     return vec4( normalize(H) , PDF );
 }
 
-float G1_smith(float roughness,float NoX){
-    float k = Pow2(roughness + 1) * 0.125;
-    return (NoX) / (NoX * (1 - k) + k);
+float G1_smith(float roughness, float NoX){
+    float k = Pow2(roughness) / 2.0; 
+    return (NoX) / (NoX * (1.0 - k) + k);
 }
 
 float G_Smith(float roughness,float NoV,float NoL){
@@ -39,16 +39,16 @@ float G_Smith(float roughness,float NoV,float NoL){
 
 vec2 IntegrateBRDF(float Roughness,float NoV /*Cos ThetaV*/){
     vec3 V;
-    V.x = sqrt(1 - NoV * NoV);
-    V.y = 0;    // simpliy
+    V.x = sqrt(1. - NoV * NoV);
+    V.y = 0.;    // simpliy
     V.z = NoV;
     float A = 0;
     float B = 0;
     const uint NumSamples = 1024;
     for( uint i = 0; i < NumSamples; i++ )
     {
-        vec2 Xi = Hammersley( i, NumSamples,gl_GlobalInvocationID.xy );
-        vec3 H = ImportanceSampleGGX( Xi, Roughness).xyz;
+        vec2 Xi = Hammersley( i, NumSamples);
+        vec3 H = ImportanceSampleGGX( Xi,Pow4(Roughness)).xyz;
         vec3 L = 2 * dot( V, H ) * H- V;
         float NoL = Saturate( L.z );
         float NoH = Saturate( H.z );
@@ -66,11 +66,10 @@ vec2 IntegrateBRDF(float Roughness,float NoV /*Cos ThetaV*/){
 }
 
 void main(){
-    uvec3 totalInvocations = gl_NumWorkGroups * gl_WorkGroupSize;
-    float u =  gl_GlobalInvocationID.y / totalInvocations.y;
-    float v =  gl_GlobalInvocationID.x / totalInvocations.x;
-    float roughness = u;
-    float cosThetaV = v * 2 - 1;
-    vec2 diffuse_specular = IntegrateBRDF(roughness,cosThetaV);
-    imageStore(OutBrdfLUT,ivec2(gl_GlobalInvocationID.xy),vec4(diffuse_specular,1.,1.));
+    ivec2 imgSize = imageSize(OutBrdfLUT);
+    if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y) return;    float NoV       = max((float(gl_GlobalInvocationID.x) + 0.5) / float(imgSize.x), 0.001);
+    float roughness = max((float(gl_GlobalInvocationID.y) + 0.5) / float(imgSize.y), 0.001);
+    
+    vec2 diffuse_specular = IntegrateBRDF(roughness, NoV);
+    imageStore(OutBrdfLUT,ivec2(gl_GlobalInvocationID.xy),vec4(diffuse_specular,0.,1.));
 }

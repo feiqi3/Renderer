@@ -7,6 +7,8 @@ namespace Render {
 
 	class TextureResourceManager : public ResourceManager< Texture>,public Singleton<TextureResourceManager> {
 	public:
+		TexturePtr createEmpty(const Name& id);
+
 		Texture* loadImpl(const Name& id) override;
 		void unloadImpl(Texture* texture);
 		const Name& typeName()const override;

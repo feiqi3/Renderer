@@ -3,9 +3,9 @@
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/GPUShared/IBLGenConfig.h"
-
-static const int BRDF_LUT_MIPS = 6;
+#include "common/ResourceSystem.h"
 namespace Render {
+	static int MAX_MIPS_TO_GEN = 5;
 	LightManager::LightManager()
 	{
 		{
@@ -84,9 +84,29 @@ namespace Render {
 
 	void LightManager::setSkybox(TexturePtr skybox)
 	{
-		mSkybox = skybox;
 		if(skybox)
+		{
+			auto rsImage = skybox->getRsImage();
+			if (mSkybox == nullptr || rsImage->width != mSkybox->getRsImage()->width ||
+				rsImage->height != mSkybox->getRsImage()->height
+				) {
+				auto width = rsImage->width;
+				auto height = rsImage->height;
+				int mipsToGen = 1;
+				auto maxEdge = std::max(width, height);
+				while (maxEdge /= 2) {
+					mipsToGen++;
+				}
+				mipsToGen = std::min(mipsToGen, MAX_MIPS_TO_GEN);
+				auto rsImage = RenderSystem::instance()->createCubemap(0, 0, ImageFormat::RGBA16_SFLOAT, width, height, 1, 1, mipsToGen);
+				if (!mPrefilterSkymap) {
+					mPrefilterSkymap = TextureResourceManager::instance()->createEmpty(Name("LightManager::PrefilterENV"));
+				}
+				mPrefilterSkymap->setRsImage(rsImage);
+			}
+			mSkybox = skybox;
 			prefilterMapNeedGenerate = true;
+		}
 	}
 	void LightManager::calculateIBLData(rs_commandbuffer* cmdbuf)
 	{
@@ -100,27 +120,28 @@ namespace Render {
 			this->brdfLUTKernel->setParameter("OutBrdfLUT", mBRDFLut);
 			brdfLUTKernel->dispatch(cmdbuf, 1024 / 8, 1024 / 8, 1);
 		}
-		if (!mPrefilterSkymap) {
-			auto prefilterSkymap = rsys->createCubemap(0, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, BRDF_LUT_MIPS);
-			mPrefilterSkymap = TextureResourceManager::instance()->createFromRsImage(Name("LightManager::ENVMAP"), prefilterSkymap);
-		}
 
 		if (prefilterMapNeedGenerate) {
 			prefilterMapNeedGenerate = false;
 			GPUShared::PrefilterEnvMapCfg cfg{};
 
 			irradianceMapKernel->setParameter("EnvCubeMap", this->mSkybox);
-
-			for (float i = 0; i < BRDF_LUT_MIPS; i ++ ) {
+			auto rsImagePrefilter = mPrefilterSkymap->getRsImage();
+			auto mipsOfEnvMap = rsImagePrefilter->mipLevels;
+			int longEdge = std::max(rsImagePrefilter->width, rsImagePrefilter->height);
+			int imageSize = longEdge;
+			for (float i = 0; i < mipsOfEnvMap; i ++ ) {
 
 				ImageViewKey key;
 				key.setViewType(ImageType::VCube);
 				key.setBaseMip(i).setMipCount(1).setLayerCount(6);
 				irradianceMapKernel->setParameter("OutPrefilterEnvCubeMap", mPrefilterSkymap, key);
 
-				cfg.curRoughness = i / (BRDF_LUT_MIPS - 1);
+				cfg.curRoughness = i / (mipsOfEnvMap - 1);
 				irradianceMapKernel->setParameter("PrefilterCfg", cfg);
-				irradianceMapKernel->dispatch(cmdbuf, 1024, 1024, 6);
+				irradianceMapKernel->dispatch(cmdbuf, imageSize / 8, imageSize / 8, 6);
+				imageSize /= 2;
+
 			}
 
 		}

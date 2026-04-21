@@ -45,6 +45,7 @@ namespace Render {
 		virtual const Name& getTypeName() const override;
 		virtual ResourceMemory getMemory() const override;
 		rs_image* getRsImage();
+		void setRsImage(rs_image* image, bool destroyOld = true);
 		static Texture* fromRsImage(rs_image* image);
 	protected:
 		//Hand over image's lifetime control! 

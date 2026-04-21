@@ -37,6 +37,13 @@ namespace Render{
 		}
 	}
 
+	Render::TexturePtr TextureResourceManager::createEmpty(const Name& id)
+	{
+		Texture* ret = new Texture();
+		auto entry = this->registerResource(id,ret,ResourceLifetime::Transient,nullptr);
+		return TexturePtr(this, entry);
+	}
+
 	Texture* TextureResourceManager::loadImpl(const Name& id)
 	{
 		auto imageRaw = ImageRaw::createImageRaw(id.c_str(), -1);

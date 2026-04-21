@@ -85,7 +85,16 @@ namespace Render {
     {
         return pImage;
     }
-    ImageRaw* ImageRaw::createImageRaw(const std::string& path, int wantChannel)
+
+	void Texture::setRsImage(rs_image* image, bool destroyOld /*= true*/)
+	{
+        if (destroyOld && pImage) {
+            RenderSystem::instance()->destroyImage(pImage);
+        }
+        pImage = image;
+	}
+
+	ImageRaw* ImageRaw::createImageRaw(const std::string& path, int wantChannel)
     {
         return new ImageRaw(path,wantChannel);
     }

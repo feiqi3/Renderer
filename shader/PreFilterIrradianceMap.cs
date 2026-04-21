@@ -42,17 +42,20 @@ vec3 PrefilterEnvMap( uvec2 Random, float Roughness, vec3 R )
 	vec3 FilteredColor = vec3(0.);
 	float Weight = 0;
 		
-	const uint NumSamples = 64;
+	const uint NumSamples = 1024;
 	for( uint i = 0; i < NumSamples; i++ )
 	{
-		vec2 E = Hammersley( i, NumSamples, Random );
-		vec3 H = TangentToWorld( ImportanceSampleGGX( E, Pow4(Roughness) ).xyz, R );
+		vec2 E = HammersleyRandomized( i, NumSamples, Random);
+        vec3 H = TangentToWorld( ImportanceSampleGGX( E, Pow4(Roughness) ).xyz, R );
 		vec3 L = 2 * dot( R, H ) * H - R;
-
+        const float HDRSampleMax = 15;
 		float NoL = Saturate( dot( R, L ) );
 		if( NoL > 0 )
 		{
-			FilteredColor += textureLod( samplerCube(EnvCubeMap,EnvCubeMapSampler), L, 0. ).rgb * NoL;
+		    vec3 sampleValue = textureLod( samplerCube(EnvCubeMap,EnvCubeMapSampler), L, 0. ).rgb;
+			//avoid some extreme value.....   
+            sampleValue = clamp(sampleValue,0.,HDRSampleMax);
+            FilteredColor += sampleValue * NoL;
 			Weight += NoL;
 		}
 	}
@@ -85,27 +88,21 @@ vec3 TexelToCubeMapDir(ivec2 texelCoord, int faceIndex, ivec2 faceSize)
     return normalize(dir);
 }
 
-void main(){
-    ivec3 totalInvocations = ivec3(gl_NumWorkGroups * gl_WorkGroupSize);
-    ivec2 imgSizeOrigin = textureSize(samplerCube(EnvCubeMap, EnvCubeMapSampler),0);
+void main() {
     ivec2 imgSizeOut = imageSize(OutPrefilterEnvCubeMap);
     
-    if (gl_GlobalInvocationID.x >= imgSizeOrigin.x || gl_GlobalInvocationID.y >= imgSizeOrigin.y || gl_GlobalInvocationID.z >= 6) {
+    if (gl_GlobalInvocationID.x >= imgSizeOut.x || 
+        gl_GlobalInvocationID.y >= imgSizeOut.y || 
+        gl_GlobalInvocationID.z >= 6) {
         return;
     }
 
-    vec3 dir = TexelToCubeMapDir(ivec2(gl_GlobalInvocationID.xy),int(gl_GlobalInvocationID.z), totalInvocations.xy);
-    float roughness = PrefilterCfg.cfg.curRoughness;
-    vec3 filterRGB = PrefilterEnvMap(gl_GlobalInvocationID.xy, roughness, dir);
+    vec3 dir = TexelToCubeMapDir(ivec2(gl_GlobalInvocationID.xy), int(gl_GlobalInvocationID.z), imgSizeOut);
+    
+    float roughness = max(0.001, PrefilterCfg.cfg.curRoughness);
+    vec3 filterRGB = PrefilterEnvMap(hash_PCG23(uvec3(gl_GlobalInvocationID)), roughness, dir);
 
-
-    ivec3 savePix;
-    vec2 uv = vec2(
-        float(gl_GlobalInvocationID.x) / float(imgSizeOrigin.x),
-        float(gl_GlobalInvocationID.y) / float(imgSizeOrigin.y)
-        );
-    savePix.x = int( float(uv.x) * float(imgSizeOut.x) );
-    savePix.y = int( float(uv.y) * float(imgSizeOut.y) );
-    savePix.z = int( gl_GlobalInvocationID.z ); 
-    imageStore(OutPrefilterEnvCubeMap, savePix, vec4(filterRGB,1.));
+    ivec3 savePix = ivec3(gl_GlobalInvocationID.xyz);
+    
+    imageStore(OutPrefilterEnvCubeMap, savePix, vec4(filterRGB, 1.0));
 }
