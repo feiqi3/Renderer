@@ -8,10 +8,19 @@
 #include "Components/FPSControllerComponent.h"
 #include "Components/SkyboxRenderComponent.h"
 #include "Renderer/CameraManager.h"
+#include "Components/PBRRenderComponent.h"
+#include "Renderer/MaterialTemplateManager.h"
+#include "Renderer/MaterialManager.h"
+#include "Renderer/Materials/PBRMaterial.h"
 
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "common/ResourceSystem.h"
+#include "Renderer/MeshResourceManager.h"
+#include "Renderer/Mesh.h"
+#include "Renderer/RenderQueue.h"
+#include "Renderer/GPUShared/PBREntity.h"
+#include "Renderer/EnginePass.h"
 
 namespace Render {
 	class MoveComponent : public Component {
@@ -90,6 +99,24 @@ namespace Render {
 		skyBoxComponent->setSampler(
 			ResourceSystem::instance()->getDefaultResource<Sampler>(Sampler::typeName())
 		);
+
+		auto cubeMesh = ResourceSystem::instance()->getResource<Mesh>(Mesh::typeName(), Name("Builtin::Cube"));
+		auto cubeNode = naiveScene->createObject("Cube");
+		cubeNode->setLocalPosition(vec3(10, 10, 10));
+		cubeNode->setLocalScale(vec3(3, 3, 3));
+		auto cubeRenderer = cubeNode->addComponent<PBRRenderComponent>();
+		cubeRenderer->setMesh(cubeMesh);
+		auto pbrTemplate = MaterialTemplateManager::instance()->getMaterialTemplate(Name("PBRMaterialTemplate_Opaque"));
+		auto cubeMaterial = MaterialManager::instance()->createMaterial<PBRMaterial>(Name("CubeMaterial"), pbrTemplate);
+		cubeRenderer->setMaterial(0, cubeMaterial);
+		cubeMaterial->setRenderOrder(RenderOrder::Opaque);
+		cubeMaterial->addMaterialPassToRender(PassName::MainCameraPass);
+		auto cubePBRMaterial = (PBRMaterial*)cubeMaterial.get();
+		cubePBRMaterial->setMetallic(0.5);
+		cubePBRMaterial->setRoughness(0.3);
+		
+		cubePBRMaterial->setBaseColor(vec4(0.5,0.5,0.5,1.));
+
 		Scene::setCurrentScene(naiveScene);
 		return naiveScene;
 	}

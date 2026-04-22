@@ -11,7 +11,7 @@ namespace Render {
         mPBRData.baseCol = vec4(1.0f, 1.0f, 1.0f, 1.0f);
         mPBRData.metalRoughAO = vec4(0.0f, 0.5f, 1.0f, 1.0f);
         mPBRData.emissiveFactor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-        mPBRData.texControl = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        mPBRData.texControl = vec4(-1.);
 
         createPBRBuffer();
 

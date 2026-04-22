@@ -139,11 +139,13 @@ namespace Render {
 		}
 		auto rsys = RenderSystem::instance();
 		if (brdfLutNeedGenerate) {
+			brdfLutNeedGenerate = false;
 			this->brdfLUTKernel->setParameter("OutBrdfLUT", mBRDFLut);
 			brdfLUTKernel->dispatch(cmdbuf, 1024 / 8, 1024 / 8, 1);
 		}
 
 		if (prefilterMapNeedGenerate) {
+			this->lightDataDirty = true;
 			prefilterMapNeedGenerate = false;
 			GPUShared::PrefilterEnvMapCfg cfg{};
 
@@ -188,6 +190,9 @@ namespace Render {
 				light->setDirty(false);
 			}
 			idx = idx + 1;
+		}
+		if (this->mPrefilterSkymap) {
+			mLightData.IBLControl.x = mPrefilterSkymap->getRsImage()->mipLevels;
 		}
 		mLightData.sceneLightInfo.x = idx;
 		lightDataDirty = false;
