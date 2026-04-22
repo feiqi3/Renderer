@@ -53,7 +53,11 @@ vec3 PrefilterEnvMap( uvec2 Random, float Roughness, vec3 R )
 		if( NoL > 0 )
 		{
 		    vec3 sampleValue = textureLod( samplerCube(EnvCubeMap,EnvCubeMapSampler), L, 0. ).rgb;
-			//avoid some extreme value.....   
+            if(PrefilterCfg.cfg.IsHDR < 0.5){
+                //Gamma
+                sampleValue = pow(sampleValue, vec3(2.2));
+			}
+            //avoid some extreme value.....   
             sampleValue = clamp(sampleValue,0.,HDRSampleMax);
             FilteredColor += sampleValue * NoL;
 			Weight += NoL;

@@ -427,6 +427,7 @@ namespace Render::Vulkan {
     {
         switch (m) {
             case Filter::Nearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST; 
+            case Filter ::Cubic:
             case Filter::Linear:  return VK_SAMPLER_MIPMAP_MODE_LINEAR; 
             default:                  return VK_SAMPLER_MIPMAP_MODE_NEAREST;
         }
@@ -611,6 +612,8 @@ namespace Render::Vulkan {
 		transitionImageState(cmdBuffer,  defalut_no_texture_UAV, ResourceState::TransferDst);
         cmdCopyBufferToImage(cmdBuffer,ctx,  defalut_no_texture, tempBuffer, 0, 0, 0, 0, 1, 1,1,0,0,1);
         cmdCopyBufferToImage(cmdBuffer, ctx,  defalut_no_texture_UAV, tempBuffer, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1);
+        transitionImageState(cmdBuffer, defalut_no_texture, ResourceState::ShaderResource);
+        transitionImageState(cmdBuffer, defalut_no_texture_UAV, ResourceState::ComputeUnorderedAccess);
         destroyRsBuffer(ctx, tempBuffer);
         cmdEndRecord(cmdBuffer);
         cmdSubmitOneShotAndWait(ctx, cmdBuffer);
@@ -2579,7 +2582,7 @@ namespace Render::Vulkan {
         writeSet.descriptorType = toVkDescriptorType(slot.type);
 
         bool isNull = slot.rsData[0] == nullptr;
-        bool enableNullBinding = PartialBindingEnable;
+        bool enableNullBinding = false;//PartialBindingEnable;
 
         switch (slot.type)
         {
@@ -2648,7 +2651,7 @@ namespace Render::Vulkan {
                     slot.fifDirtyFlag = 0xFFFF;
                 }
                 else {
-                    imageInfo.imageView = VK_NULL_HANDLE;
+                    return;
                 }
             }
             else {

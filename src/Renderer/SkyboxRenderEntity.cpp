@@ -13,11 +13,7 @@ namespace Render {
 		this->mSkyboxMaterial = getSkyBoxMaterial();
 		this->createPass(PassName::MainCameraPass);
 		this->getMaterial()->setRenderOrder(RenderOrder::SkyBox);
-		GPUShared::SkyBoxData sdata{
-		.rotateQuat = vec4(0,0,0,1),
-		.colorexposureTuning = vec4(1.,1.,1.,1.)
-		};
-		this->getMaterial()->bindParameter("skyboxData", &sdata, sizeof(GPUShared::SkyBoxData));
+
 	}
 
 	Render::Material* SkyBoxRenderEntity::getMaterial()
@@ -53,6 +49,13 @@ namespace Render {
 	{
 		this->getMaterial()->bindParameter("SkyboxCubeMap", texture);
 		this->getMaterial()->bindParameter("cubemapSampler", sampler);
+		GPUShared::SkyBoxData sdata{
+.rotateQuat = vec4(0,0,0,1),
+.colorexposureTuning = vec4(1.,1.,1.,1.),
+.isHDR = vec4(texture->getRsImage()->format == ImageFormat::RGBA16_SFLOAT ? 1: -1,0,0,0)
+		};
+		this->getMaterial()->bindParameter("skyboxData", &sdata, sizeof(GPUShared::SkyBoxData));
+
 	}
 
 	void SkyBoxRenderEntity::setGPUData(const GPUShared::SkyBoxData& data) {

@@ -95,7 +95,8 @@ vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const f
         GPULightData light = LIGHTDATA.lights[i];
         vec3 lightPos = vec3(light.positionType.xyz);
         int lightType = int(light.positionType.w);
-        vec3 radiance = light.colorIntensity.xyz * light.colorIntensity.w;
+        vec3 lightColor = pow(light.colorIntensity.xyz,vec3(2.2));
+        vec3 radiance = lightColor * light.colorIntensity.w;
         if(lightType == 0){
             //Dir
             vec3 L = light.directionRange.xyz;
@@ -146,11 +147,14 @@ void main()
     // Base Color
     // --------------------------------------------------
     vec4 baseColor = PBRDATA.baseCol;
+    baseColor.xyz = pow(baseColor.xyz,vec3(2.2));
     if(useBaseCol){
-        baseColor *= texture(
+        vec4 texColor = texture(
             sampler2D(u_baseColorTex, u_baseColorSampler),
             uvBase
         );
+        texColor.xyz = pow(texColor.xyz,vec3(2.2));
+        baseColor *= texColor;
     }
     vec3 albedo = baseColor.rgb;
 
@@ -220,11 +224,12 @@ void main()
     // --------------------------------------------------
     // Emissive
     // --------------------------------------------------
-    vec3 emissive = PBRDATA.emissiveFactor.xyz;
+    vec3 emissive = pow(PBRDATA.emissiveFactor.xyz,vec3(2.2));
 
     // --------------------------------------------------
     // Final
     // --------------------------------------------------
     vec3 color = directLight + emissive;
+    color.xyz= pow(color.xyz,vec3(1./2.2));
     outColor = vec4(color, baseColor.a);
 }

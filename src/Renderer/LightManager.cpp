@@ -127,6 +127,8 @@ namespace Render {
 			desc.addressU = AddressMode::ClampToEdge;
 			desc.addressV = AddressMode::ClampToEdge;
 			desc.addressW = AddressMode::ClampToEdge;
+			desc.magFilter = Filter::Linear;
+			desc.minFilter = Filter::Linear;
 			desc.mipmapMode = MipMapMode::Cubic;
 			mSampler = SamplerResourceManager::instance()->getOrCreateSampler(desc);
 		}
@@ -162,6 +164,7 @@ namespace Render {
 				irradianceMapKernel->setParameter("OutPrefilterEnvCubeMap", mPrefilterSkymap, key);
 
 				cfg.curRoughness = i / (mipsOfEnvMap - 1);
+				cfg.IsHDR = (rsImagePrefilter->format == ImageFormat::RGBA16_SFLOAT) ? 1. : -1.;
 				irradianceMapKernel->setParameter("PrefilterCfg", cfg);
 				irradianceMapKernel->dispatch(cmdbuf, imageSize / 8, imageSize / 8, 6);
 				imageSize /= 2;

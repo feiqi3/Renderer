@@ -11,6 +11,9 @@ GPU_SHARED_NAMESPACE_BEGIN
     //x,y,z color; w exposure
     vec4 colorexposureTuning; 
 
+    //x: is hdr; yzw  unused
+    vec4 isHDR; 
+
     GPU_STRUCT_END
 
 GPU_SHARED_NAMESPACE_END

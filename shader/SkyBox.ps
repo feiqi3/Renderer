@@ -19,7 +19,14 @@ layout(location = 0) out vec4 fragColor;
 
 void main() {
     vec4 cubemapAlbedo = texture(samplerCube(SkyboxCubeMap,cubemapSampler),o_viewDir);
-    vec3 exposureColor = pow(cubemapAlbedo.rgb * SKYBOX.colorexposureTuning.rgb,vec3(SKYBOX.colorexposureTuning.w));
-    fragColor.xyz = exposureColor;
+
+    if(SKYBOX.isHDR.x < 0.5){
+        //Not HDR
+        cubemapAlbedo.rgb = pow(cubemapAlbedo.rgb,vec3(2.2));
+    }
+    vec3 exposureColor = (cubemapAlbedo.rgb * SKYBOX.colorexposureTuning.rgb * vec3(SKYBOX.colorexposureTuning.w));
+
+    fragColor.xyz = pow(exposureColor,vec3(1./2.2));
+
     fragColor.w = 1;
 }
