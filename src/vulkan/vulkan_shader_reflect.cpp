@@ -213,7 +213,7 @@ namespace Render::Vulkan {
         auto includer = std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(new FunctionalIncluder(desc.shaderIncludeDirectories, desc.shaderIncludeFindFunc));
         options.SetIncluder(std::move(includer));
         shaderc_optimization_level lvl = desc.enableOptimize ? shaderc_optimization_level_performance : shaderc_optimization_level_zero;
-
+        options.SetAutoBindUniforms(true);
         options.SetOptimizationLevel(lvl);
 
         if (desc.generateDebugInfo) {

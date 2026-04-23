@@ -29,6 +29,15 @@ namespace Render {
 		void* native = 0;
 	};
 
+	struct BindlessInfo {
+		Name 		bindlessItemName;
+		uint32_t 	offset;
+	};
+
+	struct rs_shader_reflect_info {
+		SmallVector<BindlessInfo,1> bindlessInfo;
+		std::vector<BindingInfo>	bindingInfo;
+	};
 
 	struct rs_shader_module : rs_base {
 		ShaderStage shaderStage;
