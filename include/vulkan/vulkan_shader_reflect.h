@@ -7,7 +7,7 @@
 namespace Render::Vulkan {
 	const int SHADER_COMPILE_VULKAN_VERSION = 2;
 	rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc);
-	void reflectShader(rs_shader_module_vk* shader,uint32_t* spirv_code,uint64_t codeSize);
+	rs_shader_reflect_info reflectShader(uint32_t* spirv_code, uint64_t codeSize, ShaderStage stage);
 }
 
 #endif //VULKAN_SHADER_REFLECT_H

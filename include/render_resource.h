@@ -29,14 +29,21 @@ namespace Render {
 		void* native = 0;
 	};
 
-	struct BindlessInfo {
+	struct BindlessItem {
 		Name 		bindlessItemName;
 		uint32_t 	offset;
 	};
 
+	struct BindlessInfo {
+		uint32_t sizeOfBindlessUBO;
+		rs_binding_pos bindingPos;
+		SmallVector<BindlessItem, 1> slots;
+	};
+
 	struct rs_shader_reflect_info {
-		SmallVector<BindlessInfo,1> bindlessInfo;
+		std::vector<BindlessInfo>	bindlessInfo;
 		std::vector<BindingInfo>	bindingInfo;
+		std::vector<InputAttribute> inputAttributes;
 	};
 
 	struct rs_shader_module : rs_base {
@@ -44,7 +51,7 @@ namespace Render {
 		std::string entryPoint = "main";
 		std::string shaderName = "shader";
 		uint64_t shaderHash = 0;
-		std::vector<BindingInfo> reflectInfo;
+		rs_shader_reflect_info	rflInfo;
 		std::vector<InputAttribute> inputAttributes;
 		std::string shaderCode;
 	};
@@ -84,7 +91,9 @@ namespace Render {
 	};
 
 	struct rs_pipeline_layout : rs_base {
-		std::vector<BindingInfo> bindingInfo;
+		std::vector<BindingInfo>	bindingInfo;
+		std::vector<BindlessInfo>	bindlessInfo;
+
 	};
 
 	struct rs_pipeline : rs_base {

@@ -313,21 +313,24 @@ namespace Render::Vulkan {
         shaderModule->shaderName = desc.shaderName;
         shaderModule->shaderStage = desc.stage;
         shaderModule->shaderCode = desc.shaderSrcCode;
+        shaderModule->rflInfo = std::move(reflectShader((uint32_t*)ci.pCode, ci.codeSize, desc.stage));
         return shaderModule;
 	}
-    void reflectShader(rs_shader_module_vk* shader, uint32_t* spirv_code, uint64_t codeSize)
+
+    rs_shader_reflect_info reflectShader(uint32_t* spirv_code, uint64_t codeSize,ShaderStage stage)
     {
+        rs_shader_reflect_info rflInfo;
         SpvReflectShaderModule shaderModule;
         SpvReflectResult result = spvReflectCreateShaderModule(
             codeSize, spirv_code, &shaderModule);
         if (result != SPV_REFLECT_RESULT_SUCCESS) {
-            Log::error("SpirV Reflect wrong" + shader->shaderName);
-            return;
+            Log::error("SpirV Reflect wrong");
+            return {};
         }
         uint32_t input_count = 0;
         std::vector<InputAttribute> attributes;
         std::vector<BindingInfo> bindings;
-
+        std::vector<BindlessInfo> bindlessInfos;
 
         spvReflectEnumerateInputVariables(&shaderModule, &input_count, nullptr);
         std::vector<SpvReflectInterfaceVariable*> inputs(input_count);
@@ -337,7 +340,7 @@ namespace Render::Vulkan {
             if (var->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) continue;
             InputAttribute attr{};
             attr.location = var->location;
-            attr.format = fromImaegFormatToVertexFormat(ToImageFormat( SpvReflectFormatToVkFormat(var->format)));
+            attr.format = fromImaegFormatToVertexFormat(ToImageFormat(SpvReflectFormatToVkFormat(var->format)));
             attributes.push_back(attr);
         }
 
@@ -347,11 +350,32 @@ namespace Render::Vulkan {
         spvReflectEnumerateDescriptorBindings(&shaderModule, &binding_count, rflbindings.data());
 
         for (const auto* binding : rflbindings) {
+            vk_binding_pos pos{ .setIdx = int8_t(binding->set),.bindingIdx = int8_t(binding->binding) };
+
+            std::string bindingName = binding->name;
+            if (bindingName.starts_with("BINDLESS_")) {
+                BindlessInfo bindlessInfo{};
+                //bindless ubo.
+                //reflect everything inside it.
+                bindlessInfo.bindingPos = toRsBindingPos(pos);
+                auto& block = binding->block;
+                auto& slots = bindlessInfo.slots;
+                slots.resize(block.member_count);
+                for (int i = 0; i < block.member_count; ++i) {
+                    const auto& blockMember = block.members[i];
+                    auto& memberSlot = slots[i];
+                    memberSlot.bindlessItemName = Name(blockMember.name);
+                    memberSlot.offset = blockMember.offset;
+                }
+                bindlessInfo.sizeOfBindlessUBO = block.size;
+                bindlessInfos.emplace_back(std::move(bindlessInfo));
+            }
+
+
             BindingInfo bindingInfo{};
 
 
             {
-                vk_binding_pos pos{ .setIdx = int16_t(binding->set),.bindingIdx = int16_t(binding->binding) };
                 auto rsBindingPos = toRsBindingPos(pos);
                 bindingInfo.bindingPos = rsBindingPos;
             }
@@ -376,47 +400,48 @@ namespace Render::Vulkan {
                         bindingInfo.imageType = ImageType::V2D_Array;
                     }
                     else {
-						bindingInfo.imageType = ImageType::V2D;
+                        bindingInfo.imageType = ImageType::V2D;
                     }
-					break;
-				}
-                case SpvDim3D:
-                {
-					bindingInfo.imageType = ImageType::V3D;
                     break;
                 }
-				case SpvDimCube:
-				{
-					if (binding->array.dims_count > 1) {
-						bindingInfo.imageType = ImageType::VCube_Array;
-					}
-					else {
-						bindingInfo.imageType = ImageType::VCube;
-					}
-					break;
-				}
+                case SpvDim3D:
+                {
+                    bindingInfo.imageType = ImageType::V3D;
+                    break;
+                }
+                case SpvDimCube:
+                {
+                    if (binding->array.dims_count > 1) {
+                        bindingInfo.imageType = ImageType::VCube_Array;
+                    }
+                    else {
+                        bindingInfo.imageType = ImageType::VCube;
+                    }
+                    break;
+                }
                 default:
-					bindingInfo.imageType = ImageType::V2D;
-					break;
+                    bindingInfo.imageType = ImageType::V2D;
+                    break;
                 }
             }
 
             if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_UAV) {
                 if (binding->decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE) {
-					bindingInfo.access = UAVAccess::ReadOnly;
-				}
+                    bindingInfo.access = UAVAccess::ReadOnly;
+                }
                 else if (binding->decoration_flags & SPV_REFLECT_DECORATION_NON_READABLE) {
-					bindingInfo.access = UAVAccess::WriteOnly;
+                    bindingInfo.access = UAVAccess::WriteOnly;
                 }
             }
 
-            
+
             bindingInfo.size = binding->block.size;
-            bindingInfo.shaderVisibleStage = (uint16_t)shader->shaderStage;
+            bindingInfo.shaderVisibleStage = (uint16_t)stage;
             bindings.emplace_back(std::move(bindingInfo));
         }
-        shader->reflectInfo = std::move(bindings);
-        shader->inputAttributes = std::move(attributes);
-
+        rflInfo.bindingInfo     = std::move(bindings);
+        rflInfo.inputAttributes = std::move(attributes);
+        rflInfo.bindlessInfo    = std::move(bindlessInfos);
+        return rflInfo;
     }
 }

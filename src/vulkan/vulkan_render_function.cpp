@@ -20,7 +20,6 @@
 #include "render_log.h"
 #include <set>
 #include <iostream>
-
 using DyOffsetArray = std::array<uint32_t, 32>;
 
 
@@ -1082,6 +1081,7 @@ namespace Render::Vulkan {
         shader->shaderStage = desc.stage;
         shader->native = smodule;
         shader->entryPoint = desc.entryPoint;
+        shader->rflInfo =std::move( reflectShader((uint32_t*)desc.shaderCode, desc.codeSizeByte, desc.stage) );
         return shader;
     }
 

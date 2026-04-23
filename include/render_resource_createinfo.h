@@ -8,7 +8,6 @@
 #include "limits.h"
 namespace Render {
 
-
     struct BackEndInitDesc {
         std::string appName;
         std::string engineName;
@@ -154,7 +153,6 @@ namespace Render {
         VertexInputDescription vertexInputDesc;
     };
 
-    using rs_binding_pos = uint32_t;
 #define INVALID_BINDING_POS UINT_MAX
     struct BindingInfo {
         Name bindingItemName;

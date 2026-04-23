@@ -623,7 +623,7 @@ namespace Render::Vulkan {
         ret->pipelineLayout = pipelineLayout;
 
         auto& bindingInfo = ret->pipelineLayout->bindingInfo;
-        //Build binding info   
+        //Build binding info  
         for (auto&& setLayout : pipelineLayout->setLayouts) {
             for (auto&& descriptor : setLayout.second->bindingHash.mDescriptors) {
                 rs_descriptor descriptorNew = descriptor;
@@ -742,16 +742,18 @@ namespace Render::Vulkan {
         delete layout;
         return;
     }
-    rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const std::vector<DescritporSetInfo>& descriptorInfos)
+    rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const PipelineLayoutInfo& descriptorInfos)
     {
         std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>> setlayouts;
-        for (auto&& setInfo : descriptorInfos) {
+        //We dont check bindless info inside pipelinelayou create.
+        for (auto&& setInfo : descriptorInfos.setInfo) {
             std::pair<uint16_t, rs_descriptorset_layout_vk*> p;
             p.second = ctx->descriptorSetMgr->createDescriptorSetLayout(ctx, setInfo.layoutHash);
             p.first = setInfo.setIdx;
             setlayouts.push_back(p);
         }
         auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, {});
+        pipelineLayout->bindlessInfo = descriptorInfos.bindlessInfo;
         return pipelineLayout;
     }
 

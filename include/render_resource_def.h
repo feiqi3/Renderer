@@ -362,6 +362,8 @@ namespace Render {
         General = 1ULL << 19  
     };
 
+    using rs_binding_pos = uint32_t;
+
 	using DrawDataArray = std::array<struct rs_drawdata*, 4>;
 
 };

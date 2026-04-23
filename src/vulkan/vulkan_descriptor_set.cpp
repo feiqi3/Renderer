@@ -260,7 +260,7 @@ namespace Render::Vulkan {
     rs_pipeline_layout_vk* DescriptorSetManager::createFromShaders(rs_context_vk* ctx, std::vector<rs_shader_module_vk*>& shaders)
     {
 
-        std::vector< DescritporSetInfo> setLayouts =
+        PipelineLayoutInfo setLayouts =
             getPipelineShaderInfo(shaders.data(), shaders.size());
 
         return createRsPipelineLayout(ctx, setLayouts);

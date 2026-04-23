@@ -7,7 +7,7 @@
 namespace Render::Vulkan {
 
 	rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* context, const std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>>& setLayouts, const std::vector<VkPushConstantRange>& pushConstants);
-	rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const std::vector< DescritporSetInfo>& descriptorInfos);
+	rs_pipeline_layout_vk* createRsPipelineLayout(rs_context_vk* ctx, const PipelineLayoutInfo& descriptorInfos);
 
 	rs_graphic_pipeline_vk* createRsGraphicPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc);
 	

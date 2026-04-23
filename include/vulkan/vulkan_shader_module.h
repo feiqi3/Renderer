@@ -10,9 +10,14 @@ namespace Render::Vulkan {
 		rs_vk_descriporset_layout_hash layoutHash;
 	};
 
+	struct PipelineLayoutInfo {
+		std::vector<DescritporSetInfo> setInfo;
+		std::vector<BindlessInfo> bindlessInfo;
+	};
+	bool assembleBindlessInfo(const std::vector<BindlessInfo>& info, std::vector<BindlessInfo>& out);
 	std::vector< DescritporSetInfo> assembleDescriptorSetInfo(const std::vector<rs_descriptor>& descritpors);
 
-	std::vector< DescritporSetInfo> getPipelineShaderInfo(rs_shader_module_vk** shaders, size_t num);
+	PipelineLayoutInfo getPipelineShaderInfo(rs_shader_module_vk** shaders, size_t num);
 
 }
 
