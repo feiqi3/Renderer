@@ -152,7 +152,8 @@ namespace Render::Vulkan {
 	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);
 	void submitToPresentImage(rs_context_vk* ctx,uint32_t presentImgIdx,std::vector<rs_semaphore_vk*> renderFinishWaitSemaphore);
 	void WaitForDeviceIdel(rs_context_vk* ctx);
-
+	//-------------------------------------------------------------------------------------//     
+	bool isBindlessEnabled();
 
 
 }

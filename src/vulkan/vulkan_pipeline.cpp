@@ -441,6 +441,37 @@ namespace Render::Vulkan {
         return VK_BLEND_OP_ADD;
     }
 
+    static inline void assemblePipelineResource(rs_pipeline* pipeline, const PipelineLayoutInfo& info) {
+		auto& resourceLocations = pipeline->resources;
+		for (const auto& setInfo : info.setInfo) {
+			for (const auto& binding : setInfo.layoutHash.mDescriptors) {
+				ResourceLocation resLoc;
+				resLoc.type = ResourceLocationType::BindingSlot;
+				resLoc.bindingPos = binding.bindingPos;
+				resLoc.itemName = std::move(binding.bindingItemName);
+				resLoc.descriptorInfo.type = binding.type;
+				resLoc.descriptorInfo.count = binding.count;
+				resLoc.descriptorInfo.size = binding.size;
+                resourceLocations.push_back(resLoc);
+			}
+		}
+		if (isBindlessEnabled()) {
+			for (const auto& setInfo : info.bindlessInfo) {
+				for (int i = 0;i < setInfo.slots.size();++i) {
+					auto& slot = setInfo.slots[i];
+					ResourceLocation resLoc;
+					resLoc.type = ResourceLocationType::BindlessSlot;
+					resLoc.bindingPos = setInfo.bindingPos;
+					resLoc.itemName = std::move(slot.bindlessItemName);
+					resLoc.bindlessInfo.count = slot.count;
+					resLoc.bindlessInfo.offset = slot.offset;
+					resLoc.bindlessInfo.stride = slot.stride;
+                    resourceLocations.push_back(resLoc);
+				}
+			}
+		}
+    }
+
     rs_graphic_pipeline_vk* createRsGraphicPipeline(rs_context_vk* ctx, rs_renderpass_vk* renderPass, const PipelineDesc& desc)
     {
         VkGraphicsPipelineCreateInfo ci{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
@@ -448,7 +479,6 @@ namespace Render::Vulkan {
         std::vector<VkPipelineShaderStageCreateInfo> shaders;
         for (auto&& i : desc.shaders) {
             VkPipelineShaderStageCreateInfo psCI{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-            psCI.module = (VkShaderModule)i->native;
             psCI.pName = i->entryPoint.c_str();
             psCI.stage = toVkShaderStageBit(i->shaderStage);
             psCI.module = (VkShaderModule)i->native;
@@ -589,15 +619,16 @@ namespace Render::Vulkan {
         dyStateCi.pDynamicStates = s_pipelineDynamicStates.data();
         ci. pDynamicState = &dyStateCi;
 
-        auto descritporSetInfos = getPipelineShaderInfo((rs_shader_module_vk**)desc.shaders.data(), desc.shaders.size());
+        auto pipelineShaderInfo = getPipelineShaderInfo((rs_shader_module_vk**)desc.shaders.data(), desc.shaders.size());
 
-        auto pipelineLayout = createRsPipelineLayout(ctx, descritporSetInfos);
+        auto pipelineLayout = createRsPipelineLayout(ctx, pipelineShaderInfo);
 
         if (!pipelineLayout)
         {
             assert(0 && "Null pipeline layout");
             return nullptr;
         }
+
 
         ci.layout = (VkPipelineLayout)pipelineLayout->native;
         ci.renderPass = (VkRenderPass)renderPass->native;
@@ -622,18 +653,8 @@ namespace Render::Vulkan {
         ret->vtxInput = desc.vertexInputDesc;
         ret->pipelineLayout = pipelineLayout;
 
-        auto& bindingInfo = ret->pipelineLayout->bindingInfo;
-        //Build binding info  
-        for (auto&& setLayout : pipelineLayout->setLayouts) {
-            for (auto&& descriptor : setLayout.second->bindingHash.mDescriptors) {
-                rs_descriptor descriptorNew = descriptor;
-                auto vkBindingpos = toVkBindingPos(descriptorNew.bindingPos);
-                vkBindingpos.setIdx = setLayout.first;
-                auto rsBindingPos = toRsBindingPos(vkBindingpos);
-                descriptorNew.bindingPos = rsBindingPos;
-                bindingInfo.push_back(descriptorNew);
-            }
-        }
+		//Assemble ResourceLocation;
+        assemblePipelineResource(ret, pipelineShaderInfo);
 
         //Extra bonus:
         //For wireFrame   
@@ -654,9 +675,9 @@ namespace Render::Vulkan {
     rs_compute_pipeline_vk* createRsComputePipeline(rs_context_vk* ctx, rs_shader_module_vk* shader)
     {
 
-        auto descritporSetInfos = getPipelineShaderInfo(&shader,1);
+        auto pipelineShaderInfo = getPipelineShaderInfo(&shader,1);
 
-        auto pipelineLayout = createRsPipelineLayout(ctx, descritporSetInfos);
+        auto pipelineLayout = createRsPipelineLayout(ctx, pipelineShaderInfo);
 
 
 		VkComputePipelineCreateInfo ci{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
@@ -678,18 +699,7 @@ namespace Render::Vulkan {
             ret->type = PipelineType::Compute;
             ret->pipelineLayout = pipelineLayout;
 
-            auto& bindingInfo = ret->pipelineLayout->bindingInfo;
-            //Build binding info   
-            for (auto&& setLayout : pipelineLayout->setLayouts) {
-                for (auto&& descriptor : setLayout.second->bindingHash.mDescriptors) {
-                    rs_descriptor descriptorNew = descriptor;
-                    auto vkBindingpos = toVkBindingPos(descriptorNew.bindingPos);
-                    vkBindingpos.setIdx = setLayout.first;
-                    auto rsBindingPos = toRsBindingPos(vkBindingpos);
-                    descriptorNew.bindingPos = rsBindingPos;
-                    bindingInfo.push_back(descriptorNew);
-                }
-            }
+			assemblePipelineResource(ret, pipelineShaderInfo);
 
             return ret;
         }
@@ -753,7 +763,6 @@ namespace Render::Vulkan {
             setlayouts.push_back(p);
         }
         auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, {});
-        pipelineLayout->bindlessInfo = descriptorInfos.bindlessInfo;
         return pipelineLayout;
     }
 

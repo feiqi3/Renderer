@@ -252,6 +252,30 @@ namespace Render {
         ShaderIncFindFunc shaderIncludeFindFunc = nullptr;
     };
 
+    enum class ResourceLocationType {
+        BindingSlot,
+        BindlessSlot
+    };
+
+	struct ResourceLocation {
+        ResourceLocationType type;
+        Name             itemName;
+		rs_binding_pos   bindingPos;
+		union {
+			struct {
+				Render::UniformType type; 
+				uint16_t            count; 
+			    uint16_t            size;
+            } descriptorInfo;
+
+			struct {
+				uint16_t offset; 
+				uint16_t count;  
+				uint16_t stride; 
+			} bindlessInfo;
+		};
+	};
+
 	using ShaderStageInfo = std::vector<std::pair<ShaderStage, std::string>>;
 
 };

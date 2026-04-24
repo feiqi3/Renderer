@@ -65,6 +65,11 @@ namespace Render {
 
 	RenderResourceVariant::RenderResourceVariant(rs_buffer* buffer) : mData(buffer) {}
 
+	RenderResourceVariant::RenderResourceVariant(u32 size)
+	{
+		this->mData = ShaderScopeDataPtr(size);
+	}
+
 	bool RenderResourceVariant::isTextureView() const
 	{
 		return std::holds_alternative<TextureViewPair>(mData);

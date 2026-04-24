@@ -353,7 +353,7 @@ namespace Render::Vulkan {
             vk_binding_pos pos{ .setIdx = int8_t(binding->set),.bindingIdx = int8_t(binding->binding) };
 
             std::string bindingName = binding->name;
-            if (bindingName.starts_with("BINDLESS_")) {
+            if (bindingName.starts_with("BINDLESS_") && isBindlessEnabled() ) {
                 BindlessInfo bindlessInfo{};
                 //bindless ubo.
                 //reflect everything inside it.
@@ -366,7 +366,13 @@ namespace Render::Vulkan {
                     auto& memberSlot = slots[i];
                     memberSlot.bindlessItemName = Name(blockMember.name);
                     memberSlot.offset = blockMember.offset;
-                }
+                    memberSlot.stride = blockMember.size;
+                    memberSlot.count  = 1;
+                    if (blockMember.array.dims_count > 0) {
+                        memberSlot.count = blockMember.array.dims[0];
+						memberSlot.stride = blockMember.array.stride;
+					}
+				}
                 bindlessInfo.sizeOfBindlessUBO = block.size;
                 bindlessInfos.emplace_back(std::move(bindlessInfo));
             }
@@ -441,7 +447,9 @@ namespace Render::Vulkan {
         }
         rflInfo.bindingInfo     = std::move(bindings);
         rflInfo.inputAttributes = std::move(attributes);
-        rflInfo.bindlessInfo    = std::move(bindlessInfos);
+        if (isBindlessEnabled()) {
+            rflInfo.bindlessInfo = std::move(bindlessInfos);
+        }
         return rflInfo;
     }
 }

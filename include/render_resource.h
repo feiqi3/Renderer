@@ -31,7 +31,9 @@ namespace Render {
 
 	struct BindlessItem {
 		Name 		bindlessItemName;
-		uint32_t 	offset;
+		uint16_t 	offset;
+		uint16_t	count;
+		uint16_t	stride;
 	};
 
 	struct BindlessInfo {
@@ -91,12 +93,11 @@ namespace Render {
 	};
 
 	struct rs_pipeline_layout : rs_base {
-		std::vector<BindingInfo>	bindingInfo;
-		std::vector<BindlessInfo>	bindlessInfo;
 
 	};
 
 	struct rs_pipeline : rs_base {
+		std::vector<ResourceLocation> resources;
 		rs_pipeline_layout* pipelineLayout;
 		PipelineType type{};
 	};

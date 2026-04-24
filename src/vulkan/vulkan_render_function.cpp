@@ -1549,6 +1549,11 @@ namespace Render::Vulkan {
 
 	}
 
+	bool isBindlessEnabled()
+	{
+        return BindlessEnable;
+	}
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {

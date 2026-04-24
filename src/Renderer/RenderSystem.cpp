@@ -530,7 +530,7 @@ namespace Render{
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)
 	{
-		auto data = material->getBindingInfoByName(bindingName);
+		auto data = material->getBindingInfoByName(Name(bindingName));
 		if (data.has_value()) {
 			return (*data).bindingPos;
 		}
@@ -945,6 +945,11 @@ namespace Render{
 		}
 	}
 
+
+	bool RenderSystem::isBindlessEnabled() const
+	{
+		return Vulkan::isBindlessEnabled();
+	}
 
 	void RenderSystem::onWindowResize(int x, int y)
 	{

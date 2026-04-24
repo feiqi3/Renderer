@@ -356,12 +356,16 @@ namespace Render::Vulkan {
                 return itor->second;
             }
         }
-        auto& bindings = layoutHash.mDescriptors;
+        auto layoutHashCopy = layoutHash;
+        Name nameSubstitute = Name("Invalid");
+        auto& bindings = layoutHashCopy.mDescriptors;
         ci.bindingCount = bindings.size();
         std::vector< VkDescriptorSetLayoutBinding> vkBindings;
         vkBindings.reserve(bindings.size());
 
         for (auto&& binding : bindings) {
+            //Invalid origin name, we don't care about name in set layout.
+            binding.bindingItemName = nameSubstitute;
             //Use 'count' to mark void position. 
             if (binding.type == UniformType::Count)continue;
             VkDescriptorSetLayoutBinding b{};
@@ -387,16 +391,16 @@ namespace Render::Vulkan {
 
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            auto itor = mLayoutMap.find(layoutHash);
+            auto itor = mLayoutMap.find(layoutHashCopy);
             if (itor != mLayoutMap.end()) {
                 destroyDescriptorSetLayout(ctx, l);
                 itor->second->accquir();
                 return itor->second;
             }
             else {
-                l->bindingHash = layoutHash;
+                l->bindingHash = layoutHashCopy;
                 this->mLayoutMap.insert({
-                    layoutHash,l
+                    layoutHashCopy,l
                     });
                 l->accquir();
             }

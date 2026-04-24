@@ -19,16 +19,17 @@ namespace Render {
 		
 		inline RenderPass* getRenderPass()const { return mRenderPass; }
 
-		inline const std::vector<BindingInfo>& getBindingInfo()const {
-			return mRsPipeline->pipelineLayout->bindingInfo;
+		inline const std::vector<ResourceLocation>& getResourceLocations()const {
+			return mRsPipeline->resources;
 		}
 
-		inline const std::optional<BindingInfo> getBindingInfoByName(const std::string& name) {
-			auto itor = mBindingTable.find(name);
-			if (itor == mBindingTable.end()) {
-				return std::nullopt;
+		inline const std::optional<ResourceLocation> getBindingInfoByName(const Name& name) {
+			for (const auto& resource : mRsPipeline->resources) {
+				if (resource.itemName == name) {
+					return resource;
+				}
 			}
-			return itor->second;
+			return std::nullopt;
 		}
 
 	private:
@@ -39,7 +40,6 @@ namespace Render {
 		MaterialTemplate* mMaterialTemplate = nullptr;
 		rs_pipeline* mRsPipeline = 0;
 		StageMacroPairs mShaderMacro;
-		std::map<std::string, BindingInfo> mBindingTable;
 	};
 
 	class Pass {

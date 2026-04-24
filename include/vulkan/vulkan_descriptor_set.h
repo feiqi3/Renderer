@@ -73,6 +73,7 @@ namespace Render::Vulkan {
             std::map<int, rs_descriptor> mapSet;
             for (auto&& set : mDescriptors) {
                 auto vk_binding_pos = toVkBindingPos(set.bindingPos);
+                //We only care binding pos here
                 vk_binding_pos.setIdx = -1;
                 set.bindingPos = toRsBindingPos(vk_binding_pos);
                 maxBinding = std::max(maxBinding, uint16_t(vk_binding_pos.bindingIdx));

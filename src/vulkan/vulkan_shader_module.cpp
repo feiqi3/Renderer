@@ -88,7 +88,7 @@ namespace Render::Vulkan {
 				}
 				else {
 					Log::error("Shader resource conflict at Set " + std::to_string(vkPos.setIdx) +
-						" Binding " + std::to_string(vkPos.bindingIdx));
+						" Binding :" + std::to_string(vkPos.bindingIdx));
 				}
                 
             }
@@ -110,7 +110,6 @@ namespace Render::Vulkan {
     PipelineLayoutInfo getPipelineShaderInfo(rs_shader_module_vk** shaders, size_t num)
     {
         //Descriptor set is defined cross shaders
-        std::vector<std::pair<uint16_t, rs_descriptorset_layout_vk*>> setlayouts;
         std::vector<rs_descriptor> info;
         std::vector<BindlessInfo> bindlessInfoList;
         std::vector<BindlessInfo> outBindlessInfo;

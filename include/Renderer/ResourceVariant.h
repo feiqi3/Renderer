@@ -41,6 +41,7 @@ namespace Render {
 		explicit RenderResourceVariant(TexturePtr tex,ImageViewKey viewKey);
 		explicit RenderResourceVariant(SamplerPtr sampler);
 		explicit RenderResourceVariant(rs_buffer* buffer);
+		explicit RenderResourceVariant(u32	size);
 
 
 
@@ -60,7 +61,6 @@ namespace Render {
 		SamplerPtr getSampler() const;
 		rs_buffer* getRsBuffer() const; 
 		void	   getData(void** data, uint32_t* size)const;
-
 		void setUniformBuffer(const void* data, u32 size);
 
 		~RenderResourceVariant() = default;

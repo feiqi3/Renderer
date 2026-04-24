@@ -170,6 +170,8 @@ namespace Render{
 
 		void cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo);
 
+
+		bool isBindlessEnabled()const;
 	public:
 		void onWindowResize(int x,int y);
 	private:
