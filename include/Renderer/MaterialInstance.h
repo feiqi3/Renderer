@@ -9,9 +9,11 @@
 #include "Renderer/ResourceVariant.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "common/SmallVector.h"
+
+#include "Renderer/PipelineBindingTable.h"
+
 #include <string>
 #include <vector>
-#include <map>
 
 namespace Render {
 
@@ -29,18 +31,8 @@ namespace Render {
 		virtual void OnLoaded() override {};
 		virtual void OnUpdateParam(Pass* pass);
 
-		struct _BindlessItem {
-			ResourceLocation                      location;
-			SmallVector<RenderResourceVariant, 1> keepAliveRefs;
-		};
-
-		struct _ParameterPair {
-			ResourceLocation                      location;
-			ImageType                             parameterImageType;
-			SmallVector<RenderResourceVariant, 1> varArr;
-		};
-
 		void bindParameter(const std::string& paramName, TexturePtr tex, int element = 0);
+		void bindParameter(const std::string& paramName, TexturePtr tex, ImageViewKey key, int element = 0);
 		void bindParameter(const std::string& paramName, rs_buffer* buffer, int element = 0);
 		void bindParameter(const std::string& paramName, SamplerPtr sampler, int element = 0);
 
@@ -49,26 +41,29 @@ namespace Render {
 		void bindParameter(const std::string& paramName, const void* data, u32 size);
 
 		void uploadUniform(Pass* pass);
+
+		// ====================================================================
+		// ====================================================================
 		MaterialPass* getMaterialPass(const Name& name);
 		void addMaterialPassToRender(const Name& passName);
 		MaterialPass* getMaterialPassToRender(const Name& passName);
+
 		void setRenderOrder(u32 order);
 		u32 getRenderOrder() const;
 
+		MaterialBindingTable& getBindingTable() { return mBindingTable; }
+		const MaterialBindingTable& getBindingTable() const { return mBindingTable; }
+
 	protected:
-		void ensureParameterRegistered(const Name& paramName);
 
 		std::vector<Name> passNamesToRender;
 		MaterialTemplatePtr m_template;
 		u32 mRenderOrder = 0;
 
-		std::map<Name, uint32_t> mName2BindingSlot;
-		std::map<Name, uint32_t> mName2BindlessSlot;
+		// ====================================================================
+		// ====================================================================
 
-		std::map<rs_binding_pos, uint32_t> mBindingPos2BindingSlot;
-
-		std::vector<_ParameterPair>		mBindingSlots;
-		std::vector<_BindlessItem>		mBindlessItems;
+		MaterialBindingTable mBindingTable;
 	};
 
 	template<class T>

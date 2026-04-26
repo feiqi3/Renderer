@@ -16,19 +16,16 @@
 #include "vulkan/vulkan_deferred_destroy.h"
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_resource_state.h"
+#include "vulkan/vulkan_global_def.h"
 #include "render_function.h"
 #include "render_log.h"
 #include <set>
 #include <iostream>
+#include "Renderer/GPUShared/BindlessGlobalDefShared.h"
 using DyOffsetArray = std::array<uint32_t, 32>;
 
 
-struct Render::Vulkan::rs_image_vk* defalut_no_texture = nullptr;
-struct Render::Vulkan::rs_image_vk* defalut_no_texture_UAV = nullptr;
-struct Render::Vulkan::rs_sampler_vk* defalut_no_sampler = nullptr;
-struct Render::Vulkan::rs_buffer_vk* defalut_no_buffer = nullptr;
-struct Render::Vulkan::rs_buffer_vk* defalut_no_buffer_UAV = nullptr;
-bool PartialBindingEnable = false;
+
 
 namespace {
     //validation callback
@@ -1847,6 +1844,7 @@ namespace Render::Vulkan {
         auto deviceFeatureEnable2 = getExtensionEnablePhysicalDevice2(context);
         auto vk13PhysicalDeviceFeature = getExtensionEnablePhysicalDeviceVk13(context);
         auto indexingFeature = getExtensionEnablePhysicalDeviceDescriptorIndexingFeatures(context);
+
 		deviceFeatureEnable2.pNext = &indexingFeature;
         indexingFeature.pNext = &vk13PhysicalDeviceFeature;
         
@@ -1857,6 +1855,23 @@ namespace Render::Vulkan {
         if (indexingFeature.descriptorBindingPartiallyBound == true) {
             PartialBindingEnable = true;
         }
+
+        {
+            bool BindlessAvailable = (bool)(
+                indexingFeature.runtimeDescriptorArray &&
+                indexingFeature.descriptorBindingPartiallyBound &&
+
+                indexingFeature.descriptorBindingSampledImageUpdateAfterBind &&
+                indexingFeature.descriptorBindingStorageBufferUpdateAfterBind &&
+                indexingFeature.descriptorBindingStorageImageUpdateAfterBind &&
+
+                indexingFeature.shaderSampledImageArrayNonUniformIndexing &&
+                indexingFeature.shaderStorageBufferArrayNonUniformIndexing &&
+
+                indexingFeature.descriptorBindingVariableDescriptorCount
+                );
+        }
+
         VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
         createInfo.pNext = &deviceFeatureEnable2;
         float unifiedPriorities = 1.0f;
@@ -2286,7 +2301,7 @@ namespace Render::Vulkan {
 			return;
 		}
 
-		updateDrawData(context, slot, pos, 0, vk, 0);
+		updateDrawData(context, slot, pos, subscript, vk, 0, offset,size);
     }
 
     rs_buffer_vk* createStageBufferTemp(rs_context_vk* context, uint64_t size)
@@ -2967,6 +2982,17 @@ namespace Render::Vulkan {
         auto fence = createRsFence(ctx);
         cmdSubmitCmdBuffer(ctx, cb, QueueType_Graphics, {}, {}, fence);
         destroyRsFence(ctx,fence);
+    }
+//TODO: configable set size? this can be done by compile shader with given macro.....
+#include "Renderer/GPUShared/BindlessGlobalDefShared.h"
+    rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx, rs_pipeline* pipeline, int setIdx)
+    {
+
+        rs_bindless_data_vk* bindlessData = new rs_bindless_data_vk(TEXTURE_BINDLESS_ARRAY_BINDING_IDX, SAMPLER_BINDLESS_ARRAY_BINDING_IDX, UAV_IMAGE_BINDLESS_ARRAY_BINDING_IDX, BUFFER_BINDLESS_ARRAY_BINDING_IDX);
+        auto descriptorManager = ctx->descriptorSetMgr;
+        bindlessData->descriptorSet = descriptorManager->AllocateDescriptorSetFromDedicatePool(ctx->nextRenderFrame, ctx, pipeline, setIdx);
+
+        return bindlessData;
     }
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)

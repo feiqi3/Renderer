@@ -4,6 +4,8 @@
 #include "vulkan/vulkan_resource_state.h"
 #include <vulkan/vulkan_pipeline.h>
 #include <map>
+
+#define DESCRIPTOR_VAR_COUNT_SIZE 1024 * 4
 namespace Render::Vulkan {
     namespace {
         const uint64_t RingBufferSize = 1024 * 32; //32KB
@@ -86,6 +88,7 @@ namespace Render::Vulkan {
             return VK_NULL_HANDLE;
 
         for (auto i = 0; i < (int)UniformType::Count; ++i) {
+
             if (block->sizes[i].descriptorCount < layout->bindingHash.mAllocaHint.hint[i]) {
                 return VK_NULL_HANDLE;
             }
@@ -106,6 +109,33 @@ namespace Render::Vulkan {
         block->mInUseNum++;
         block->lastActiveFrame = frame;
         return desSet;
+    }
+
+    rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSetFromDedicatePool(uint64_t frame, rs_context_vk* ctx, rs_pipeline* pipeline, uint32_t setIdx)
+    {
+        auto pipelineLayout = (rs_pipeline_layout_vk*)pipeline->pipelineLayout;
+        rs_descriptorset_layout_vk* setlayout = nullptr;
+        for (const auto& [idx, layout] : pipelineLayout->setLayouts) {
+            if (idx == setIdx) {
+                setlayout = layout;
+                break;
+            }
+        }
+        //Create a dedicated pool
+        auto descriptorPool = createDedicatedPool(ctx, setlayout->bindingHash);
+        auto set = tryAllocateFromPool(frame, ctx, descriptorPool, setlayout);
+        rs_descriptorSet_vk* ret = new rs_descriptorSet_vk;
+        ret->native = set;
+        ret->layout = setlayout;
+        ret->pool = descriptorPool;
+
+        this->mDedicatedBlocks.insert(
+            {
+                descriptorPool
+            }
+        );
+
+        return ret;
     }
 
     rs_descriptorSet_vk* DescriptorSetManager::AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_pipeline* pipeline, uint32_t setIdx)
@@ -146,7 +176,7 @@ namespace Render::Vulkan {
         this->m_pools[frame_idx].push_back(createNewPool(ctx));
         auto pool = m_pools[frame_idx].back();
         auto desSet = tryAllocateFromPool(frame,ctx, pool, rs);
-        assert(desSet != VK_NULL_HANDLE);
+        assert(desSet != VK_NULL_HANDLE && "TRY ALLOCATE FROM DEDICATE POOL");
         rs_descriptorSet_vk* ret = new rs_descriptorSet_vk;
         ret->native = desSet;
         ret->layout = rs;
@@ -156,9 +186,11 @@ namespace Render::Vulkan {
 
     void DescriptorSetManager::ReturnDescriptorSet(rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet)
     {
-        if (descriptorSet->pool) {
+        auto pool = descriptorSet->pool;
+        if (pool) {
             //For Descriptor Set Pool, You can only reset entire pool   
-            descriptorSet->pool->mReturnedNum++;
+            pool->mReturnedNum++;
+
         }
         else {
             assert(0);
@@ -179,6 +211,44 @@ namespace Render::Vulkan {
         VK_CHECK(vkCreateDescriptorPool(ctx->device, &ci, 0, &block->pool), {
          });
 
+        return block;
+    }
+
+    DescriptorPoolBlock* DescriptorSetManager::createDedicatedPool(rs_context_vk* ctx, const rs_vk_descriporset_layout_hash& layoutHash)
+    {
+
+        PoolSizeInfo sizes;
+        //This will allow descriptorSet to be updated after submit
+        VkDescriptorPoolCreateFlags flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT; 
+        //Try construct one from 
+        for (const auto& descriptor : layoutHash.mDescriptors) {
+            VkDescriptorPoolSize size{};
+            size.type = toVkDescriptorType(descriptor.type);
+            if (descriptor.count == 0) {
+                if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && BindlessEnable) {
+                    size.descriptorCount = DESCRIPTOR_VAR_COUNT_SIZE; //this is the memory that driver will really allocated.
+                    //Variable Length in shader.
+                    flags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
+                }
+                else {
+                    assert(false);
+                    return nullptr;
+                }
+            }
+            sizes.push_back(size);
+        }
+        DescriptorPoolBlock* block = new DescriptorPoolBlock;
+        block->sizes = sizes;
+        block->maxSets = 1;
+        VkDescriptorPoolCreateInfo ci{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+        ci.flags = flags;
+        ci.maxSets = 1;
+        ci.poolSizeCount = sizes.size();
+        ci.pPoolSizes = sizes.data();
+        VK_CHECK(vkCreateDescriptorPool(ctx->device, &ci, 0, &block->pool), {
+
+        return nullptr;
+            });
         return block;
     }
 
@@ -279,6 +349,19 @@ namespace Render::Vulkan {
             }
             else {
                 ++i;
+            }
+        }
+
+        for (auto it = mDedicatedBlocks.begin(); it != mDedicatedBlocks.end();) {
+            auto poolBlock = (*it);
+            if (poolBlock->mInUseNum == poolBlock->mInUseNum) {
+                vkResetDescriptorPool(ctx->device, poolBlock->pool, 0);
+                vkDestroyDescriptorPool(ctx->device, poolBlock->pool, 0);
+                delete poolBlock;
+                it = mDedicatedBlocks.erase(it);
+            }
+            else {
+                it++;
             }
         }
 

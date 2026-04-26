@@ -43,12 +43,14 @@ namespace Render {
         auto shaderModule = (rs_shader_module*)Vulkan::createRsShader(ctx, sd);
 
         mPipeline = sys->createComputePipeline(shaderModule);
+
         if (mPipeline) {
-            rs_pipeline* basePipeline = reinterpret_cast<rs_pipeline*>(mPipeline);
-            for (auto&& binding : basePipeline->pipelineLayout->bindingInfo) {
-                mBindingTable.insert({ binding.bindingItemName.str(), binding});
-            }
+            mBindingTable.init(Name("ComputePass"), mPipeline);
         }
+        else {
+            assert(false);
+        }
+
     }
 
     ComputeKernel::~ComputeKernel() {
@@ -63,28 +65,27 @@ namespace Render {
         }
     }
 
-    std::optional<BindingInfo> ComputeKernel::getBindingInfoByName(const std::string& name) const {
-        auto itor = mBindingTable.find(name);
-        if (itor == mBindingTable.end()) {
-            return std::nullopt;
-        }
-        return itor->second;
+
+    void ComputeKernel::setParameter(const std::string& name, rs_buffer* buffer, int element) {
+        this->mBindingTable.updateParameter(Name(name), buffer,0 ,0, element);
     }
 
-    void ComputeKernel::setParameter(const std::string& name, rs_buffer* buffer) {
-        mPendingParams[name] = RenderResourceVariant(buffer);
-    }
-
-    void ComputeKernel::setParameter(const std::string& name, TexturePtr texture) {
-        mPendingParams[name] = RenderResourceVariant(texture);
-    }
-
-    void ComputeKernel::setParameter(const std::string& name, TexturePtr texture, ImageViewKey key)
+    void ComputeKernel::setParameter(const std::string& name, rs_buffer* buffer, uint32_t offset, uint32_t size, int element)
     {
+        this->mBindingTable.updateParameter(Name(name), buffer,offset,size, element);
+    }
+
+    void ComputeKernel::setParameter(const std::string& name, TexturePtr texture, int element) {
+        this->mBindingTable.updateParameter(Name(name), texture, element);
+    }
+
+    void ComputeKernel::setParameter(const std::string& name, TexturePtr texture, ImageViewKey key, int element)
+    {
+        this->mBindingTable.updateParameter(Name(name), texture, key, element);
         mPendingParams[name] = RenderResourceVariant(texture,key);
     }
 
-    void ComputeKernel::setParameter(const std::string& name, SamplerPtr sampler) {
+    void ComputeKernel::setParameter(const std::string& name, SamplerPtr sampler, int element) {
         mPendingParams[name] = RenderResourceVariant(sampler);
     }
 
@@ -104,29 +105,8 @@ namespace Render {
         }
         mCurrentDrawData = sys->createDrawData();
 
-        for (auto& [name, variant] : mPendingParams) {
-            auto infoOpt = getBindingInfoByName(name);
-            if (!infoOpt) continue;
+        mBindingTable.commit(mPipeline, mCurrentDrawData);
 
-            if (variant.isRsBuffer()) {
-                sys->updateUniform(infoOpt->bindingPos,0, variant.getRsBuffer(), basePipeline, mCurrentDrawData);
-            }
-            else if (variant.isTexture()) {
-                sys->updateUniform(infoOpt->bindingPos,0, variant.getTexture()->getRsImage(), basePipeline, mCurrentDrawData);
-            }
-            else if (variant.isTextureView()) {
-                sys->updateUniform(infoOpt->bindingPos, 0, variant.getTextureView()->view, basePipeline, mCurrentDrawData);
-            }
-            else if (variant.isSampler()) {
-                sys->updateUniform(infoOpt->bindingPos,0, variant.getSampler()->getRsSampler(), basePipeline, mCurrentDrawData);
-            }
-            else if (variant.isUniformBuffer()) {
-                void* dataPtr = nullptr;
-                uint32_t size = 0;
-                variant.getData(&dataPtr, &size);
-                sys->updateUniformBufferData(infoOpt->bindingPos, dataPtr, size, basePipeline, mCurrentDrawData);
-            }
-        }
 		sys->dispatchCompute(cmd, mPipeline, mCurrentDrawData, groupX, groupY, groupZ);
     }
 }

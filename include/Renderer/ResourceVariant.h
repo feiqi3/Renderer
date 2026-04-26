@@ -29,6 +29,12 @@ namespace Render {
 		unsigned char* _data = nullptr;
 	};
 
+	struct BufferPair {
+		rs_buffer* buffer;
+		uint32_t offset = 0;
+		uint32_t size = 0;
+	};
+
 	struct TextureViewPair {
 		TexturePtr		tex;
 		rs_image_view* view;
@@ -48,18 +54,20 @@ namespace Render {
 		template<typename T>
 		void set(const T& data);
 
+		void set(const TexturePtr& tex, ImageViewKey key);
+
 		bool isTextureView()   const;
 		bool isTexture()       const;
 		bool isSampler()       const;
 		bool isUniformBuffer() const;
-		bool isRsBuffer()      const; 
+		bool isBuffer()		   const; 
 		bool isValid()         const;
 		bool hasResource()     const;
 
 		TexturePtr getTexture() const;
 		const TextureViewPair* getTextureView()const;
 		SamplerPtr getSampler() const;
-		rs_buffer* getRsBuffer() const; 
+		const BufferPair* getBufferPair() const;
 		void	   getData(void** data, uint32_t* size)const;
 		void setUniformBuffer(const void* data, u32 size);
 
@@ -67,7 +75,7 @@ namespace Render {
 		RenderResourceVariant(RenderResourceVariant&&) = default;
 		RenderResourceVariant& operator=(RenderResourceVariant&&) = default;
 	private:
-		std::variant<std::monostate, TextureViewPair, TexturePtr, SamplerPtr, rs_buffer*, ShaderScopeDataPtr> mData;
+		std::variant<std::monostate, TextureViewPair, TexturePtr, SamplerPtr, BufferPair, ShaderScopeDataPtr> mData;
 	};
 
 	template<typename T>

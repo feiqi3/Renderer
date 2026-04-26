@@ -8,6 +8,7 @@
 #include "render_resource_createinfo.h"
 #include "common/SmallVector.h"
 #include <vector>
+#include "common/SparseTable.h"
 namespace Render {
 
 	struct rs_context{
@@ -34,6 +35,7 @@ namespace Render {
 		uint16_t 	offset;
 		uint16_t	count;
 		uint16_t	stride;
+		bool		isUAV;    //true: uav/ false srv
 	};
 
 	struct BindlessInfo {
@@ -74,11 +76,13 @@ namespace Render {
 		uint16_t arrayLayers;
 		uint32_t usage;
 		SampleCount sampleCount = SampleCount::Count1;
+		std::vector<ResourceState> subresourcePendingStates; // The state resource is going to be.
 		std::vector<ResourceState> subresourceStates;
 		//---------------------------//
 		rs_image_view defaultView;
 		//create in runtime.
 		std::list<rs_image_view> imageViews;
+		uint32_t bindlessIdx = 0;
 	};
 
 	struct rs_buffer : rs_base {
@@ -86,6 +90,8 @@ namespace Render {
 		uint32_t byteSize = 0;
 		uint8_t queueType;
 		void* mappedPtr = 0;
+		
+		ResourceState pendingState = ResourceState::Common; // The state resource is going to be.
 		ResourceState state = ResourceState::Common;
 	};
 
@@ -164,7 +170,34 @@ namespace Render {
 		rs_image_view* m_dsView;
 	};
 
+	struct rs_buffer_view {
+		rs_buffer* buffer;
+		uint32_t offset = 0;
+		uint32_t size = 0; //Means WHOLE SIZE
+	};
 
+	struct BindlessSlot {
+		rs_base* resourse;
+		UniformType type;
+		std::atomic_int refTime;
+	};
+
+	struct rs_bindless_data {
+		inline rs_bindless_data(int TexturesMax, int samplersMax, int storageImagesMax, int buffersMax)
+		:texturesBinding(TexturesMax), maxTexturesBinding(TexturesMax), samplersBinding(samplersMax),maxSamplersBinding(samplersMax),storageImagesBinding(storageImagesMax), maxStorageImagesBinding(storageImagesMax), buffersBinding(buffersMax), maxBuffersBinding(buffersMax)
+		{
+		
+		}
+
+		SparseTable<BindlessSlot> texturesBinding;
+		uint32_t maxTexturesBinding = 0;
+		SparseTable<BindlessSlot> samplersBinding;
+		uint32_t maxSamplersBinding = 0;
+		SparseTable<BindlessSlot> storageImagesBinding;
+		uint32_t maxStorageImagesBinding = 0;
+		SparseTable<BindlessSlot> buffersBinding;
+		uint32_t maxBuffersBinding = 0;
+	};
 
 	struct rs_drawdata {
 		uint32_t FiFDirtyFlag = 0xFFFFFFFF;

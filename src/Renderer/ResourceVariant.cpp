@@ -63,11 +63,28 @@ namespace Render {
 
 	RenderResourceVariant::RenderResourceVariant(SamplerPtr sampler) : mData(std::move(sampler)) {}
 
-	RenderResourceVariant::RenderResourceVariant(rs_buffer* buffer) : mData(buffer) {}
+	RenderResourceVariant::RenderResourceVariant(rs_buffer* buffer){
+		BufferPair bufferPair{.buffer = buffer};
+		mData = bufferPair;
+	}
 
 	RenderResourceVariant::RenderResourceVariant(u32 size)
 	{
 		this->mData = ShaderScopeDataPtr(size);
+	}
+
+	void RenderResourceVariant::set(const TexturePtr& tex, ImageViewKey key)
+	{
+		auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), key);
+		if (view) {
+			TextureViewPair pair{};
+			pair.tex = tex;
+			pair.view = view;
+			mData = std::move(pair);
+		}
+		else {
+			mData = tex;
+		}
 	}
 
 	bool RenderResourceVariant::isTextureView() const
@@ -87,8 +104,8 @@ namespace Render {
 		return std::holds_alternative<ShaderScopeDataPtr>(mData);
 	}
 
-	bool RenderResourceVariant::isRsBuffer() const {
-		return std::holds_alternative<rs_buffer*>(mData);
+	bool RenderResourceVariant::isBuffer() const {
+		return std::holds_alternative<BufferPair>(mData);
 	}
 
 	bool RenderResourceVariant::isValid() const {
@@ -102,8 +119,8 @@ namespace Render {
 		else if (isSampler()) {
 			return getSampler() != nullptr;
 		}
-		else if (isRsBuffer()) {
-			return getRsBuffer() != nullptr;
+		else if (isBuffer()) {
+			return getBufferPair() != nullptr;
 		}
 		else if (isUniformBuffer()) {
 			return std::get<ShaderScopeDataPtr>(mData).get() != nullptr;
@@ -133,9 +150,9 @@ namespace Render {
 		return nullptr;
 	}
 
-	rs_buffer* RenderResourceVariant::getRsBuffer() const {
-		if (isRsBuffer()) {
-			return std::get<rs_buffer*>(mData);
+	const BufferPair* RenderResourceVariant::getBufferPair() const {
+		if (isBuffer()) {
+			return &(std::get<BufferPair>(mData));
 		}
 		return nullptr;
 	}

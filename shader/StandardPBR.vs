@@ -2,7 +2,7 @@
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
-layout(set = 3, binding = 1) uniform PerMaterialObject {
+layout(set = 4, binding = 1) uniform PerMaterialObject {
     PBRData pbrData;
 } CBUFFER_pbrData;
 

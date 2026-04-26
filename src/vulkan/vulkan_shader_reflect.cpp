@@ -365,6 +365,8 @@ namespace Render::Vulkan {
                     const auto& blockMember = block.members[i];
                     auto& memberSlot = slots[i];
                     memberSlot.bindlessItemName = Name(blockMember.name);
+                    auto strName = memberSlot.bindlessItemName.str();
+                    memberSlot.isUAV = strName.starts_with("uav_");
                     memberSlot.offset = blockMember.offset;
                     memberSlot.stride = blockMember.size;
                     memberSlot.count  = 1;
@@ -388,6 +390,10 @@ namespace Render::Vulkan {
 
             bindingInfo.bindingItemName = Name(binding->name);
             bindingInfo.count = binding->count;
+            if (binding->array.dims_count == 1) {
+                bindingInfo.count = binding->array.dims[0]; //For var array, this will be 0;
+            }
+
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
 
             if (bindingInfo.type == UniformType::UniformBuffer && bindingInfo.bindingItemName.str().starts_with("CBUFFER_")) {
@@ -402,7 +408,7 @@ namespace Render::Vulkan {
                     break;
                 case SpvDim2D:
                 {
-                    if (binding->array.dims_count > 1) {
+                    if (binding->image.arrayed) {
                         bindingInfo.imageType = ImageType::V2D_Array;
                     }
                     else {
@@ -417,7 +423,7 @@ namespace Render::Vulkan {
                 }
                 case SpvDimCube:
                 {
-                    if (binding->array.dims_count > 1) {
+                    if (binding->image.arrayed) {
                         bindingInfo.imageType = ImageType::VCube_Array;
                     }
                     else {

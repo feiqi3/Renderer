@@ -463,6 +463,7 @@ namespace Render::Vulkan {
 					resLoc.type = ResourceLocationType::BindlessSlot;
 					resLoc.bindingPos = setInfo.bindingPos;
 					resLoc.itemName = std::move(slot.bindlessItemName);
+                    resLoc.bindlessInfo.isUAV = slot.isUAV;
 					resLoc.bindlessInfo.count = slot.count;
 					resLoc.bindlessInfo.offset = slot.offset;
 					resLoc.bindlessInfo.stride = slot.stride;

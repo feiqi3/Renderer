@@ -162,6 +162,12 @@ namespace Render::Vulkan {
 		std::vector<rs_descriptorSet_vk*> descriptorSets;
 		std::vector<rs_binding_slot> bindingTracker;
 	};
+	struct rs_bindless_data_vk : rs_bindless_data {
+		inline rs_bindless_data_vk(int texturesMax, int samplersMax, int storageImagesMax, int buffersMax): rs_bindless_data(texturesMax, samplersMax, storageImagesMax, buffersMax){
+		}
+
+		rs_descriptorSet_vk* descriptorSet;
+	};
 
 	struct rs_drawdata_vk : rs_drawdata {
 		std::vector <			
@@ -169,6 +175,7 @@ namespace Render::Vulkan {
 			>
 		DescriptorSets; //per set index
 	};
+
 
 };
 

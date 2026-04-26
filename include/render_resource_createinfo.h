@@ -158,7 +158,7 @@ namespace Render {
         Name bindingItemName;
         rs_binding_pos bindingPos; //Platform related
         uint16_t shaderVisibleStage = 0; //shader stage
-        uint16_t count = 0; 
+        uint16_t count = 0;         // count == 0 --> bindless!!! 
         uint16_t size = 0; 
         UniformType type;
         ImageType   imageType = ImageType::Invalid;
@@ -270,9 +270,10 @@ namespace Render {
 
 			struct {
 				uint16_t offset; 
-				uint16_t count;  
 				uint16_t stride; 
-			} bindlessInfo;
+                uint8_t  count;
+                uint8_t  isUAV;
+            } bindlessInfo;
 		};
 	};
 

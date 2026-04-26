@@ -141,6 +141,45 @@ public:
         m_size = new_size;
     }
 
+    inline void resize(size_t new_size, const T& fill_value) {
+        if (new_size == m_size) return;
+
+        T* old_data = data();
+
+        if (new_size <= N) {
+            if (isHeap()) {
+                std::uninitialized_move_n(old_data, new_size, inline_ptr());
+                std::destroy_n(old_data, m_size);
+                ::operator delete(old_data);
+            }
+            else {
+                if (new_size > m_size) {
+                    std::uninitialized_fill_n(inline_ptr() + m_size, new_size - m_size, fill_value);
+                }
+                else {
+                    std::destroy_n(inline_ptr() + new_size, m_size - new_size);
+                }
+            }
+        }
+        else {
+            T* new_heap = static_cast<T*>(::operator new(new_size * sizeof(T)));
+            size_t move_count = std::min(m_size, new_size);
+
+            std::uninitialized_move_n(old_data, move_count, new_heap);
+
+            if (new_size > m_size) {
+                std::uninitialized_fill_n(new_heap + m_size, new_size - m_size, fill_value);
+            }
+
+            std::destroy_n(old_data, m_size);
+            if (isHeap()) {
+                ::operator delete(old_data);
+            }
+            m_heap = new_heap;
+        }
+        m_size = new_size;
+    }
+
     inline T& operator[](size_t idx) {
         assert(idx < m_size);
         return data()[idx];

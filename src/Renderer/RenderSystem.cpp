@@ -566,8 +566,10 @@ namespace Render{
 		if (pipelineLayout == nullptr)
 			return INVALID_BINDING_POS;
 		rs_binding_pos retPos = INVALID_BINDING_POS;
-		for (const auto& binding : pipelineLayout->bindingInfo) {
-			if (binding.bindingItemName.isEqual(bindingName)) {
+		for (const auto& binding : pipeline->resources) {
+			if (binding.type == ResourceLocationType::BindlessSlot)return INVALID_BINDING_POS;
+
+			if (binding.itemName.isEqual(bindingName)) {
 				retPos = binding.bindingPos;
 				break;
 			}

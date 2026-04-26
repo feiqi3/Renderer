@@ -17,6 +17,8 @@ namespace Render::Vulkan {
     constexpr int BITS_PER_BINDING = 11;
     constexpr int MAX_BINDINGS = 256 / BITS_PER_BINDING; // 21
 
+    static const uint64_t DescriptorSetVarCountBindingFlag = 1 << 0;
+
     struct UniformBufferObject :rs_base {
     public:
         UniformBufferObject( uint32_t maxFrameInFlight, uint32_t bufferSize, uint32_t alignedSize);
@@ -44,6 +46,10 @@ namespace Render::Vulkan {
         struct AllocateHint {
             std::vector<uint16_t> hint; //How many descriptors should be allocated?   
         } mAllocaHint;
+
+        //Flags are not set in Cpp code  on purpose
+        //They are determined in shader code
+        uint64_t DescriptorSetFlags = 0;
 
         std::vector< rs_descriptor> mDescriptors;
         uint64_t layoutHash = 0;
@@ -103,8 +109,8 @@ namespace Render::Vulkan {
                 UniformType type = UniformType::Count;
             }descripor;
 
-            const uint64_t FNV_offset = 0xcbf29ce484222325ULL;
-            const uint64_t FNV_prime = 0x100000001b3ULL;
+            const static uint64_t FNV_offset = 0xcbf29ce484222325ULL;
+            const static uint64_t FNV_prime = 0x100000001b3ULL;
 
             uint64_t h = FNV_offset;
 
@@ -115,6 +121,11 @@ namespace Render::Vulkan {
                 descripor.binding = i.bindingPos;
                 descripor.shaderVisibleStage = i.shaderVisibleStage;
                 descripor.count = i.count;
+                if (descripor.count == 0) 
+                {
+                    //Variable size.
+                    this->DescriptorSetFlags |= DescriptorSetVarCountBindingFlag;
+                }
                 descripor.size = i.size;
                 descripor.type = i.type;
                 uint8_t* data = (uint8_t*) & descripor;
@@ -206,6 +217,7 @@ namespace Render::Vulkan {
         void returnDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk*& rs);
         VkDescriptorSetLayout getEmptyDescriptorSetLayout(rs_context_vk* ctx);
 
+        rs_descriptorSet_vk* AllocateDescriptorSetFromDedicatePool(uint64_t frame, rs_context_vk* ctx, rs_pipeline* pipeline, uint32_t setIdx);
         rs_descriptorSet_vk* AllocateDescriptorSet(uint64_t frame, rs_context_vk* ctx, rs_pipeline* pipeline,uint32_t setIdx);
         rs_descriptorSet_vk* AllocateDescriptorSet(uint64_t frame,rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
         void ReturnDescriptorSet(rs_context_vk* ctx, rs_descriptorSet_vk*& descriptorSet);
@@ -217,6 +229,8 @@ namespace Render::Vulkan {
     private:
         void destroyDescriptorSetLayout(rs_context_vk* ctx, rs_descriptorset_layout_vk* rs);
         DescriptorPoolBlock* createNewPool(rs_context_vk* ctx);
+        DescriptorPoolBlock* createDedicatedPool(rs_context_vk* ctx, const rs_vk_descriporset_layout_hash& layoutHash);
+
         VkDescriptorSet tryAllocateFromPool(uint64_t frame,rs_context_vk* ctx,DescriptorPoolBlock* block,rs_descriptorset_layout_vk* layout);
 
     private:
@@ -232,7 +246,7 @@ namespace Render::Vulkan {
         std::mutex mMutex;
         LayoutMap mLayoutMap;
         std::vector<PoolList> m_pools;
-        
+        std::set<DescriptorPoolBlock*> mDedicatedBlocks;
         //TODO: create
         //Per pool
         PoolSizeInfo        m_defaultSize;

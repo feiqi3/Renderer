@@ -3,7 +3,7 @@
 
 #include "PBREntity.h"
 
-layout(set = 3, binding = 1) uniform MaterialData {
+layout(set = 4, binding = 1) uniform MaterialData {
     PBRData pbrData;
 } CBUFFER_pbrData;
 

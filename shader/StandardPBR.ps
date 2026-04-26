@@ -8,18 +8,18 @@
 #include "CommonMath.inl"
 #include "CommonLight.inl"
 
-layout(set = 3, binding = 1) uniform PerMaterialObject {
+layout(set = 4, binding = 1) uniform PerMaterialObject {
     PBRData pbrData;
 } CBUFFER_pbrData;
 
-layout(set = 3, binding = 2) uniform texture2D      u_baseColorTex;
-layout(set = 3, binding = 3) uniform sampler        u_baseColorSampler;
-layout(set = 3, binding = 4) uniform texture2D      u_normalTex;
-layout(set = 3, binding = 5) uniform sampler        u_normalSampler;
-layout(set = 3, binding = 6) uniform texture2D      u_metallicRoughnessTex;
-layout(set = 3, binding = 7) uniform sampler        u_metallicRoughnessSampler;
-layout(set = 3, binding = 8) uniform texture2D      u_AOTex;
-layout(set = 3, binding = 9) uniform sampler        u_AOSampler;
+layout(set = 4, binding = 2) uniform texture2D      u_baseColorTex;
+layout(set = 4, binding = 3) uniform sampler        u_baseColorSampler;
+layout(set = 4, binding = 4) uniform texture2D      u_normalTex;
+layout(set = 4, binding = 5) uniform sampler        u_normalSampler;
+layout(set = 4, binding = 6) uniform texture2D      u_metallicRoughnessTex;
+layout(set = 4, binding = 7) uniform sampler        u_metallicRoughnessSampler;
+layout(set = 4, binding = 8) uniform texture2D      u_AOTex;
+layout(set = 4, binding = 9) uniform sampler        u_AOSampler;
 
 layout(location = 0) in vec3 i_worldPos;
 layout(location = 1) in vec3 i_normal;

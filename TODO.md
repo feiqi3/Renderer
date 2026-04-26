@@ -42,3 +42,10 @@
    7. streaming texture --- 似乎不是很难                 
    8. 打住，打住        
  
+
+ BINDLESS WIP:    
+ 1. Barrier 统计优化： 加入一项PendingState，如果PendingState != resourceState，就说明这个resource在之前被绑定过，资源layout/barrier还未放置；代替现在的用std::set去重    
+ 2. Bindless 绑定部分：把buffer相关的部分改了，bindless不要用到offset和size，在shaderUBO中看看能不能反射出来，声明的时候需要一并声明这三个东西...
+ 3. Bindless 绑定部分：完成全部。
+ 4. 对Var binding count的特殊处理，以及shader反射时需要检测合法（必须是set中最后一个binding）
+ 5. VirtualPipeline中需要手动创建这个descriptorSet，整个Render应该只有有限个(或者是1个)
