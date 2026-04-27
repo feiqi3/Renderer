@@ -17,8 +17,6 @@
 
 namespace Render::Vulkan {
 	inline uint32_t VulkanVersion = VK_API_VERSION_1_3;
-	inline bool     Synchronize2Enable	= false;
-	inline bool		BindlessEnable		= true;
 	using DrawDataArray = std::array<struct rs_drawdata_vk*, 4>;
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;

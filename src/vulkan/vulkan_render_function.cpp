@@ -1548,7 +1548,7 @@ namespace Render::Vulkan {
 
 	bool isBindlessEnabled()
 	{
-        return BindlessEnable;
+        return BindlessAvailable;
 	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
@@ -1857,7 +1857,7 @@ namespace Render::Vulkan {
         }
 
         {
-            bool BindlessAvailable = (bool)(
+                BindlessAvailable = (bool)(
                 indexingFeature.runtimeDescriptorArray &&
                 indexingFeature.descriptorBindingPartiallyBound &&
 
@@ -1870,6 +1870,10 @@ namespace Render::Vulkan {
 
                 indexingFeature.descriptorBindingVariableDescriptorCount
                 );
+        }
+
+        {
+            BufferDeviceAddressEnable = false; //!!! >= VK_13 this is a guaranteed support FIXME 
         }
 
         VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
@@ -2993,6 +2997,80 @@ namespace Render::Vulkan {
         bindlessData->descriptorSet = descriptorManager->AllocateDescriptorSetFromDedicatePool(ctx->nextRenderFrame, ctx, pipeline, setIdx);
 
         return bindlessData;
+    }
+
+    static inline BindlessSlot GetBindlessSlot(rs_base* data,uint64_t lastUsedFrame,UniformType type) {
+        BindlessSlot slot{};
+        slot.refTime = 1;
+        slot.resourse = data;
+        slot.lastUsedFrame = lastUsedFrame;
+        slot.type = type;
+        return slot;
+    }
+#define BINDLESS_IMAGE_LAST_USED_TIME_MAX 5
+    static inline uint32_t TryFindFreeSlot(uint64_t curFrame, SparseTable<BindlessSlot>& bindingTable) {
+        auto slotVector = bindingTable.Data();
+        auto bindlessSlotIndex = bindingTable.SparseIndexData();
+        auto size = bindingTable.Size();
+        for (int i = 0;i < size;++i) {
+            uint32_t bindlessIndex = bindlessSlotIndex[i];
+            auto lastUsedTime = slotVector[i].lastUsedFrame;
+            if (curFrame - lastUsedTime > BINDLESS_IMAGE_LAST_USED_TIME_MAX) {
+                return bindlessIndex;
+            }
+
+        }
+        return INVALID_BINDLESS_INDEX;
+    }
+
+    static inline uint32_t TrySwapoutBindlessSlot(uint64_t curFrame, SparseTable<BindlessSlot>& bindingTable, BindlessSlot* swapInSlot,BindlessSlot* swapOutSlot) {
+        uint32_t bindlessIndex = TryFindFreeSlot(curFrame, bindingTable);
+        if (bindlessIndex == INVALID_BINDLESS_INDEX) {
+            assert(false);
+            return bindlessIndex;
+        }
+        *swapOutSlot = bindingTable.SwapOut(*swapInSlot, bindlessIndex);
+		return bindlessIndex;
+	}
+
+    uint64_t updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav, uint32_t& outSize)
+    {
+        if (!BufferDeviceAddressEnable) {
+            assert(buffer->bindlessIdx != INVALID_BINDLESS_INDEX);
+		    //1. try allocate postion 
+            auto& bufferBinding = bindlessData->buffersBinding;
+            auto bufferSlot = GetBindlessSlot(buffer,ctx->nextRenderFrame,UniformType::StorageBuffer);
+            auto ret = bufferBinding.Allocate(bufferSlot);
+            if (ret == INVALID_BINDLESS_INDEX) {
+                BindlessSlot slotSwapOut;
+                ret = TrySwapoutBindlessSlot(ctx->nextRenderFrame, bufferBinding, &bufferSlot, &slotSwapOut);
+                rs_buffer_vk* bufferOut = (rs_buffer_vk*)slotSwapOut.resourse;
+                if (bufferOut) {
+                    //!! invalid original index
+                    bufferOut->bindlessIdx = INVALID_BINDLESS_INDEX;
+                }
+            }
+
+            if (ret == INVALID_BINDLESS_INDEX) {
+                return ret;
+            }
+			auto bindingPos = toVkBindingPos(bindlessData->bufferBindlessPos).bindingIdx;
+
+            VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+            write.descriptorCount = 1;
+            write.descriptorType = toVkDescriptorType(Render::UniformType::StorageBuffer);
+            write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+            write.dstBinding = bindingPos;
+            write.dstArrayElement = ret;
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = (VkBuffer)buffer->native;
+            bufferInfo.offset = 0;
+            bufferInfo.range = VK_WHOLE_SIZE;
+            write.pBufferInfo = &bufferInfo;
+            vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
+            return ret;
+        }
+
     }
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)

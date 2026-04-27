@@ -1,6 +1,7 @@
 #ifndef VULKAN_RESOURCE_STATE_H_
 #define VULKAN_RESOURCE_STATE_H_
 #include "vulkan_render_resource.h"
+#include "vulkan_global_def.h"
 #include <map>
 inline bool AggressiveBatchBarrier = false;
 inline bool DisableSync2 = false;;

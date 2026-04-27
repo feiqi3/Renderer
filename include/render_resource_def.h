@@ -366,6 +366,7 @@ namespace Render {
 
 	using DrawDataArray = std::array<struct rs_drawdata*, 4>;
 
+#define INVALID_BINDLESS_INDEX 0xFFFFFFFF
 };
 
 #endif

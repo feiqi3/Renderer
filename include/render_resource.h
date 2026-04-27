@@ -8,7 +8,7 @@
 #include "render_resource_createinfo.h"
 #include "common/SmallVector.h"
 #include <vector>
-#include "common/SparseTable.h"
+#include "common/BindlessIndexingTable.h"
 namespace Render {
 
 	struct rs_context{
@@ -28,6 +28,10 @@ namespace Render {
 
 	struct rs_base {
 		void* native = 0;
+	};
+
+	struct rs_resource : rs_base {
+		uint32_t bindlessIndex = INVALID_BINDLESS_INDEX;
 	};
 
 	struct BindlessItem {
@@ -61,7 +65,7 @@ namespace Render {
 	};
 
 	//Actually this is created JIT and is hidden behind API specific functions
-	struct rs_image_view : rs_base {
+	struct rs_image_view : rs_resource {
 		ImageViewKey viewKey;
 		struct rs_image*	 image;
 	};
@@ -82,10 +86,9 @@ namespace Render {
 		rs_image_view defaultView;
 		//create in runtime.
 		std::list<rs_image_view> imageViews;
-		uint32_t bindlessIdx = 0;
 	};
 
-	struct rs_buffer : rs_base {
+	struct rs_buffer : rs_resource {
 		uint32_t bufferType = BufferType::BufferType_None;
 		uint32_t byteSize = 0;
 		uint8_t queueType;
@@ -95,7 +98,7 @@ namespace Render {
 		ResourceState state = ResourceState::Common;
 	};
 
-	struct rs_sampler : rs_base {
+	struct rs_sampler : rs_resource {
 	};
 
 	struct rs_pipeline_layout : rs_base {
@@ -177,9 +180,10 @@ namespace Render {
 	};
 
 	struct BindlessSlot {
-		rs_base* resourse;
+		rs_base* resourse = nullptr;
+		uint32_t refTime = 0;
 		UniformType type;
-		std::atomic_int refTime;
+		uint64_t lastUsedFrame = 0;
 	};
 
 	struct rs_bindless_data {
@@ -188,13 +192,16 @@ namespace Render {
 		{
 		
 		}
-
-		SparseTable<BindlessSlot> texturesBinding;
+		rs_binding_pos textureBindlessPos = INVALID_BINDING_POS;
+		BindlessIndexingTable texturesBinding;
 		uint32_t maxTexturesBinding = 0;
-		SparseTable<BindlessSlot> samplersBinding;
+		rs_binding_pos samplerBindlessPos = INVALID_BINDING_POS;
+		BindlessIndexingTable samplersBinding;
 		uint32_t maxSamplersBinding = 0;
+		rs_binding_pos storageBindlessPos = INVALID_BINDING_POS;
 		SparseTable<BindlessSlot> storageImagesBinding;
 		uint32_t maxStorageImagesBinding = 0;
+		rs_binding_pos bufferBindlessPos = INVALID_BINDING_POS;
 		SparseTable<BindlessSlot> buffersBinding;
 		uint32_t maxBuffersBinding = 0;
 	};
