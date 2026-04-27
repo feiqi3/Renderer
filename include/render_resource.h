@@ -143,7 +143,7 @@ namespace Render {
 		bool recording = false;
 		uint32_t lastActiveFrames = 0;
 		bool hasCommands = false;
-		std::vector<std::set<void*>> resourceToBeTransit;
+		std::vector<std::vector<void*>> resourceToBeTransit;
 	};
 
 	struct rs_binding_slot{
@@ -199,10 +199,10 @@ namespace Render {
 		BindlessIndexingTable samplersBinding;
 		uint32_t maxSamplersBinding = 0;
 		rs_binding_pos storageBindlessPos = INVALID_BINDING_POS;
-		SparseTable<BindlessSlot> storageImagesBinding;
+		BindlessIndexingTable storageImagesBinding;
 		uint32_t maxStorageImagesBinding = 0;
 		rs_binding_pos bufferBindlessPos = INVALID_BINDING_POS;
-		SparseTable<BindlessSlot> buffersBinding;
+		BindlessIndexingTable buffersBinding;
 		uint32_t maxBuffersBinding = 0;
 	};
 

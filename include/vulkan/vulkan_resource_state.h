@@ -85,6 +85,7 @@ namespace Render::Vulkan {
                 barriersToSubmit.push_back(barrier);
 
                 bufferVk->state = newState;
+                assert(bufferVk->pendingState == bufferVk->state);
             }
 
             if (barriersToSubmit.empty()) {
@@ -137,6 +138,7 @@ namespace Render::Vulkan {
                 barriersToSubmit.push_back(barrier);
 
                 bufferVk->state = newState;
+                assert(bufferVk->pendingState == bufferVk->state);
             }
 
             if (barriersToSubmit.empty()) {
@@ -188,6 +190,7 @@ namespace Render::Vulkan {
                     barriersToSubmit.push_back(barrier);
 
                     buffer->state = newState;
+                    assert(bufferVk->pendingState == bufferVk->state);
                 }
 
                 vkCmdPipelineBarrier(
@@ -265,6 +268,7 @@ namespace Render::Vulkan {
 
                             barriersToSubmit.push_back(barrier);
                             image->subresourceStates[flatIndex] = newState;
+                            assert(image->subresourceStates[flatIndex] == image->subresourcePendingStates[flatIndex]);
                         }
                     }
                 }
@@ -330,6 +334,7 @@ namespace Render::Vulkan {
 
                             barriersToSubmit.push_back(barrier);
                             image->subresourceStates[flatIndex] = newState;
+                            assert(image->subresourceStates[flatIndex] == image->subresourcePendingStates[flatIndex]);
                         }
                     }
                 }
@@ -391,6 +396,7 @@ namespace Render::Vulkan {
 
                             barriersByOldState[oldSubState].push_back(barrier);
                             image->subresourceStates[flatIndex] = newState;
+                            assert(image->subresourceStates[flatIndex] == image->subresourcePendingStates[flatIndex]);
                         }
                     }
                 }

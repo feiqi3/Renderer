@@ -147,9 +147,9 @@ namespace Render::Vulkan {
 	void cmdSubmitOneShotAndWait(rs_context_vk* ctx, rs_commandbuffer_vk* cb);
 	//-------------------------------------------------------------------------------------//     
 	
-	//Bindless related.
+	//Bindless related. 
+	// **Still need to init it's binding pos inside when call it.**
 	rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx,rs_pipeline* pipeline,int setIdx);
-
 	//For DBA, we actually do not need bindless buffer anymore....Just get the real  address on gpu, but since this is only for vulkan,,,,
 	uint64_t		     updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav /*UAV OR SRV ?(Uniform buffer VS Storage Buffer)*/,uint32_t& outSize/*This is needed when DBA is open then instead of u32 index we send in a u64 ptr*/);
 	uint32_t			 updateBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_image_view* view, bool uav /*texture2D vs image2D*/);

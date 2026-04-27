@@ -2804,39 +2804,109 @@ namespace Render::Vulkan {
         vkCmdCopyBuffer2(cmd, &cpInfo);
     }
 
-    void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData,PipelineType pipelineType, uint32_t curFif)
+    inline void markPendingState(rs_buffer_vk* buffer, ResourceState targetState, std::vector<void*>& bucket)
+    {
+        if (buffer == nullptr) return;
+
+        if (buffer->pendingState != targetState) {
+            buffer->pendingState = targetState;  
+            bucket.push_back((void*)buffer);   
+        }
+    }
+
+    inline void markPendingState(rs_image_view* view, ResourceState targetState, std::vector<void*>& bucket)
+    {
+        if (view == nullptr || view->image == nullptr) return;
+
+        rs_image_vk* image = (rs_image_vk*)view->image;
+        auto& key = view->viewKey;
+
+        uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
+        uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
+
+        if (image->subresourceStates.empty()) {
+            image->subresourceStates.resize(image->mipLevels * image->arrayLayers, ResourceState::Common);
+        }
+        if (image->subresourcePendingStates.empty()) {
+            image->subresourcePendingStates = image->subresourceStates;
+        }
+
+        bool needsTransition = false;
+
+        for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
+            for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
+
+                uint32_t flatIndex = layer * image->mipLevels + mip;
+
+                if (image->subresourcePendingStates[flatIndex] != targetState) {
+                    image->subresourcePendingStates[flatIndex] = targetState;
+                    needsTransition = true;
+                }
+            }
+        }
+
+        if (needsTransition) {
+            bucket.push_back((void*)view);
+        }
+    }
+
+    void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, PipelineType pipelineType, uint32_t curFif)
     {
         if (cb->resourceToBeTransit.size() < (int)UniformType::Count) {
             cb->resourceToBeTransit.resize((int)UniformType::Count);
         }
 
-        for(auto& setPack : drawData->DescriptorSets) {
-            for(auto& bindingSlot : setPack.bindingTracker) {
+        bool isCompute = (pipelineType == PipelineType::Compute);
+
+        for (auto& setPack : drawData->DescriptorSets) {
+            for (auto& bindingSlot : setPack.bindingTracker) {
                 if (bindingSlot.type == UniformType::Count || bindingSlot.type == UniformType::Sampler) {
                     continue;
                 }
 
-				//For each resource binded, we will track it for state transit until render pass begin
                 auto& bucket = cb->resourceToBeTransit[int(bindingSlot.type)];
-                
-                if (bindingSlot.type != UniformType::UniformBuffer) {
-                    for (int i = 0; i < bindingSlot.rsData.size(); ++i) {
-                        if (bindingSlot.rsData[i] == nullptr)continue;
-                        bucket.insert((rs_base*)bindingSlot.rsData[i]);
-                    }
-                }
-                else {
-                    //Well.... Uniform buffer is a litte different
-                    for (int i = 0; i < bindingSlot.rsData.size(); ++i) {
-                        if (bindingSlot.rsData[i] == nullptr)continue;
-						UniformBufferObject* ubo = (UniformBufferObject*)bindingSlot.rsData[i];
-                        bucket.insert(ubo->mBuffer);
-                    }
+
+                ResourceState targetState;
+                switch (bindingSlot.type) {
+                case UniformType::ConstantBuffer:
+                case UniformType::UniformBuffer:
+                case UniformType::Texture:
+                case UniformType::InputAttachment:
+                    targetState = isCompute ? ResourceState::ComputeShaderResource : ResourceState::ShaderResource;
+                    break;
+                case UniformType::StorageBuffer:
+                case UniformType::StorageImage:
+                    targetState = isCompute ? ResourceState::ComputeUnorderedAccess : ResourceState::UnorderedAccess;
+                    break;
+                default:
+                    continue;
                 }
 
+                if (bindingSlot.type == UniformType::Texture ||
+                    bindingSlot.type == UniformType::StorageImage ||
+                    bindingSlot.type == UniformType::InputAttachment)
+                {
+                    for (int i = 0; i < bindingSlot.rsData.size(); ++i) {
+                        markPendingState((rs_image_view*)bindingSlot.rsData[i], targetState, bucket);
+                    }
+                }
+                else if (bindingSlot.type == UniformType::UniformBuffer)
+                {
+                    //UBO is a little different...
+                    for (int i = 0; i < bindingSlot.rsData.size(); ++i) {
+                        if (bindingSlot.rsData[i] == nullptr) continue;
+                        UniformBufferObject* ubo = (UniformBufferObject*)bindingSlot.rsData[i];
+                        markPendingState((rs_buffer_vk*)ubo->mBuffer, targetState, bucket);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < bindingSlot.rsData.size(); ++i) {
+                        markPendingState((rs_buffer_vk*)bindingSlot.rsData[i], targetState, bucket);
+                    }
+                }
             }
         }
-
     }
 
     void cmdTransitPendingResource(rs_commandbuffer_vk* cb, bool compute)
@@ -2991,11 +3061,9 @@ namespace Render::Vulkan {
 #include "Renderer/GPUShared/BindlessGlobalDefShared.h"
     rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx, rs_pipeline* pipeline, int setIdx)
     {
-
         rs_bindless_data_vk* bindlessData = new rs_bindless_data_vk(TEXTURE_BINDLESS_ARRAY_BINDING_IDX, SAMPLER_BINDLESS_ARRAY_BINDING_IDX, UAV_IMAGE_BINDLESS_ARRAY_BINDING_IDX, BUFFER_BINDLESS_ARRAY_BINDING_IDX);
         auto descriptorManager = ctx->descriptorSetMgr;
         bindlessData->descriptorSet = descriptorManager->AllocateDescriptorSetFromDedicatePool(ctx->nextRenderFrame, ctx, pipeline, setIdx);
-
         return bindlessData;
     }
 
@@ -3007,48 +3075,24 @@ namespace Render::Vulkan {
         slot.type = type;
         return slot;
     }
-#define BINDLESS_IMAGE_LAST_USED_TIME_MAX 5
-    static inline uint32_t TryFindFreeSlot(uint64_t curFrame, SparseTable<BindlessSlot>& bindingTable) {
-        auto slotVector = bindingTable.Data();
-        auto bindlessSlotIndex = bindingTable.SparseIndexData();
-        auto size = bindingTable.Size();
-        for (int i = 0;i < size;++i) {
-            uint32_t bindlessIndex = bindlessSlotIndex[i];
-            auto lastUsedTime = slotVector[i].lastUsedFrame;
-            if (curFrame - lastUsedTime > BINDLESS_IMAGE_LAST_USED_TIME_MAX) {
-                return bindlessIndex;
-            }
-
-        }
-        return INVALID_BINDLESS_INDEX;
-    }
-
-    static inline uint32_t TrySwapoutBindlessSlot(uint64_t curFrame, SparseTable<BindlessSlot>& bindingTable, BindlessSlot* swapInSlot,BindlessSlot* swapOutSlot) {
-        uint32_t bindlessIndex = TryFindFreeSlot(curFrame, bindingTable);
-        if (bindlessIndex == INVALID_BINDLESS_INDEX) {
-            assert(false);
-            return bindlessIndex;
-        }
-        *swapOutSlot = bindingTable.SwapOut(*swapInSlot, bindlessIndex);
-		return bindlessIndex;
-	}
 
     uint64_t updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav, uint32_t& outSize)
     {
+        //ONLY SUPPORT UAV NOW 
+        assert(uav == true);
         if (!BufferDeviceAddressEnable) {
-            assert(buffer->bindlessIdx != INVALID_BINDLESS_INDEX);
-		    //1. try allocate postion 
+
+            outSize = 4;
+            if (buffer->bindlessIndex == INVALID_BINDLESS_INDEX) {
+                return buffer->bindlessIndex;
+            }
+            //1. try allocate postion 
             auto& bufferBinding = bindlessData->buffersBinding;
             auto bufferSlot = GetBindlessSlot(buffer,ctx->nextRenderFrame,UniformType::StorageBuffer);
-            auto ret = bufferBinding.Allocate(bufferSlot);
+            auto ret = bufferBinding.Allocate(ctx->nextRenderFrame,buffer);
             if (ret == INVALID_BINDLESS_INDEX) {
-                BindlessSlot slotSwapOut;
-                ret = TrySwapoutBindlessSlot(ctx->nextRenderFrame, bufferBinding, &bufferSlot, &slotSwapOut);
-                rs_buffer_vk* bufferOut = (rs_buffer_vk*)slotSwapOut.resourse;
-                if (bufferOut) {
-                    //!! invalid original index
-                    bufferOut->bindlessIdx = INVALID_BINDLESS_INDEX;
-                }
+                assert(false);
+                //FIX ME 
             }
 
             if (ret == INVALID_BINDLESS_INDEX) {
@@ -3070,7 +3114,149 @@ namespace Render::Vulkan {
             vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
             return ret;
         }
+        else {
+            assert(false);
+            //FIX ME
+        }
 
+    }
+
+    uint32_t updateBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_image_view* view, bool uav)
+    {
+        if (view->bindlessIndex != INVALID_BINDLESS_INDEX) {
+            assert(false);
+            return view->bindlessIndex;
+        }
+        UniformType type = uav ? UniformType::StorageImage : UniformType::Texture;
+        auto textureSlot = GetBindlessSlot(view, ctx->nextRenderFrame, type);
+        auto bindingTable = uav ? &bindlessData->storageImagesBinding : &bindlessData->texturesBinding;
+        auto handleIndex = bindingTable->Allocate(ctx->nextRenderFrame, view);
+        auto bindingPos = uav ? bindlessData->storageBindlessPos : bindlessData->textureBindlessPos;
+        if (handleIndex == INVALID_BINDLESS_INDEX) {
+            assert(false);
+            //FIX ME 
+        }
+        view->bindlessIndex = handleIndex;
+
+        auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
+
+        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        write.descriptorCount = 1;
+        write.descriptorType = toVkDescriptorType(Render::UniformType::StorageBuffer);
+        write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+        write.dstBinding = bindingIdx;
+        write.dstArrayElement = handleIndex;
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageView = (VkImageView)view->native;
+        imageInfo.imageLayout = (type == UniformType::StorageImage)
+            ? VK_IMAGE_LAYOUT_GENERAL
+            : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        write.pImageInfo = &imageInfo;
+        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
+
+        return handleIndex;
+    }
+
+    void unbindBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index, bool uav)
+    {
+        //FIXME: this is only used for some /*VALIDATION CASE*/
+        UniformType type = uav ? UniformType::StorageImage : UniformType::Texture;
+        auto bindingTable = uav ? &bindlessData->storageImagesBinding : &bindlessData->texturesBinding;
+        auto resource = bindingTable->get(index);
+        if (!resource) {
+            assert(false);
+            return;
+        }
+        resource->bindlessIndex = INVALID_BINDLESS_INDEX;
+        bindingTable->Free(index);
+
+        auto bindingPos = uav ? bindlessData->storageBindlessPos : bindlessData->textureBindlessPos;
+        auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
+
+        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        write.descriptorCount = 1;
+        write.descriptorType = toVkDescriptorType(Render::UniformType::StorageBuffer);
+        write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+        write.dstBinding = bindingIdx;
+        write.dstArrayElement = index;
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageView = (type == UniformType::StorageImage) ? (VkImageView)defalut_no_texture_UAV->defaultView.native : (VkImageView)defalut_no_texture->defaultView.native;
+        imageInfo.imageLayout = (type == UniformType::StorageImage)
+            ? VK_IMAGE_LAYOUT_GENERAL
+            : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        write.pImageInfo = &imageInfo;
+        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
+    }
+
+    void unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav)
+    {
+
+        if (BufferDeviceAddressEnable)return;
+
+        auto& bindingTable =bindlessData->buffersBinding;
+        auto resource = bindingTable.get(index);
+        if (!resource) {
+            assert(false);
+            return;
+        }
+        resource->bindlessIndex = INVALID_BINDLESS_INDEX;
+        bindingTable.Free(index);
+        auto bindingIdx = toVkBindingPos(bindlessData->bufferBindlessPos).bindingIdx;
+        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        write.descriptorCount = 1;
+        write.descriptorType = toVkDescriptorType(Render::UniformType::StorageBuffer);
+        write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+        write.dstBinding = bindingIdx;
+        write.dstArrayElement = index;
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = (VkBuffer)defalut_no_buffer_UAV->native;
+        bufferInfo.offset = 0;
+        bufferInfo.range = VK_WHOLE_SIZE;
+        write.pBufferInfo = &bufferInfo;
+        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
+    }
+
+    uint32_t updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler)
+    {
+        if (sampler->bindlessIndex != INVALID_BINDLESS_INDEX) {
+            assert(false);
+            return sampler->bindlessIndex;
+        }
+        auto& bindingTable = bindlessData->samplersBinding;
+        auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
+        auto ret = bindingTable.Allocate(ctx->curRenderFrame, sampler);
+        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        write.descriptorCount = 1;
+        write.dstBinding = bindingIdx;
+        write.dstArrayElement = ret;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+        VkDescriptorImageInfo imgInfo{};
+        imgInfo.sampler = (VkSampler)sampler->native;
+        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
+        return ret;
+    }
+
+    void unbindBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index)
+    {
+
+        auto& bindingTable = bindlessData->samplersBinding;
+        auto sampler = bindingTable.get(index);
+        if (!sampler || sampler->bindlessIndex == INVALID_BINDLESS_INDEX) {
+            assert(false);
+            return;
+        }
+        auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
+        bindingTable.Free(index);
+        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        write.descriptorCount = 1;
+        write.dstBinding = bindingIdx;
+        write.dstArrayElement = index;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+        VkDescriptorImageInfo imgInfo{};
+        imgInfo.sampler = (VkSampler)defalut_no_sampler->native;
+        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
     }
 
     uint64_t beginRsFrameVk(rs_context_vk* ctx)

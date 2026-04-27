@@ -105,7 +105,20 @@ namespace Render::Vulkan {
         VkDescriptorSetLayout _layout = (VkDescriptorSetLayout)layout->native;
         allci.pSetLayouts = &_layout;
         VkDescriptorSet desSet;
-        vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
+
+        if (layout->bindingHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag) {
+            //https://docs.vulkan.org/refpages/latest/refpages/source/VkDescriptorSetVariableDescriptorCountAllocateInfo.html
+            VkDescriptorSetVariableDescriptorCountAllocateInfo varBindingInfo{};
+            varBindingInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
+            uint32_t bindlessVarSizeDescriptorCount = DESCRIPTOR_VAR_COUNT_SIZE;
+            varBindingInfo.pDescriptorCounts = &bindlessVarSizeDescriptorCount;
+            varBindingInfo.descriptorSetCount = 1;
+            allci.pNext = &varBindingInfo;
+            vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
+        }
+        else {
+            vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
+        }
         block->mInUseNum++;
         block->lastActiveFrame = frame;
         return desSet;
@@ -225,7 +238,7 @@ namespace Render::Vulkan {
             VkDescriptorPoolSize size{};
             size.type = toVkDescriptorType(descriptor.type);
             if (descriptor.count == 0) {
-                if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && BindlessEnable) {
+                if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && BindlessAvailable) {
                     size.descriptorCount = DESCRIPTOR_VAR_COUNT_SIZE; //this is the memory that driver will really allocated.
                     //Variable Length in shader.
                     flags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
