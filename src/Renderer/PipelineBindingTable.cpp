@@ -4,20 +4,48 @@
 
 namespace Render {
     namespace EngineBindlessAPI {
-        extern uint32_t GetGlobalSamplerIndex(rs_sampler* sampler);
-        extern void UnbindGlobalSampler(uint32_t index);
+        static uint32_t GetGlobalSamplerIndex(rs_sampler* sampler) {
+            if (sampler->bindlessIndex != INVALID_BINDLESS_INDEX) {
+                return sampler->bindlessIndex;
+            }
+            auto bindlessData = RenderSystem::instance()->getGlobalBindlessData();
+            assert(bindlessData != nullptr);
+            return RenderSystem::instance()->updateGlobalBindlessDataSampler(RenderSystem::instance()->getGlobalBindlessData(), sampler);
+        }
+        static void UnbindGlobalSampler(uint32_t index) {
+            return RenderSystem::instance()->unbindGlobalBindlessDataSampler(RenderSystem::instance()->getGlobalBindlessData(), index);
+        }
 
-        extern uint32_t GetGlobalTextureIndex(rs_image* img);
-        extern uint32_t GetGlobalTextureIndex(rs_image* img, ImageViewKey key);
-        extern void UnbindGlobalTexture(uint32_t index);
+        static uint32_t GetGlobalTextureIndex(rs_image_view* img) {
+            if (img->bindlessIndex != INVALID_BINDLESS_INDEX) {
+                return img->bindlessIndex;
+            }
+            return RenderSystem::instance()->updateGlobalBindlessDataTexture(RenderSystem::instance()->getGlobalBindlessData(), img);
+        }
+        static uint32_t GetGlobalRWTextureIndex(rs_image_view* img) {
+            if (img->bindlessIndex != INVALID_BINDLESS_INDEX) {
+                return img->bindlessIndex;
+            }
+            return RenderSystem::instance()->updateGlobalBindlessDataRWTexture(RenderSystem::instance()->getGlobalBindlessData(), img);
+        }
 
-        extern uint64_t GetBufferDeviceAddress(rs_buffer* buffer);
-        extern uint32_t GetBlockBufferArrayIndex(rs_buffer* buffer);
+        static void UnbindGlobalTexture(uint32_t index) {
+        
+            return RenderSystem::instance()->unbindGlobalBindlessDataSampler(RenderSystem::instance()->getGlobalBindlessData(), index);
+        }
+        static void UnbindGlobalRWTexture(uint32_t index) {
 
-        // Datasize: 4 (Array Offset) or 8 (DBA)
+            return RenderSystem::instance()->unbindGlobalBindlessDataRWTexture(RenderSystem::instance()->getGlobalBindlessData(), index);
+        }
+        // Datasize: 4 (Array Offset) or 8 (BDA)
         //Use null to get data size
-        extern uint64_t GetBlockBufferBindingData(rs_buffer* buffer, uint32_t& datasize);
-        extern void UnbindGlobalBuffer(uint64_t data);
+        static uint64_t GetBlockBufferBindingData(rs_buffer* buffer, uint32_t& datasize) {
+            return RenderSystem::instance()->updateGlobalBindlessDataBuffer(RenderSystem::instance()->getGlobalBindlessData(), buffer,datasize);
+        }
+        static void UnbindGlobalBuffer(uint64_t data) {
+            return RenderSystem::instance()->unbindGlobalBindlessDataBuffer(RenderSystem::instance()->getGlobalBindlessData(), data);
+
+        }
     }
 }
 
@@ -179,7 +207,7 @@ namespace Render {
                 bindlessItem.keepAliveRefs.resize(loc.bindlessInfo.count);
                 bindlessItem.isUAV = loc.bindlessInfo.isUAV;
                 uint32_t realUsedSlots = loc.bindlessInfo.count;
-                bindlessItem.bindlessData.resize(loc.bindlessInfo.count);
+                bindlessItem.bindlessData.resize(loc.bindlessInfo.count, INVALID_BINDLESS_INDEX);
                 mBindlessItems.push_back(std::move(bindlessItem));
                 mName2BindlessSlot[loc.itemName] = static_cast<uint32_t>(mBindlessItems.size() - 1);
             }
@@ -215,13 +243,13 @@ namespace Render {
 
             bItem.keepAliveRefs[element].set(tex);
 
-            uint32_t globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(tex->getRsImage());
+            uint32_t globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(&tex->getRsImage()->defaultView);
 
             if (bItem.bindlessData.size() <= element) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count);
+                bItem.bindlessData.resize(bItem.location.bindlessInfo.count , INVALID_BINDLESS_INDEX);
             }
 
-            if (bItem.bindlessData[element] != 0 && bItem.bindlessData[element] != globalIndex) {
+            if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
                 EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
             }
             bItem.bindlessData[element] = globalIndex;
@@ -276,15 +304,28 @@ namespace Render {
             }
 
             bItem.keepAliveRefs[element].set(tex,key);
+            auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), key);
+            uint32_t globalIndex = INVALID_BINDLESS_INDEX;
+            if(type == UniformType::StorageImage){
+                globalIndex = EngineBindlessAPI::GetGlobalRWTextureIndex(view);
 
-            uint32_t globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(tex->getRsImage(),key);
-
-            if (bItem.bindlessData.size() <= element) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count);
+            }else{
+                globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(view);
             }
 
-            if (bItem.bindlessData[element] != 0 && bItem.bindlessData[element] != globalIndex) {
-                EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
+            if (bItem.bindlessData.size() <= element) {
+                bItem.bindlessData.resize(bItem.location.bindlessInfo.count, INVALID_BINDLESS_INDEX);
+            }
+
+            if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
+                if (type == UniformType::StorageImage) {
+
+                    EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
+                }
+                else {
+                    EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
+                }
+                
             }
             bItem.bindlessData[element] = globalIndex;
 
@@ -341,11 +382,12 @@ namespace Render {
                     type = UniformType::StorageBuffer;
                 }
                 else {
-                    type = UniformType::Texture;
+                    assert(false && "Uniform Buffer can not be bindless.");
+                    type = UniformType::ConstantBuffer;
                 }
             }
 
-            if (type != UniformType::StorageBuffer && type != UniformType::UniformBuffer && type != UniformType::ConstantBuffer) {
+            if (type != UniformType::StorageBuffer&& type != UniformType::ConstantBuffer) {
                 assert(false && "Different with previous binding");
                 return false;
             }
@@ -361,7 +403,7 @@ namespace Render {
             uint32_t dataIndex = element * slotStride;
 
             if (bItem.bindlessData.size() < (bItem.location.bindlessInfo.count * slotStride)) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count * slotStride);
+                bItem.bindlessData.resize(bItem.location.bindlessInfo.count * slotStride,INVALID_BINDING_POS);
             }
 
             uint64_t oldData = 0;
@@ -372,7 +414,7 @@ namespace Render {
                 oldData = bItem.bindlessData[dataIndex];
             }
 
-            if (oldData != 0 && oldData != bindingData) {
+            if (oldData != INVALID_BINDLESS_INDEX && oldData != bindingData) {
                 EngineBindlessAPI::UnbindGlobalBuffer(oldData);
             }
 
@@ -438,10 +480,10 @@ namespace Render {
             uint32_t globalIndex = EngineBindlessAPI::GetGlobalSamplerIndex(sampler->getRsSampler());
 
             if (bItem.bindlessData.size() <= element) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count);
+                bItem.bindlessData.resize(bItem.location.bindlessInfo.count, INVALID_BINDLESS_INDEX);
             }
 
-            if (bItem.bindlessData[element] != 0 && bItem.bindlessData[element] != globalIndex) {
+            if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
                 EngineBindlessAPI::UnbindGlobalSampler(bItem.bindlessData[element]);
             }
             bItem.bindlessData[element] = globalIndex;

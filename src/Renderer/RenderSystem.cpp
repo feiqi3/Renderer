@@ -955,7 +955,48 @@ namespace Render{
 			return nullptr;
 		}
 
-		return Vulkan::createBindlessData(getRenderContext(), pipeline);
+		//Bindless index should alawys in the set0.
+		return Vulkan::createBindlessData(getRenderContext(), pipeline,0);
+	}
+
+	void RenderSystem::unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx)
+	{
+		Vulkan::unbindBindlessBuffer(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
+	}
+
+	uint64_t RenderSystem::updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer, uint32_t& outsize)
+	{
+		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData,(Vulkan::rs_buffer_vk*)buffer, true, outsize);
+	}
+
+	void RenderSystem::unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx)
+	{
+		Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, false);
+	}
+
+	uint32_t RenderSystem::updateGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* img)
+	{
+		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, false);
+	}
+
+	void RenderSystem::unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx)
+	{
+		Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
+	}
+
+	uint32_t RenderSystem::updateGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* img)
+	{
+		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, true);
+	}
+
+	void RenderSystem::unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx)
+	{
+		Vulkan::unbindBindlessSampler(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx);
+	}
+
+	uint32_t RenderSystem::updateGlobalBindlessDataSampler(rs_bindless_data* bindlessData, rs_sampler* sampler)
+	{
+		return Vulkan::updateBindlessSampler(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_sampler_vk*)sampler);
 	}
 
 	void RenderSystem::destroyBindlessData(rs_bindless_data* data)

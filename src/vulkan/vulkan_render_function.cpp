@@ -1581,7 +1581,7 @@ namespace Render::Vulkan {
             bindingFlags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
         }
 
-        VkBindDescriptorSetsInfo bindingInfo{VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO};
+        VkBindDescriptorSetsInfoKHR bindingInfo{VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO_KHR};
 
         bindingInfo.layout          = (VkPipelineLayout)pipelineLayout->native;
         bindingInfo.firstSet        = setIdx;
@@ -1590,7 +1590,7 @@ namespace Render::Vulkan {
         bindingInfo.dynamicOffsetCount = 0;
         bindingInfo.pDynamicOffsets = nullptr;
 
-        vkCmdBindDescriptorSets2((VkCommandBuffer)cmd->native , &bindingInfo);
+        vkCmdBindDescriptorSets2KHR((VkCommandBuffer)cmd->native , &bindingInfo);
 	}
 
 	uint64_t getRsBufferDeviceAddress(rs_context_vk* ctx, rs_buffer_vk* buffer)
