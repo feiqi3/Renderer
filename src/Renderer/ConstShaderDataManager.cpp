@@ -21,6 +21,11 @@ namespace Render {
 		rs_binding_pos PrefilterEnvMapBindingPos;
 		rs_binding_pos BRDFLutBindingPos;
 		rs_binding_pos EnvMapSamplerBIndingPos;
+		rs_binding_pos GlobalBindlessUAVBuffersBindingPos;
+		rs_binding_pos GlobalBindlessUAVImagesBindingPos;
+		rs_binding_pos GlobalBindlessSamplersBindingPos;
+		rs_binding_pos GlobalBindlessTexturesBindingPos;
+		rs_bindless_data* mGlobalBindlessDrawData = nullptr;
 	};
 
 	ConstShaderDataManager::ConstShaderDataManager()
@@ -30,6 +35,8 @@ namespace Render {
 	}
 	ConstShaderDataManager::~ConstShaderDataManager()
 	{
+		RenderSystem::instance()->setGlobalBindlessData(nullptr);
+		RenderSystem::instance()->destroyBindlessData(mDp->mGlobalBindlessDrawData);
 		delete mDp;
 		mDp = nullptr;
 	}
@@ -62,6 +69,22 @@ namespace Render {
 		mDp->PrefilterEnvMapBindingPos  = pSys->getBindingPos("PreFilterEnvMap", mDp->MainPassVirtualMaterial);
 		mDp->BRDFLutBindingPos			= pSys->getBindingPos("BRDFLut", mDp->MainPassVirtualMaterial);
 		mDp->EnvMapSamplerBIndingPos	= pSys->getBindingPos("SceneTextureSampler", mDp->MainPassVirtualMaterial);
+		
+		//Enable bindless related
+		mDp->GlobalBindlessUAVBuffersBindingPos = pSys->getBindingPos("GlobalUAVBuffers", mDp->MainPassVirtualMaterial);
+		mDp->GlobalBindlessUAVImagesBindingPos = pSys->getBindingPos("GlobalUAVImages", mDp->MainPassVirtualMaterial);
+		mDp->GlobalBindlessSamplersBindingPos = pSys->getBindingPos("GlobalSamplers", mDp->MainPassVirtualMaterial);
+		mDp->GlobalBindlessTexturesBindingPos = pSys->getBindingPos("GlobalTextures", mDp->MainPassVirtualMaterial);
+		if (RenderSystem::instance()->isBindlessEnabled()) {
+			auto bindlessData = RenderSystem::instance()->createBindlessData(mDp->MainPassVirtualMaterial->getRsPipeline());
+			mDp->mGlobalBindlessDrawData = bindlessData;
+			bindlessData->bufferBindlessPos = mDp->GlobalBindlessUAVBuffersBindingPos;
+			bindlessData->storageBindlessPos = mDp->GlobalBindlessUAVImagesBindingPos;
+			bindlessData->samplerBindlessPos = mDp->GlobalBindlessSamplersBindingPos;
+			bindlessData->textureBindlessPos = mDp->GlobalBindlessTexturesBindingPos;
+			RenderSystem::instance()->setGlobalBindlessData(bindlessData);
+		}
+
 
 		assert(mDp->PrefilterEnvMapBindingPos != INVALID_BINDING_POS);
 		assert(mDp->BRDFLutBindingPos != INVALID_BINDING_POS);
@@ -102,6 +125,12 @@ namespace Render {
 		return sceneDrawData;
 	}
 
+	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessBindingPos()
+	{
+
+		return mDp->ObjectCommonBindingPos;
+	}
+
 	Render::rs_binding_pos ConstShaderDataManager::getObjectCommonDataBindingPos()
 	{
 		return mDp->ObjectCommonBindingPos;
@@ -115,6 +144,26 @@ namespace Render {
 	Render::rs_binding_pos ConstShaderDataManager::getCameraCommonDataBindngPos()
 	{
 		return mDp->CameraCommonDataBindingPos;
+	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessUAVBuffersBindingPos()
+	{
+		return mDp->GlobalBindlessUAVBuffersBindingPos;
+	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessUAVImagesBindingPos()
+	{
+		return mDp->GlobalBindlessUAVImagesBindingPos;
+	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessSamplersBindingPos()
+	{
+		return mDp->GlobalBindlessSamplersBindingPos;
+	}
+
+	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessTexturesBindingPos()
+	{
+		return mDp->GlobalBindlessTexturesBindingPos;
 	}
 
 }

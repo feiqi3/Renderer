@@ -834,7 +834,7 @@ namespace Render::Vulkan {
         VkBuffer buffer;
         VmaAllocation allocation;
         VmaAllocationInfo allocInfo;
-
+        VkBufferCreateFlags bufferCreateFlag = 0;
         auto toUseQueue = desc.queueType;
         //TODO:
         assert(Util::ContainsAll(context->graphicQueue->queueType, toUseQueue));
@@ -842,13 +842,17 @@ namespace Render::Vulkan {
         VkBufferCreateInfo CI{};
         CI.        sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         CI. pNext = nullptr;
-        CI.    flags = 0;
-        CI.           size = desc.byteSize;
+        CI.     flags = bufferCreateFlag;
+        CI.     size = desc.byteSize;
         CI.     usage = toVkBufferUsageFlags(desc.bufUsage);
         CI.          sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         CI. queueFamilyIndexCount = 1;
         CI. pQueueFamilyIndices = &queueFamily;
         
+        if (BufferDeviceAddressEnable) {
+            CI.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        }
+
         uint32_t vmaFlags = 0;
         if (desc.mappable) {
             if (desc.bufUsage & BufferType::BufferType_TransferSrc) {
@@ -1551,6 +1555,56 @@ namespace Render::Vulkan {
         return BindlessAvailable;
 	}
 
+	void cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData)
+	{
+        if (!BindlessAvailable) {
+            return;
+        }
+
+        //Find set inside pipelineLayout
+        uint32_t setIdx = INVALID_BINDING_POS;
+        auto setLayout = bindlessData->descriptorSet->layout;
+        for (auto& [set, layout] : pipelineLayout->setLayouts) {
+            if (layout->bindingHash.layoutHash == setLayout->bindingHash.layoutHash) {
+                assert(layout->native == setLayout->native);
+                setIdx = set;
+                break;
+            }
+        }
+
+        if (setIdx == INVALID_BINDING_POS) {
+            return;
+        }
+
+        VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT_EXT;
+        if (bindlessData->descriptorSet->layout->bindingHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag) {
+            bindingFlags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
+        }
+
+        VkBindDescriptorSetsInfo bindingInfo{VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO};
+
+        bindingInfo.layout          = (VkPipelineLayout)pipelineLayout->native;
+        bindingInfo.firstSet        = setIdx;
+        bindingInfo.descriptorSetCount = 1;
+        bindingInfo.pDescriptorSets = (VkDescriptorSet*) (&bindlessData->descriptorSet);
+        bindingInfo.dynamicOffsetCount = 0;
+        bindingInfo.pDynamicOffsets = nullptr;
+
+        vkCmdBindDescriptorSets2((VkCommandBuffer)cmd->native , &bindingInfo);
+	}
+
+	uint64_t getRsBufferDeviceAddress(rs_context_vk* ctx, rs_buffer_vk* buffer)
+	{
+        if (!BufferDeviceAddressEnable) {
+            return 0;
+        }
+        if (buffer->gpuAddress != 0)return buffer->gpuAddress;
+		VkBufferDeviceAddressInfoKHR address_info{ VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR };
+		address_info.buffer = (VkBuffer)buffer->native;
+		buffer->gpuAddress = vkGetBufferDeviceAddressKHR(ctx->device, &address_info);
+        return buffer->gpuAddress;
+	}
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
@@ -2134,8 +2188,26 @@ namespace Render::Vulkan {
         rs_descriptorSet_vk* targetSet = 0;
         descriptor_set_pack* tarSetPack = nullptr;
         bool isOneShot = drawdata->isOneShot;
+        auto targetPipelineLayout = ((rs_pipeline_layout_vk*)pipeline->pipelineLayout);
+        rs_descriptorset_layout_vk* targetSetLayout = nullptr;
+        auto targetSetLayoutHash    = 0ull;
+        for (auto& [setIdx, setLayout] : targetPipelineLayout->setLayouts) {
+            if (setIdx == vkSet) {
+                targetSetLayoutHash = setLayout->bindingHash.layoutHash;
+                targetSetLayout = setLayout;
+                break;
+            }
+        }
+
+        //Not found
+        if (targetSetLayoutHash == 0)return;
+        
+
         for (auto& descriptorSetPack : drawdata->DescriptorSets) {
-            if (descriptorSetPack.setIdx == vkSet) {
+            //This may go wrong --- in some extremely wrong case:
+            //layout hash may be the same? actually we can compare their VkDescriptorSetLayout handle, cause we ensure their only exists one handle for the same layout.
+            if (descriptorSetPack.setlayout->bindingHash.layoutHash == targetSetLayoutHash) {
+                assert(descriptorSetPack.setlayout->native == targetPipelineLayout->native && "Hash conflict.");
                 tarSetPack = &descriptorSetPack;
                 if (!isOneShot)
                 {
@@ -2175,7 +2247,7 @@ namespace Render::Vulkan {
         if (!tarSetPack){
             bindingTackerNeedToCreate = true;
             descriptor_set_pack pack{};
-            pack.setIdx = vkSet;
+            pack.setlayout = targetSetLayout;
             drawdata->DescriptorSets.emplace_back(std::move(pack));
             tarSetPack = &drawdata->DescriptorSets.back();
         }
@@ -2719,17 +2791,18 @@ namespace Render::Vulkan {
             DyOffsetArray dynamics;
             int dyNum = 0;
 
-			auto setIdx = descriptorPack.setIdx;
-            bool isInSet = false;
-            //Is this set contains in pipeline ?
-            for (auto& [setInPipeline, _] : layout->setLayouts) {
-                if (setInPipeline == setIdx) {
-                    isInSet = true;
+            auto setLayout = descriptorPack.setlayout;
+            uint32_t setIdx = INVALID_BINDING_POS;
+            for (auto& [set, layout] : layout->setLayouts) {
+                if (layout->bindingHash.layoutHash == setLayout->bindingHash.layoutHash) {
+                    assert(layout->native == setLayout->native);
+                    setIdx = set;
                     break;
                 }
             }
+            
 			//if pipeline doesnt have this set, just skip it.
-            if (!isInSet)continue;
+			if (setIdx == INVALID_BINDING_POS)continue;
 
             //Avoid multi bind after set was bind to cmd.
             bool needUpadte = false;
@@ -3115,8 +3188,8 @@ namespace Render::Vulkan {
             return ret;
         }
         else {
-            assert(false);
-            //FIX ME
+            outSize = 8;
+            return getRsBufferDeviceAddress(ctx, buffer);
         }
 
     }

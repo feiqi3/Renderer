@@ -91,9 +91,10 @@ namespace Render {
 	struct rs_buffer : rs_resource {
 		uint32_t bufferType = BufferType::BufferType_None;
 		uint32_t byteSize = 0;
-		uint8_t queueType;
 		void* mappedPtr = 0;
-		
+		uint64_t gpuAddress = 0;
+		uint8_t queueType;
+
 		ResourceState pendingState = ResourceState::Common; // The state resource is going to be.
 		ResourceState state = ResourceState::Common;
 	};

@@ -12,10 +12,14 @@ namespace Render {
 
 		rs_drawdata* updateCameraDrawData(Camera* camera);
 		rs_drawdata* updateSceneDrawData(Scene* camera);
-
 		rs_binding_pos getObjectCommonDataBindingPos();
 		rs_binding_pos getSceneCommonDataBindingPos();
 		rs_binding_pos getCameraCommonDataBindngPos();
+
+		rs_binding_pos getGlobalBindlessUAVBuffersBindingPos();
+		rs_binding_pos getGlobalBindlessUAVImagesBindingPos();
+		rs_binding_pos getGlobalBindlessSamplersBindingPos();
+		rs_binding_pos getGlobalBindlessTexturesBindingPos();
 	private:
 		void createVirtualRenderPass();
 

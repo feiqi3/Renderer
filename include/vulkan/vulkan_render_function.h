@@ -49,6 +49,7 @@ namespace Render::Vulkan {
 	void destroyRsRenderTarget(rs_context_vk* ctx, rs_rendertarget_vk*& rt,bool imm = false);
 	
 	rs_buffer_vk* createRsBufferVk(rs_context_vk* context,const BufferDesc& desc);
+	uint64_t	  getRsBufferDeviceAddress(rs_context_vk* ctx, rs_buffer_vk* buffer);
 	void destroyRsBuffer(rs_context_vk* context, rs_buffer_vk*& buffer,bool immediately = false);
 	void* mapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
 	void  unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer);
@@ -149,6 +150,8 @@ namespace Render::Vulkan {
 	
 	//Bindless related. 
 	// **Still need to init it's binding pos inside when call it.**
+	void				 cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd,rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData);
+
 	rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx,rs_pipeline* pipeline,int setIdx);
 	//For DBA, we actually do not need bindless buffer anymore....Just get the real  address on gpu, but since this is only for vulkan,,,,
 	uint64_t		     updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav /*UAV OR SRV ?(Uniform buffer VS Storage Buffer)*/,uint32_t& outSize/*This is needed when DBA is open then instead of u32 index we send in a u64 ptr*/);

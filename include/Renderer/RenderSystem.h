@@ -167,10 +167,11 @@ namespace Render{
 			uint32_t baseArrayLayer,
 			uint32_t layerCount
 		);
-
 		void cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo);
-
-
+		rs_bindless_data* createBindlessData(rs_pipeline* pipeline);
+		void destroyBindlessData(rs_bindless_data* data);
+		void			  setGlobalBindlessData(rs_bindless_data * bindlessData);
+		rs_bindless_data* getGlobalBindlessData();
 		bool isBindlessEnabled()const;
 	public:
 		void onWindowResize(int x,int y);

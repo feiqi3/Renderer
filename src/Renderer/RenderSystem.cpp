@@ -74,6 +74,7 @@ namespace Render{
 		EngineEvent mEngineEvent;
 		ShaderIncFindFunc mShaderIncludeFunction;
 		Camera* mCurrentCamera = nullptr;
+		rs_bindless_data* globalBindlessData = nullptr;
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -947,6 +948,34 @@ namespace Render{
 		}
 	}
 
+
+	Render::rs_bindless_data* RenderSystem::createBindlessData(rs_pipeline* pipeline)
+	{
+		if (isBindlessEnabled()) {
+			return nullptr;
+		}
+
+		return Vulkan::createBindlessData(getRenderContext(), pipeline);
+	}
+
+	void RenderSystem::destroyBindlessData(rs_bindless_data* data)
+	{
+		assert(false);
+	}
+
+	void RenderSystem::setGlobalBindlessData(rs_bindless_data* bindlessData)
+	{
+		if (!isBindlessEnabled())return;
+		mDp->globalBindlessData = bindlessData;
+	}
+
+	Render::rs_bindless_data* RenderSystem::getGlobalBindlessData()
+	{
+		if (!isBindlessEnabled())return nullptr;
+		if (mDp->globalBindlessData) {
+			return mDp->globalBindlessData;
+		}
+	}
 
 	bool RenderSystem::isBindlessEnabled() const
 	{

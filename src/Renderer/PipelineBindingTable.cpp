@@ -1,4 +1,5 @@
 #include "Renderer/PipelineBindingTable.h"
+#include "Renderer/RenderSystem.h"
 #include <cstring> 
 
 namespace Render {

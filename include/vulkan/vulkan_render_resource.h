@@ -155,10 +155,10 @@ namespace Render::Vulkan {
 	}
 
 	struct descriptor_set_pack {
-		int16_t setIdx = -1;
 		int16_t setUpdatedFif = -1;
 		std::vector<rs_descriptorSet_vk*> descriptorSets;
-		std::vector<rs_binding_slot> bindingTracker;
+		std::vector<rs_binding_slot>	bindingTracker;
+		struct rs_descriptorset_layout_vk*		setlayout = nullptr;
 	};
 	struct rs_bindless_data_vk : rs_bindless_data {
 		inline rs_bindless_data_vk(int texturesMax, int samplersMax, int storageImagesMax, int buffersMax): rs_bindless_data(texturesMax, samplersMax, storageImagesMax, buffersMax){
