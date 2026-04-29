@@ -272,7 +272,7 @@ namespace Render {
 				uint16_t offset; 
 				uint16_t stride; 
                 uint8_t  count;
-                uint8_t  isUAV;
+                UniformType type;
             } bindlessInfo;
 		};
 	};

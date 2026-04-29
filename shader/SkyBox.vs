@@ -2,7 +2,7 @@
 #include "CommonSets.inl"
 #include "CommonMath.inl"
 #include "SkyBoxData.h"
-layout(set = 3,binding = 0)uniform ObjectUniformData{
+layout(set = 4,binding = 3)uniform ObjectUniformData{
     SkyBoxData data;
 }skyboxData;
 

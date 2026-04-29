@@ -125,12 +125,6 @@ namespace Render {
 		return sceneDrawData;
 	}
 
-	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessBindingPos()
-	{
-
-		return mDp->ObjectCommonBindingPos;
-	}
-
 	Render::rs_binding_pos ConstShaderDataManager::getObjectCommonDataBindingPos()
 	{
 		return mDp->ObjectCommonBindingPos;

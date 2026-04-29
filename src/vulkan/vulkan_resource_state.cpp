@@ -170,7 +170,10 @@ namespace Render::Vulkan {
         if (buffer->state == newState) {
             return;
         }
-
+        //Here we dont need pending state 
+        //Cause this is for batch barrier to remove redundent resource
+        
+        buffer->pendingState = newState;
         VulkanStateMapping oldMap = getVulkanMapping(buffer->state);
         VulkanStateMapping newMap = getVulkanMapping(newState);
 
@@ -194,7 +197,6 @@ namespace Render::Vulkan {
             1, &barrier,
             0, nullptr
         );
-
         buffer->state = newState;
     }
 
@@ -210,10 +212,6 @@ namespace Render::Vulkan {
         uint32_t actualMips = (mipLevelCount == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - baseMipLevel : mipLevelCount;
         uint32_t actualLayers = (layerCount == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - baseArrayLayer : layerCount;
 
-        if (image->subresourceStates.empty()) {
-            image->subresourceStates.resize(image->mipLevels * image->arrayLayers, ResourceState::Common);
-        }
-
         std::vector<VkImageMemoryBarrier> barriersToSubmit;
         VkPipelineStageFlags srcStageMaskAccumulate = 0;
         VkPipelineStageFlags dstStageMaskAccumulate = 0;
@@ -226,7 +224,6 @@ namespace Render::Vulkan {
 
                 uint32_t flatIndex = layer * image->mipLevels + mip;
                 ResourceState oldSubState = image->subresourceStates[flatIndex];
-
                 if (oldSubState != newState) {
                     VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
                     VulkanStateMapping newMap = getVulkanMapping(newState);
@@ -251,7 +248,7 @@ namespace Render::Vulkan {
 
                     srcStageMaskAccumulate |= oldMap.stageMask;
                     dstStageMaskAccumulate |= newMap.stageMask;
-
+					image->subresourcePendingStates[flatIndex] = newState;
                     image->subresourceStates[flatIndex] = newState;
                 }
             }

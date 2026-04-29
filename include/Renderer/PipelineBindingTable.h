@@ -34,7 +34,6 @@ namespace Render {
 
     private:
         struct _BindlessItem {
-            bool isUAV = false;
             UniformType type = UniformType::Count;
             ResourceLocation location;
             SmallVector<RenderResourceVariant, 1> keepAliveRefs;

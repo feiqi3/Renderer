@@ -386,7 +386,7 @@ namespace Render{
 		}
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
-		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+
 		if (data && byteSize > 0) {
 			updateImageData(ret, data, byteSize, 0, 0, 0, x, y, z, 0, 6 * arrayLayers, mipmap);
 		}
@@ -414,7 +414,7 @@ namespace Render{
 		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst | ImageUsage_Storage;
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
-		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+
 		if (data) {
 			updateImageData(ret, data, byteSize, 0, 0, 0, x, y, z, 0, layer, mipmap);
 		}
@@ -459,7 +459,7 @@ namespace Render{
 		}
 
 		auto ret =  Vulkan::createRsImage(getRenderContext(), desc);
-		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+
 		return ret;
 	}
 	rs_image* RenderSystem::createDepthStencilTexture(RenderTextureFormat format, int x, int y,bool needSample)
@@ -481,7 +481,7 @@ namespace Render{
 			desc.usage |= ImageUsage::ImageUsage_Sampled;
 		}
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
-		ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+
 		return ret;
 	}
 
@@ -1020,6 +1020,7 @@ namespace Render{
 
 	bool RenderSystem::isBindlessEnabled() const
 	{
+		return false;
 		return Vulkan::isBindlessEnabled();
 	}
 

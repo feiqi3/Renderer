@@ -82,17 +82,14 @@ namespace Render {
     void ComputeKernel::setParameter(const std::string& name, TexturePtr texture, ImageViewKey key, int element)
     {
         this->mBindingTable.updateParameter(Name(name), texture, key, element);
-        mPendingParams[name] = RenderResourceVariant(texture,key);
     }
 
     void ComputeKernel::setParameter(const std::string& name, SamplerPtr sampler, int element) {
-        mPendingParams[name] = RenderResourceVariant(sampler);
+        this->mBindingTable.updateParameter(Name(name), sampler, element);
     }
 
     void ComputeKernel::setParameter(const std::string& name, const void* data, uint32_t size) {
-        RenderResourceVariant var;
-        var.setUniformBuffer(data, size); 
-        mPendingParams[name] = std::move(var);
+        this->mBindingTable.updateParameterData(Name(name), data, size);
     }
 
     void ComputeKernel::dispatch(rs_commandbuffer* cmd, uint32_t groupX, uint32_t groupY, uint32_t groupZ) {

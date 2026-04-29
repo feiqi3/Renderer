@@ -444,11 +444,16 @@ namespace Render::Vulkan {
     static inline void assemblePipelineResource(rs_pipeline* pipeline, const PipelineLayoutInfo& info) {
 		auto& resourceLocations = pipeline->resources;
 		for (const auto& setInfo : info.setInfo) {
+            vk_binding_pos posToBind;
+            posToBind.setIdx = setInfo.setIdx;
 			for (const auto& binding : setInfo.layoutHash.mDescriptors) {
 				ResourceLocation resLoc;
 				resLoc.type = ResourceLocationType::BindingSlot;
-				resLoc.bindingPos = binding.bindingPos;
-				resLoc.itemName = std::move(binding.bindingItemName);
+
+				//Cause in layout hash, we have no concepts of set index, so we need to assemble the binding position.
+                posToBind.bindingIdx = toVkBindingPos(binding.bindingPos).bindingIdx;
+				resLoc.bindingPos = toRsBindingPos(posToBind);
+				resLoc.itemName = binding.bindingItemName;
 				resLoc.descriptorInfo.type = binding.type;
 				resLoc.descriptorInfo.count = binding.count;
 				resLoc.descriptorInfo.size = binding.size;
@@ -462,8 +467,8 @@ namespace Render::Vulkan {
 					ResourceLocation resLoc;
 					resLoc.type = ResourceLocationType::BindlessSlot;
 					resLoc.bindingPos = setInfo.bindingPos;
-					resLoc.itemName = std::move(slot.bindlessItemName);
-                    resLoc.bindlessInfo.isUAV = slot.isUAV;
+					resLoc.itemName = slot.bindlessItemName;
+                    resLoc.bindlessInfo.type = slot.uniformType;
 					resLoc.bindlessInfo.count = slot.count;
 					resLoc.bindlessInfo.offset = slot.offset;
 					resLoc.bindlessInfo.stride = slot.stride;

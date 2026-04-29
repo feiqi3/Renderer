@@ -95,6 +95,7 @@ namespace Render {
 		uint64_t gpuAddress = 0;
 		uint8_t queueType;
 
+		//Pending resource is designed to be a mark to remove redundent resource from batch placing barriers;
 		ResourceState pendingState = ResourceState::Common; // The state resource is going to be.
 		ResourceState state = ResourceState::Common;
 	};
@@ -180,12 +181,6 @@ namespace Render {
 		uint32_t size = 0; //Means WHOLE SIZE
 	};
 
-	struct BindlessSlot {
-		rs_base* resourse = nullptr;
-		uint32_t refTime = 0;
-		UniformType type;
-		uint64_t lastUsedFrame = 0;
-	};
 
 	struct rs_bindless_data {
 		inline rs_bindless_data(int TexturesMax, int samplersMax, int storageImagesMax, int buffersMax)

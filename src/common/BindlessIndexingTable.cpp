@@ -8,7 +8,7 @@ namespace Render {
 		this->sparseIndices.resize(maxLength, INVALID_BINDLESS_INDEX);
 	}
 
-	Render::rs_resource* BindlessIndexingTable::get(uint32_t idx)
+	rs_resource* BindlessIndexingTable::get(uint32_t idx)
 	{
 		if (idx >= sparseIndices.size())return nullptr;
 		uint32_t denseIdx = sparseIndices[idx];

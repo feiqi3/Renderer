@@ -45,10 +45,6 @@ namespace Render {
         rs_drawdata* mCurrentDrawData = nullptr;
 
         PipelineBindingTable    mBindingTable;
-
-        std::map<std::string, RenderResourceVariant> mPendingParams;
-
-        
     };
 
 }

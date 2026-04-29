@@ -116,16 +116,19 @@ namespace Render {
         auto sys = RenderSystem::instance()->instance();
         for (auto& pp : mBindingSlots) {
 
-
             for (int i = 0; i < pp.varArr.size(); ++i) {
                 auto& var = pp.varArr[i];
-
+                if (!var.isValid()) {
+                    continue;
+                }
                 switch (pp.location.descriptorInfo.type) {
                 case UniformType::StorageBuffer:
                 case UniformType::ConstantBuffer:
                 {
-                    if (!var.isBuffer())break;
                     auto bufferPair = var.getBufferPair();
+                    if (!bufferPair->buffer) {
+                        break;
+                    }
                     sys->updateUniform(pp.location.bindingPos, i, bufferPair->buffer, pipeline, drawdata, bufferPair->offset, bufferPair->size);
                     break;
                 }
@@ -147,17 +150,17 @@ namespace Render {
                 {
                     if (var.isTextureView()) {
                         auto viewPair = var.getTextureView();
+                        if (!viewPair->view)break;
                         sys->updateUniform(pp.location.bindingPos, i, viewPair->view, pipeline, drawdata);
                     }else if(var.isTexture()) {
+                        if (!var.getTexture())break;
                         sys->updateUniform(pp.location.bindingPos, i, var.getTexture()->getRsImage(), pipeline, drawdata);
-                    }
-                    else if (var.isTextureView()) {
-                        sys->updateUniform(pp.location.bindingPos, i, var.getTextureView()->view, pipeline, drawdata);
                     }
                     break;
                 }
 
                 case UniformType::Sampler:
+                    if (!var.getSampler())break;
                     sys->updateUniform(pp.location.bindingPos, i, var.getSampler()->getRsSampler(), pipeline, drawdata);
                     break;
 
@@ -205,7 +208,7 @@ namespace Render {
                 _BindlessItem bindlessItem;
                 bindlessItem.location = loc;
                 bindlessItem.keepAliveRefs.resize(loc.bindlessInfo.count);
-                bindlessItem.isUAV = loc.bindlessInfo.isUAV;
+                bindlessItem.type = loc.bindlessInfo.type;
                 uint32_t realUsedSlots = loc.bindlessInfo.count;
                 bindlessItem.bindlessData.resize(loc.bindlessInfo.count, INVALID_BINDLESS_INDEX);
                 mBindlessItems.push_back(std::move(bindlessItem));
@@ -227,14 +230,6 @@ namespace Render {
         if (bIt != mName2BindlessSlot.end()) {
             auto& bItem = mBindlessItems[bIt->second];
             auto& type = bItem.type;
-            if (type == UniformType::Count) {
-                if (bItem.isUAV) {
-                    type = UniformType::StorageImage;
-                }
-                else {
-                    type = UniformType::Texture;
-                }
-            }
 
             if (type != UniformType::StorageImage && type != UniformType::Texture) {
                 assert(false && "mismatch type");
@@ -243,15 +238,28 @@ namespace Render {
 
             bItem.keepAliveRefs[element].set(tex);
 
-            uint32_t globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(&tex->getRsImage()->defaultView);
+            uint32_t globalIndex = INVALID_BINDLESS_INDEX;
+            if (type == UniformType::StorageImage) {
+                globalIndex = EngineBindlessAPI::GetGlobalRWTextureIndex(&tex->getRsImage()->defaultView);
+            }
+            else {
+                globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(&tex->getRsImage()->defaultView);
+            }
 
             if (bItem.bindlessData.size() <= element) {
                 bItem.bindlessData.resize(bItem.location.bindlessInfo.count , INVALID_BINDLESS_INDEX);
             }
 
+
             if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
-                EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
+                if (type == UniformType::StorageImage) {
+                    EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
+                }
+                else {
+                    EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
+                }
             }
+
             bItem.bindlessData[element] = globalIndex;
 
             auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
@@ -280,7 +288,7 @@ namespace Render {
         auto it = mName2BindingSlot.find(paramName);
         if (it != mName2BindingSlot.end()) {
             auto& pp = mBindingSlots[it->second];
-            pp.varArr[element].set(tex);
+            pp.varArr[element].set(tex,key);
             return true;
         }
         if (!RenderSystem::instance()->isBindlessEnabled())return false;
@@ -289,14 +297,6 @@ namespace Render {
         if (bIt != mName2BindlessSlot.end()) {
             auto& bItem = mBindlessItems[bIt->second];
             auto& type = bItem.type;
-            if (type == UniformType::Count) {
-                if (bItem.isUAV) {
-                    type = UniformType::StorageImage;
-                }
-                else {
-                    type = UniformType::Texture;
-                }
-            }
 
             if (type != UniformType::StorageImage && type != UniformType::Texture) {
                 assert(false && "mismatch type");
@@ -377,16 +377,6 @@ namespace Render {
 
             auto& type = bItem.type;
 
-            if (type == UniformType::Count) {
-                if (bItem.isUAV) {
-                    type = UniformType::StorageBuffer;
-                }
-                else {
-                    assert(false && "Uniform Buffer can not be bindless.");
-                    type = UniformType::ConstantBuffer;
-                }
-            }
-
             if (type != UniformType::StorageBuffer&& type != UniformType::ConstantBuffer) {
                 assert(false && "Different with previous binding");
                 return false;
@@ -461,14 +451,6 @@ namespace Render {
             auto& bItem = mBindlessItems[bIt->second];
 
             auto& type = bItem.type;
-
-            if (type == UniformType::Count) {
-                if (bItem.isUAV != false) {
-                    assert(false && "MUST BE SRV");
-                    return false;
-                }
-                type = UniformType::Sampler;
-            }
 
             if (type != UniformType::Sampler) {
                 assert(false && "mismatch type");

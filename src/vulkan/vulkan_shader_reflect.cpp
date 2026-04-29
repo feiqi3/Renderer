@@ -363,10 +363,37 @@ namespace Render::Vulkan {
                 slots.resize(block.member_count);
                 for (int i = 0; i < block.member_count; ++i) {
                     const auto& blockMember = block.members[i];
+                    std::string name = std::string(blockMember.name);
+                    std::string typeName, itemName;
+                    auto pos = name.find_first_of('_');
+                    typeName = std::string(name.begin(), name.begin() + pos);
+                    itemName = std::string(name.begin() + pos + 1, name.end());
+                    UniformType uType;
+                    {
+                        if (typeName == "tex") {
+                            uType = UniformType::Texture;
+                        }
+                        else if (typeName == "rwtex") {
+                            uType = UniformType::StorageImage;
+                        }
+                        else if (typeName == "samp") {
+                            uType = UniformType::Sampler;
+                        }
+                        else if (typeName == "buf") {
+                            uType = UniformType::StorageBuffer;
+                        }
+                        else {
+                            assert(false);
+                            uType = UniformType::Count;
+                        }
+                        
+                    }
+                    
+
+
                     auto& memberSlot = slots[i];
-                    memberSlot.bindlessItemName = Name(blockMember.name);
-                    auto strName = memberSlot.bindlessItemName.str();
-                    memberSlot.isUAV = strName.starts_with("uav_");
+                    memberSlot.bindlessItemName = Name(itemName);
+                    memberSlot.uniformType = uType;
                     memberSlot.offset = blockMember.offset;
                     memberSlot.stride = blockMember.size;
                     memberSlot.count  = 1;

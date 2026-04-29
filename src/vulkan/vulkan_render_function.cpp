@@ -22,6 +22,8 @@
 #include <set>
 #include <iostream>
 #include "Renderer/GPUShared/BindlessGlobalDefShared.h"
+#include <common/BindlessIndexingTable.h>
+
 using DyOffsetArray = std::array<uint32_t, 32>;
 
 
@@ -986,7 +988,8 @@ namespace Render::Vulkan {
 		ret->sampleCount = desc.samples;
 
         auto defaultView = createRsImageView(ctx, ret, ret->type, (ret->usage), 0, desc.mipLevels, 0, desc.arrayLayers);
-
+        ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
+        ret->subresourcePendingStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
         ret->defaultView = defaultView;
         return ret;
     }
@@ -1237,6 +1240,8 @@ namespace Render::Vulkan {
 			rsImage->arrayLayers = 1;
             auto view = createRsImageView(context, rsImage, ImageType::V2D, ViewAspect::Color, 0, 1, 0, 1);
 			rsImage->defaultView = view;
+            rsImage->subresourceStates.resize(1, ResourceState::Common);
+            rsImage->subresourcePendingStates.resize(1, ResourceState::Common);
 			swapchainImages.push_back(rsImage);
         }
 
@@ -2200,14 +2205,14 @@ namespace Render::Vulkan {
         }
 
         //Not found
-        if (targetSetLayoutHash == 0)return;
+        if (targetSetLayoutHash == 0)return {nullptr,nullptr};
         
 
         for (auto& descriptorSetPack : drawdata->DescriptorSets) {
             //This may go wrong --- in some extremely wrong case:
             //layout hash may be the same? actually we can compare their VkDescriptorSetLayout handle, cause we ensure their only exists one handle for the same layout.
             if (descriptorSetPack.setlayout->bindingHash.layoutHash == targetSetLayoutHash) {
-                assert(descriptorSetPack.setlayout->native == targetPipelineLayout->native && "Hash conflict.");
+                assert(descriptorSetPack.setlayout->native == targetSetLayout->native && "Hash conflict.");
                 tarSetPack = &descriptorSetPack;
                 if (!isOneShot)
                 {
@@ -2897,13 +2902,6 @@ namespace Render::Vulkan {
         uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
         uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-        if (image->subresourceStates.empty()) {
-            image->subresourceStates.resize(image->mipLevels * image->arrayLayers, ResourceState::Common);
-        }
-        if (image->subresourcePendingStates.empty()) {
-            image->subresourcePendingStates = image->subresourceStates;
-        }
-
         bool needsTransition = false;
 
         for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
@@ -3146,10 +3144,9 @@ namespace Render::Vulkan {
         ctx->destroyer->destroyBindlessData(ctx->nextRenderFrame, data);
 	}
 
-    static inline BindlessSlot GetBindlessSlot(rs_base* data,uint64_t lastUsedFrame,UniformType type) {
+    static BindlessSlot GetBindlessSlot(rs_resource* data,uint64_t lastUsedFrame,UniformType type) {
         BindlessSlot slot{};
-        slot.refTime = 1;
-        slot.resourse = data;
+        slot.resource = data;
         slot.lastUsedFrame = lastUsedFrame;
         slot.type = type;
         return slot;

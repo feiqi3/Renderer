@@ -5,13 +5,14 @@
 #include "SmallVector.h"
 namespace Render {
 	struct rs_resource;
+
 	struct BindlessSlot {
 		rs_resource* resource = nullptr;
 		uint64_t lastUsedFrame = 0;
 		uint32_t usedRef = 0;
+		UniformType type = UniformType::Count;
 		uint32_t bindlessIndex = INVALID_BINDLESS_INDEX;
 	};
-
 	//OPTIMIZE: add a free list to record.
 	class BindlessIndexingTable {
 		const static uint32_t INVALID_INDEX = INVALID_BINDLESS_INDEX;

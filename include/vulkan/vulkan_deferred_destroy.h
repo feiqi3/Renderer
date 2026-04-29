@@ -13,6 +13,7 @@ namespace Render::Vulkan {
 	struct rs_semaphore_vk;
 	struct rs_fence_vk;
 	struct rs_drawdata_vk;
+	struct rs_bindless_data_vk;
 }
 
 namespace Render::Vulkan {

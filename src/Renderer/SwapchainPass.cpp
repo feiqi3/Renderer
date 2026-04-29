@@ -31,6 +31,7 @@ namespace Render {
 				matTempPtr = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"), stageInfo, state, vtxIA);
 				matTempPtr->createMaterialPass(RenderSystem::instance()->getRenderPass(Name("Swapchain")), {});
 				mMaterial = MaterialManager::instance()->createMaterial<Material>(Name("SwapChainMat"), matTempPtr);
+				mMaterial->addMaterialPassToRender(Name("Swapchain"));
 			}
 			return mMaterial.get();
 		}

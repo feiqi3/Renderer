@@ -60,6 +60,7 @@ namespace Render::Vulkan {
             for (auto it = buffersItor; it != buffersItorEnd; ++it)
             {
                 rs_buffer_vk* bufferVk = (rs_buffer_vk*)(*it);
+                assert(bufferVk->pendingState == newState && "Pending state should have been applied before transition!");
 
                 if (bufferVk->state == newState) {
                     continue;
@@ -114,6 +115,7 @@ namespace Render::Vulkan {
             for (auto it = buffersItor; it != buffersItorEnd; ++it)
             {
                 rs_buffer_vk* bufferVk = (rs_buffer_vk*)(*it);
+                assert(bufferVk->pendingState == newState && "Pending state should have been applied before transition!");
 
                 if (bufferVk->state == newState) {
                     continue;
@@ -176,6 +178,7 @@ namespace Render::Vulkan {
                 barriersToSubmit.reserve(buffers.size());
 
                 for (auto buffer : buffers) {
+                    assert(buffer->pendingState == newState && "Pending state should have been applied before transition!");
                     VkBufferMemoryBarrier barrier{};
                     barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
                     barrier.pNext = nullptr;
@@ -190,7 +193,7 @@ namespace Render::Vulkan {
                     barriersToSubmit.push_back(barrier);
 
                     buffer->state = newState;
-                    assert(bufferVk->pendingState == bufferVk->state);
+                    assert(buffer->pendingState == buffer->state);
                 }
 
                 vkCmdPipelineBarrier(
@@ -231,17 +234,13 @@ namespace Render::Vulkan {
                 uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
                 uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-                if (image->subresourceStates.empty()) {
-                    image->subresourceStates.resize(image->mipLevels * image->arrayLayers, ResourceState::Common);
-                }
-
                 VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
                     (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
 
                 for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
                     for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
-
                         uint32_t flatIndex = layer * image->mipLevels + mip;
+                        assert(image->subresourcePendingStates[flatIndex] == newState);
                         ResourceState oldSubState = image->subresourceStates[flatIndex];
 
                         if (oldSubState != newState) {
@@ -297,10 +296,6 @@ namespace Render::Vulkan {
                 uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
                 uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-                if (image->subresourceStates.empty()) {
-                    image->subresourceStates.resize(image->mipLevels * image->arrayLayers, ResourceState::Common);
-                }
-
                 VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
                     (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -308,6 +303,7 @@ namespace Render::Vulkan {
                     for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
 
                         uint32_t flatIndex = layer * image->mipLevels + mip;
+                        assert(image->subresourcePendingStates[flatIndex] == newState);
                         ResourceState oldSubState = image->subresourceStates[flatIndex];
 
                         if (oldSubState != newState) {
@@ -362,10 +358,6 @@ namespace Render::Vulkan {
                 uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
                 uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-                if (image->subresourceStates.empty()) {
-                    image->subresourceStates.resize(image->mipLevels * image->arrayLayers, ResourceState::Common);
-                }
-
                 VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
                     (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -373,6 +365,7 @@ namespace Render::Vulkan {
                     for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
 
                         uint32_t flatIndex = layer * image->mipLevels + mip;
+                        assert(image->subresourcePendingStates[flatIndex] == newState);
                         ResourceState oldSubState = image->subresourceStates[flatIndex];
 
                         if (oldSubState != newState) {

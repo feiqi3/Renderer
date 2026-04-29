@@ -1,6 +1,8 @@
 #version 450
 //https://www.shadertoy.com/view/ld3SRr 
 
+#include "ShaderResource.inl"
+#include "BindlessSet.inl"
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
@@ -12,14 +14,16 @@ layout(set = 4, binding = 1) uniform PerMaterialObject {
     PBRData pbrData;
 } CBUFFER_pbrData;
 
-layout(set = 4, binding = 2) uniform texture2D      u_baseColorTex;
-layout(set = 4, binding = 3) uniform sampler        u_baseColorSampler;
-layout(set = 4, binding = 4) uniform texture2D      u_normalTex;
-layout(set = 4, binding = 5) uniform sampler        u_normalSampler;
-layout(set = 4, binding = 6) uniform texture2D      u_metallicRoughnessTex;
-layout(set = 4, binding = 7) uniform sampler        u_metallicRoughnessSampler;
-layout(set = 4, binding = 8) uniform texture2D      u_AOTex;
-layout(set = 4, binding = 9) uniform sampler        u_AOSampler;
+RESOURCE_DECL_BEG(4)
+    SLOT_TEXTURE(4,         texture2D,      u_baseColorTex)
+    SLOT_SAMPLER(4,         sampler,        u_baseColorSampler)
+    SLOT_TEXTURE(4,         texture2D,      u_normalTex)
+    SLOT_SAMPLER(4,         sampler,        u_normalSampler)
+    SLOT_TEXTURE(4,         texture2D,      u_metallicRoughnessTex)
+    SLOT_SAMPLER(4,         sampler,        u_metallicRoughnessSampler)
+    SLOT_TEXTURE(4,         texture2D,      u_AOTex)
+    SLOT_SAMPLER(4,         sampler,        u_AOSampler)
+RESOURCE_DECL_END
 
 layout(location = 0) in vec3 i_worldPos;
 layout(location = 1) in vec3 i_normal;
@@ -150,7 +154,7 @@ void main()
     baseColor.xyz = pow(baseColor.xyz,vec3(2.2));
     if(useBaseCol){
         vec4 texColor = texture(
-            sampler2D(u_baseColorTex, u_baseColorSampler),
+            GetSampledTexture(u_baseColorTex, u_baseColorSampler),
             uvBase
         );
         texColor.xyz = pow(texColor.xyz,vec3(2.2));
@@ -165,7 +169,7 @@ void main()
     float roughness = PBRDATA.metalRoughAO.y;
     if(useMR){
         vec4 mrSample = texture(
-            sampler2D(u_metallicRoughnessTex, u_metallicRoughnessSampler),
+            GetSampledTexture(u_metallicRoughnessTex, u_metallicRoughnessSampler),
             uvMR
         );
 
@@ -183,7 +187,7 @@ void main()
         float normalScale = PBRDATA.metalRoughAO.w;
 
         vec3 normalSample = texture(
-            sampler2D(u_normalTex, u_normalSampler),
+            GetSampledTexture(u_normalTex, u_normalSampler),
             uvN
         ).xyz;
 
@@ -215,7 +219,7 @@ void main()
     float ao = PBRDATA.metalRoughAO.z;
     if(useAO){
         ao *= texture(
-            sampler2D(u_AOTex, u_AOSampler),
+            GetSampledTexture(u_AOTex, u_AOSampler),
             uvAO
         ).r;
     }
