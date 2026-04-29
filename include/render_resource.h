@@ -39,7 +39,7 @@ namespace Render {
 		uint16_t 	offset;
 		uint16_t	count;
 		uint16_t	stride;
-		bool		isUAV;    //true: uav/ false srv
+		UniformType uniformType;
 	};
 
 	struct BindlessInfo {

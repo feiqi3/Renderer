@@ -1001,7 +1001,7 @@ namespace Render{
 
 	void RenderSystem::destroyBindlessData(rs_bindless_data* data)
 	{
-		assert(false);
+		Vulkan::destroyBindlessData(getRenderContext(),(Vulkan::rs_bindless_data_vk*)data);
 	}
 
 	void RenderSystem::setGlobalBindlessData(rs_bindless_data* bindlessData)

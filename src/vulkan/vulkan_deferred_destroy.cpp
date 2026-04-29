@@ -14,6 +14,7 @@ namespace Render::Vulkan {
 		this->mFrameSemaphores.resize(mMaxFrameInFlight);
 		this->mFrameFences.resize(mMaxFrameInFlight);
 		this->mFrameDrawDatas.resize(mMaxFrameInFlight);
+		this->mFrameBindlessDatas.resize(mMaxFrameInFlight);
 	}
 	void DeferredDestroyer::destroyDrawData(uint64_t frame, rs_drawdata_vk* drawData)
 	{
@@ -73,6 +74,13 @@ namespace Render::Vulkan {
 			mFrameFences[i].push_back(frameFence);
 		}
 	}
+
+	void DeferredDestroyer::destroyBindlessData(uint64_t frame, rs_bindless_data_vk* data)
+	{
+		int f = frame % mMaxFrameInFlight;
+		mFrameBindlessDatas[f].push_back(data);
+	}
+
 
 	void DeferredDestroyer::endFrameDestroy(rs_context_vk* ctx,uint64_t frame)
 	{
@@ -144,6 +152,15 @@ namespace Render::Vulkan {
 			delete drawdata;
 		}
 		drawdatas.clear();
+
+
+		auto& bindlessData = mFrameBindlessDatas[f];
+		for (auto&& data : bindlessData) {
+			ctx->descriptorSetMgr->ReturnDescriptorSet(ctx, data->descriptorSet);
+		
+			delete data;
+		}
+		bindlessData.clear();
 	}
 
 	void DeferredDestroyer::clearAll(rs_context_vk* ctx)
@@ -152,4 +169,5 @@ namespace Render::Vulkan {
 			endFrameDestroy(ctx, i);
 		}
 	}
+
 }

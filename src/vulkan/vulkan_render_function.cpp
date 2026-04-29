@@ -3140,6 +3140,12 @@ namespace Render::Vulkan {
         return bindlessData;
     }
 
+
+	void destroyBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* data)
+	{
+        ctx->destroyer->destroyBindlessData(ctx->nextRenderFrame, data);
+	}
+
     static inline BindlessSlot GetBindlessSlot(rs_base* data,uint64_t lastUsedFrame,UniformType type) {
         BindlessSlot slot{};
         slot.refTime = 1;

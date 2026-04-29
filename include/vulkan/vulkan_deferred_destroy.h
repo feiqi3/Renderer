@@ -20,6 +20,7 @@ namespace Render::Vulkan {
 	class DeferredDestroyer {
 	public:
 		DeferredDestroyer(int maxFrameInFlight);
+		void destroyBindlessData(uint64_t frame, rs_bindless_data_vk* data);
 		void destroyDrawData(uint64_t frame, rs_drawdata_vk* buffer);
 		void destroyBuffer(uint64_t frame, rs_buffer_vk* buffer);
 		void destroyRenderTarget(uint64_t frame, rs_rendertarget_vk* rt);
@@ -45,6 +46,8 @@ namespace Render::Vulkan {
 		std::vector<std::vector<rs_renderpass_vk*>> mFrameRenderPasses;
 
 		std::vector<std::vector<rs_drawdata_vk*>> mFrameDrawDatas;
+
+		std::vector<std::vector<rs_bindless_data_vk*>> mFrameBindlessDatas;
 
 		std::vector<std::vector<void*>> mFrameSemaphores;
 
