@@ -54,6 +54,7 @@ namespace Render {
 
     void PBRMaterial::OnUpdateParam(Pass* pass)
     {
+        Material::uploadUniform(pass);
         updatePBRParams();
     }
 

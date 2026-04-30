@@ -37,28 +37,32 @@ namespace Render {
     }
 
     void Material::OnUpdateParam(Pass* pass) {
-        uploadUniform(pass);
     }
 
     void Material::bindParameter(const std::string& paramName, TexturePtr tex, int element) {
-        mBindingTable.broadcastParameter(Name(paramName), tex, element);
+		auto name = Name(paramName);
+		mBindingTable.broadcastParameter(name, tex, element);
     }
 
     void Material::bindParameter(const std::string& paramName, TexturePtr tex, ImageViewKey key, int element)
     {
-        mBindingTable.broadcastParameter(Name(paramName), tex,key, element);
+		auto name = Name(paramName);
+		mBindingTable.broadcastParameter(name, tex, key, element);
     }
 
     void Material::bindParameter(const std::string& paramName, rs_buffer* buffer, int element) {
-        mBindingTable.broadcastParameter(Name(paramName), buffer, element);
+        auto name = Name(paramName);
+        mBindingTable.broadcastParameter(name, buffer, element);
     }
 
     void Material::bindParameter(const std::string& paramName, SamplerPtr sampler, int element) {
-        mBindingTable.broadcastParameter(Name(paramName), sampler, element);
+		auto name = Name(paramName);
+		mBindingTable.broadcastParameter(name, sampler, element);
     }
 
     void Material::bindParameter(const std::string& paramName, const void* data, u32 size) {
-        mBindingTable.broadcastParameterData(Name(paramName), data, size, 0);
+		auto name = Name(paramName);
+		mBindingTable.broadcastParameterData(name, data, size, 0);
     }
 
 

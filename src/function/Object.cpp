@@ -59,6 +59,10 @@ namespace Render {
 
     void Object::onLateUpdate(float dt)
     {
+		for (auto& comp : m_components) {
+            //Do render here, because transform was updated after Update.
+			comp.get()->onRender();
+		}
     }
 
     void Object::onUpdateTransform()

@@ -191,10 +191,6 @@ namespace Render {
                 pp.parameterImageType = ImageType::Invalid;
                 pp.varArr.resize(loc.descriptorInfo.count);
 
-                if (loc.descriptorInfo.type == UniformType::UniformBuffer) {
-                    pp.varArr[0].setUniformBuffer(nullptr, loc.descriptorInfo.size);
-                }
-
                 mBindingSlots.push_back(std::move(pp));
                 uint32_t slotIdx = static_cast<uint32_t>(mBindingSlots.size() - 1);
 
@@ -285,70 +281,76 @@ namespace Render {
 
     bool PipelineBindingTable::updateParameter(const Name& paramName, TexturePtr tex, ImageViewKey key, int element)
     {
-        auto it = mName2BindingSlot.find(paramName);
-        if (it != mName2BindingSlot.end()) {
-            auto& pp = mBindingSlots[it->second];
-            pp.varArr[element].set(tex,key);
-            return true;
-        }
-        if (!RenderSystem::instance()->isBindlessEnabled())return false;
-
-        auto bIt = mName2BindlessSlot.find(paramName);
-        if (bIt != mName2BindlessSlot.end()) {
-            auto& bItem = mBindlessItems[bIt->second];
-            auto& type = bItem.type;
-
-            if (type != UniformType::StorageImage && type != UniformType::Texture) {
-                assert(false && "mismatch type");
-                return false;
-            }
-
-            bItem.keepAliveRefs[element].set(tex,key);
-            auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), key);
-            uint32_t globalIndex = INVALID_BINDLESS_INDEX;
-            if(type == UniformType::StorageImage){
-                globalIndex = EngineBindlessAPI::GetGlobalRWTextureIndex(view);
-
-            }else{
-                globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(view);
-            }
-
-            if (bItem.bindlessData.size() <= element) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count, INVALID_BINDLESS_INDEX);
-            }
-
-            if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
-                if (type == UniformType::StorageImage) {
-
-                    EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
-                }
-                else {
-                    EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
-                }
-                
-            }
-            bItem.bindlessData[element] = globalIndex;
-
-            auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
-            if (fatherIt != mBindingPos2BindingSlot.end()) {
-                auto& fatherUBO = mBindingSlots[fatherIt->second];
-                void* uboData = nullptr;
-                uint32_t size = 0;
-                fatherUBO.varArr[0].getData(&uboData, &size);
-
-                if (uboData) {
-                    uint32_t stride = bItem.location.bindlessInfo.stride > 0 ? bItem.location.bindlessInfo.stride : sizeof(uint32_t);
-                    uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
-
-                    if (writeOffset + sizeof(uint32_t) <= size) {
-                        std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &globalIndex, sizeof(uint32_t));
-                    }
-                }
-            }
-            return true;
-        }
-        return false;
+        return updateParameter(paramName, tex, RenderSystem::instance()->getViewFromImage(tex->getRsImage(),key));
     }
+
+	bool PipelineBindingTable::updateParameter(const Name& paramName, TexturePtr tex, rs_image_view* view, int element /*= 0*/)
+	{
+		auto it = mName2BindingSlot.find(paramName);
+		if (it != mName2BindingSlot.end()) {
+			auto& pp = mBindingSlots[it->second];
+            pp.varArr[element].set(tex,view);
+			return true;
+		}
+		if (!RenderSystem::instance()->isBindlessEnabled())return false;
+
+		auto bIt = mName2BindlessSlot.find(paramName);
+		if (bIt != mName2BindlessSlot.end()) {
+			auto& bItem = mBindlessItems[bIt->second];
+			auto& type = bItem.type;
+
+			if (type != UniformType::StorageImage && type != UniformType::Texture) {
+				assert(false && "mismatch type");
+				return false;
+			}
+
+			bItem.keepAliveRefs[element].set(tex, view);
+			uint32_t globalIndex = INVALID_BINDLESS_INDEX;
+			if (type == UniformType::StorageImage) {
+				globalIndex = EngineBindlessAPI::GetGlobalRWTextureIndex(view);
+
+			}
+			else {
+				globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(view);
+			}
+
+			if (bItem.bindlessData.size() <= element) {
+				bItem.bindlessData.resize(bItem.location.bindlessInfo.count, INVALID_BINDLESS_INDEX);
+			}
+
+			if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
+				if (type == UniformType::StorageImage) {
+
+					EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
+				}
+				else {
+					EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
+				}
+
+			}
+			bItem.bindlessData[element] = globalIndex;
+
+			auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
+			if (fatherIt != mBindingPos2BindingSlot.end()) {
+				auto& fatherUBO = mBindingSlots[fatherIt->second];
+				void* uboData = nullptr;
+				uint32_t size = 0;
+				fatherUBO.varArr[0].getData(&uboData, &size);
+
+				if (uboData) {
+					uint32_t stride = bItem.location.bindlessInfo.stride > 0 ? bItem.location.bindlessInfo.stride : sizeof(uint32_t);
+					uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
+
+					if (writeOffset + sizeof(uint32_t) <= size) {
+						std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &globalIndex, sizeof(uint32_t));
+					}
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+
 
     bool PipelineBindingTable::updateParameter(const Name& paramName, rs_buffer* buffer, int element) {
         return updateParameter(paramName, buffer, 0, 0, element);
@@ -491,7 +493,7 @@ namespace Render {
         return false;
     }
 
-    bool PipelineBindingTable::updateParameterData(const Name& paramName, const void* data, uint32_t dataSize, int element) {
+	bool PipelineBindingTable::updateParameterData(const Name& paramName, const void* data, uint32_t dataSize, int element) {
         auto it = mName2BindingSlot.find(paramName);
         if (it != mName2BindingSlot.end()) {
             auto& pp = mBindingSlots[it->second];
@@ -499,6 +501,10 @@ namespace Render {
             if (pp.location.descriptorInfo.type == UniformType::UniformBuffer) {
                 void* destData = nullptr;
                 uint32_t bufferSize = 0;
+                if (!pp.varArr[element].isValid()) {
+                    pp.varArr[element].setUniformBuffer(nullptr, pp.location.descriptorInfo.size);
+                }
+
                 pp.varArr[element].getData(&destData, &bufferSize);
 
                 if (destData && dataSize <= bufferSize) {

@@ -12,7 +12,7 @@ layout(set = 1, binding = 0) uniform blockCamera {
  layout(set = 2, binding = 2 ) uniform texture2D 		BRDFLut;
  layout(set = 2, binding = 3 ) uniform sampler			SceneTextureSampler; 
 
-layout(set = 4, binding = 0) uniform UniformBufferObject {
+layout(set = 3, binding = 0) uniform UniformBufferObject {
     ObjectCommonData ObjData;
 } ObjData;
 

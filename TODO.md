@@ -49,3 +49,13 @@
  3. Bindless 绑定部分：完成全部。
  4. 对Var binding count的特殊处理，以及shader反射时需要检测合法（必须是set中最后一个binding）
  5. VirtualPipeline中需要手动创建这个descriptorSet，整个Render应该只有有限个(或者是1个)
+
+ 1. 目前修改后，非bindless下没问题，除了一个小地方：
+    - 现在shader参数的绑定分了俩个级别 -> 第一个是Entity级别的绑定，每个RenderEntity可以有自己的参数；第二个是material级别，每个material拥有自己的参数
+    - Material的参数由谁来提交？毕竟只要提交一次，什么时候提交？
+    - 参数提交就是上传到DescriptorSet里，现在这一步发生在DrawIndexed前，并且是对每个Entity做一次，这肯定不对。
+    - Bindless的数据可能需要每帧去更新。    
+    - Material里的绑定是不是可以有脏机制？虽然Material绑定开销很小（因为防止重复绑定问题DrawData里做了，所以API调用只会有一次）   
+  2. 现在的Pass提交：把material上绑定好了所有要渲染的pass，然后放进RenderQueue里。之后每个Renderpass去queue里拿pass --- 这个得修改掉 -> 改成提交到renderQueue的不同pass的bucket里。然后每个RenderPass拿bucket，渲染。 
+  3. 
+ 测试Bindless机制

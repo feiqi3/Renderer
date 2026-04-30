@@ -73,6 +73,19 @@ namespace Render {
 		this->mData = ShaderScopeDataPtr(size);
 	}
 
+	RenderResourceVariant::RenderResourceVariant(TexturePtr tex, rs_image_view* view)
+	{
+		if (view) {
+			TextureViewPair pair{};
+			pair.tex = tex;
+			pair.view = view;
+			mData = std::move(pair);
+		}
+		else {
+			return;
+		}
+	}
+
 	void RenderResourceVariant::set(const TexturePtr& tex, ImageViewKey key)
 	{
 		auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), key);
@@ -85,6 +98,15 @@ namespace Render {
 		else {
 			mData = tex;
 		}
+	}
+
+	void RenderResourceVariant::set(const TexturePtr& tex, rs_image_view* view)
+	{
+		assert(view->image == tex->getRsImage());
+		TextureViewPair viewPair{};
+		viewPair.tex = tex;
+		viewPair.view = view;
+		mData = viewPair;
 	}
 
 	bool RenderResourceVariant::isTextureView() const

@@ -39,6 +39,11 @@ namespace Render {
 
 	void PBRRenderComponent::onUpdate(float dt)
 	{
+
+	}
+
+	void PBRRenderComponent::onRender()
+	{
 		auto sys = RenderSystem::instance();
 		auto queue = sys->getMainRenderQueue();
 		if (mRenderEntities.size() != mMaterials.size()) {

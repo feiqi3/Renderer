@@ -19,6 +19,8 @@ namespace Render {
 
         virtual void onUpdate(float dt) {}
 
+        virtual void onRender() {};
+
         virtual void onDestroy() {};
 
         virtual void onFrameEnd() {};

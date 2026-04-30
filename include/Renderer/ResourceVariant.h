@@ -45,6 +45,7 @@ namespace Render {
 		RenderResourceVariant();
 		explicit RenderResourceVariant(TexturePtr tex);
 		explicit RenderResourceVariant(TexturePtr tex,ImageViewKey viewKey);
+		explicit RenderResourceVariant(TexturePtr tex, rs_image_view* view);
 		explicit RenderResourceVariant(SamplerPtr sampler);
 		explicit RenderResourceVariant(rs_buffer* buffer);
 		explicit RenderResourceVariant(u32	size);
@@ -55,6 +56,7 @@ namespace Render {
 		void set(const T& data);
 
 		void set(const TexturePtr& tex, ImageViewKey key);
+		void set(const TexturePtr& tex, rs_image_view* view);
 
 		bool isTextureView()   const;
 		bool isTexture()       const;

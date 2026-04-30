@@ -2857,7 +2857,7 @@ namespace Render::Vulkan {
 					collectDyoffset(bindingSlot, dynamics, dyNum);
                 }
             }
-            VkPipelineBindPoint point = (bindPoint == QueueType_Graphics ? VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS : VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE);
+            VkPipelineBindPoint point = (bindPoint & QueueType_Graphics ? VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS : VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE);
             vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, point, (VkPipelineLayout)layout->native, setIdx, 1, &set, dyNum, dynamics.data());
 
         }
