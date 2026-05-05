@@ -352,8 +352,13 @@ namespace Render::Vulkan {
         for (const auto* binding : rflbindings) {
             vk_binding_pos pos{ .setIdx = int8_t(binding->set),.bindingIdx = int8_t(binding->binding) };
 
+            bool isBindlessSet = false;
             std::string bindingName = binding->name;
-            if (bindingName.starts_with("BINDLESS_") && isBindlessEnabled() ) {
+            if (binding->block.type_description && std::string(binding->block.type_description->type_name).starts_with("BINDLESS_")) {
+                isBindlessSet = true;
+                bindingName = std::string(binding->block.type_description->type_name);
+            }
+            if (isBindlessSet && isBindlessEnabled() ) {
                 BindlessInfo bindlessInfo{};
                 //bindless ubo.
                 //reflect everything inside it.
@@ -415,9 +420,16 @@ namespace Render::Vulkan {
                 bindingInfo.bindingPos = rsBindingPos;
             }
 
-            bindingInfo.bindingItemName = Name(binding->name);
+            bindingInfo.bindingItemName = Name(bindingName);
             bindingInfo.count = binding->count;
             if (binding->array.dims_count == 1) {
+                //Important: !!!!!!!
+				//For Variable count array, usually spv reflect will set count to 0, and set put the array count of dim0 to 0
+                //But due to some strange optimization 
+				//glslang will set count to 1 if no Non-Uniform indexing is performed.
+                //So do not use this feature!!!!!!!
+
+
                 bindingInfo.count = binding->array.dims[0]; //For var array, this will be 0;
             }
 

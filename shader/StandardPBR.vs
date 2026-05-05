@@ -2,11 +2,6 @@
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
-layout(set = 4, binding = 1) uniform PerMaterialObject {
-    PBRData pbrData;
-} CBUFFER_pbrData;
-
-#define PBRDATA         CBUFFER_pbrData.pbrData
 #define CAMDATA         CameraCommon.camera
 #define LIGHTDATA       SceneCommon.sceneLights
 

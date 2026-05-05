@@ -35,6 +35,7 @@ namespace Render {
 		for (auto&& pack : mRenderPacks) {
 			RenderSystem::instance()->updateParameters(cmdbuffer, pack.entity, pack.pass);
 		}
+		RenderSystem::instance()->excutePendingBufferCopies(cmdbuffer);
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
 		if (mRendertarget) {
 			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget);

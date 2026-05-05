@@ -18,7 +18,7 @@ namespace Render {
         PipelineBindingTable() = default;
         ~PipelineBindingTable();
 
-        void commit(rs_pipeline* pipeline,rs_drawdata* drawdata);
+        void commit(rs_pipeline* pipeline,rs_drawdata* drawdata, bool allowMultiCommit = false);
 
         void init(const Name& passName, rs_pipeline* pipeline);
 
@@ -33,19 +33,21 @@ namespace Render {
         const Name& getPassName() const { return mPassName; }
         rs_pipeline* getPipeline() const { return mPipeline; }
 
-    private:
-        struct _BindlessItem {
-            UniformType type = UniformType::Count;
-            ResourceLocation location;
-            SmallVector<RenderResourceVariant, 1> keepAliveRefs;
-            SmallVector<uint32_t, 2> bindlessData;
-        };
+		struct _BindlessItem {
+			UniformType type = UniformType::Count;
+			ResourceLocation location;
+			SmallVector<RenderResourceVariant, 1> keepAliveRefs;
+			SmallVector<uint32_t, 2> bindlessData;
+		};
 
-        struct _ParameterPair {
-            ResourceLocation location;
-            ImageType parameterImageType = ImageType::Invalid;
-            SmallVector<RenderResourceVariant, 1> varArr;
-        };
+		struct _ParameterPair {
+			ResourceLocation location;
+			ImageType parameterImageType = ImageType::Invalid;
+			SmallVector<RenderResourceVariant, 1> varArr;
+		};
+
+    private:
+
 
         Name mPassName;
         rs_pipeline* mPipeline = nullptr;
@@ -56,7 +58,8 @@ namespace Render {
         std::map<Name, uint32_t> mName2BindingSlot;
         std::map<Name, uint32_t> mName2BindlessSlot;
         std::map<rs_binding_pos, uint32_t> mBindingPos2BindingSlot;
-    };
+		uint64_t mLastSubmitFrame = -1ull;
+	};
 	class MaterialBindingTable {
 	public:
 		MaterialBindingTable() = default;

@@ -364,7 +364,7 @@ namespace Render {
 
     using rs_binding_pos = uint32_t;
 
-	using DrawDataArray = std::array<struct rs_drawdata*, 4>;
+	using DrawDataArray = std::array<struct rs_drawdata*, 5>;
 
 #define INVALID_BINDLESS_INDEX 0xFFFFFFFF
 };

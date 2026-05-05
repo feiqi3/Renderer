@@ -104,7 +104,7 @@ namespace Render {
 	};
 
 	struct rs_pipeline_layout : rs_base {
-
+		uint32_t shaderStagesFlags = 0;
 	};
 
 	struct rs_pipeline : rs_base {
@@ -200,6 +200,9 @@ namespace Render {
 		rs_binding_pos bufferBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable buffersBinding;
 		uint32_t maxBuffersBinding = 0;
+
+		//TODO: the resource newly added to this bindless data.
+		std::vector<std::pair<UniformType, rs_resource*> > pendingResource;
 	};
 
 	struct rs_drawdata {

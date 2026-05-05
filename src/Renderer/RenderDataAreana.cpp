@@ -104,7 +104,7 @@ namespace Render {
             targetBlock->currentOffset = 0;
         }
         targetBlock->lastUsedFrame = frameIndex;
-
+		targetBlock->generationMark++;
 
         assert(targetBlock->capacity - targetBlock->currentOffset >= size);
 
@@ -189,8 +189,9 @@ namespace Render {
     void RenderDataArena::executePendingCopies(rs_commandbuffer* cmd) {
         FrameData& frame = m_frames[m_currentFiF];
         for (auto block : frame.blocks) {
-            bool needFlushThis = block->lastUsedFrame == m_currentFrame;
+            bool needFlushThis = block->generationMark == block->lastUpdateGenerationMark;
             if (needFlushThis) {
+				block->lastUpdateGenerationMark = block->generationMark;
                 RenderSystem::instance()->flushBuffer(block->buffer, block->buffer->byteSize);
             }
         }

@@ -1,8 +1,6 @@
 #version 450
 //https://www.shadertoy.com/view/ld3SRr 
 
-#include "ShaderResource.inl"
-#include "BindlessSet.inl"
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
@@ -10,9 +8,9 @@
 #include "CommonMath.inl"
 #include "CommonLight.inl"
 
-layout(set = 4, binding = 1) uniform PerMaterialObject {
+DECL_BUFFER_STD430_BEG(PBRDataAlias)
     PBRData pbrData;
-} CBUFFER_pbrData;
+DECL_BUFFER_STD430_END
 
 RESOURCE_DECL_BEG(4)
     SLOT_TEXTURE(4,         texture2D,      u_baseColorTex)
@@ -23,7 +21,10 @@ RESOURCE_DECL_BEG(4)
     SLOT_SAMPLER(4,         sampler,        u_metallicRoughnessSampler)
     SLOT_TEXTURE(4,         texture2D,      u_AOTex)
     SLOT_SAMPLER(4,         sampler,        u_AOSampler)
+    SLOT_BUFFER_STD430(4,   PBRDataAlias,   CBUFFER_pbrData)
 RESOURCE_DECL_END
+
+#define PBRDATA         GetBuffer(CBUFFER_pbrData).pbrData
 
 layout(location = 0) in vec3 i_worldPos;
 layout(location = 1) in vec3 i_normal;

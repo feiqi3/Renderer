@@ -10,6 +10,7 @@ namespace Render {
 		RenderEntity* entity;
 		u64 renderMask;
 		vec3 worldPos;
+		u32 renderPriority;
 	};
 }
 

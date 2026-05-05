@@ -117,7 +117,7 @@ namespace Render::Vulkan {
             vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
         }
         else {
-            vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
+            assert(vkAllocateDescriptorSets(ctx->device, &allci, &desSet) == VK_SUCCESS);
         }
         block->mInUseNum++;
         block->lastActiveFrame = frame;
@@ -234,9 +234,13 @@ namespace Render::Vulkan {
         //This will allow descriptorSet to be updated after submit
         VkDescriptorPoolCreateFlags flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT; 
         //Try construct one from 
+
+        PoolSizeInfo poolSizes((int)UniformType::Count);
+
         for (const auto& descriptor : layoutHash.mDescriptors) {
             VkDescriptorPoolSize size{};
             size.type = toVkDescriptorType(descriptor.type);
+            size.descriptorCount = descriptor.count;
             if (descriptor.count == 0) {
                 if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && BindlessAvailable) {
                     size.descriptorCount = DESCRIPTOR_VAR_COUNT_SIZE; //this is the memory that driver will really allocated.
@@ -249,9 +253,13 @@ namespace Render::Vulkan {
                 }
             }
             sizes.push_back(size);
+            poolSizes[(int)descriptor.type] = size;
         }
         DescriptorPoolBlock* block = new DescriptorPoolBlock;
-        block->sizes = sizes;
+
+
+        //To match allocate hint, block->size must have dim int(UniformType::Count)
+        block->sizes = poolSizes;
         block->maxSets = 1;
         VkDescriptorPoolCreateInfo ci{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
         ci.flags = flags;
@@ -367,7 +375,7 @@ namespace Render::Vulkan {
 
         for (auto it = mDedicatedBlocks.begin(); it != mDedicatedBlocks.end();) {
             auto poolBlock = (*it);
-            if (poolBlock->mInUseNum == poolBlock->mInUseNum) {
+            if (poolBlock->mReturnedNum == poolBlock->mInUseNum) {
                 vkResetDescriptorPool(ctx->device, poolBlock->pool, 0);
                 vkDestroyDescriptorPool(ctx->device, poolBlock->pool, 0);
                 delete poolBlock;
@@ -458,23 +466,40 @@ namespace Render::Vulkan {
         ci.bindingCount = bindings.size();
         std::vector< VkDescriptorSetLayoutBinding> vkBindings;
         vkBindings.reserve(bindings.size());
-
+        std::vector<VkDescriptorBindingFlags> bindingFlags;
+		bindingFlags.reserve(bindings.size());
         for (auto&& binding : bindings) {
-            //Invalid origin name, we don't care about name in set layout.
-            binding.bindingItemName = nameSubstitute;
+            binding.bindingItemName = Name(binding.bindingItemName);
             //Use 'count' to mark void position. 
             if (binding.type == UniformType::Count)continue;
             VkDescriptorSetLayoutBinding b{};
             auto vkBinding = toVkBindingPos(binding.bindingPos);
             b.binding = vkBinding.bindingIdx;
             b.descriptorCount = binding.count;
+            VkDescriptorBindingFlags flag = 0;
+            if (isBindlessEnabled() && (binding.count > 1 || binding.count == 0)) {
+                flag |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
+                if (binding.count == 0) {
+                    flag |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
+                }
+            }
+            bindingFlags.push_back(flag);
+
             b.descriptorType = toVkDescriptorType(binding.type);
             b.stageFlags = toVkShaderStageFlags(binding.shaderVisibleStage);
             b.pImmutableSamplers = 0;
             vkBindings.push_back(b);
         }
+        VkDescriptorSetLayoutBindingFlagsCreateInfoEXT bindingFlagsCreateCI{
+			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT
+        };
+        bindingFlagsCreateCI.pBindingFlags = bindingFlags.data();
+		bindingFlagsCreateCI.bindingCount = bindingFlags.size();
+        ci.pNext = &bindingFlagsCreateCI;
 
         //IMPORTANT!!!!
+        
+
         ci.pBindings = vkBindings.data();
         ci.bindingCount = vkBindings.size();
         

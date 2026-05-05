@@ -134,6 +134,10 @@ namespace Render {
 					break;
 				}
 			}
+			if (RenderSystem::instance()->isBindlessEnabled()) {
+				compileDesc.macros.push_back({"BINDLESS_ENABLE","1"});
+			}
+
 			compileDesc.shaderSrcCode = shaderCode;
 			compileDesc.stage = stage;
 			compileDesc.shaderName = shader;

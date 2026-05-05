@@ -13,6 +13,7 @@ namespace Render::Vulkan {
 	struct PipelineLayoutInfo {
 		std::vector<DescritporSetInfo> setInfo;
 		std::vector<BindlessInfo> bindlessInfo;
+		uint32_t shaderStages = 0;
 	};
 	bool assembleBindlessInfo(const std::vector<BindlessInfo>& info, std::vector<BindlessInfo>& out);
 	std::vector< DescritporSetInfo> assembleDescriptorSetInfo(const std::vector<rs_descriptor>& descritpors);

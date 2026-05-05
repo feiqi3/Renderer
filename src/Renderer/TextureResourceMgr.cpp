@@ -81,6 +81,11 @@ namespace Render{
 		return ResourceHandle<Texture>(this, entry);
 	}
 
+	TexturePtr TextureResourceManager::getDefaultTexture()
+	{
+		return mDefaultTexture;
+	}
+
 
 	Render::TexturePtr TextureResourceManager::getOrCreateCubemap(const Name& name, int mip)
 	{
@@ -167,7 +172,8 @@ namespace Render{
 
 	void TextureResourceManager::createNecessaryPersistenceResources() {
 		mDefaultResourceName = Name("Builtin::ErrorRGB");
-		this->registerResource(mDefaultResourceName, getErrorTexture(), ResourceLifetime::Persistent, nullptr);
+		mDefaultTexture =
+		ResourceHandle<Texture>(this,this->registerResource(mDefaultResourceName, getErrorTexture(), ResourceLifetime::Persistent, nullptr));
 	}
 
 }

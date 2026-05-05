@@ -14,6 +14,7 @@ namespace Render {
 		const Name& typeName()const override;
 		const Name& getDefaultResourceName()const override;
 		TexturePtr createFromRsImage(const Name& name,rs_image* img);
+		TexturePtr getDefaultTexture();
 		//in: folder name
 		//there should be 6 textures in the folder with name: right, left, top, bottom, front, back.
 		TexturePtr getOrCreateCubemap(const Name& name,int mip = -1);
@@ -21,6 +22,10 @@ namespace Render {
 	public:
 		void createNecessaryPersistenceResources()override;
 		Name mDefaultResourceName;
+	
+	private:
+		TexturePtr mDefaultTexture;
+
 	};
 
 

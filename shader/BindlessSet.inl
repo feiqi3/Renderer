@@ -1,7 +1,9 @@
 #include "BindlessGlobalDefShared.h"
 #ifdef BINDLESS_ENABLE
-
-layout(set = BINDLESS_SET_IDX, binding = BUFFER_BINDLESS_ARRAY_BINDING_IDX) buffer GlobalUAVBuffersFormat { 
+#extension GL_EXT_shader_image_load_formatted : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_buffer_reference : require
+layout(set = BINDLESS_SET_IDX, binding = BUFFER_BINDLESS_ARRAY_BINDING_IDX) buffer GlobalUAVBuffersFormat {
     uint data[]; 
 } GlobalUAVBuffers[MAX_BUFFER_BINDLESS];
 
@@ -9,6 +11,6 @@ layout(set = BINDLESS_SET_IDX, binding = UAV_IMAGE_BINDLESS_ARRAY_BINDING_IDX) u
 
 layout(set = BINDLESS_SET_IDX, binding = SAMPLER_BINDLESS_ARRAY_BINDING_IDX) uniform sampler GlobalSamplers[MAX_SAMPLER_BINDLESS];
 
-layout(set = BINDLESS_SET_IDX, binding = TEXTURE_BINDLESS_ARRAY_BINDING_IDX) uniform texture2D GlobalTextures[];
+layout(set = BINDLESS_SET_IDX, binding = TEXTURE_BINDLESS_ARRAY_BINDING_IDX) uniform texture2D GlobalTextures[MAX_TEXTURE_BINDLESS];
 
 #endif 

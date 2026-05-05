@@ -20,6 +20,7 @@
 #include "vulkan/vulkan_resource_state.h"
 #include "function/EngineResourceManager.h"
 #include "function/ComponentSystem.h"
+#include "render_resource_global.h"
 #include <set>
 namespace Render{
 	TexturePtr geterrorTexture(class RenderSystemPrivate* dp);
@@ -94,7 +95,7 @@ namespace Render{
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>();
 		sRenderSystem->mDp->mArena->init(sRenderSystem->getRenderContext()->maxFrameInFlight, Render::STAGING_BLOCK_SIZE);
-		
+
 		sRenderSystem->mDp->mRenderDispatcher = std::make_unique<RenderGroup>();
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
@@ -520,6 +521,7 @@ namespace Render{
 			deinitSwapchainRT();
 			initSwapchainRT();
 		}
+
 		Vulkan::beginRsFrameVk(getRenderContext());
 		mDp->mLogicThreadCommandBuffers.clear();
 		mCurLogicFrameInFlight = currentLogicFrame % getRenderContext()->maxFrameInFlight;
@@ -527,6 +529,11 @@ namespace Render{
 		mDp->mCurrentCameraData = nullptr;
 		getRenderPassManager()->onFrameBegin();
 		ConstShaderDataManager::instance()->updateSceneDrawData(Scene::getCurrentScene());
+		if (getNextRenderFrame() == 0) {
+			if (isBindlessEnabled()) {
+				bindDefaultResourceToBindless();
+			}
+		}
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)
@@ -713,7 +720,7 @@ namespace Render{
 	void RenderSystem::dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ)
 	{
 		transitDrawdataResourceState(cmdBuffer, PipelineType::Compute, drawData);
-		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(),(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData, getCurFif(), groupX, groupY, groupZ);
+		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(),(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData,(Vulkan::rs_bindless_data_vk*)getGlobalBindlessData(), getCurFif(), groupX, groupY, groupZ);
 	}
 
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity,const Name& passName)
@@ -739,6 +746,9 @@ namespace Render{
 	}
 	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type, rs_drawdata* drawdata)
 	{
+		if (isBindlessEnabled()) {
+			Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_bindless_data_vk*)(getGlobalBindlessData()), type, getCurFif());
+		}
 		//defered to begin render pass phase
 		Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)(drawdata), type, getCurFif());
 	}
@@ -751,6 +761,9 @@ namespace Render{
 		(*arr)[2] = mDp->mCurrentCameraData;
 		if (Scene::getCurrentScene()) {
 			(*arr)[3] = Scene::getCurrentScene()->getSceneDrawData();
+		}
+		if (isBindlessEnabled()) {
+			(*arr)[4] = (rs_drawdata*)getGlobalBindlessData();
 		}
 	}
 
@@ -952,7 +965,7 @@ namespace Render{
 
 	Render::rs_bindless_data* RenderSystem::createBindlessData(rs_pipeline* pipeline)
 	{
-		if (isBindlessEnabled()) {
+		if (!isBindlessEnabled()) {
 			return nullptr;
 		}
 
@@ -960,43 +973,58 @@ namespace Render{
 		return Vulkan::createBindlessData(getRenderContext(), pipeline,0);
 	}
 
-	void RenderSystem::unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx)
+	uint64_t RenderSystem::unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx)
 	{
-		Vulkan::unbindBindlessBuffer(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
+		return Vulkan::unbindBindlessBuffer(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
 	}
 
 	uint64_t RenderSystem::updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer, uint32_t& outsize)
 	{
-		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData,(Vulkan::rs_buffer_vk*)buffer, true, outsize);
+		if (!buffer)
+		{
+			Vulkan::updateBindlessData(getRenderContext(), nullptr, nullptr, true, outsize);
+			return default_bindless_buffer_idx;
+		}
+		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_buffer_vk*)buffer, true, outsize);
 	}
 
-	void RenderSystem::unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx)
+	uint32_t RenderSystem::unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx)
 	{
-		Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, false);
+		if(idx == INVALID_BINDLESS_INDEX)
+			return default_bindless_texture_idx;
+		return Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, false);
 	}
 
 	uint32_t RenderSystem::updateGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* img)
 	{
+		if (!img)return default_bindless_texture_idx;
 		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, false);
 	}
 
-	void RenderSystem::unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx)
+	uint32_t RenderSystem::unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx)
 	{
-		Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
+		if (idx == INVALID_BINDLESS_INDEX)
+			return defalut_no_texture_UAV->defaultView.bindlessIndex;
+		return Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
 	}
 
 	uint32_t RenderSystem::updateGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* img)
 	{
+		if (!img)return defalut_no_texture_UAV->defaultView.bindlessIndex;
 		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, true);
 	}
 
-	void RenderSystem::unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx)
+	uint32_t RenderSystem::unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx)
 	{
-		Vulkan::unbindBindlessSampler(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx);
+		if (idx == INVALID_BINDLESS_INDEX)
+			return defalut_no_sampler->bindlessIndex;
+		return Vulkan::unbindBindlessSampler(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx);
 	}
 
 	uint32_t RenderSystem::updateGlobalBindlessDataSampler(rs_bindless_data* bindlessData, rs_sampler* sampler)
 	{
+		if(!sampler)
+			return default_bindless_sampler_idx;
 		return Vulkan::updateBindlessSampler(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_sampler_vk*)sampler);
 	}
 
@@ -1008,6 +1036,7 @@ namespace Render{
 	void RenderSystem::setGlobalBindlessData(rs_bindless_data* bindlessData)
 	{
 		if (!isBindlessEnabled())return;
+
 		mDp->globalBindlessData = bindlessData;
 	}
 
@@ -1017,11 +1046,11 @@ namespace Render{
 		if (mDp->globalBindlessData) {
 			return mDp->globalBindlessData;
 		}
+		return nullptr;
 	}
 
 	bool RenderSystem::isBindlessEnabled() const
 	{
-		return false;
 		return Vulkan::isBindlessEnabled();
 	}
 
@@ -1040,6 +1069,15 @@ namespace Render{
 	RenderSystem::~RenderSystem()
 	{
 
+	}
+
+	void RenderSystem::bindDefaultResourceToBindless()
+	{
+		default_bindless_textureuav_idx = updateGlobalBindlessDataRWTexture(getGlobalBindlessData(), &defalut_no_texture_UAV->defaultView);
+		default_bindless_texture_idx = updateGlobalBindlessDataTexture(getGlobalBindlessData(), &defalut_no_texture->defaultView);
+		uint32_t outsize = 0;
+		default_bindless_buffer_idx = updateGlobalBindlessDataBuffer(getGlobalBindlessData(), defalut_no_buffer, outsize);
+		default_bindless_sampler_idx = updateGlobalBindlessDataSampler(getGlobalBindlessData(), defalut_no_sampler);
 	}
 
 	void RenderSystemPrivate::cleanUpFramesPendingData(uint32_t fif,uint64_t frame)

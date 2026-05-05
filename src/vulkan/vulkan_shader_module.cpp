@@ -95,11 +95,24 @@ namespace Render::Vulkan {
         }
         std::vector<DescritporSetInfo> retVal;
 
+
+
         for (auto& [setIdx, setMap] : setBindingInfo) {
             DescritporSetInfo setInfo{ .setIdx = setIdx };
             for (auto&& [bindingIdx, descriptor] : setMap) {
+                //!!! important !!!
+                //For set 0, we make it a all stage accessible set
+                //To fit bindless things
+                if (setIdx == 0) {
+					descriptor.shaderVisibleStage = 0xFFFF; 
+                }
+
+
                 setInfo.layoutHash.mDescriptors.emplace_back(std::move(descriptor));
             }
+
+
+
             setInfo.layoutHash.init();
             assert(setInfo.layoutHash.checkValid() == true);
             retVal.push_back(setInfo);
@@ -117,7 +130,7 @@ namespace Render::Vulkan {
         for(auto i = 0;i < num;++i){
             rs_shader_module_vk* s = shaders[i];
             auto vks = (rs_shader_module_vk*)s;
-
+			ret.shaderStages |= (uint32_t)vks->shaderStage;
             auto& perShaderInfo = vks->rflInfo.bindingInfo;
             info.insert(info.end(), perShaderInfo.begin(), perShaderInfo.end());
             bindlessInfoList.insert(bindlessInfoList.end(), vks->rflInfo.bindlessInfo.begin(), vks->rflInfo.bindlessInfo.end());

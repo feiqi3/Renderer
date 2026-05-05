@@ -102,7 +102,7 @@ namespace Render {
         }
         mCurrentDrawData = sys->createDrawData();
 
-        mBindingTable.commit(mPipeline, mCurrentDrawData);
+        mBindingTable.commit(mPipeline, mCurrentDrawData, true);
 
 		sys->dispatchCompute(cmd, mPipeline, mCurrentDrawData, groupX, groupY, groupZ);
     }

@@ -104,11 +104,13 @@ namespace Render::Vulkan {
 	void createDebugUtilsMessengerEXT(rs_context_vk* ctx);
 	void destroyDebugUtilsMessengerEXT(rs_context_vk* ctx);
 
-	std::vector<const char*> getExtensionEnableDevice(rs_context_vk* context);
+	std::set<std::string> getExtensionEnableDevice(rs_context_vk* context);
 	VkPhysicalDeviceFeatures getExtensionEnablePhysicalDevice(rs_context_vk* context);
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
 	VkPhysicalDeviceVulkan13Features getExtensionEnablePhysicalDeviceVk13(rs_context_vk* context);
+	VkPhysicalDeviceVulkan12Features getExtensionEnablePhysicalDeviceVk12(rs_context_vk* context);
 	VkPhysicalDeviceDescriptorIndexingFeatures getExtensionEnablePhysicalDeviceDescriptorIndexingFeatures(rs_context_vk* context);
+	VkPhysicalDeviceBufferDeviceAddressFeatures getExtensionEnablePhysicalDeviceBufferAddressFeatures(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
 	rs_drawdata_vk* createDrawData(rs_context_vk* context);
@@ -128,12 +130,13 @@ namespace Render::Vulkan {
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
 
-	void cmdDispatch(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData,uint32_t curFIF,int x,int y,int z);
+	void cmdDispatch(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData, rs_bindless_data_vk* bindless, uint32_t curFIF,int x,int y,int z);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx,rs_graphic_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif,QueueType bindPoint = QueueType::QueueType_Graphics);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
 	
+	void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_bindless_data_vk* drawData, PipelineType pipelineType, uint32_t curFif);
 	void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, PipelineType pipelineType, uint32_t curFif);
 	void cmdTransitPendingResource(rs_commandbuffer_vk* cb,bool compute);
 	//Decrepted
@@ -156,14 +159,14 @@ namespace Render::Vulkan {
 	void				 destroyBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* data);
 	
 	//For DBA, we actually do not need bindless buffer anymore....Just get the real  address on gpu, but since this is only for vulkan,,,,
-	uint64_t		     updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav /*UAV OR SRV ?(Uniform buffer VS Storage Buffer)*/,uint32_t& outSize/*This is needed when DBA is open then instead of u32 index we send in a u64 ptr*/);
-	uint32_t			 updateBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_image_view* view, bool uav /*texture2D vs image2D*/);
+	uint64_t				updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav /*UAV OR SRV ?(Uniform buffer VS Storage Buffer)*/,uint32_t& outSize/*This is needed when DBA is open then instead of u32 index we send in a u64 ptr*/);
+	uint32_t				updateBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_image_view* view, bool uav /*texture2D vs image2D*/);
 
-	void				 unbindBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index, bool uav /*texture2D vs image2D*/);
-	void				 unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav /*texture2D vs image2D*/);
+	uint32_t				unbindBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index, bool uav /*texture2D vs image2D*/);
+	uint64_t				unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav /*texture2D vs image2D*/);
 
-	uint32_t			 updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler);
-	void				 unbindBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index);
+	uint32_t				updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler);
+	uint32_t				unbindBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index);
 	//-------------------------------------------------------------------------------------//     
 	uint64_t beginRsFrameVk(rs_context_vk* ctx);
 	uint64_t beginRsRenderFrameVk(rs_context_vk* ctx);

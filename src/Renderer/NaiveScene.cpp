@@ -113,7 +113,7 @@ namespace Render {
 		cubeMaterial->addMaterialPassToRender(PassName::MainCameraPass);
 		auto cubePBRMaterial = (PBRMaterial*)cubeMaterial.get();
 		cubePBRMaterial->setMetallic(0.5);
-		cubePBRMaterial->setRoughness(0.05);
+		cubePBRMaterial->setRoughness(0.25);
 		
 		cubePBRMaterial->setBaseColor(vec4(0.5,0.5,0.5,1.));
 

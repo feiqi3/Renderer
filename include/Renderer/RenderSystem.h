@@ -171,16 +171,16 @@ namespace Render{
 		rs_bindless_data* createBindlessData(rs_pipeline* pipeline);
 
 		//outsize == 4: bindless index | outsize == 8: buffer ptr
-		void unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx);
+		uint64_t unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx);
 		uint64_t updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData,rs_buffer* buffer,uint32_t& outsize);
 
-		void unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx);
+		uint32_t unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* img);
 
-		void unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx);
+		uint32_t unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* img);
 
-		void unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx);
+		uint32_t unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataSampler(rs_bindless_data* bindlessData, rs_sampler* sampler);
 
 
@@ -194,6 +194,7 @@ namespace Render{
 		RenderSystem();
 		~RenderSystem();
 
+		void bindDefaultResourceToBindless();
 	private:
 		uint64_t mCurLogicFrameInFlight = 0;
 		uint64_t currentLogicFrame = 0;

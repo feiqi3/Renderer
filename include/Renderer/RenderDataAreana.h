@@ -35,7 +35,9 @@ namespace Render {
             void*       mappedPtr = nullptr;   
             uint32_t    capacity = 0;
             uint32_t    currentOffset = 0;
-            uint64_t    lastUsedFrame = 0;
+            uint32_t    generationMark = 0;
+            uint32_t    lastUpdateGenerationMark = -1ul;
+			uint64_t    lastUsedFrame = -1ull;
         };
 
         struct CopyBufferToBufferCommand {

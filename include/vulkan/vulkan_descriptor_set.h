@@ -134,7 +134,7 @@ namespace Render::Vulkan {
                     h *= FNV_prime;
                 }
                 
-                mAllocaHint.hint[(int)i.type]++;
+                mAllocaHint.hint[(int)i.type] += descripor.count;
             }
 
             layoutHash = h;

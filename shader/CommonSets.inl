@@ -16,7 +16,9 @@ layout(set = 3, binding = 0) uniform UniformBufferObject {
     ObjectCommonData ObjData;
 } ObjData;
 
-#define PBRDATA         CBUFFER_pbrData.pbrData
 #define OBJDATA         ObjData.ObjData
 #define CAMDATA         CameraCommon.camera
 #define LIGHTDATA       SceneCommon.sceneLights
+
+#include "ShaderResource.inl"
+#include "BindlessSet.inl"

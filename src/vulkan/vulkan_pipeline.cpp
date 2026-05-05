@@ -769,6 +769,7 @@ namespace Render::Vulkan {
             setlayouts.push_back(p);
         }
         auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, {});
+        pipelineLayout->shaderStagesFlags = descriptorInfos.shaderStages;
         return pipelineLayout;
     }
 
