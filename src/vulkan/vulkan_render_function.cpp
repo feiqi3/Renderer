@@ -3252,10 +3252,9 @@ namespace Render::Vulkan {
         return slot;
     }
 
-    uint64_t updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav, uint32_t& outSize)
+    uint64_t updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav)
     {
         if (!buffer) {
-            outSize = BufferDeviceAddressEnable ? 8 : 4;
             return INVALID_BINDLESS_INDEX;
         }
         if (uav) {
@@ -3265,46 +3264,7 @@ namespace Render::Vulkan {
             bindlessData->pendingResource.push_back({ UniformType::ConstantBuffer, buffer });
         }
 
-        if (!BufferDeviceAddressEnable) {
-
-            //ONLY SUPPORT UAV NOW 
-            assert(uav == true);
-            outSize = 4;
-            if (buffer->bindlessIndex == INVALID_BINDLESS_INDEX) {
-                return buffer->bindlessIndex;
-            }
-            //1. try allocate postion 
-            auto& bufferBinding = bindlessData->buffersBinding;
-            auto bufferSlot = GetBindlessSlot(buffer,ctx->nextRenderFrame,UniformType::StorageBuffer);
-            auto ret = bufferBinding.Allocate(ctx->nextRenderFrame,buffer);
-            if (ret == INVALID_BINDLESS_INDEX) {
-                assert(false);
-                //FIX ME 
-            }
-
-            if (ret == INVALID_BINDLESS_INDEX) {
-                return ret;
-            }
-			auto bindingPos = toVkBindingPos(bindlessData->bufferBindlessPos).bindingIdx;
-
-            VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-            write.descriptorCount = 1;
-            write.descriptorType = toVkDescriptorType(Render::UniformType::StorageBuffer);
-            write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
-            write.dstBinding = bindingPos;
-            write.dstArrayElement = ret;
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = (VkBuffer)buffer->native;
-            bufferInfo.offset = 0;
-            bufferInfo.range = VK_WHOLE_SIZE;
-            write.pBufferInfo = &bufferInfo;
-            vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
-            return ret;
-        }
-        else {
-            outSize = 8;
-            return getRsBufferDeviceAddress(ctx, buffer);
-        }
+        return getRsBufferDeviceAddress(ctx, buffer);
 
     }
 

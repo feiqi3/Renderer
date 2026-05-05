@@ -170,9 +170,9 @@ namespace Render{
 		void cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo);
 		rs_bindless_data* createBindlessData(rs_pipeline* pipeline);
 
-		//outsize == 4: bindless index | outsize == 8: buffer ptr
 		uint64_t unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx);
-		uint64_t updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData,rs_buffer* buffer,uint32_t& outsize);
+		uint64_t updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData,rs_buffer* buffer);
+		uint64_t updateGlobalBindlessDataRWBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer);
 
 		uint32_t unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* img);

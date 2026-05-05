@@ -10,6 +10,13 @@
 
 #define DECL_BUFFER_STD430_BEG(type_name) layout(buffer_reference, std430) buffer type_name {
 #define DECL_BUFFER_STD430_END          };
+
+#define DECL_RBUFFER_STD140_BEG(type_name) layout(buffer_reference, std140)readonly buffer type_name {
+#define DECL_RBUFFER_STD140_END          };
+
+#define DECL_RBUFFER_STD430_BEG(type_name) layout(buffer_reference, std430)readonly buffer type_name {
+#define DECL_RBUFFER_STD430_END          };
+
 #define NAME_TEX(name)    tex_##name
 #define NAME_RWTEX(name)  rwtex_##name
 #define NAME_SAMP(name)   samp_##name
@@ -21,6 +28,7 @@
 
 #define SLOT_BUFFER_STD140(s, type, name) type NAME_BUF(name);
 #define SLOT_BUFFER_STD430(s, type, name) type NAME_BUF(name);
+#define SLOT_CONST_BUFFER(s, type, name) type NAME_BUF(name);
 
 #define SLOT_TEXTURE(s, type, name)       uint NAME_TEX(name);
 #define SLOT_RWTEXTURE(s, type, name)     uint NAME_RWTEX(name);
@@ -43,6 +51,12 @@
 #define DECL_BUFFER_STD430_BEG(type_name) struct type_name {
 #define DECL_BUFFER_STD430_END          };
 
+#define DECL_RBUFFER_STD140_BEG(type_name) struct type_name {
+#define DECL_RBUFFER_STD140_END          };
+
+#define DECL_RBUFFER_STD430_BEG(type_name) struct type_name {
+#define DECL_RBUFFER_STD430_END          };
+
 #define NAME_TEX(name)    name
 #define NAME_RWTEX(name)  name
 #define NAME_SAMP(name)   name
@@ -52,6 +66,7 @@
 #define RESOURCE_DECL_END 
 #define _BUFFER_BLOCK_NAME(name) CONCAT(_, name)
 
+#define SLOT_CONST_BUFFER(s, type, name)  layout(set = s, std140) uniform block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
 #define SLOT_BUFFER_STD140(s, type, name) layout(set = s, std140) buffer block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
 #define SLOT_BUFFER_STD430(s, type, name) layout(set = s, std430) buffer block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
 

@@ -385,7 +385,12 @@ namespace Render::Vulkan {
                             uType = UniformType::Sampler;
                         }
                         else if (typeName == "buf") {
-                            uType = UniformType::StorageBuffer;
+                            if (itemName.find_first_of("CBUFFER") != std::string::npos) {
+                                uType = UniformType::ConstantBuffer;
+                            }
+                            else {
+                                uType = UniformType::StorageBuffer;
+                            }
                         }
                         else {
                             assert(false);
@@ -435,7 +440,7 @@ namespace Render::Vulkan {
 
             bindingInfo.type = SpvDescriptorTypeToResourceType(binding->descriptor_type);
 
-            if (bindingInfo.type == UniformType::UniformBuffer && bindingInfo.bindingItemName.str().starts_with("CBUFFER_")) {
+            if (bindingInfo.bindingItemName.str().starts_with("CBUFFER_")) {
                 bindingInfo.type = UniformType::ConstantBuffer;
             }
 

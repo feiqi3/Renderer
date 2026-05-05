@@ -37,7 +37,7 @@ namespace Render {
 			UniformType type = UniformType::Count;
 			ResourceLocation location;
 			SmallVector<RenderResourceVariant, 1> keepAliveRefs;
-			SmallVector<uint32_t, 2> bindlessData;
+			SmallVector<uint64_t, 1> bindlessData;				//64 bit for BDA index or global index
 		};
 
 		struct _ParameterPair {

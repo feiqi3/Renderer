@@ -37,18 +37,11 @@ namespace Render {
 
             return RenderSystem::instance()->unbindGlobalBindlessDataRWTexture(RenderSystem::instance()->getGlobalBindlessData(), index);
         }
-        // Datasize: 4 (Array Offset) or 8 (BDA)
-        //Use null to get data size
-        static uint64_t GetBlockBufferBindingData(rs_buffer* buffer, uint32_t& datasize,uint32_t offset) {
-            auto binding = RenderSystem::instance()->updateGlobalBindlessDataBuffer(RenderSystem::instance()->getGlobalBindlessData(), buffer,datasize);
-            if (datasize == 8) {
-                //BDA? offset + address = target
-                return binding + offset;
-            }
-            else {
-                //actually we cannot handle offset things in bufer array case..... 
-            }
-            return binding;
+        // 8 (BDA)
+        static uint64_t GetBlockBufferBindingData(rs_buffer* buffer,uint32_t offset) {
+            // BDA --> we get device address and offset it
+            auto binding = RenderSystem::instance()->updateGlobalBindlessDataBuffer(RenderSystem::instance()->getGlobalBindlessData(), buffer);
+            return binding + offset;
         }
         static uint64_t UnbindGlobalBuffer(uint64_t data) {
             return RenderSystem::instance()->unbindGlobalBindlessDataBuffer(RenderSystem::instance()->getGlobalBindlessData(), data);
@@ -96,33 +89,24 @@ namespace Render {
                 auto& var = bItem.keepAliveRefs[i];
 
                 if (var.getBufferPair()) {
-                    uint32_t ds = 0;
-                    //Get use DBA(8B) / Buffer Array(4B)
-                    EngineBindlessAPI::GetBlockBufferBindingData(nullptr, ds, 0);
-                    uint32_t slotStride = (ds == 8) ? 2 : 1;
-
+                    EngineBindlessAPI::GetBlockBufferBindingData(nullptr, 0);
                     //Get old binding pos.
-                    if ((i * slotStride) < bItem.bindlessData.size()) {
+                    if (i < bItem.bindlessData.size()) {
                         uint64_t oldData = 0;
-                        if (ds == 8) {
-                            std::memcpy(&oldData, &bItem.bindlessData[i * slotStride], 8);
-                        }
-                        else {
-                            oldData = bItem.bindlessData[i * slotStride];
-                        }
-                        if (oldData != 0) EngineBindlessAPI::UnbindGlobalBuffer(oldData);
+                        oldData = bItem.bindlessData[i];
+                        if (oldData != 0XFFFFFFFFFFFFFFFF) EngineBindlessAPI::UnbindGlobalBuffer(oldData);
                     }
                 }
                 else if (var.getTexture()) {
                     if (i < bItem.bindlessData.size()) {
                         uint32_t oldData = bItem.bindlessData[i];
-                        if (oldData != 0) EngineBindlessAPI::UnbindGlobalTexture(oldData);
+                        if (oldData != INVALID_BINDLESS_INDEX) EngineBindlessAPI::UnbindGlobalTexture(oldData);
                     }
                 }
                 else if (var.getSampler()) {
                     if (i < bItem.bindlessData.size()) {
                         uint32_t oldData = bItem.bindlessData[i];
-                        if (oldData != 0) EngineBindlessAPI::UnbindGlobalSampler(oldData);
+                        if (oldData != INVALID_BINDLESS_INDEX) EngineBindlessAPI::UnbindGlobalSampler(oldData);
                     }
                 }
             }
@@ -430,33 +414,21 @@ namespace Render {
             bufferPair.size = size;
             bItem.keepAliveRefs[element].set(bufferPair);
 
-            uint32_t dataSize = 0;
-            uint64_t bindingData = EngineBindlessAPI::GetBlockBufferBindingData(buffer, dataSize, offset);
-            uint32_t slotStride = (dataSize == 8) ? 2 : 1;
-            uint32_t dataIndex = element * slotStride;
+            uint64_t bindingData = EngineBindlessAPI::GetBlockBufferBindingData(buffer, offset);
+            uint32_t dataIndex = element;
 
-            if (bItem.bindlessData.size() < (bItem.location.bindlessInfo.count * slotStride)) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count * slotStride,INVALID_BINDING_POS);
+            if (bItem.bindlessData.size() < (bItem.location.bindlessInfo.count)) {
+                bItem.bindlessData.resize(bItem.location.bindlessInfo.count,0XFFFFFFFFFFFFFFFF);
             }
 
             uint64_t oldData = 0;
-            if (slotStride == 2) {
-                std::memcpy(&oldData, &bItem.bindlessData[dataIndex], 8);
-            }
-            else {
-                oldData = bItem.bindlessData[dataIndex];
-            }
+            oldData = bItem.bindlessData[dataIndex];
             //In bindless mode or BDA mode
             if ( (oldData != INVALID_BINDLESS_INDEX && oldData!= 0xFFFFFFFFFFFFFFFF ) && oldData != bindingData) {
                 EngineBindlessAPI::UnbindGlobalBuffer(oldData);
             }
 
-            if (slotStride == 2) {
-                std::memcpy(&bItem.bindlessData[dataIndex], &bindingData, 8);
-            }
-            else {
-                bItem.bindlessData[dataIndex] = static_cast<uint32_t>(bindingData);
-            }
+            bItem.bindlessData[dataIndex] = static_cast<uint32_t>(bindingData);
 
             auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
             if (fatherIt != mBindingPos2BindingSlot.end()) {
@@ -466,12 +438,12 @@ namespace Render {
                 EngineBindlessAPI::initFatherUBO(fatherUBO);
                 fatherUBO.varArr[0].getData(&uboData, &size);
 
-                if (uboData && dataSize > 0) {
+                if (uboData) {
                     uint32_t stride = bItem.location.bindlessInfo.stride;
                     uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
 
-                    if (writeOffset + dataSize <= size) {
-                        std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &bindingData, dataSize);
+                    if (writeOffset + sizeof(uint64_t) <= size) {
+                        std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &bindingData, sizeof(uint64_t));
                     }
                 }
             }

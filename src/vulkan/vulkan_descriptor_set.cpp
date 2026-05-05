@@ -238,6 +238,7 @@ namespace Render::Vulkan {
         PoolSizeInfo poolSizes((int)UniformType::Count);
 
         for (const auto& descriptor : layoutHash.mDescriptors) {
+            if (descriptor.type == UniformType::Count)continue;
             VkDescriptorPoolSize size{};
             size.type = toVkDescriptorType(descriptor.type);
             size.descriptorCount = descriptor.count;

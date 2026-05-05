@@ -159,7 +159,7 @@ namespace Render::Vulkan {
 	void				 destroyBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* data);
 	
 	//For DBA, we actually do not need bindless buffer anymore....Just get the real  address on gpu, but since this is only for vulkan,,,,
-	uint64_t				updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav /*UAV OR SRV ?(Uniform buffer VS Storage Buffer)*/,uint32_t& outSize/*This is needed when DBA is open then instead of u32 index we send in a u64 ptr*/);
+	uint64_t				updateBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_buffer_vk* buffer, bool uav /*UAV OR SRV ?(Uniform buffer VS Storage Buffer)*/);
 	uint32_t				updateBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_image_view* view, bool uav /*texture2D vs image2D*/);
 
 	uint32_t				unbindBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index, bool uav /*texture2D vs image2D*/);

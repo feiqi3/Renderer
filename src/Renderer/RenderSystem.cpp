@@ -978,14 +978,23 @@ namespace Render{
 		return Vulkan::unbindBindlessBuffer(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
 	}
 
-	uint64_t RenderSystem::updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer, uint32_t& outsize)
+	uint64_t RenderSystem::updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer)
 	{
 		if (!buffer)
 		{
-			Vulkan::updateBindlessData(getRenderContext(), nullptr, nullptr, true, outsize);
+			Vulkan::updateBindlessData(getRenderContext(), nullptr, nullptr, false);
 			return default_bindless_buffer_idx;
 		}
-		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_buffer_vk*)buffer, true, outsize);
+		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_buffer_vk*)buffer, false);
+	}
+
+	uint64_t RenderSystem::updateGlobalBindlessDataRWBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer) {
+		if (!buffer)
+		{
+			Vulkan::updateBindlessData(getRenderContext(), nullptr, nullptr, true);
+			return default_bindless_buffer_idx;
+		}
+		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_buffer_vk*)buffer, true);
 	}
 
 	uint32_t RenderSystem::unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx)
@@ -1075,8 +1084,7 @@ namespace Render{
 	{
 		default_bindless_textureuav_idx = updateGlobalBindlessDataRWTexture(getGlobalBindlessData(), &defalut_no_texture_UAV->defaultView);
 		default_bindless_texture_idx = updateGlobalBindlessDataTexture(getGlobalBindlessData(), &defalut_no_texture->defaultView);
-		uint32_t outsize = 0;
-		default_bindless_buffer_idx = updateGlobalBindlessDataBuffer(getGlobalBindlessData(), defalut_no_buffer, outsize);
+		default_bindless_buffer_idx = updateGlobalBindlessDataRWBuffer(getGlobalBindlessData(), defalut_no_buffer);
 		default_bindless_sampler_idx = updateGlobalBindlessDataSampler(getGlobalBindlessData(), defalut_no_sampler);
 	}
 
