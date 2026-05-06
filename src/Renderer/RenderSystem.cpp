@@ -702,7 +702,6 @@ namespace Render{
 		entity->updateEntityCommonData();
 		if (entity->getMaterial()) {
 			entity->getMaterial()->uploadUniform(pass);
-			entity->getMaterial()->OnUpdateParam(pass);
 		}
 		entity->updateUniforms(pass);
 		cmdTransferRenderBufferState(cmdBuffer, entity->getRenderInfo());

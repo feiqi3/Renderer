@@ -113,14 +113,14 @@ namespace Render {
         }
     }
 
-    void PipelineBindingTable::commit(rs_pipeline* pipeline, rs_drawdata* drawdata,bool allowMultiCommit)
+    bool PipelineBindingTable::commit(rs_pipeline* pipeline, rs_drawdata* drawdata,bool allowMultiCommit)
     {
         auto sys = RenderSystem::instance()->instance();
 
 
         if (!allowMultiCommit && mLastSubmitFrame == sys->getNextRenderFrame()) {
             //avoid redundant uniform update.
-            return;
+            return false;
         }
 
         mLastSubmitFrame = sys->getNextRenderFrame();
@@ -182,6 +182,7 @@ namespace Render {
             }
 
         }
+        return true;
     }
 
     void PipelineBindingTable::init(const Name& passName, rs_pipeline* pipeline) {

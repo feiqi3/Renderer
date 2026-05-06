@@ -100,7 +100,10 @@ namespace Render {
         if (!pass)return;
         auto bindingTable = this->mBindingTable.getPipelineBindingTable(pass->getPassName());
         if (bindingTable){
-            bindingTable->commit(pass->mMaterial->getRsPipeline(), pass->mDrawData);
+            bool commitSuccess = bindingTable->commit(pass->mMaterial->getRsPipeline(), pass->mDrawData);
+            if (commitSuccess) {
+                OnUpdateParam(pass);
+            }
         }
     }
 

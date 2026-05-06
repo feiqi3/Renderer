@@ -18,8 +18,7 @@ namespace Render {
         PipelineBindingTable() = default;
         ~PipelineBindingTable();
 
-        void commit(rs_pipeline* pipeline,rs_drawdata* drawdata, bool allowMultiCommit = false);
-
+        bool commit(rs_pipeline* pipeline,rs_drawdata* drawdata, bool allowMultiCommit = false);
         void init(const Name& passName, rs_pipeline* pipeline);
 
         bool updateParameter(const Name& paramName, TexturePtr tex, int element = 0);

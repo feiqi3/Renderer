@@ -54,8 +54,8 @@ namespace Render {
 			mMainCamPass->init();
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mMainCamPass);
-			mCol = rsys->createRTTexture(RenderTextureFormat::RGBA8, 1000, 1000, 1, 1, true);
-			mDepth = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, 1000, 1000, false);
+			mCol = rsys->createRTTexture(RenderTextureFormat::RGBA16F, 1024, 1024, 1, 1, true);
+			mDepth = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, 1024, 1024, false);
 			mRenderTarget = rsys->createRendertarget({ mCol }, mDepth);
 			mMainCamPass->setRenderTarget(mRenderTarget);
 		}
