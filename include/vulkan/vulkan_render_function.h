@@ -62,9 +62,9 @@ namespace Render::Vulkan {
 	void destroyRsImage(rs_context_vk* context, rs_image_vk*& image,bool immediately = false);
 	size_t getRsImageSize(rs_image_vk* image);
 	rs_image_view* getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey);
-	rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
-	rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
-	void destroyRsImageView(rs_context_vk* ctx, rs_image_view& view);
+	rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
+	rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
+	void destroyRsImageView(rs_context_vk* ctx, rs_image_view* view);
 
 	rs_sampler_vk* createRsSampler(rs_context_vk* context,const SamplerDesc& desc);
 	void destroyRsSampler(rs_context_vk* context, rs_sampler_vk*& sampler, bool immediately = false);

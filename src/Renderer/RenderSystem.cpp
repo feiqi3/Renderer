@@ -1012,13 +1012,13 @@ namespace Render{
 	uint32_t RenderSystem::unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx)
 	{
 		if (idx == INVALID_BINDLESS_INDEX)
-			return defalut_no_texture_UAV->defaultView.bindlessIndex;
+			return defalut_no_texture_UAV->defaultView->bindlessIndex;
 		return Vulkan::unbindBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, idx, true);
 	}
 
 	uint32_t RenderSystem::updateGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* img)
 	{
-		if (!img)return defalut_no_texture_UAV->defaultView.bindlessIndex;
+		if (!img)return defalut_no_texture_UAV->defaultView->bindlessIndex;
 		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, true);
 	}
 
@@ -1081,8 +1081,8 @@ namespace Render{
 
 	void RenderSystem::bindDefaultResourceToBindless()
 	{
-		default_bindless_textureuav_idx = updateGlobalBindlessDataRWTexture(getGlobalBindlessData(), &defalut_no_texture_UAV->defaultView);
-		default_bindless_texture_idx = updateGlobalBindlessDataTexture(getGlobalBindlessData(), &defalut_no_texture->defaultView);
+		default_bindless_textureuav_idx = updateGlobalBindlessDataRWTexture(getGlobalBindlessData(), defalut_no_texture_UAV->defaultView);
+		default_bindless_texture_idx = updateGlobalBindlessDataTexture(getGlobalBindlessData(), defalut_no_texture->defaultView);
 		default_bindless_buffer_idx = updateGlobalBindlessDataRWBuffer(getGlobalBindlessData(), defalut_no_buffer);
 		default_bindless_sampler_idx = updateGlobalBindlessDataSampler(getGlobalBindlessData(), defalut_no_sampler);
 	}

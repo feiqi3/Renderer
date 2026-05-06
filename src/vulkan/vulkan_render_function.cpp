@@ -714,7 +714,7 @@ namespace Render::Vulkan {
                 assert(0 && "Attachment size not match");
                 return nullptr;
             }
-            views.push_back(&img.defaultView);
+            views.push_back(img.defaultView);
             localimages.push_back((rs_image*) & img);
         }
 
@@ -722,7 +722,7 @@ namespace Render::Vulkan {
         rt->m_views                 = views;
         rt->m_attachments           = localimages;
         rt->m_depthStencilAttachment = depthStencil;
-        rt->m_dsView = depthStencil ? &depthStencil->defaultView : nullptr;
+        rt->m_dsView = depthStencil ? depthStencil->defaultView : nullptr;
         rt->rtPassHash = CalcRenderTargetPassHash(ctx, rt);
         return rt;
     }
@@ -1011,8 +1011,6 @@ namespace Render::Vulkan {
         }
         vmaDestroyImage(context->allocator, (VkImage)image->native, image->allocation);
         
-		destroyRsImageView(context, image->defaultView);
-
 		for (auto& view : image->imageViews) {
 			destroyRsImageView(context, view);
 		}
@@ -1268,7 +1266,7 @@ namespace Render::Vulkan {
         //Images are created by swapchain  
         auto& swapchainImages = context->swapchain->swapchainImgs;
         for (auto image : swapchainImages) {
-			destroyRsImageView(context, image->defaultView);
+		    image->defaultView = nullptr;
             for (auto& view : image->imageViews) {
 				destroyRsImageView(context, view);
             }
@@ -1394,8 +1392,8 @@ namespace Render::Vulkan {
         cb->currentClearDepthStencil = clearDs;
 	}
 
-    Render::rs_image_view createRsImageViewInner(rs_context_vk* ctx, rs_image* image, ImageType viewType, VkImageAspectFlags aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt) {
-		rs_image_view rsView{};
+    Render::rs_image_view* createRsImageViewInner(rs_context_vk* ctx, rs_image* image, ImageType viewType, VkImageAspectFlags aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt) {
+		rs_image_view* rsView = new rs_image_view;
 		VkImageViewCreateInfo ivci{};
 		ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		ivci.image = (VkImage)image->native;
@@ -1412,19 +1410,20 @@ namespace Render::Vulkan {
 		ivci.subresourceRange.levelCount = mipCnt;
 		ivci.subresourceRange.baseArrayLayer = baseLayer;
 		ivci.subresourceRange.layerCount = layerCnt;
-        VK_CHECK(vkCreateImageView(ctx->device, &ivci, 0, (VkImageView*)&rsView.native), { assert(false);return {}; });
+        VK_CHECK(vkCreateImageView(ctx->device, &ivci, 0, (VkImageView*)&rsView->native), { assert(false);return {}; });
         return rsView;
     }
 
-	Render::rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
 	{
         auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
-        view.image = image;
-        view.viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+        view->image = image;
+        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+		image->imageViews.emplace_back(view);
         return view;
     }
 
-	Render::rs_image_view createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
 	{
 		auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(imageUsage), baseMip, mipCnt, baseLayer, layerCnt);
         ViewAspect aspect = ViewAspect::Color;
@@ -1432,8 +1431,9 @@ namespace Render::Vulkan {
         if (imageUsage & ImageUsage_DepthStencilAttachment) {
             aspect = ViewAspect::DepthAndStencil;
         }
-        view.image = image;
-        view.viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+        view->image = image;
+        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+		image->imageViews.emplace_back(view);
 		return view;
 	}
 
@@ -1471,32 +1471,28 @@ namespace Render::Vulkan {
         return ret;
 	}
 
-	void destroyRsImageView(rs_context_vk* ctx,rs_image_view& view)
+	void destroyRsImageView(rs_context_vk* ctx,rs_image_view* view)
 	{
-        vkDestroyImageView(ctx->device, (VkImageView)view.native, 0);
-        view.native = nullptr;
-        view.viewKey.value = 0;
-	}
+        vkDestroyImageView(ctx->device, (VkImageView)view->native, 0);
+        view->native = nullptr;
+        view->viewKey.value = 0;
+        delete view;
+    }
 
 	Render::rs_image_view* getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey)
 	{
-        if (image->defaultView.viewKey == viewKey) {
-            return nullptr;
-        }
         for (auto& imageView : image->imageViews) {
-            if (imageView.viewKey == viewKey) {
-                return &imageView;
+            if (imageView->viewKey == viewKey) {
+                return imageView;
             }
         }
 
         //Create:
         auto& viewBits = viewKey.bits;
-        auto view = createRsImageView(ctx, image, (ImageType)viewBits.viewType,
+        return createRsImageView(ctx, image, (ImageType)viewBits.viewType,
             (ViewAspect)viewBits.aspect,
             viewBits.baseMip, viewBits.mipCount,
             viewBits.baseLayer, viewBits.layerCount);
-        image->imageViews.push_back(view);
-        return &image->imageViews.back();
 	}
 
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos,int subscript, rs_image_vk* vk,rs_image_view* view)
@@ -2389,7 +2385,7 @@ namespace Render::Vulkan {
 			return;
 		}
 
-		updateDrawData(context, slot, pos, subscript, &image->defaultView, 0);
+		updateDrawData(context, slot, pos, subscript, image->defaultView, 0);
     }
 
     void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_sampler_vk* vk)
@@ -2798,7 +2794,7 @@ namespace Render::Vulkan {
                     rs_image_vk* defaultImg = (slot.type == UniformType::StorageImage)
                         ? (rs_image_vk*)defalut_no_texture_UAV
                         : (rs_image_vk*)defalut_no_texture;
-                    imageInfo.imageView = (VkImageView)defaultImg->defaultView.native;
+                    imageInfo.imageView = (VkImageView)defaultImg->defaultView->native;
                     slot.fifDirtyFlag = 0xFFFF;
                 }
                 else {
@@ -3279,9 +3275,10 @@ namespace Render::Vulkan {
         }
 
         if (view && view->bindlessIndex != INVALID_BINDLESS_INDEX) {
-            assert(false);
+            view->bindingRef.fetch_add(1);
             return view->bindlessIndex;
         }
+
         UniformType type = uav ? UniformType::StorageImage : UniformType::Texture;
         auto textureSlot = GetBindlessSlot(view, ctx->nextRenderFrame, type);
         auto bindingTable = uav ? &bindlessData->storageImagesBinding : &bindlessData->texturesBinding;
@@ -3291,7 +3288,8 @@ namespace Render::Vulkan {
             assert(false);
             //FIX ME 
         }
-        view->bindlessIndex = handleIndex;
+		view->bindingRef.fetch_add(1);
+		view->bindlessIndex = handleIndex;
 
         auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
 
@@ -3320,8 +3318,16 @@ namespace Render::Vulkan {
         auto resource = bindingTable->get(index);
         if (!resource) {
             assert(false);
-            return uav ?defalut_no_texture_UAV->defaultView.bindlessIndex : defalut_no_texture->defaultView.bindlessIndex;
+            return uav ?defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
         }
+
+        auto refAfterDec = resource->bindingRef.fetch_sub(1);
+        if (refAfterDec >= 1) {
+			return uav ? defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
+        }
+
+        assert(refAfterDec >= 0);
+
         resource->bindlessIndex = INVALID_BINDLESS_INDEX;
         bindingTable->Free(index);
 
@@ -3335,13 +3341,13 @@ namespace Render::Vulkan {
         write.dstBinding = bindingIdx;
         write.dstArrayElement = index;
         VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageView = (VkImageView)bindResource.native;
+        imageInfo.imageView = (VkImageView)bindResource->native;
         imageInfo.imageLayout = (type == UniformType::StorageImage)
             ? VK_IMAGE_LAYOUT_GENERAL
             : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         write.pImageInfo = &imageInfo;
         vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
-        return bindResource.bindlessIndex;
+        return bindResource->bindlessIndex;
     }
 
     uint64_t unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav)
@@ -3375,13 +3381,23 @@ namespace Render::Vulkan {
 
     uint32_t updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler)
     {
+        if (!sampler) {
+            return INVALID_BINDLESS_INDEX;
+        }
         if (sampler->bindlessIndex != INVALID_BINDLESS_INDEX) {
             assert(false);
+            sampler->bindingRef.fetch_add(1);
             return sampler->bindlessIndex;
         }
-        auto& bindingTable = bindlessData->samplersBinding;
+
+		auto& bindingTable = bindlessData->samplersBinding;
         auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
         auto ret = bindingTable.Allocate(ctx->curRenderFrame, sampler);
+        if (ret == INVALID_BINDLESS_INDEX) {
+            return INVALID_BINDLESS_INDEX;
+        }
+		sampler->bindingRef.fetch_add(1);
+
         VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
         write.descriptorCount = 1;
@@ -3405,6 +3421,12 @@ namespace Render::Vulkan {
             assert(false);
             return defalut_no_sampler->bindlessIndex;
         }
+        auto refAfterDec = sampler->bindingRef.fetch_sub(1);
+        if (refAfterDec >= 1) {
+			return defalut_no_sampler->bindlessIndex;
+        }
+        assert(refAfterDec >= 0);
+
         auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
         bindingTable.Free(index);
         VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };

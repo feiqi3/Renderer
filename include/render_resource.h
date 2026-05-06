@@ -32,6 +32,7 @@ namespace Render {
 
 	struct rs_resource : rs_base {
 		uint32_t bindlessIndex = INVALID_BINDLESS_INDEX;
+		std::atomic_int32_t	bindingRef = 0;
 	};
 
 	struct BindlessItem {
@@ -83,9 +84,9 @@ namespace Render {
 		std::vector<ResourceState> subresourcePendingStates; // The state resource is going to be.
 		std::vector<ResourceState> subresourceStates;
 		//---------------------------//
-		rs_image_view defaultView;
+		rs_image_view* defaultView;
 		//create in runtime.
-		std::list<rs_image_view> imageViews;
+		std::vector<rs_image_view*> imageViews;
 	};
 
 	struct rs_buffer : rs_resource {

@@ -249,7 +249,7 @@ namespace Render {
 
             rs_image_view* view = nullptr;
             if (tex != nullptr) {
-                view = &tex->getRsImage()->defaultView;
+                view = tex->getRsImage()->defaultView;
             }
             uint32_t globalIndex = INVALID_BINDLESS_INDEX;
             if (type == UniformType::StorageImage) {

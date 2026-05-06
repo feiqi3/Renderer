@@ -23,12 +23,12 @@ namespace Render {
 		}
 
 		inline explicit Name(const ::std::string& str)
-			: Name(str.data(),str.size()){
+			: Name(str.data(),u32(str.size())){
 		}
 
 		inline bool isEmpty()const { return data_ == nullptr; }
 
-		inline Name(::std::string_view sv) : Name(sv.data(),sv.size()) {}
+		inline Name(::std::string_view sv) : Name(sv.data(),u32(sv.size())) {}
 		inline Name() :Name(nullptr, 0) {}
 		~Name() {}
 		Name(const Name& other) = default;
@@ -45,7 +45,7 @@ namespace Render {
 			return (strcmp(this->c_str(), rhs) == 0);
 		}
 
-		inline bool isEqual(const std::string& rhs)const noexcept {
+		inline bool isEqual(const ::std::string& rhs)const noexcept {
 			if (data_ == nullptr)return false;
 			return (strcmp(this->c_str(), rhs.c_str()) == 0);
 		}
