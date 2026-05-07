@@ -115,7 +115,12 @@ namespace Render {
 
             if (old == 1) {
                 if (m_block->owner && m_block->entry) {
-                    m_block->owner->release(m_block->entry->resourceName);
+                    if (!m_block->entry->anonymousResource) {
+                        m_block->owner->release(m_block->entry->resourceName);
+                    }
+                    else {
+						m_block->owner->releaseAnonymous(m_block->entry->resource);
+                    }
                 }
 
                 delete m_block;

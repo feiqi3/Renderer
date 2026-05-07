@@ -61,6 +61,7 @@ namespace Render {
 		Name resourceName;
 		IResource* resource = nullptr;
 		std::atomic<u32> refCount = 0;
+		bool			 anonymousResource : 8 = false;
 		ResourceLifetime lifeTimeCtrl = ResourceLifetime::Transient;
 		UserDeletor deletor = nullptr;
 	};
@@ -73,12 +74,16 @@ namespace Render {
 		virtual ~IResourceManager() = default;
 		virtual const Name& typeName() const = 0;
 
+		//Get a managed resource
+		virtual ResourceEntry* registerAnonymousResource(IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor) = 0;
+		
 		virtual ResourceEntry* registerResource(const Name& id, IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor) = 0;
 		virtual void createNecessaryPersistenceResources() = 0;
 		virtual ResourceEntry* create(const Name& id, ResourceLifetime lifeTimeCtr) = 0;
 		virtual void           destroy(const Name& id) = 0; // force delete.
 		virtual ResourceEntry* acquireOrCreate(const Name& id) = 0;
 		virtual ResourceEntry* acquire(const Name& id) = 0;
+		virtual void releaseAnonymous(IResource* resource) =0;
 		virtual void release(const Name& id) = 0;
 		virtual const Name& getDefaultResourceName()const = 0;
 		virtual void clearAll() = 0;
@@ -91,14 +96,15 @@ namespace Render {
 	public:
 		explicit ResourceManager();
 		virtual ~ResourceManager() = default;
-
+		static  const Name& getAnonymousName();
 		virtual const Name& typeName() const override = 0;
-
+		virtual ResourceEntry* registerAnonymousResource(IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor)override;
 		virtual ResourceEntry* registerResource(const Name& id, IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor) override;
 		virtual ResourceEntry* acquire(const Name& name) override;
 		virtual ResourceEntry* create(const Name& name, ResourceLifetime lifeTimeCtr) override;
 		virtual void destroy(const Name& name) override;
 		virtual ResourceEntry* acquireOrCreate(const Name& name) override;
+		virtual void releaseAnonymous(IResource* resource) override;
 		virtual void release(const Name& id) override;
 		virtual const Name& getDefaultResourceName()const override;
 		virtual void clearAll() override;
@@ -114,7 +120,14 @@ namespace Render {
 	protected:
 		std::mutex m_mutex;
 		std::map<Name, std::unique_ptr<ResourceEntry>> m_entries;
+		std::map<IResource*,std::unique_ptr<ResourceEntry>> m_managedEntries;
 	};
+
+	template<typename T>
+	const Name& Render::ResourceManager<T>::getAnonymousName()
+	{
+
+	}
 
 } // namespace Render
 

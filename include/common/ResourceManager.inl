@@ -4,9 +4,42 @@
 
 
 namespace Render {
+	const static Name anonymousName = Name("_anonymous");
 
 	template<typename T>
 	ResourceManager<T>::ResourceManager() {}
+
+	template<typename T>
+	ResourceEntry* ResourceManager<T>::registerAnonymousResource(IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor)
+	{
+		const Name& tarName = resource->getTypeName();
+		ResourceEntry* ret = nullptr;
+		if (tarName != this->typeName()) {
+			assert(0);
+			throw std::runtime_error("Resource Type Error");
+		}
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			auto it = m_managedEntries.find(resource);
+			if (it != m_managedEntries.end()) {
+				it->second->refCount++;
+				return it->second.get();
+			}
+			auto entry = std::make_unique<ResourceEntry>();
+			entry->resourceName = anonymousName;
+			entry->anonymousResource = true;
+			entry->resource = resource;
+			entry->refCount = 1;
+			entry->lifeTimeCtrl = lifeTimeCtr;
+			entry->deletor = deletor;
+			ret = entry.get();
+			this->m_managedEntries.insert({ resource, std::move(entry)});
+		}
+		if (ret) {
+			ret->resource->OnLoaded();
+		}
+		return ret;
+	}
 
 	template<typename T>
 	ResourceEntry* ResourceManager<T>::registerResource(const Name& id, IResource* resource, ResourceLifetime lifeTimeCtr, UserDeletor deletor) {
@@ -174,6 +207,49 @@ namespace Render {
 		}
 	}
 
+
+	template<typename T>
+	void Render::ResourceManager<T>::releaseAnonymous(IResource* resource)
+	{
+		T* res = nullptr;
+		bool needDelete = false;
+		UserDeletor deletor = nullptr;
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			auto it = m_managedEntries.find(resource);
+			if (it == m_managedEntries.end()) return;
+			ResourceEntry* entry = it->second.get();
+
+			// refCount is atomic, but we are inside a lock anyway which protects the map entry existence
+			// However, since we might erase it, lock is necessary.
+
+			if (entry->refCount == 0) return;
+
+			res = (T*)entry->resource;
+			deletor = entry->deletor;
+
+			if (entry->refCount.fetch_sub(1) == 1) { // fetch_sub returns OLD value. So if old was 1, new is 0.
+				if (entry->lifeTimeCtrl == ResourceLifetime::Transient) {
+					m_managedEntries.erase(it);
+					needDelete = true;
+				}
+				else {
+					// For Persistent or Manual -> Do nothing
+				}
+			}
+		}
+		if (needDelete) {
+			res->OnUnload();
+			if (deletor) {
+				deletor(anonymousName, res);
+			}
+			else {
+				unloadImpl(res);
+			}
+		}
+	}
+
+
 	template<typename T>
 	inline const Name& ResourceManager<T>::getDefaultResourceName() const
 	{
@@ -191,6 +267,13 @@ namespace Render {
 				resourcesToUnload.push_back(std::move(entryPtr));
 			}
 			m_entries.clear();
+
+			for (auto& [resource, entryPtr] : m_managedEntries) {
+				auto res = entryPtr->resource;
+				resourcesToUnload.push_back(std::move(entryPtr));
+			}
+			m_managedEntries.clear();
+
 		}
 		for (int i = 0; i < resourcesToUnload.size(); ++i) {
 			auto& entry = resourcesToUnload[i];

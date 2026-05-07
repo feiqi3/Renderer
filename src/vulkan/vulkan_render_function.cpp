@@ -3320,13 +3320,13 @@ namespace Render::Vulkan {
             assert(false);
             return uav ?defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
         }
-
+        uint32_t default_unbind_index = uav ? defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
         auto refAfterDec = resource->bindingRef.fetch_sub(1);
-        if (refAfterDec >= 1) {
-			return uav ? defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
+        if (refAfterDec > 1) {
+            return default_unbind_index;
         }
 
-        assert(refAfterDec >= 0);
+        assert(refAfterDec >= 1);
 
         resource->bindlessIndex = INVALID_BINDLESS_INDEX;
         bindingTable->Free(index);
@@ -3347,7 +3347,7 @@ namespace Render::Vulkan {
             : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         write.pImageInfo = &imageInfo;
         vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
-        return bindResource->bindlessIndex;
+        return default_unbind_index;
     }
 
     uint64_t unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav)
@@ -3422,10 +3422,10 @@ namespace Render::Vulkan {
             return defalut_no_sampler->bindlessIndex;
         }
         auto refAfterDec = sampler->bindingRef.fetch_sub(1);
-        if (refAfterDec >= 1) {
+        if (refAfterDec > 1) {
 			return defalut_no_sampler->bindlessIndex;
         }
-        assert(refAfterDec >= 0);
+        assert(refAfterDec >= 1);
 
         auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
         bindingTable.Free(index);

@@ -31,7 +31,7 @@ namespace Render {
 
         static uint32_t UnbindGlobalTexture(uint32_t index) {
         
-            return RenderSystem::instance()->unbindGlobalBindlessDataSampler(RenderSystem::instance()->getGlobalBindlessData(), index);
+            return RenderSystem::instance()->unbindGlobalBindlessDataTexture(RenderSystem::instance()->getGlobalBindlessData(), index);
         }
         static uint32_t UnbindGlobalRWTexture(uint32_t index) {
 

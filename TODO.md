@@ -13,8 +13,8 @@
    2. 相机剔除问题，场景管理器 （aabb/oct tree）                
    3. 序列化问题                 
 4. api改进：             
-   1. bindless texture             
-   2. bindless vertex input            
+   1. bindless texture             ✔
+   2. bindless vertex input        ✔ (Not tested but should work as BDA is verified)   
    3. bindless everything.           
    4. 让渲染线程跑起来           
    5. msaa？                        
