@@ -65,6 +65,31 @@ namespace Render {
         return texture;
 	}
 
+	uint32_t Texture::getWidth() const
+	{
+        return this->pImage->width;
+	}
+
+	uint32_t Texture::getHeight() const
+	{
+		return this->pImage->height;
+	}
+
+	uint32_t Texture::getDepth() const
+	{
+        return this->pImage->depth;
+	}
+
+	uint32_t Texture::getMips() const
+	{
+        return this->pImage->mipLevels;
+	}
+
+	uint32_t Texture::getArrayLayers() const
+	{
+		return this->pImage->arrayLayers;
+	}
+
 	const Name& Texture::typeName()
     {
         static const Name sTypeName = Name("Texture");

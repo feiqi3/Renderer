@@ -168,8 +168,9 @@ namespace Render::Vulkan {
 
         case VK_FORMAT_R16_SFLOAT:              return ImageFormat::R16_SFLOAT;
         case VK_FORMAT_R16G16_SFLOAT:           return ImageFormat::RG16_SFLOAT;
-        case VK_FORMAT_R16G16B16_SFLOAT:           return ImageFormat::RGB16_SFLOAT;
-        case VK_FORMAT_R16G16B16A16_SFLOAT:     return ImageFormat::RGBA16_SFLOAT;
+        case VK_FORMAT_R16G16B16_SFLOAT:        return ImageFormat::RGB16_SFLOAT;
+		case VK_FORMAT_B10G11R11_UFLOAT_PACK32: return ImageFormat::R11G11B10_UFLOAT;
+		case VK_FORMAT_R16G16B16A16_SFLOAT:     return ImageFormat::RGBA16_SFLOAT;
 
         case VK_FORMAT_R32_SFLOAT:              return ImageFormat::R32_SFLOAT;
         case VK_FORMAT_R32G32_SFLOAT:           return ImageFormat::RG32_SFLOAT;
@@ -213,8 +214,9 @@ namespace Render::Vulkan {
 
         case ImageFormat::R32_SFLOAT:         return VK_FORMAT_R32_SFLOAT;
         case ImageFormat::RG32_SFLOAT:        return VK_FORMAT_R32G32_SFLOAT;
-        case ImageFormat::RGB32_SFLOAT:        return VK_FORMAT_R32G32B32_SFLOAT;
-        case ImageFormat::RGBA32_SFLOAT:      return VK_FORMAT_R32G32B32A32_SFLOAT;
+        case ImageFormat::RGB32_SFLOAT:       return VK_FORMAT_R32G32B32_SFLOAT;
+		case ImageFormat::R11G11B10_UFLOAT:   return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+		case ImageFormat::RGBA32_SFLOAT:      return VK_FORMAT_R32G32B32A32_SFLOAT;
 
         case ImageFormat::RGBA32_UINT:        return VK_FORMAT_R32G32B32A32_UINT;
 
@@ -287,54 +289,52 @@ namespace Render::Vulkan {
             e = ImageFormat::Invalid;
         }
 
-        auto isColorSupported = [ctx](ImageFormat fmt) -> bool {
-            return Render::queryImgFormatCaps(ctx, fmt, ImgFormatCaps::Supported | ImgFormatCaps::ColorAtt);
-            };
-        auto isDepthStencilSupported = [ctx](ImageFormat fmt) -> bool {
-            return Render::queryImgFormatCaps(ctx, fmt, ImgFormatCaps::Supported | ImgFormatCaps::DepthStencil);
-            };
+		auto isColorSupported = [ctx](ImageFormat fmt) -> bool {
+			return Render::queryImgFormatCaps(ctx, fmt, ImgFormatCaps::Supported | ImgFormatCaps::ColorAtt);
+			};
+
+        auto SetImageFormat = [&](RenderTextureFormat RTFormat, ImageFormat TargetFormat,const std::vector<ImageFormat>& fallbacks) {
+            if (isColorSupported(TargetFormat)) {
+                map[(int)RTFormat] = TargetFormat;
+                return;
+            }
+            else {
+                Log::warn("Render texture format " + std::to_string((int)RTFormat) + " is not supported, fallback happened...");
+            }
+
+            for (auto& color : fallbacks) {
+                if (isColorSupported(color)) {
+					map[(int)RTFormat] = color;
+                    return;
+                }
+            }
+        };
+
+
         // ------------------------
         // LDR Color
         // ------------------------
-        if (isColorSupported(ImageFormat::RGBA8_UNORM))
-            map[(size_t)RenderTextureFormat::RGBA8] = ImageFormat::RGBA8_UNORM;
-        else if (isColorSupported(ImageFormat::BGRA8_UNORM))
-            map[(size_t)RenderTextureFormat::RGBA8] = ImageFormat::BGRA8_UNORM;
+        SetImageFormat(RenderTextureFormat::RGBA8, ImageFormat::RGBA8_UNORM, { ImageFormat::BGRA8_UNORM });
 
         // ------------------------
         // HDR Color
         // ------------------------
-        if (isColorSupported(ImageFormat::R16_SFLOAT))
-            map[(size_t)RenderTextureFormat::R16F] = ImageFormat::R16_SFLOAT;
+		SetImageFormat(RenderTextureFormat::R16F, ImageFormat::R16_SFLOAT, {  });
 
-        if (isColorSupported(ImageFormat::RG16_SFLOAT))
-            map[(size_t)RenderTextureFormat::RG16F] = ImageFormat::RG16_SFLOAT;
+		SetImageFormat(RenderTextureFormat::RG16F, ImageFormat::RG16_SFLOAT, {  });
 
-        if (isColorSupported(ImageFormat::RGBA16_SFLOAT))
-            map[(size_t)RenderTextureFormat::RGBA16F] = ImageFormat::RGBA16_SFLOAT;
-        else if (isColorSupported(ImageFormat::RGBA32_SFLOAT))
-            map[(size_t)RenderTextureFormat::RGBA16F] = ImageFormat::RGBA32_SFLOAT; // fallback
-        
-        if (isColorSupported(ImageFormat::RGBA32_SFLOAT))
-            map[(size_t)RenderTextureFormat::RGBA32F] = ImageFormat::RGBA32_SFLOAT; // fallback
-        else if (isColorSupported(ImageFormat::RGBA16_SFLOAT))
-            map[(size_t)RenderTextureFormat::RGBA32F] = ImageFormat::RGBA16_SFLOAT; // fallback
+		SetImageFormat(RenderTextureFormat::R11G11B10F, ImageFormat::R11G11B10_UFLOAT, { ImageFormat::RGBA32_SFLOAT });
+		
+        SetImageFormat(RenderTextureFormat::RGBA16F, ImageFormat::RGBA16_SFLOAT, { ImageFormat::RGBA32_SFLOAT });
+
+		SetImageFormat(RenderTextureFormat::RGBA32F, ImageFormat::RGBA32_SFLOAT, { ImageFormat::RGBA16_SFLOAT });
+
         // ------------------------
         // Depth / Stencil
         // ------------------------
-        if (isDepthStencilSupported(ImageFormat::D24_UNORM_S8_UINT))
-            map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D24_UNORM_S8_UINT;
-        else if (isDepthStencilSupported(ImageFormat::D32_SFLOAT_S8_UINT))
-            map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D32_SFLOAT_S8_UINT;
-        else if (isDepthStencilSupported(ImageFormat::D32_SFLOAT))
-            map[(size_t)RenderTextureFormat::D24S8] = ImageFormat::D32_SFLOAT;
+		SetImageFormat(RenderTextureFormat::D24S8, ImageFormat::D24_UNORM_S8_UINT, { ImageFormat::D32_SFLOAT_S8_UINT });
 
-        if (isDepthStencilSupported(ImageFormat::D32_SFLOAT)) {
-			map[(size_t)RenderTextureFormat::D32] = ImageFormat::D32_SFLOAT;
-        }
-        else {
-            map[(size_t)RenderTextureFormat::D32] = map[(size_t)RenderTextureFormat::D24S8];
-        }
+		SetImageFormat(RenderTextureFormat::D32, ImageFormat::D32_SFLOAT, { ImageFormat::D32_SFLOAT_S8_UINT, ImageFormat::D24_UNORM_S8_UINT });
 
         map[(size_t)RenderTextureFormat::SwapchainFormat] = ctx->swapchain->SwapchainImageFormat;
 

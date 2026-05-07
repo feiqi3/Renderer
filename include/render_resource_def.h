@@ -85,8 +85,9 @@ namespace Render {
         // 32-bit float color formats (HDR)
         R32_SFLOAT,         // 32-bit float R           
         RG32_SFLOAT,        // 32-bit float R, G       
-        RGB32_SFLOAT,        // 32-bit float R, G, B       
-        RGBA32_SFLOAT,      // 32-bit float RGBA        
+        RGB32_SFLOAT,       // 32-bit float R, G, B       
+		R11G11B10_UFLOAT,   // 32-bit float R, G, B       
+		RGBA32_SFLOAT,      // 32-bit float RGBA        
 
         // 32-bit integer color formats 
         RGBA32_UINT,
@@ -117,8 +118,9 @@ namespace Render {
         // HDR Color
         R16F,           // 1 channel
         RG16F,          // 2 channel
-        RGBA16F,        // 4 channel
-        RGBA32F,        // 4 channel
+		R11G11B10F,     // 3 channel
+		RGBA16F,        // 4 channel
+		RGBA32F,        // 4 channel
 
         // Depth / Stencil
         D24S8,          // packed depth-stencil

@@ -1,6 +1,7 @@
 #ifndef TEXTURE_RESOURCE_MANAGER_H_
 #define TEXTURE_RESOURCE_MANAGER_H_
 #include "Texture.h"
+#include "render_resource_def.h"
 #include "common/ResourceManager.h"
 #include "common/Singleton.h"
 namespace Render {
@@ -8,7 +9,9 @@ namespace Render {
 	class TextureResourceManager : public ResourceManager< Texture>,public Singleton<TextureResourceManager> {
 	public:
 		TexturePtr createEmpty(const Name& id);
-
+		//Create a anonymous resource
+		TexturePtr createEmpty();
+		TexturePtr createRenderTexture(RenderTextureFormat format, uint32_t width, uint32_t height, uint32_t depth,uint32_t mips, uint32_t arrayLayers);
 		Texture* loadImpl(const Name& id) override;
 		void unloadImpl(Texture* texture);
 		const Name& typeName()const override;
