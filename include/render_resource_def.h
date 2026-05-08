@@ -124,8 +124,9 @@ namespace Render {
 
         // Depth / Stencil
         D24S8,          // packed depth-stencil
-        D32,            // Pure depth
-        SwapchainFormat,
+        D32S8,          // packed depth-stencil
+		D32,            // Pure depth
+		SwapchainFormat,
 
         Invalid
     };

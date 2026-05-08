@@ -9,7 +9,7 @@
 
 namespace Render {
 
-    ComputeKernel::ComputeKernel(const std::string& shaderPath, const MacroPairs& macros) {
+    ComputeKernel::ComputeKernel(const std::string& shaderPath, const MacroPairs& macros, const std::string& entry = "main") {
         auto ctx = RenderSystem::instance()->getRenderContext();
         auto sys = RenderSystem::instance();
         std::string shaderCode;
@@ -39,7 +39,7 @@ namespace Render {
         sd.codeSizeByte = 0;
         sd.stage = ShaderStage::Compute;
         sd.compileDesc = &compileDesc;
-
+        sd.entryPoint = entry.c_str();
         auto shaderModule = (rs_shader_module*)Vulkan::createRsShader(ctx, sd);
 
         mPipeline = sys->createComputePipeline(shaderModule);

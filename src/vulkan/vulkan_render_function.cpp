@@ -289,12 +289,13 @@ namespace Render::Vulkan {
             e = ImageFormat::Invalid;
         }
 
-		auto isColorSupported = [ctx](ImageFormat fmt) -> bool {
-			return Render::queryImgFormatCaps(ctx, fmt, ImgFormatCaps::Supported | ImgFormatCaps::ColorAtt);
+		auto isFormatSupported = [ctx](ImageFormat fmt, bool depthStencil) -> bool {
+            uint32_t queryFlags = depthStencil ? ImgFormatCaps::Supported | ImgFormatCaps::DepthStencil : ImgFormatCaps::Supported | ImgFormatCaps::ColorAtt;
+            return Render::queryImgFormatCaps(ctx, fmt, queryFlags);
 			};
 
-        auto SetImageFormat = [&](RenderTextureFormat RTFormat, ImageFormat TargetFormat,const std::vector<ImageFormat>& fallbacks) {
-            if (isColorSupported(TargetFormat)) {
+        auto SetImageFormat = [&](RenderTextureFormat RTFormat, ImageFormat TargetFormat,bool depthStencil,const std::vector<ImageFormat>& fallbacks) {
+            if (isFormatSupported(TargetFormat, depthStencil)) {
                 map[(int)RTFormat] = TargetFormat;
                 return;
             }
@@ -303,7 +304,7 @@ namespace Render::Vulkan {
             }
 
             for (auto& color : fallbacks) {
-                if (isColorSupported(color)) {
+                if (isFormatSupported(color, depthStencil)) {
 					map[(int)RTFormat] = color;
                     return;
                 }
@@ -314,27 +315,28 @@ namespace Render::Vulkan {
         // ------------------------
         // LDR Color
         // ------------------------
-        SetImageFormat(RenderTextureFormat::RGBA8, ImageFormat::RGBA8_UNORM, { ImageFormat::BGRA8_UNORM });
+        SetImageFormat(RenderTextureFormat::RGBA8, ImageFormat::RGBA8_UNORM, false, { ImageFormat::BGRA8_UNORM });
 
         // ------------------------
         // HDR Color
         // ------------------------
-		SetImageFormat(RenderTextureFormat::R16F, ImageFormat::R16_SFLOAT, {  });
+		SetImageFormat(RenderTextureFormat::R16F, ImageFormat::R16_SFLOAT, false, {  });
 
-		SetImageFormat(RenderTextureFormat::RG16F, ImageFormat::RG16_SFLOAT, {  });
+		SetImageFormat(RenderTextureFormat::RG16F, ImageFormat::RG16_SFLOAT, false, {  });
 
-		SetImageFormat(RenderTextureFormat::R11G11B10F, ImageFormat::R11G11B10_UFLOAT, { ImageFormat::RGBA32_SFLOAT });
+		SetImageFormat(RenderTextureFormat::R11G11B10F, ImageFormat::R11G11B10_UFLOAT,false , { ImageFormat::RGBA32_SFLOAT });
 		
-        SetImageFormat(RenderTextureFormat::RGBA16F, ImageFormat::RGBA16_SFLOAT, { ImageFormat::RGBA32_SFLOAT });
+        SetImageFormat(RenderTextureFormat::RGBA16F, ImageFormat::RGBA16_SFLOAT, false, { ImageFormat::RGBA32_SFLOAT });
 
-		SetImageFormat(RenderTextureFormat::RGBA32F, ImageFormat::RGBA32_SFLOAT, { ImageFormat::RGBA16_SFLOAT });
+		SetImageFormat(RenderTextureFormat::RGBA32F, ImageFormat::RGBA32_SFLOAT,false, { ImageFormat::RGBA16_SFLOAT });
 
         // ------------------------
         // Depth / Stencil
         // ------------------------
-		SetImageFormat(RenderTextureFormat::D24S8, ImageFormat::D24_UNORM_S8_UINT, { ImageFormat::D32_SFLOAT_S8_UINT });
+		SetImageFormat(RenderTextureFormat::D24S8, ImageFormat::D24_UNORM_S8_UINT,true, { ImageFormat::D32_SFLOAT_S8_UINT, ImageFormat::D24_UNORM_S8_UINT, ImageFormat::D32_SFLOAT });
+		SetImageFormat(RenderTextureFormat::D32S8, ImageFormat::D32_SFLOAT_S8_UINT,true, { ImageFormat::D32_SFLOAT_S8_UINT, ImageFormat::D24_UNORM_S8_UINT, ImageFormat::D32_SFLOAT });
 
-		SetImageFormat(RenderTextureFormat::D32, ImageFormat::D32_SFLOAT, { ImageFormat::D32_SFLOAT_S8_UINT, ImageFormat::D24_UNORM_S8_UINT });
+		SetImageFormat(RenderTextureFormat::D32, ImageFormat::D32_SFLOAT,true, { ImageFormat::D32_SFLOAT_S8_UINT, ImageFormat::D24_UNORM_S8_UINT, ImageFormat::D32_SFLOAT });
 
         map[(size_t)RenderTextureFormat::SwapchainFormat] = ctx->swapchain->SwapchainImageFormat;
 

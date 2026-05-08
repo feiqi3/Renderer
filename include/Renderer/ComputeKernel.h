@@ -21,7 +21,7 @@ namespace Render {
 
     class ComputeKernel : public Common::NonCopyable {
     public:
-        ComputeKernel(const std::string& shaderPath, const MacroPairs& macros);
+        ComputeKernel(const std::string& shaderPath, const MacroPairs& macros, const std::string& entry = "main");
         ~ComputeKernel();
 
         inline bool isValid() const { return mPipeline != nullptr; }

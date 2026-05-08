@@ -3,11 +3,25 @@
 #include "Renderer/Texture.h"
 #include "Renderer/TextureResourceMgr.h"
 namespace Render {
+	//Next-Generation-Post-Processing-in-Call-of-Duty-Advanced-Warfare
+
+	struct CODBloomCFG {
+		float BloomStrength;
+		float Threshold;					//TODO
+		float Radius = 0.15;                //Up sample parameter, controls the uv step. 
+		float Padding3;
+	};
 
 	CodBloom::CodBloom()
 	{
-		mDownsampleKernel = new ComputeKernel("../shader/PostEffect/CodBloom_DownSample.cs", {});
-		mUpsampleKernel = new ComputeKernel("../shader/PostEffect/CodBloom_UpSample.cs", {});
+		mDownsampleKernel = new ComputeKernel("../shader/PostEffect/CodBloom.cs",
+			{"DOWN_SAMPLE",""},
+			"DownSampleMain"
+		);
+		mUpsampleKernel = new ComputeKernel("../shader/PostEffect/CodBloom.cs", 
+			{ "UP_SAMPLE","" }, 
+			"UpSampleMain"
+		);
 	}
 
 	CodBloom::~CodBloom()
@@ -23,6 +37,13 @@ namespace Render {
 			mSavedMainRT = mainRT;
 			prepareMipmapChain();
 		}
+		//Build Mip chain downsample
+		//TODO
+
+		//Build Mip chain upsample
+		//TODO
+
+		//Compose pass....  
 	}
 
 	void CodBloom::prepareMipmapChain()
