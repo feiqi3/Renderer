@@ -26,6 +26,13 @@ namespace Render {
 
         inline bool isValid() const { return mPipeline != nullptr; }
 
+		void setParameter(const Name& name, rs_buffer* buffer, int element = 0);
+		void setParameter(const Name& name, rs_buffer* buffer, uint32_t offset, uint32_t size, int element = 0);
+		void setParameter(const Name& name, TexturePtr texture, int element = 0);
+		void setParameter(const Name& name, TexturePtr texture, ImageViewKey key, int element = 0);
+		void setParameter(const Name& name, SamplerPtr sampler, int element = 0);
+		void setParameter(const Name& name, const void* data, uint32_t size);
+
         void setParameter(const std::string& name, rs_buffer* buffer,int element = 0);
         void setParameter(const std::string& name, rs_buffer* buffer , uint32_t offset, uint32_t size, int element = 0);
         void setParameter(const std::string& name, TexturePtr texture, int element = 0);

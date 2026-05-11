@@ -33,8 +33,25 @@ namespace Render {
 		return *this;
 	}
 
+	void ShaderScopeDataPtr::write(const void* data, u32 size,u32 offset)
+	{
+		assert(offset + size <= _size);
+		memcpy(this->_data + offset,data, std::min((u32)size, _size));
+		_Dirty = true;
+	}
+
 	unsigned char* ShaderScopeDataPtr::get() const {
 		return _data;
+	}
+
+	void ShaderScopeDataPtr::setDirty(bool v)
+	{
+		_Dirty = v;
+	}
+
+	bool ShaderScopeDataPtr::getDirty() const
+	{
+		return _Dirty;
 	}
 
 	u32 ShaderScopeDataPtr::size() const {
@@ -194,17 +211,30 @@ namespace Render {
 		{
 			if (!data)return;
 			auto& scopedShaderData = std::get<ShaderScopeDataPtr>(mData);
-			auto sizeMax = scopedShaderData.size();
-			auto sizeToCp = std::min(size, sizeMax);
-			std::memcpy(scopedShaderData.get(), data, sizeToCp);
+			scopedShaderData.write((void*)data, size, 0);
 		}
 		else {
 			ShaderScopeDataPtr ubo(size);
 			if (data) {
-				std::memcpy(ubo.get(), data, size);
+				ubo.write((void*)data, size,0);
 			}
 			mData = std::move(ubo);
 		}
+	}
+
+	ShaderScopeDataPtr* RenderResourceVariant::getUniformDataPtr()
+	{
+		if (this->isUniformBuffer()) {
+			auto& scopedShaderData = std::get<ShaderScopeDataPtr>(mData);
+			return &scopedShaderData;
+		}
+		return nullptr;
+	}
+
+	void RenderResourceVariant::writeData(const void* data, u32 size, u32 offset)
+	{
+		auto& dataPtr = *this->getUniformDataPtr();
+		dataPtr.write(data, size,offset);
 	}
 
 } // namespace Render

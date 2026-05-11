@@ -1036,6 +1036,26 @@ namespace Render{
 		return Vulkan::updateBindlessSampler(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_sampler_vk*)sampler);
 	}
 
+	bool RenderSystem::isEngineResourceName(const Name& name)
+	{
+		if (isBindlessEnabled()) {
+			static const Name& UAVImageName = Name("GlobalUAVImages");
+			static const Name& SamplerName = Name("GlobalSamplers");
+			static const Name& TextureName = Name("GlobalTextures");
+			return name == UAVImageName || name == SamplerName || name == TextureName;
+		}
+		
+		{
+
+			static const Name& ObjectCommonUBOName = Name("ObjData");
+			static const Name& CameraCommonUBOName = Name("CameraCommon");
+			static const Name& SceneCommonUBOName = Name("SceneCommon");
+			return name == CameraCommonUBOName || name == CameraCommonUBOName || name == SceneCommonUBOName;
+		}
+
+		return false;
+	}
+
 	void RenderSystem::destroyBindlessData(rs_bindless_data* data)
 	{
 		Vulkan::destroyBindlessData(getRenderContext(),(Vulkan::rs_bindless_data_vk*)data);

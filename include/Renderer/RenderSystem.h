@@ -182,7 +182,7 @@ namespace Render{
 
 		uint32_t unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataSampler(rs_bindless_data* bindlessData, rs_sampler* sampler);
-
+		bool	 isEngineResourceName(const Name& name);
 
 		void destroyBindlessData(rs_bindless_data* data);
 		void			  setGlobalBindlessData(rs_bindless_data * bindlessData);
