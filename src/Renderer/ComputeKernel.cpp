@@ -9,7 +9,7 @@
 
 namespace Render {
 
-    ComputeKernel::ComputeKernel(const std::string& shaderPath, const MacroPairs& macros, const std::string& entry = "main") {
+    ComputeKernel::ComputeKernel(const std::string& shaderPath, const MacroPairs& macros, const std::string& entry) {
         auto ctx = RenderSystem::instance()->getRenderContext();
         auto sys = RenderSystem::instance();
         std::string shaderCode;
@@ -65,6 +65,32 @@ namespace Render {
         }
     }
 
+	void ComputeKernel::setParameter(const Name& name, rs_buffer* buffer, int element) {
+		this->mBindingTable.updateParameter((name), buffer, 0, 0, element);
+	}
+
+	void ComputeKernel::setParameter(const Name& name, rs_buffer* buffer, uint32_t offset, uint32_t size, int element)
+	{
+		this->mBindingTable.updateParameter((name), buffer, offset, size, element);
+	}
+
+	void ComputeKernel::setParameter(const Name& name, TexturePtr texture, int element) {
+		this->mBindingTable.updateParameter((name), texture, element);
+	}
+
+	void ComputeKernel::setParameter(const Name& name, TexturePtr texture, ImageViewKey key, int element)
+	{
+		this->mBindingTable.updateParameter((name), texture, key, element);
+	}
+
+	void ComputeKernel::setParameter(const Name& name, SamplerPtr sampler, int element) {
+		this->mBindingTable.updateParameter((name), sampler, element);
+	}
+
+	void ComputeKernel::setParameter(const Name& name, const void* data, uint32_t size) {
+		this->mBindingTable.updateParameterData((name), data, size);
+	}
+
 
     void ComputeKernel::setParameter(const std::string& name, rs_buffer* buffer, int element) {
         this->mBindingTable.updateParameter(Name(name), buffer,0 ,0, element);
@@ -102,8 +128,8 @@ namespace Render {
         }
         mCurrentDrawData = sys->createDrawData();
 
-        mBindingTable.commit(mPipeline, mCurrentDrawData, true);
-
+		RenderSystem::instance()->excutePendingBufferCopies(cmd);
+		mBindingTable.commit(mPipeline, mCurrentDrawData, true);
 		sys->dispatchCompute(cmd, mPipeline, mCurrentDrawData, groupX, groupY, groupZ);
     }
 }

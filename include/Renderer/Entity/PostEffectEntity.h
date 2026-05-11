@@ -5,14 +5,6 @@ namespace Render{
 
 	class PostEffectEntity :public RenderEntity{
 	public: 
-		PostEffectEntity();
-		void setBlitImageFrom(rs_binding_pos imageFromPos,rs_image* image);
-		void setBlitImageTo(rs_binding_pos imageFromPos, rs_image* image);
-	};
-
-	class BlitEntity : public PostEffectEntity {
-	public:
-
-		
+		PostEffectEntity(const std::string& effectName, const std::string& vsName, const std::string& psName);
 	};
 }

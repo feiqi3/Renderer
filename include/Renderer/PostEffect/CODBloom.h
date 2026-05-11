@@ -3,23 +3,25 @@
 #include "Renderer/Texture.h"
 #include "Renderer/SamplerResourceManager.h"
 namespace Render {
+	class CodBloomPrivate;
 	class ComputeKernel;
 	class CodBloom {
 	public:
 		CodBloom();
 		~CodBloom();
-		void draw(TexturePtr mainRT);
-	
+		void		draw(rs_commandbuffer* cmd,const TexturePtr& mainRT);
+		TexturePtr	outBloomTex()const;
+		void		setBloomThreshold(float f);
+		void		setBloomStrength(float f);
+		void		setBloomRadius(float f);
+	private:
+		void		updateCfg();
+		void		prepareMipmapChain();
+	private:
+		void		setUseKaris(bool b);
+	private:
+		std::unique_ptr<CodBloomPrivate> mDp;
 
-	private:
-		void prepareMipmapChain();
-	private:
-		ComputeKernel* mDownsampleKernel;
-		ComputeKernel* mUpsampleKernel;
-		TexturePtr	   mTempMipChain;
-		TexturePtr	   mSavedMainRT;
-		SamplerPtr	   mDownsampleSampler;
-		SamplerPtr	   mUpsampleSampler;
 	};
 
 }

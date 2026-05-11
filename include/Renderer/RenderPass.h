@@ -34,6 +34,8 @@ namespace Render {
 		friend class RenderPassManager;
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
 		bool needRebuildPipeline(rs_rendertarget* oldrt,rs_rendertarget* newrt);
+
+		bool isRTCompatible(rs_rendertarget* rtA, rs_rendertarget* rtB);
 	protected:
 		Name mPassName;
 		rs_rendertarget* mRendertarget = nullptr;

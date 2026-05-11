@@ -68,43 +68,74 @@ namespace Render {
 
 	bool RenderPass::needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt)
 	{
-		auto oldrtVk = (Vulkan::rs_rendertarget_vk*)oldrt;
-		auto newrtVk = (Vulkan::rs_rendertarget_vk*)newrt;
+		return !isRTCompatible(oldrt, newrt);
+	}
 
-		auto imageCompatibleTest = [](const rs_image& a, const rs_image& b) {
-			if (a.format != b.format) {
-				return true;
+	bool RenderPass::isRTCompatible(rs_rendertarget* rtA, rs_rendertarget* rtB)
+	{
+
+		auto imageCompatibleTest = [](const rs_image_view* va, const rs_image_view* vb) {
+			if (!va || !vb || !va->image || !vb->image) {
+				return false;
 			}
 
-			if (a.sampleCount != b.sampleCount) {
-				return true;
+			auto& aViewKey = va->viewKey;
+			auto& bViewKey = vb->viewKey;
+
+			uint32_t mipA = aViewKey.getBaseMip();
+			uint32_t mipB = bViewKey.getBaseMip();
+			uint32_t mipCountA = aViewKey.getMipCount(); 
+			uint32_t mipCountB = bViewKey.getMipCount();
+
+			auto a = va->image;
+			auto b = vb->image;  
+
+			if (a->format != b->format) return false;
+			if (a->sampleCount != b->sampleCount) return false;
+			if (a->usage != b->usage) return false;
+			if (a->type != b->type) return false; 
+
+			if (mipCountA != mipCountB) return false;
+			if (aViewKey.getLayerCount() != bViewKey.getLayerCount()) return false;
+
+			auto getMipSize = [](uint16_t size, uint32_t mip) -> uint32_t {
+				return std::max<uint32_t>(1, static_cast<uint32_t>(size) >> mip);
+				};
+
+			uint32_t widthA = getMipSize(a->width, mipA);
+			uint32_t heightA = getMipSize(a->height, mipA);
+			uint32_t depthA = getMipSize(a->depth, mipA);
+
+			uint32_t widthB = getMipSize(b->width, mipB);
+			uint32_t heightB = getMipSize(b->height, mipB);
+			uint32_t depthB = getMipSize(b->depth, mipB);
+
+			if (widthA != widthB || heightA != heightB || depthA != depthB) {
+				return false;
 			}
 
-			if (a.usage != b.usage) {
-				return true;
-			}
+			return true;
+			};
+
+		if (rtA->m_attachments.size() != rtB->m_attachments.size() ||
+			(
+				(rtA->m_depthStencilAttachment == nullptr) ^
+				(rtB->m_depthStencilAttachment != nullptr)
+			)
+		   ) {
 			return false;
-		};
-
-		if (oldrt->m_attachments.size() != newrt->m_attachments.size() || ((oldrt->m_depthStencilAttachment == nullptr) ^ (newrt->m_depthStencilAttachment != nullptr))){		return true;
-			return true;
 		}
-		for (int i = 0;i < oldrt->m_attachments.size();++i) {
-			auto attOld = oldrt->m_attachments[i];
-			auto attNew = newrt->m_attachments[i];
-			if (imageCompatibleTest(*attOld,*attNew)) {
-				return true;
+		for (int i = 0;i < rtA->m_attachments.size();++i) {
+			auto attOld = rtA->m_views[i];
+			auto attNew = rtB->m_views[i];
+			if (!imageCompatibleTest(attOld, attNew)) {
+				return false;
 			}
 
 		}
 
-		if (
-			oldrt->m_depthStencilAttachment && newrt->m_depthStencilAttachment &&
-			imageCompatibleTest(*oldrt->m_depthStencilAttachment, *newrt->m_depthStencilAttachment)) {
-			return true;
-		}
+		return true;
 
-		return false;
 	}
 
 	RenderPass::~RenderPass()

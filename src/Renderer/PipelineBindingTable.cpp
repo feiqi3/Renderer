@@ -149,8 +149,11 @@ namespace Render {
                     //TODO: ubo idx
                     void* dataptr = nullptr;
                     uint32_t size = 0;
-                    var.getData(&dataptr, &size);
+                    auto& bufferPtr = *(var.getUniformDataPtr());
+                    dataptr         = bufferPtr.get();
+                    size            = bufferPtr.size();
                     if (dataptr && size > 0) {
+                        bufferPtr.setDirty(false);
                         sys->updateUniformBufferData(pp.location.bindingPos, dataptr, size, pipeline,drawdata);
                     }
                     break;
@@ -198,6 +201,12 @@ namespace Render {
         mBindingPos2BindingSlot.clear();
 
         for (const auto& loc : pipeline->resources) {
+
+            if (RenderSystem::instance()->isEngineResourceName(loc.itemName)) {
+                //Do dot save any bindless/scene/object/camera related binding slots.
+                continue;
+            }
+
             if (loc.type == ResourceLocationType::BindingSlot) {
                 _ParameterPair pp;
                 pp.location = loc;
@@ -281,16 +290,9 @@ namespace Render {
                 void* uboData = nullptr;
                 uint32_t size = 0;
                 EngineBindlessAPI::initFatherUBO(fatherUBO);
-                fatherUBO.varArr[0].getData(&uboData, &size);
-
-                if (uboData) {
-                    uint32_t stride = bItem.location.bindlessInfo.stride;
-                    uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
-
-                    if (writeOffset + sizeof(uint32_t) <= size) {
-                        std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &globalIndex, sizeof(uint32_t));
-                    }
-                }
+                uint32_t stride = bItem.location.bindlessInfo.stride;
+                uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
+                fatherUBO.varArr[0].writeData(&globalIndex, sizeof(uint32_t), writeOffset);
             }
             return true;
         }
@@ -361,16 +363,10 @@ namespace Render {
 				void* uboData = nullptr;
 				uint32_t size = 0;
                 EngineBindlessAPI::initFatherUBO(fatherUBO);
-                fatherUBO.varArr[0].getData(&uboData, &size);
 
-				if (uboData) {
-					uint32_t stride = bItem.location.bindlessInfo.stride;
-					uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
-
-					if (writeOffset + sizeof(uint32_t) <= size) {
-						std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &globalIndex, sizeof(uint32_t));
-					}
-				}
+				uint32_t stride = bItem.location.bindlessInfo.stride;
+				uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
+				fatherUBO.varArr[0].writeData(&globalIndex, sizeof(uint32_t), writeOffset);
 			}
 			return true;
 		}
@@ -437,16 +433,11 @@ namespace Render {
                 void* uboData = nullptr;
                 uint32_t size = 0;
                 EngineBindlessAPI::initFatherUBO(fatherUBO);
-                fatherUBO.varArr[0].getData(&uboData, &size);
 
-                if (uboData) {
-                    uint32_t stride = bItem.location.bindlessInfo.stride;
-                    uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
+				uint32_t stride = bItem.location.bindlessInfo.stride;
+				uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
 
-                    if (writeOffset + sizeof(uint64_t) <= size) {
-                        std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &bindingData, sizeof(uint64_t));
-                    }
-                }
+                fatherUBO.varArr[0].writeData(&bindingData, sizeof(uint64_t), writeOffset);
             }
             return true;
         }
@@ -493,16 +484,11 @@ namespace Render {
                 void* uboData = nullptr;
                 uint32_t size = 0;
                 EngineBindlessAPI::initFatherUBO(fatherUBO);
-                fatherUBO.varArr[0].getData(&uboData, &size);
 
-                if (uboData) {
-                    uint32_t stride = bItem.location.bindlessInfo.stride;
-                    uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
+				uint32_t stride = bItem.location.bindlessInfo.stride;
+				uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
+				fatherUBO.varArr[0].writeData(&globalIndex, sizeof(uint32_t), writeOffset);
 
-                    if (writeOffset + sizeof(uint32_t) <= size) {
-                        std::memcpy(static_cast<uint8_t*>(uboData) + writeOffset, &globalIndex, sizeof(uint32_t));
-                    }
-                }
             }
             return true;
         }
@@ -521,12 +507,7 @@ namespace Render {
                     pp.varArr[element].setUniformBuffer(nullptr, pp.location.descriptorInfo.size);
                 }
 
-                pp.varArr[element].getData(&destData, &bufferSize);
-
-                if (destData && dataSize <= bufferSize) {
-                    std::memcpy(destData, data, dataSize);
-                    return true;
-                }
+                pp.varArr[element].writeData(data, dataSize,0);
             }
         }
         return false;

@@ -21,11 +21,16 @@ namespace Render {
 		ShaderScopeDataPtr(ShaderScopeDataPtr&& other) noexcept;
 		ShaderScopeDataPtr& operator=(ShaderScopeDataPtr&& other) noexcept;
 
-		unsigned char* get() const;
+		void write(const void* data,u32 size, u32 offset);
+
+		unsigned char*  get() const;
+		void			setDirty(bool v);
+		bool			getDirty( )const ;
 		u32 size() const;
 
 	private:
 		u32   _size = 0;
+		bool  _Dirty = true;
 		unsigned char* _data = nullptr;
 	};
 
@@ -66,12 +71,15 @@ namespace Render {
 		bool isValid()         const;
 		bool hasResource()     const;
 
-		TexturePtr getTexture() const;
-		const TextureViewPair* getTextureView()const;
-		SamplerPtr getSampler() const;
-		const BufferPair* getBufferPair() const;
-		void	   getData(void** data, uint32_t* size)const;
-		void setUniformBuffer(const void* data, u32 size);
+		TexturePtr				getTexture() const;
+		const TextureViewPair*  getTextureView()const;
+		SamplerPtr				getSampler() const;
+		const BufferPair*		getBufferPair() const;
+		void					getData(void** data, uint32_t* size)const;
+		void					setUniformBuffer(const void* data, u32 size);
+		ShaderScopeDataPtr*		getUniformDataPtr();
+		void					writeData(const void* data, u32 size, u32 offset = 0);
+
 
 		~RenderResourceVariant() = default;
 		RenderResourceVariant(RenderResourceVariant&&) = default;
