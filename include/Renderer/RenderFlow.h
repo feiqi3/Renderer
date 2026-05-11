@@ -10,6 +10,9 @@
 #include "Renderer/Camera.h"
 #include "Renderer/CameraManager.h"
 #include "Renderer/LightManager.h"
+#include "Renderer/RenderPass/PostEffectComposePass.h"
+#include "Renderer/PostEffect/CODBloom.h"
+#include "Renderer/TextureResourceMgr.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -35,8 +38,12 @@ namespace Render {
 		void init() {
 			mMainCamPass = new MainCameraPass;
 			mSwapchainPass = new SwapchainPass;
+			mPostEffectPass = new PostEffectComposePass();
+
 			initMainCamPass();
 			initSwapChainPass();
+			initPostEffectPass();
+
 			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemaphore();
 			this->mAccquireImgSemaphore = RenderSystem::instance()->createSemaphore();
 			this->mPresentToScreenSemaphore = RenderSystem::instance()->createSemaphore();
@@ -48,15 +55,34 @@ namespace Render {
 			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
 			mCamera = new Camera(Name("Scene"));
 			CameraManager::instance()->RegisterCamera(mCamera, 0);
+
+			mBloom = new CodBloom();
+			mBloom->setBloomRadius(0.1);
+
 ;		}
+
+		void initPostEffectPass() {
+			mPostEffectPass->init();
+			auto rsys = RenderSystem::instance();
+			rsys->getRenderPassManager()->registerRenderPass(mPostEffectPass);
+		}
+
+		void deinitPostEffectPass() {
+			auto rsys = RenderSystem::instance();
+			rsys->getRenderPassManager()->unregisterRenderPass(mPostEffectPass);
+			delete mPostEffectPass;
+			mPostEffectPass = nullptr;
+		}
 
 		void initMainCamPass() {
 			mMainCamPass->init();
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mMainCamPass);
-			mCol = rsys->createRTTexture(RenderTextureFormat::RGBA16F, 1024, 1024, 1, 1, true);
-			mDepth = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, 1024, 1024, false);
-			mRenderTarget = rsys->createRendertarget({ mCol }, mDepth);
+			auto mainColorImg = rsys->createRTTexture(RenderTextureFormat::RGBA16F, 1024, 1024, 1, 1, true);
+			mMainColorTex = TextureResourceManager::instance()->createFromRsImage(Name("MainColorTexture"),mainColorImg);
+			auto mainDepthImg = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, 1024, 1024, false);
+			mMainDepthTex = TextureResourceManager::instance()->createFromRsImage(Name("MainDepthTexture"), mainDepthImg);
+			mRenderTarget = rsys->createRendertarget({ mainColorImg }, mainDepthImg);
 			mMainCamPass->setRenderTarget(mRenderTarget);
 		}
 
@@ -86,7 +112,7 @@ namespace Render {
 			mCamera = nullptr;
 			deinitMainCamPass();
 			deinitSwapchainPass();
-
+			deinitPostEffectPass();
 			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
 			RenderSystem::instance()->destroySemaphore(mAccquireImgSemaphore);
 			RenderSystem::instance()->destroySemaphore(mPresentToScreenSemaphore);
@@ -114,14 +140,18 @@ namespace Render {
 
 
 			mMainCamPass->draw(cmdbufOffscreen);
+			mBloom->draw(cmdbufOffscreen, mMainColorTex);
 			RenderSys->cmdEnd(cmdbufOffscreen);
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);
 
 			auto cmdbufSwapchain = RenderSys->GetCommandBufferCurFrameCurThread();
 			RenderSys->setCurrentCamera(nullptr);
 			RenderSys->cmdBegin(cmdbufSwapchain);
-			mSwapchainPass->setBlitRT(mCol);
-			mSwapchainPass->draw(cmdbufSwapchain);
+
+			mPostEffectPass->setBloomTex(mBloom->outBloomTex());
+			mPostEffectPass->setMainRTColorTex(mMainColorTex);
+
+			mPostEffectPass->draw(cmdbufSwapchain);
 			RenderSys->cmdEnd(cmdbufSwapchain);
 			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
 			RenderSys->getMainRenderQueue()->clear();
@@ -134,6 +164,7 @@ namespace Render {
 		}
 	private:
 		MainCameraPass* mMainCamPass = 0;
+		PostEffectComposePass* mPostEffectPass = 0;
 		SwapchainPass* mSwapchainPass = 0;
 		std::vector<RenderEntity*> mRenderEntities;
 		std::vector<RenderEntity*> mPostEffectEntities;
@@ -145,11 +176,13 @@ namespace Render {
 		RenderEntity* BlitEntity;
 		MaterialTemplate* BlitMaterial;
 
-		rs_image* mCol = nullptr;
-		rs_image* mDepth = nullptr;
+		rs_image* mainDepthImg = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;
-
+		CodBloom* mBloom = nullptr;
 		Camera* mCamera = nullptr;
+
+		TexturePtr mMainColorTex = nullptr;
+		TexturePtr mMainDepthTex = nullptr;
 	};
 }
 
