@@ -62,9 +62,9 @@ namespace Render {
 ;		}
 
 		void initPostEffectPass() {
-			mPostEffectPass->init();
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mPostEffectPass);
+			mPostEffectPass->init();
 		}
 
 		void deinitPostEffectPass() {
@@ -78,7 +78,7 @@ namespace Render {
 			mMainCamPass->init();
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mMainCamPass);
-			auto mainColorImg = rsys->createRTTexture(RenderTextureFormat::RGBA16F, 1024, 1024, 1, 1, true);
+			auto mainColorImg = rsys->createRTTexture(RenderTextureFormat::RGBA16F, 1024, 1024, 1, 1 ,1 , true);
 			mMainColorTex = TextureResourceManager::instance()->createFromRsImage(Name("MainColorTexture"),mainColorImg);
 			auto mainDepthImg = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, 1024, 1024, false);
 			mMainDepthTex = TextureResourceManager::instance()->createFromRsImage(Name("MainDepthTexture"), mainDepthImg);

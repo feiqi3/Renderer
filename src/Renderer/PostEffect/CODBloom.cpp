@@ -69,22 +69,25 @@ namespace Render {
 		const static Name& paramMipNName = Name("MipN");
 		//Down sample
 		for (int i = 1;i < this->mDp->mTempMipChain->getMips();++i) {
+			ImageViewKey MipN1ViewKey;
+			MipN1ViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i - 1).
+				setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadOnly);
+
 			if (i == 1) {
 				setUseKaris(true);
 				//Use main rt as mip0
-				mDp->mDownsampleKernel->setParameter(paramMipN1Name, mDp->mSavedMainRT);
+				mDp->mDownsampleKernel->setParameter(paramMipN1Name, mDp->mSavedMainRT, MipN1ViewKey);
 			}
 			else {
 				setUseKaris(false);
-				ImageViewKey MipNViewKey;
-				MipNViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i - 1).setViewType(ImageType::V2D);
-				mDp->mDownsampleKernel->setParameter(paramMipN1Name, mDp->mTempMipChain, MipNViewKey);
+				mDp->mDownsampleKernel->setParameter(paramMipN1Name, mDp->mTempMipChain, MipN1ViewKey);
 			}
 			updateCfg();
 
-			ImageViewKey MipN_1ViewKey;
-			MipN_1ViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i).setViewType(ImageType::V2D);
-			mDp->mDownsampleKernel->setParameter(paramMipNName, mDp->mTempMipChain, MipN_1ViewKey);
+			ImageViewKey MipNViewKey;
+			MipNViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).
+				setBaseMip(i).setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadWrite);
+			mDp->mDownsampleKernel->setParameter(paramMipNName, mDp->mTempMipChain, MipNViewKey);
 
 			//Write to mip n
 			ivec2 writeMipSize = vec2(mDp->mSavedMainRT->getWidth() >> i, mDp->mSavedMainRT->getHeight() >> i);
@@ -97,14 +100,16 @@ namespace Render {
 		}
 		setUseKaris(false);
 		//Up sample
-		for (int i = this->mDp->mTempMipChain->getMips() - 1;i >= 1; ++i) {
+		for (int i = this->mDp->mTempMipChain->getMips() - 1;i >= 1; --i) {
 			updateCfg();
 			ImageViewKey MipNViewKey;
-			MipNViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i - 1).setViewType(ImageType::V2D);
+			MipNViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i - 1)
+				.setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadWrite);
 			mDp->mUpsampleKernel->setParameter(paramMipN1Name, mDp->mTempMipChain, MipNViewKey);
 
 			ImageViewKey MipN_1ViewKey;
-			MipN_1ViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i).setViewType(ImageType::V2D);
+			MipN_1ViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i)
+				.setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadOnly);
 			mDp->mUpsampleKernel->setParameter(paramMipNName, mDp->mTempMipChain, MipN_1ViewKey);
 			//Write to mip n - 1
 			ivec2 writeMipSize = vec2(mDp->mSavedMainRT->getWidth() >> (i - 1), mDp->mSavedMainRT->getHeight() >> (i - 1));
@@ -144,7 +149,7 @@ namespace Render {
 	void CodBloom::updateCfg()
 	{
 		if (!mDp->mCfgDirty)return;
-		if (mDp->mCfgBuffer) {
+		if (!mDp->mCfgBuffer) {
 			BufferDesc bDesc{};
 			bDesc.bufUsage = BufferType_Uniform;
 			bDesc.byteSize = sizeof(CODBloomCFG);
@@ -167,8 +172,8 @@ namespace Render {
 			if (minEdge < 20)break;
 			mip++;
 		}
-		mip = std::max(mip, 6);
-		mDp->mTempMipChain = TextureResourceManager::instance()->createRenderTexture(RenderTextureFormat::R11G11B10F, mip0x, mip0y,1, mip, 1);
+		mip = clamp(mip,1 , 6);
+		mDp->mTempMipChain = TextureResourceManager::instance()->createRenderTexture(RenderTextureFormat::R11G11B10F, mip0x, mip0y,1, mip, 1,true);
 		
 	}
 

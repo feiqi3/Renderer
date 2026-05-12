@@ -70,7 +70,7 @@ namespace Render{
 		void destroyImage(rs_image* image);
 		//It's quite hard to calculate Device size of a texture...   
 		size_t getImageSize(rs_image* img);
-		rs_image* createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer,bool needSample);
+		rs_image* createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer,int mipLevel, bool needSample, bool uav = false);
 		rs_image* createDepthStencilTexture(RenderTextureFormat format, int x, int y, bool needSample);
 		rs_image_view* getViewFromImage(rs_image* image,const ImageViewKey& viewKey);
 		//Create more rendertarget with more detailed control settings

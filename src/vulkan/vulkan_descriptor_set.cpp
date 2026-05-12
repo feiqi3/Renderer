@@ -218,6 +218,9 @@ namespace Render::Vulkan {
         block->sizes = this->m_defaultSize;
 
         VkDescriptorPoolCreateInfo ci{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+        if (BindlessAvailable) {
+            ci.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        }
         ci.                       maxSets = m_maxSet;
         ci.                       poolSizeCount = m_defaultSize.size();
         ci. pPoolSizes = m_defaultSize.data();
@@ -242,6 +245,14 @@ namespace Render::Vulkan {
             VkDescriptorPoolSize size{};
             size.type = toVkDescriptorType(descriptor.type);
             size.descriptorCount = descriptor.count;
+            if (BindlessAvailable &&
+                descriptor.type != UniformType::UniformBuffer  &&
+				descriptor.type != UniformType::ConstantBuffer &&
+				descriptor.type != UniformType::StorageBuffer 
+				) {
+                flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
+            }
+
             if (descriptor.count == 0) {
                 if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && BindlessAvailable) {
                     size.descriptorCount = DESCRIPTOR_VAR_COUNT_SIZE; //this is the memory that driver will really allocated.
@@ -469,6 +480,21 @@ namespace Render::Vulkan {
         vkBindings.reserve(bindings.size());
         std::vector<VkDescriptorBindingFlags> bindingFlags;
 		bindingFlags.reserve(bindings.size());
+
+
+		bool canUseUpdateAfterBind = true;
+		for (auto&& binding : bindings) {
+			if (binding.type != UniformType::ConstantBuffer && binding.type != UniformType::UniformBuffer && binding.type != UniformType::StorageBuffer) {
+				canUseUpdateAfterBind = false;
+			}
+		}
+
+        if (isBindlessEnabled() && canUseUpdateAfterBind) {
+			ci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        }
+
+
+
         for (auto&& binding : bindings) {
             binding.bindingItemName = Name(binding.bindingItemName);
             //Use 'count' to mark void position. 
@@ -478,9 +504,14 @@ namespace Render::Vulkan {
             b.binding = vkBinding.bindingIdx;
             b.descriptorCount = binding.count;
             VkDescriptorBindingFlags flag = 0;
-            if (isBindlessEnabled() && (binding.count > 1 || binding.count == 0)) {
+            if (isBindlessEnabled() && (binding.count > 1 || binding.count == 0)
+                ) {
                 flag |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
-                if (binding.count == 0) {
+				
+                if (canUseUpdateAfterBind) {
+                    flag |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+                }
+				if (binding.count == 0) {
                     flag |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
                 }
             }

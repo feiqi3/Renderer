@@ -62,8 +62,8 @@ namespace Render::Vulkan {
 	void destroyRsImage(rs_context_vk* context, rs_image_vk*& image,bool immediately = false);
 	size_t getRsImageSize(rs_image_vk* image);
 	rs_image_view* getRsImageView(rs_context_vk* ctx, rs_image* image, const ImageViewKey& viewKey);
-	rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
-	rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt);
+	rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav);
+	rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav);
 	void destroyRsImageView(rs_context_vk* ctx, rs_image_view* view);
 
 	rs_sampler_vk* createRsSampler(rs_context_vk* context,const SamplerDesc& desc);
@@ -167,6 +167,7 @@ namespace Render::Vulkan {
 
 	uint32_t				updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler);
 	uint32_t				unbindBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index);
+	void					beginFrameUnbindBindlessResource(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData);
 	//-------------------------------------------------------------------------------------//     
 	uint64_t beginRsFrameVk(rs_context_vk* ctx);
 	uint64_t beginRsRenderFrameVk(rs_context_vk* ctx);

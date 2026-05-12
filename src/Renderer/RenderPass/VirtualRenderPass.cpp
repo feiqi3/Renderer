@@ -11,7 +11,7 @@ namespace Render
 
 	VirtualRenderPass::VirtualRenderPass():RenderPass(Name("VirtualRenderPass"),getRenderPassDesc())
 	{
-		this->mVirtualRtImage = RenderSystem::instance()->createRTTexture(RenderTextureFormat::RGBA8,8,8,1,1,false);
+		this->mVirtualRtImage = RenderSystem::instance()->createRTTexture(RenderTextureFormat::RGBA8,8,8,1,1 ,1 ,false);
 		this->mVirtualRt = RenderSystem::instance()->createRendertarget({ mVirtualRtImage }, 0);
 	}
 

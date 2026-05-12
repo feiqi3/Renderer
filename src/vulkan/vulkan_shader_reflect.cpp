@@ -130,9 +130,15 @@ namespace {
             // 调用用户回调，传入搜索路径
 
             ShaderIncludeRes res = find_fn_(search_dirs_, requested_source);
-            if (res.FindResult != true)return nullptr;
             // 分配并填充结果
             auto* result = new shaderc_include_result;
+			if (res.FindResult != true){
+                result->source_name = "";//fail case
+                result->content = "File Not Found";
+                result->source_name_length = 0;
+                result->content_length = strlen(result->content);
+                return nullptr;
+            }
 
             // 复制 source_name
             size_t name_len = res.ShaderName.size();
@@ -206,7 +212,7 @@ namespace {
 }
 
 namespace Render::Vulkan {
-	rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc)
+	rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc,const char* entryPoint)
 	{
 		shaderc::CompileOptions options;
 		shaderc::Compiler compiler;
@@ -290,7 +296,7 @@ namespace Render::Vulkan {
         std::string newCode = desc.shaderSrcCode;
         newCode.resize(newCode.size() - remove_char_cnt);
         shaderc::SpvCompilationResult module =
-            compiler.CompileGlslToSpv(newCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str(),options);
+            compiler.CompileGlslToSpv(newCode, MapShaderStageToShaderc(desc.stage),desc.shaderName.c_str(), entryPoint,options);
 
         if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
             Render::Log::error("Shader Compile Error: " + desc.shaderName + " \nError Reason: " + module.GetErrorMessage());
@@ -302,7 +308,6 @@ namespace Render::Vulkan {
         }
         VkShaderModule vkModule;
         VkShaderModuleCreateInfo ci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-
         ci.codeSize = sizeof(uint32_t) * (module.end() - module.begin() );
         ci.pCode = module.begin();
         VK_CHECK(vkCreateShaderModule(ctx->device, &ci, 0, &vkModule), { return nullptr; });

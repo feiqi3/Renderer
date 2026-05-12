@@ -183,7 +183,8 @@ namespace Render {
 			uint64_t mipCount : 6;  // [14-19]
 			uint64_t baseLayer : 6;  // [20-25]
 			uint64_t layerCount : 6;  // [26-31]
-			uint64_t reserved : 32; // [32-63]
+            uint64_t uavAccess : 2;   // 31 - 32
+            uint64_t reserved : 30; // [33-63]
 		};
 	public:
 		BitField bits;
@@ -199,6 +200,7 @@ namespace Render {
 		ImageViewKey& setMipCount(uint32_t count);
 		ImageViewKey& setBaseLayer(uint32_t layer);
 		ImageViewKey& setLayerCount(uint32_t count);
+        ImageViewKey& setUAVAccess(UAVAccess access) ;
 
 		ViewAspect getAspect() const;
 		ImageType  getViewType() const;
@@ -206,6 +208,7 @@ namespace Render {
 		uint32_t   getMipCount() const;
 		uint32_t   getBaseLayer() const;
 		uint32_t   getLayerCount() const;
+		UAVAccess  getUAVAccess() const;
 
 		bool operator==(const ImageViewKey& other) const;
 		bool operator!=(const ImageViewKey& other) const;

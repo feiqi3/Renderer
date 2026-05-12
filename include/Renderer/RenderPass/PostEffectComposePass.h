@@ -14,6 +14,7 @@ namespace Render {
 		void setMainRTColorTex(const TexturePtr& tex);
 		void setBloomStrength(float strength);
 		void collectRenderEntities(std::vector<RenderPack>& pack);
+		void init() override;
 	public:
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
 	private:

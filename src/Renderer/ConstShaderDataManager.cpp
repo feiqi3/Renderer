@@ -78,7 +78,6 @@ namespace Render {
 		if (RenderSystem::instance()->isBindlessEnabled()) {
 			auto bindlessData = RenderSystem::instance()->createBindlessData(mDp->MainPassVirtualMaterial->getRsPipeline());
 			mDp->mGlobalBindlessDrawData = bindlessData;
-			bindlessData->bufferBindlessPos = mDp->GlobalBindlessUAVBuffersBindingPos;
 			bindlessData->storageBindlessPos = mDp->GlobalBindlessUAVImagesBindingPos;
 			bindlessData->samplerBindlessPos = mDp->GlobalBindlessSamplersBindingPos;
 			bindlessData->textureBindlessPos = mDp->GlobalBindlessTexturesBindingPos;

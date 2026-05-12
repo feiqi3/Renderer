@@ -51,9 +51,9 @@ namespace Render{
 		return TexturePtr(this, entry);
 	}
 
-	Render::TexturePtr TextureResourceManager::createRenderTexture(RenderTextureFormat format, uint32_t width, uint32_t height, uint32_t depth, uint32_t mips, uint32_t arrayLayers)
+	Render::TexturePtr TextureResourceManager::createRenderTexture(RenderTextureFormat format, uint32_t width, uint32_t height, uint32_t depth, uint32_t mips, uint32_t arrayLayers, bool UAV)
 	{
-		auto rawImg = RenderSystem::instance()->createRTTexture(format, width, height, depth, arrayLayers, true);
+		auto rawImg = RenderSystem::instance()->createRTTexture(format, width, height, depth, arrayLayers, mips , true, UAV);
 		Texture* tex = Texture::fromRsImage(rawImg);
 		auto entry = this->registerAnonymousResource(tex, ResourceLifetime::Transient, nullptr);
 		return TexturePtr(this, entry);

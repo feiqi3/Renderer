@@ -5,6 +5,7 @@ namespace Render {
 		bits.mipCount		= 1;
 		bits.aspect			= (uint64_t)ViewAspect::Color;
 		bits.viewType		= (uint64_t)ImageType::V2D;
+		bits.uavAccess		= (uint64_t)UAVAccess::ReadOnly;
 	}
 
 	 ImageViewKey::ImageViewKey(uint64_t rawValue) : value(rawValue) {}
@@ -39,6 +40,12 @@ namespace Render {
 		return *this;
 	}
 
+	 ImageViewKey& ImageViewKey::setUAVAccess(UAVAccess access) 
+	 {
+		 bits.uavAccess = (uint64_t)access;
+		 return *this;
+	 }
+
 	 ViewAspect ImageViewKey::getAspect() const {
 		return static_cast<ViewAspect>(bits.aspect);
 	}
@@ -62,6 +69,11 @@ namespace Render {
 	 uint32_t ImageViewKey::getLayerCount() const {
 		return static_cast<uint32_t>(bits.layerCount);
 	}
+
+	 Render::UAVAccess ImageViewKey::getUAVAccess() const
+	 {
+		 return static_cast<UAVAccess>(bits.uavAccess);
+	 }
 
 	 bool ImageViewKey::operator==(const ImageViewKey& other) const {
 		return value == other.value;

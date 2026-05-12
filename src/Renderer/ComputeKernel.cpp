@@ -35,6 +35,9 @@ namespace Render {
         compileDesc.shaderIncludeDirectories = RenderSystem::instance()->getShaderIncludeSearchDir();
         compileDesc.generateDebugInfo = true;
         compileDesc.macros = macros;
+		if (RenderSystem::instance()->isBindlessEnabled()) {
+			compileDesc.macros.push_back({ "BINDLESS_ENABLE","1" });
+		}
         sd.shaderCode = 0;
         sd.codeSizeByte = 0;
         sd.stage = ShaderStage::Compute;

@@ -161,7 +161,7 @@ namespace Render::Vulkan {
 		struct rs_descriptorset_layout_vk*		setlayout = nullptr;
 	};
 	struct rs_bindless_data_vk : rs_bindless_data {
-		inline rs_bindless_data_vk(int texturesMax, int samplersMax, int storageImagesMax, int buffersMax): rs_bindless_data(texturesMax, samplersMax, storageImagesMax, buffersMax){
+		inline rs_bindless_data_vk(int texturesMax, int samplersMax, int storageImagesMax): rs_bindless_data(texturesMax, samplersMax, storageImagesMax){
 		}
 
 		rs_descriptorSet_vk* descriptorSet;

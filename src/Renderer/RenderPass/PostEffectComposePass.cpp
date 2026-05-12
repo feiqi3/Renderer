@@ -37,8 +37,16 @@ namespace Render {
 			}, postEffectRenderState, {}
 		);
 
-		matTemp->createMaterialPass(rp);
-		auto mat = MaterialManager::instance()->createMaterial<Material>(matName, matTemp);
+		matTemp->createMaterialPass(rp, { 
+				{
+					ShaderStage::Fragment, 
+					{
+						{"BLOOM",""}
+					}
+				}
+			}
+		);
+		mat = MaterialManager::instance()->createMaterial<Material>(matName, matTemp);
 		mat->addMaterialPassToRender(rp->getPassName());
 		return mat;
 	}
@@ -76,13 +84,7 @@ namespace Render {
 
 	PostEffectComposePass::PostEffectComposePass() : RenderPass(PassName::PostEffectComposePass,getPassDesc())
 	{
-		entity = new PostEffectComposeEntity();
 
-		mPostEffectCfg.BloomStrength = 0.1;
-		BufferDesc bufferDesc{};
-		bufferDesc.byteSize = sizeof(GPUShared::PostEffectConfig);
-		bufferDesc.bufUsage = BufferType_Uniform;
-		mPostEffectCfgBuffer = RenderSystem::instance()->createBuffer(nullptr, 0, bufferDesc);
 	}
 
 	PostEffectComposePass::~PostEffectComposePass()
@@ -120,6 +122,17 @@ namespace Render {
 	void PostEffectComposePass::collectRenderEntities(std::vector<RenderPack>& pack)
 	{
 		pack.push_back({ entity,entity->getPostEffectPass()});
+	}
+
+	void PostEffectComposePass::init()
+	{
+		entity = new PostEffectComposeEntity();
+
+		mPostEffectCfg.BloomStrength = 0.1;
+		BufferDesc bufferDesc{};
+		bufferDesc.byteSize = sizeof(GPUShared::PostEffectConfig);
+		bufferDesc.bufUsage = BufferType_Uniform;
+		mPostEffectCfgBuffer = RenderSystem::instance()->createBuffer(nullptr, 0, bufferDesc);
 	}
 
 }

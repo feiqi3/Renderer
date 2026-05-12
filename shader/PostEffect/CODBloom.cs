@@ -1,8 +1,8 @@
 #version 450
-#include "../BindlessSet.inl"
-#include "../ShaderResource.inl"
+#extension GL_EXT_shader_image_load_formatted : require
+#include "BindlessSet.inl"
+#include "ShaderResource.inl"
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 //Next-Generation-Post-Processing-in-Call-of-Duty-Advanced-Warfare
 DECL_BUFFER_STD430_BEG(BloomConfig)
@@ -10,7 +10,7 @@ DECL_BUFFER_STD430_BEG(BloomConfig)
     float Threshold;        
     float Radius;               //Up sample parameter, controls the uv step. 
     float Karis;                //Do Karis? alway in downsample mip0 -> mip1
-DECL_BUFFER_STD430_BEG
+DECL_BUFFER_STD430_END
 
 RESOURCE_DECL_BEG(1)
 #ifdef DOWN_SAMPLE
@@ -89,19 +89,19 @@ vec3 TentFilterSample(vec2 uv, vec2 uvStepPerPixSmallTex , texture2D sampledText
     for(int i = 0; i < 9; ++ i){
         vec2 uvSample = uv + vec2(tentFilterOffset[i]) * uvStep;
         vec3 col = texture(
-            Sampler2D(sampledTexture,samp), uvSample
+            sampler2D(sampledTexture,samp), uvSample
         ).rgb;
         col = col * 0.0625 * vec3(tentFilter[i]);
         outCol += col;
     }
-    return out;
+    return outCol;
 }
 
 vec3 Tap13Sample(vec2 curUV,vec2 uvStep,texture2D sampledTexture,sampler textureSampler){
     vec3 tap13SampledPoint[13];
     for(int i = 0;i < 13; ++i){
         vec2 uvOffset = vec2(Tap13SamplePointsOffset[i]) * uvStep + curUV;
-        tap13SampledPoint[i] = texture(Sampler2D(sampledTexture,textureSampler), uvOffset).rgb;
+        tap13SampledPoint[i] = texture(sampler2D(sampledTexture,textureSampler), uvOffset).rgb;
     }
 
     vec3 blockColor[4];
@@ -125,27 +125,35 @@ vec3 Tap13Sample(vec2 curUV,vec2 uvStep,texture2D sampledTexture,sampler texture
 
     return ret;
 }
+void main(){
 
+}
+
+#ifdef DOWN_SAMPLE
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void DownSampleMain(){
     ivec2 imgSize = imageSize(GetRWTexture(MipN));
     if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y){
         return;
     }
-    ivec2 curPixel = gl_GlobalInvocationID.xy;
-    ivec2 sampledImgSize = textureSize(GetTexture(MipN_1));
+    ivec2 curPixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sampledImgSize = textureSize(GetSampledTexture(MipN_1,BilinearSampler),0);
     vec2 uvStep = vec2(1.) / sampledImgSize;
     vec2 curUV  = ((vec2(0.5) + vec2(curPixel) )/ vec2(imgSize));
     vec3 tap13SampledOutcome = Tap13Sample(curUV , uvStep, GetTexture(MipN_1), GetSampler(BilinearSampler));
     imageStore(GetRWTexture(MipN), curPixel, vec4(tap13SampledOutcome,1.));
 }
+#endif // DOWN_SAMPLE
 
+#ifdef UP_SAMPLE
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void UpSampleMain(){
-    ivec2 imgSize = imageSize(GetRWTexture(MipN_1));
+    ivec2 imgSize = ivec2(imageSize(GetRWTexture(MipN_1)));
     if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y){
         return;
     }
-    ivec2 mipnSize = textureSize(GetTexture(MipN));
-    ivec2 curPixel = gl_GlobalInvocationID.xy;
+    ivec2 mipnSize = textureSize(GetSampledTexture(MipN,BilinearSampler),0);
+    ivec2 curPixel = ivec2(gl_GlobalInvocationID.xy);
     vec3 curPixCol = imageLoad(GetRWTexture(MipN_1), curPixel).rgb;
     vec2 curUV = (vec2(0.5) + vec2(curPixel)) / vec2(imgSize);
     vec2 uvStepPerPixMipN = vec2(1.) / vec2(mipnSize);
@@ -153,3 +161,4 @@ void UpSampleMain(){
     vec4 imgOut  = vec4(tentOut + curPixCol,1.);
     imageStore(GetRWTexture(MipN_1),curPixel, imgOut);
 }
+#endif

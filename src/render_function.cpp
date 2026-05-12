@@ -24,7 +24,7 @@ RenderTextureFormat fromImageFormatToRtFormat(rs_context* ctx, ImageFormat fmt)
 	return RenderTextureFormat::Invalid;
 }
 
-Render::ImageViewKey genViewKey(ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+Render::ImageViewKey genViewKey(ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt,UAVAccess uav)
 {
 	ImageViewKey key{};
 	key.value = 0;
@@ -34,6 +34,7 @@ Render::ImageViewKey genViewKey(ImageType viewType, ViewAspect aspect, uint16_t 
 	key.bits.mipCount = mipCnt;
 	key.bits.baseLayer = baseLayer;
 	key.bits.layerCount = layerCnt;
+	key.bits.uavAccess = (uint16_t)uav;
 	return key;
 }
 

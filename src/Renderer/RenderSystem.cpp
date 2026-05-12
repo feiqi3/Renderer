@@ -434,13 +434,13 @@ namespace Render{
 		return getRsImageGPUSize(img);
 	}
 
-	rs_image* RenderSystem::createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer, bool needSample)
+	rs_image* RenderSystem::createRTTexture(RenderTextureFormat format, int x, int y, int z, int layer, int mips, bool needSample, bool uav)
 	{
 		ImageDesc desc{};
 		desc.width = x;
 		desc.height = y;
 		desc.depth = z;
-		desc.mipLevels = 1;
+		desc.mipLevels = mips;
 		desc.arrayLayers = layer;
 
 		ImageType type = ImageType::V2D;
@@ -457,6 +457,10 @@ namespace Render{
 
 		if (needSample) {
 			desc.usage |= ImageUsage::ImageUsage_Sampled;
+		}
+
+		if (uav) {
+			desc.usage |= ImageUsage_Storage;
 		}
 
 		auto ret =  Vulkan::createRsImage(getRenderContext(), desc);
@@ -534,6 +538,7 @@ namespace Render{
 				bindDefaultResourceToBindless();
 			}
 		}
+		Vulkan::beginFrameUnbindBindlessResource(getRenderContext(), (Vulkan::rs_bindless_data_vk*)getGlobalBindlessData());
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)

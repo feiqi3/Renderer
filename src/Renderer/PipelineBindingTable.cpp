@@ -254,7 +254,6 @@ namespace Render {
                 return false;
             }
 
-            bItem.keepAliveRefs[element].set(tex);
 
             rs_image_view* view = nullptr;
             if (tex != nullptr) {
@@ -282,7 +281,8 @@ namespace Render {
                 }
             }
 
-            bItem.bindlessData[element] = globalIndex;
+			bItem.keepAliveRefs[element].set(tex);
+			bItem.bindlessData[element] = globalIndex;
 
             auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
             if (fatherIt != mBindingPos2BindingSlot.end()) {
@@ -331,7 +331,6 @@ namespace Render {
 				return false;
 			}
 
-			bItem.keepAliveRefs[element].set(tex, view);
 			uint32_t globalIndex = INVALID_BINDLESS_INDEX;
 			if (type == UniformType::StorageImage) {
 				globalIndex = EngineBindlessAPI::GetGlobalRWTextureIndex(view);
@@ -347,7 +346,6 @@ namespace Render {
 
 			if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
 				if (type == UniformType::StorageImage) {
-
                     globalIndex = EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
 				}
 				else {
@@ -355,6 +353,7 @@ namespace Render {
 				}
 
 			}
+			bItem.keepAliveRefs[element].set(tex, view);
 			bItem.bindlessData[element] = globalIndex;
 
 			auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);

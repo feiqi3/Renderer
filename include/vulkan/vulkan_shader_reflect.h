@@ -6,7 +6,7 @@
 #include <vector>
 namespace Render::Vulkan {
 	const int SHADER_COMPILE_VULKAN_VERSION = 2;
-	rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc);
+	rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc,const char* entryPoint = "main");
 	rs_shader_reflect_info reflectShader(uint32_t* spirv_code, uint64_t codeSize, ShaderStage stage);
 }
 

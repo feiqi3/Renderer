@@ -1,6 +1,6 @@
 #version 450
-#include "../ShaderResource.inl"
-#include "../BindlessSet.inl"
+#include "ShaderResource.inl"
+#include "BindlessSet.inl"
 #include "PostEffectData.h"
 
 
@@ -11,18 +11,18 @@ DECL_RBUFFER_STD140_END
 RESOURCE_DECL_BEG(1)
 
 // source color texture
-    SLOT_TEXTURE(1,         texture2D,      u_baseColorTex);
+    SLOT_TEXTURE(1,         texture2D,      u_baseColorTex)
 // should be linear? since down/up sample could happen when blit to swapchain    
-    SLOT_SAMPLER(1,         sampler,        u_colorTexSamp);
+    SLOT_SAMPLER(1,         sampler,        u_colorTexSamp)
 
 #if defined(BLOOM)
 // computed bloom outcome
-    SLOT_TEXTURE(1,         texture2D,      u_bloomTex);
+    SLOT_TEXTURE(1,         texture2D,      u_bloomTex)
 // could be nearest, bloom tex is mapped to main rt 1:1.
-    SLOT_SAMPLER(1,         sampler,        u_bloomTexSamp);
+    SLOT_SAMPLER(1,         sampler,        u_bloomTexSamp)
 #endif //BLOOM 
 
-    SLOT_CONST_BUFFER(1,    PostEffectConfigAlias,  PostEffectCfg);
+    SLOT_CONST_BUFFER(1,    PostEffectConfigAlias,  PostEffectCfg)
 RESOURCE_DECL_END
 
 #define POST_EFFECT_CFG GetBuffer(PostEffectCfg)._content
@@ -30,17 +30,17 @@ RESOURCE_DECL_END
 layout(location = 0) in vec2 i_uv;
 layout(location = 1) in vec2 i_pos;
 
-layout(location = 0) out o_color;
+layout(location = 0) out vec4 o_color;
 
 void main(){
    
    vec3 srcCol = SampleTexture(u_baseColorTex, u_colorTexSamp, i_uv).rgb;
    
-   #if defined(BLOOM)
    vec3 outColor = srcCol;
+   #if defined(BLOOM)
    float bloomStrength = POST_EFFECT_CFG.BloomStrength;
    vec3 bloomCol = SampleTexture(u_bloomTex, u_bloomTexSamp, i_uv).rgb;
-   vec3 outColor = mix(srcCol, bloomCol, bloomStrength);
+   outColor = mix(srcCol, bloomCol, bloomStrength);
 
    #endif //BLOOM
 

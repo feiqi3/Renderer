@@ -11,7 +11,7 @@ namespace Render {
 		TexturePtr createEmpty(const Name& id);
 		//Create a anonymous resource
 		TexturePtr createEmpty();
-		TexturePtr createRenderTexture(RenderTextureFormat format, uint32_t width, uint32_t height, uint32_t depth,uint32_t mips, uint32_t arrayLayers);
+		TexturePtr createRenderTexture(RenderTextureFormat format, uint32_t width, uint32_t height, uint32_t depth,uint32_t mips, uint32_t arrayLayers, bool UAV);
 		Texture* loadImpl(const Name& id) override;
 		void unloadImpl(Texture* texture);
 		const Name& typeName()const override;

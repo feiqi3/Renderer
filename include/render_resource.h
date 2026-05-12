@@ -184,24 +184,23 @@ namespace Render {
 
 
 	struct rs_bindless_data {
-		inline rs_bindless_data(int TexturesMax, int samplersMax, int storageImagesMax, int buffersMax)
-		:texturesBinding(TexturesMax), maxTexturesBinding(TexturesMax), samplersBinding(samplersMax),maxSamplersBinding(samplersMax),storageImagesBinding(storageImagesMax), maxStorageImagesBinding(storageImagesMax), buffersBinding(buffersMax), maxBuffersBinding(buffersMax)
+		inline rs_bindless_data(int TexturesMax, int samplersMax, int storageImagesMax)
+		:texturesBinding(TexturesMax), maxTexturesBinding(TexturesMax), samplersBinding(samplersMax),maxSamplersBinding(samplersMax),storageImagesBinding(storageImagesMax), maxStorageImagesBinding(storageImagesMax)
 		{
 		
 		}
+		std::vector<uint32_t> pendingUnbindTexture;
 		rs_binding_pos textureBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable texturesBinding;
 		uint32_t maxTexturesBinding = 0;
+		std::vector<uint32_t> pendingUnbindSampler;
 		rs_binding_pos samplerBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable samplersBinding;
 		uint32_t maxSamplersBinding = 0;
+		std::vector<uint32_t> pendingUnbindStorage;
 		rs_binding_pos storageBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable storageImagesBinding;
 		uint32_t maxStorageImagesBinding = 0;
-		rs_binding_pos bufferBindlessPos = INVALID_BINDING_POS;
-		BindlessIndexingTable buffersBinding;
-		uint32_t maxBuffersBinding = 0;
-
 		//TODO: the resource newly added to this bindless data.
 		std::vector<std::pair<UniformType, rs_resource*> > pendingResource;
 	};

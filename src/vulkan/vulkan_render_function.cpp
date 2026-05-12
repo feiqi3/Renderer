@@ -998,7 +998,7 @@ namespace Render::Vulkan {
 		ret->usage = desc.usage;
 		ret->sampleCount = desc.samples;
 
-        auto defaultView = createRsImageView(ctx, ret, ret->type, (ret->usage), 0, desc.mipLevels, 0, desc.arrayLayers);
+        auto defaultView = createRsImageView(ctx, ret, ret->type, (ret->usage), 0, desc.mipLevels, 0, desc.arrayLayers,UAVAccess::ReadOnly);
         ret->subresourceStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
         ret->subresourcePendingStates.resize(desc.mipLevels * desc.arrayLayers, ResourceState::Common);
         ret->defaultView = defaultView;
@@ -1078,7 +1078,7 @@ namespace Render::Vulkan {
         }
         else {
             if (desc.compileDesc) {
-                return compileShader(context, *desc.compileDesc);
+                return compileShader(context, *desc.compileDesc,desc.entryPoint);
             }
             else {
                 return nullptr;
@@ -1247,7 +1247,7 @@ namespace Render::Vulkan {
 			rsImage->usage = ImageUsage_PresentSrc | ImageUsage_ColorAttachment;
 			rsImage->format = ToImageFormat(choosenFormat.format);
 			rsImage->arrayLayers = 1;
-            auto view = createRsImageView(context, rsImage, ImageType::V2D, ViewAspect::Color, 0, 1, 0, 1);
+            auto view = createRsImageView(context, rsImage, ImageType::V2D, ViewAspect::Color, 0, 1, 0, 1, UAVAccess::ReadOnly);
 			rsImage->defaultView = view;
             rsImage->subresourceStates.resize(1, ResourceState::Common);
             rsImage->subresourcePendingStates.resize(1, ResourceState::Common);
@@ -1416,16 +1416,16 @@ namespace Render::Vulkan {
         return rsView;
     }
 
-	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav)
 	{
         auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
         view->image = image;
-        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt, uav);
 		image->imageViews.emplace_back(view);
         return view;
     }
 
-	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt)
+	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav)
 	{
 		auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(imageUsage), baseMip, mipCnt, baseLayer, layerCnt);
         ViewAspect aspect = ViewAspect::Color;
@@ -1434,7 +1434,7 @@ namespace Render::Vulkan {
             aspect = ViewAspect::DepthAndStencil;
         }
         view->image = image;
-        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt);
+        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt, uav);
 		image->imageViews.emplace_back(view);
 		return view;
 	}
@@ -1494,7 +1494,7 @@ namespace Render::Vulkan {
         return createRsImageView(ctx, image, (ImageType)viewBits.viewType,
             (ViewAspect)viewBits.aspect,
             viewBits.baseMip, viewBits.mipCount,
-            viewBits.baseLayer, viewBits.layerCount);
+            viewBits.baseLayer, viewBits.layerCount,(UAVAccess)viewBits.uavAccess);
 	}
 
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos,int subscript, rs_image_vk* vk,rs_image_view* view)
@@ -1616,6 +1616,81 @@ namespace Render::Vulkan {
 		address_info.buffer = (VkBuffer)buffer->native;
 		buffer->gpuAddress = vkGetBufferDeviceAddressKHR(ctx->device, &address_info);
         return buffer->gpuAddress;
+	}
+
+	void beginFrameUnbindBindlessResource(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData)
+	{
+		std::vector<VkWriteDescriptorSet> writes{};
+        std::vector<VkDescriptorImageInfo> imgInfos;
+        imgInfos.reserve(bindlessData->pendingUnbindSampler.size());
+		VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		for (auto idx : bindlessData->pendingUnbindSampler) {
+			bindlessData->samplersBinding.Free(idx);
+			auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
+			write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+			write.descriptorCount = 1;
+			write.dstBinding = bindingIdx;
+			write.dstArrayElement = idx;
+			write.descriptorCount = 1;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+			VkDescriptorImageInfo imgInfo{};
+			imgInfo.sampler = (VkSampler)defalut_no_sampler->native;
+            imgInfos.push_back(imgInfo);
+			write.pImageInfo = &imgInfos.back();
+            writes.push_back(write);
+        }
+		vkUpdateDescriptorSets(ctx->device, writes.size(), writes.data(), 0, 0);
+        writes.clear();
+        imgInfos.clear();
+        bindlessData->pendingUnbindSampler.clear();
+
+        imgInfos.reserve(bindlessData->pendingUnbindStorage.size());
+		for (auto idx : bindlessData->pendingUnbindStorage) {
+            bindlessData->storageImagesBinding.Free(idx);
+			auto bindingPos = bindlessData->storageBindlessPos ;
+			auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
+            auto bindResource = defalut_no_texture_UAV->defaultView;
+			VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+			write.descriptorCount = 1;
+			write.descriptorType = toVkDescriptorType(UniformType::StorageImage);
+			write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+			write.dstBinding = bindingIdx;
+			write.dstArrayElement = idx;
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageView = (VkImageView)bindResource->native;
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			imgInfos.push_back(imageInfo);
+			write.pImageInfo = &imgInfos.back();
+			writes.push_back(write);
+		}
+		vkUpdateDescriptorSets(ctx->device, writes.size(), writes.data(), 0, 0);
+		writes.clear();
+		imgInfos.clear();
+        bindlessData->pendingUnbindStorage.clear();
+
+		imgInfos.reserve(bindlessData->pendingUnbindTexture.size());
+		for (auto idx : bindlessData->pendingUnbindTexture) {
+			bindlessData->texturesBinding.Free(idx);
+			auto bindingPos = bindlessData->textureBindlessPos;
+			auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
+			auto bindResource = defalut_no_texture->defaultView;
+			VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+			write.descriptorCount = 1;
+			write.descriptorType = toVkDescriptorType(UniformType::Texture);
+			write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
+			write.dstBinding = bindingIdx;
+			write.dstArrayElement = idx;
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageView = (VkImageView)bindResource->native;
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imgInfos.push_back(imageInfo);
+			write.pImageInfo = &imgInfos.back();
+			writes.push_back(write);
+		}
+		vkUpdateDescriptorSets(ctx->device, writes.size(), writes.data(), 0, 0);
+		writes.clear();
+		imgInfos.clear();
+		bindlessData->pendingUnbindTexture.clear();
 	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
@@ -2345,7 +2420,7 @@ namespace Render::Vulkan {
 		auto vkPos = toVkBindingPos(pos);
 		auto fif = context->LogicFrameFif;
 		auto [descriptorSet, setPack] = _findOrCreateDescripotrSet(context, frame, fif, pipeline, drawdata, vkPos.setIdx);
-
+        if (setPack == nullptr)return;
 		assert(vkPos.bindingIdx < setPack->bindingTracker.size());
 		auto& slot = setPack->bindingTracker[vkPos.bindingIdx];
 
@@ -3230,7 +3305,7 @@ namespace Render::Vulkan {
 #include "Renderer/GPUShared/BindlessGlobalDefShared.h"
     rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx, rs_pipeline* pipeline, int setIdx)
     {
-        rs_bindless_data_vk* bindlessData = new rs_bindless_data_vk(TEXTURE_BINDLESS_ARRAY_BINDING_IDX, SAMPLER_BINDLESS_ARRAY_BINDING_IDX, UAV_IMAGE_BINDLESS_ARRAY_BINDING_IDX, BUFFER_BINDLESS_ARRAY_BINDING_IDX);
+        rs_bindless_data_vk* bindlessData = new rs_bindless_data_vk(MAX_TEXTURE_BINDLESS, MAX_SAMPLER_BINDLESS, MAX_STORAGEIMAGE_BINDLESS);
         auto descriptorManager = ctx->descriptorSetMgr;
         bindlessData->descriptorSet = descriptorManager->AllocateDescriptorSetFromDedicatePool(ctx->nextRenderFrame, ctx, pipeline, setIdx);
         return bindlessData;
@@ -3322,16 +3397,22 @@ namespace Render::Vulkan {
             assert(false);
             return uav ?defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
         }
-        uint32_t default_unbind_index = uav ? defalut_no_texture_UAV->defaultView->bindlessIndex : defalut_no_texture->defaultView->bindlessIndex;
+        auto resourceDefault = uav ? defalut_no_texture_UAV->defaultView : defalut_no_texture->defaultView ;
+        uint32_t default_unbind_index = resourceDefault->bindlessIndex;
         auto refAfterDec = resource->bindingRef.fetch_sub(1);
-        if (refAfterDec > 1) {
+		resourceDefault->bindingRef.fetch_add(1);
+		if (refAfterDec > 1) {
             return default_unbind_index;
         }
 
         assert(refAfterDec >= 1);
 
         resource->bindlessIndex = INVALID_BINDLESS_INDEX;
-        bindingTable->Free(index);
+        auto& pendingRemoveTable = uav ? bindlessData->pendingUnbindStorage : bindlessData->pendingUnbindTexture;
+        pendingRemoveTable.push_back(index);
+		return default_unbind_index;
+
+		bindingTable->Free(index);
 
         auto bindingPos = uav ? bindlessData->storageBindlessPos : bindlessData->textureBindlessPos;
         auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
@@ -3354,31 +3435,7 @@ namespace Render::Vulkan {
 
     uint64_t unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav)
     {
-
         if (BufferDeviceAddressEnable)return defalut_no_buffer_UAV->gpuAddress;
-
-        auto& bindingTable =bindlessData->buffersBinding;
-        auto resource = bindingTable.get(index);
-        if (!resource) {
-            assert(false);
-            return defalut_no_buffer_UAV->gpuAddress;
-        }
-        resource->bindlessIndex = INVALID_BINDLESS_INDEX;
-        bindingTable.Free(index);
-        auto bindingIdx = toVkBindingPos(bindlessData->bufferBindlessPos).bindingIdx;
-        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        write.descriptorCount = 1;
-        write.descriptorType = toVkDescriptorType(Render::UniformType::StorageBuffer);
-        write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
-        write.dstBinding = bindingIdx;
-        write.dstArrayElement = index;
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = (VkBuffer)defalut_no_buffer_UAV->native;
-        bufferInfo.offset = 0;
-        bufferInfo.range = VK_WHOLE_SIZE;
-        write.pBufferInfo = &bufferInfo;
-        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
-        return defalut_no_buffer_UAV->bindlessIndex;
     }
 
     uint32_t updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler)
@@ -3419,7 +3476,8 @@ namespace Render::Vulkan {
 
         auto& bindingTable = bindlessData->samplersBinding;
         auto sampler = bindingTable.get(index);
-        if (!sampler || sampler->bindlessIndex == INVALID_BINDLESS_INDEX) {
+		defalut_no_sampler->bindingRef.fetch_add(1);
+		if (!sampler || sampler->bindlessIndex == INVALID_BINDLESS_INDEX) {
             assert(false);
             return defalut_no_sampler->bindlessIndex;
         }
@@ -3428,6 +3486,8 @@ namespace Render::Vulkan {
 			return defalut_no_sampler->bindlessIndex;
         }
         assert(refAfterDec >= 1);
+        bindlessData->pendingUnbindSampler.push_back(index);
+		return defalut_no_sampler->bindlessIndex;
 
         auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
         bindingTable.Free(index);
