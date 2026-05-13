@@ -5,11 +5,6 @@
 namespace Render {
     namespace EngineBindlessAPI {
         static uint32_t GetGlobalSamplerIndex(rs_sampler* sampler) {
-            if (sampler && sampler->bindlessIndex != INVALID_BINDLESS_INDEX) {
-                return sampler->bindlessIndex;
-            }
-            auto bindlessData = RenderSystem::instance()->getGlobalBindlessData();
-            assert(bindlessData != nullptr);
             return RenderSystem::instance()->updateGlobalBindlessDataSampler(RenderSystem::instance()->getGlobalBindlessData(), sampler);
         }
         static uint32_t UnbindGlobalSampler(uint32_t index) {
@@ -17,20 +12,13 @@ namespace Render {
         }
 
         static uint32_t GetGlobalTextureIndex(rs_image_view* img) {
-            if (img && img->bindlessIndex != INVALID_BINDLESS_INDEX) {
-                return img->bindlessIndex;
-            }
             return RenderSystem::instance()->updateGlobalBindlessDataTexture(RenderSystem::instance()->getGlobalBindlessData(), img);
         }
         static uint32_t GetGlobalRWTextureIndex(rs_image_view* img) {
-            if (img && img->bindlessIndex != INVALID_BINDLESS_INDEX) {
-                return img->bindlessIndex;
-            }
             return RenderSystem::instance()->updateGlobalBindlessDataRWTexture(RenderSystem::instance()->getGlobalBindlessData(), img);
         }
 
         static uint32_t UnbindGlobalTexture(uint32_t index) {
-        
             return RenderSystem::instance()->unbindGlobalBindlessDataTexture(RenderSystem::instance()->getGlobalBindlessData(), index);
         }
         static uint32_t UnbindGlobalRWTexture(uint32_t index) {
@@ -236,67 +224,8 @@ namespace Render {
     }
 
     bool PipelineBindingTable::updateParameter(const Name& paramName, TexturePtr tex, int element) {
-        auto it = mName2BindingSlot.find(paramName);
-        if (it != mName2BindingSlot.end()) {
-            auto& pp = mBindingSlots[it->second];
-            pp.varArr[element].set(tex);
-            return true;
-        }
-        if (!RenderSystem::instance()->isBindlessEnabled())return false;
-
-        auto bIt = mName2BindlessSlot.find(paramName);
-        if (bIt != mName2BindlessSlot.end()) {
-            auto& bItem = mBindlessItems[bIt->second];
-            auto& type = bItem.type;
-
-            if (type != UniformType::StorageImage && type != UniformType::Texture) {
-                assert(false && "mismatch type");
-                return false;
-            }
-
-
-            rs_image_view* view = nullptr;
-            if (tex != nullptr) {
-                view = tex->getRsImage()->defaultView;
-            }
-            uint32_t globalIndex = INVALID_BINDLESS_INDEX;
-            if (type == UniformType::StorageImage) {
-                globalIndex = EngineBindlessAPI::GetGlobalRWTextureIndex(view);
-            }
-            else {
-                globalIndex = EngineBindlessAPI::GetGlobalTextureIndex(view);
-            }
-
-            if (bItem.bindlessData.size() <= element) {
-                bItem.bindlessData.resize(bItem.location.bindlessInfo.count , INVALID_BINDLESS_INDEX);
-            }
-
-
-            if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
-                if (type == UniformType::StorageImage) {
-                    globalIndex = EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
-                }
-                else {
-                    globalIndex = EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
-                }
-            }
-
-			bItem.keepAliveRefs[element].set(tex);
-			bItem.bindlessData[element] = globalIndex;
-
-            auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
-            if (fatherIt != mBindingPos2BindingSlot.end()) {
-                auto& fatherUBO = mBindingSlots[fatherIt->second];
-                void* uboData = nullptr;
-                uint32_t size = 0;
-                EngineBindlessAPI::initFatherUBO(fatherUBO);
-                uint32_t stride = bItem.location.bindlessInfo.stride;
-                uint32_t writeOffset = bItem.location.bindlessInfo.offset + (element * stride);
-                fatherUBO.varArr[0].writeData(&globalIndex, sizeof(uint32_t), writeOffset);
-            }
-            return true;
-        }
-        return false;
+        auto view = tex ? tex->getRsImage()->defaultView : nullptr;
+        return updateParameter(paramName, tex, view, element);
     }
 
     bool PipelineBindingTable::updateParameter(const Name& paramName, TexturePtr tex, ImageViewKey key, int element)
@@ -326,6 +255,14 @@ namespace Render {
 			auto& bItem = mBindlessItems[bIt->second];
 			auto& type = bItem.type;
 
+            if (view && view->viewKey.getUAVAccess() == UAVAccess::ReadOnly && type == UniformType::StorageBuffer) {
+                assert(false && "Cannot bind a srv to uav");
+            }
+
+            if (view && view->viewKey.getUAVAccess() != UAVAccess::ReadOnly && type == UniformType::Texture) {
+				assert(false && "Cannot bind a uav to srv");
+            }
+
 			if (type != UniformType::StorageImage && type != UniformType::Texture) {
 				assert(false && "mismatch type");
 				return false;
@@ -346,15 +283,18 @@ namespace Render {
 
 			if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
 				if (type == UniformType::StorageImage) {
-                    globalIndex = EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
+                    EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
 				}
 				else {
-                    globalIndex = EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
+                    EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
 				}
 
 			}
-			bItem.keepAliveRefs[element].set(tex, view);
-			bItem.bindlessData[element] = globalIndex;
+
+            if (tex && view) {
+                bItem.keepAliveRefs[element].set(tex, view);
+                bItem.bindlessData[element] = globalIndex;
+            }
 
 			auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
 			if (fatherIt != mBindingPos2BindingSlot.end()) {

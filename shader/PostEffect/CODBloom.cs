@@ -125,9 +125,6 @@ vec3 Tap13Sample(vec2 curUV,vec2 uvStep,texture2D sampledTexture,sampler texture
 
     return ret;
 }
-void main(){
-
-}
 
 #ifdef DOWN_SAMPLE
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -162,3 +159,14 @@ void UpSampleMain(){
     imageStore(GetRWTexture(MipN_1),curPixel, imgOut);
 }
 #endif
+
+
+void main(){
+    #ifdef UP_SAMPLE
+    UpSampleMain();
+    #endif
+
+    #ifdef DOWN_SAMPLE
+    DownSampleMain();
+    #endif
+}

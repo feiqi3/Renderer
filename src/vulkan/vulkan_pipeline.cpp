@@ -691,7 +691,7 @@ namespace Render::Vulkan {
 
         VkPipelineShaderStageCreateInfo csCI{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
         csCI.module = (VkShaderModule)shader->native;
-        csCI.pName = shader->entryPoint.c_str();
+        csCI.pName = "main";//shader->entryPoint.c_str();
         csCI.stage = toVkShaderStageBit(shader->shaderStage);
         csCI.pSpecializationInfo = 0;
 

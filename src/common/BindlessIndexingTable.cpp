@@ -65,7 +65,11 @@ namespace Render {
 		
 		rs_resource* toEraseResource = denseData[denseIndexToPop].resource;
 		if (toEraseResource) {
-			toEraseResource->bindlessIndex = INVALID_INDEX;
+			//Resource has been assigned with new slot.
+			//Happened when update after release.
+			if (toEraseResource->bindlessIndex == handleIndex) {
+				toEraseResource->bindlessIndex = INVALID_INDEX;
+			}
 		}
 
 		uint32_t lastDenseIndex = static_cast<uint32_t>(denseData.size() - 1);

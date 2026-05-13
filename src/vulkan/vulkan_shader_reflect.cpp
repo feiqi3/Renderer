@@ -318,6 +318,7 @@ namespace Render::Vulkan {
         shaderModule->shaderName = desc.shaderName;
         shaderModule->shaderStage = desc.stage;
         shaderModule->shaderCode = desc.shaderSrcCode;
+        shaderModule->entryPoint = entryPoint;
         shaderModule->rflInfo = std::move(reflectShader((uint32_t*)ci.pCode, ci.codeSize, desc.stage));
         return shaderModule;
 	}

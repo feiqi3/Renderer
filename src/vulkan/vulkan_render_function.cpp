@@ -3444,7 +3444,6 @@ namespace Render::Vulkan {
             return INVALID_BINDLESS_INDEX;
         }
         if (sampler->bindlessIndex != INVALID_BINDLESS_INDEX) {
-            assert(false);
             sampler->bindingRef.fetch_add(1);
             return sampler->bindlessIndex;
         }

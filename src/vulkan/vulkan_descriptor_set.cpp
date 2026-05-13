@@ -484,7 +484,7 @@ namespace Render::Vulkan {
 
 		bool canUseUpdateAfterBind = true;
 		for (auto&& binding : bindings) {
-			if (binding.type != UniformType::ConstantBuffer && binding.type != UniformType::UniformBuffer && binding.type != UniformType::StorageBuffer) {
+			if (binding.type == UniformType::ConstantBuffer || binding.type == UniformType::UniformBuffer || binding.type == UniformType::StorageBuffer) {
 				canUseUpdateAfterBind = false;
 			}
 		}

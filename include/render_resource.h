@@ -57,6 +57,8 @@ namespace Render {
 
 	struct rs_shader_module : rs_base {
 		ShaderStage shaderStage;
+		//BUG OF SHADER C ---> entry point of glsl must be main  
+		//https://github.com/google/shaderc/issues/1465   
 		std::string entryPoint = "main";
 		std::string shaderName = "shader";
 		uint64_t shaderHash = 0;
