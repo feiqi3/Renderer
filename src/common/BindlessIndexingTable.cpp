@@ -124,4 +124,26 @@ namespace Render {
 		return ret;
 	}
 
+	void BindlessIndexingTable::ResourceStateMark(uint32_t handleIndex)
+	{
+		auto denseIndex = this->sparseIndices[handleIndex];
+		if (denseIndex == INVALID_BINDLESS_INDEX) {
+			assert(false);
+			return;
+		}
+		if (!this->denseData[denseIndex].resourceStateNeedTransit) {
+			denseIndexToTransit.push_back(denseIndex);
+			this->denseData[denseIndex].resourceStateNeedTransit = true;
+		}
+		
+	}
+
+	void BindlessIndexingTable::ClearResourceStateMarked()
+	{
+		for (auto& idx : denseIndexToTransit) {
+			this->denseData[idx].resourceStateNeedTransit = false;
+		}
+		denseIndexToTransit.clear();
+	}
+
 }

@@ -15,4 +15,5 @@ void main() {
     }
     o_uv    = pos * 0.5 + 0.5;
     o_pos   = pos; 
+    gl_Position = vec4(pos, 1.0, 1.0);
 }

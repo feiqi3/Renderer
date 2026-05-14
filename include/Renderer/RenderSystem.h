@@ -172,13 +172,17 @@ namespace Render{
 
 		uint64_t unbindGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, uint64_t idx);
 		uint64_t updateGlobalBindlessDataBuffer(rs_bindless_data* bindlessData,rs_buffer* buffer);
+		void	 markGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer);
 		uint64_t updateGlobalBindlessDataRWBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer);
+		void	 markGlobalBindlessDataRWBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer);
 
 		uint32_t unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* img);
+		void	 markGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* view);
 
 		uint32_t unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* img);
+		void	 markGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* view);
 
 		uint32_t unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx);
 		uint32_t updateGlobalBindlessDataSampler(rs_bindless_data* bindlessData, rs_sampler* sampler);

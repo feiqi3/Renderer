@@ -36,6 +36,22 @@ namespace Render {
 
         }
 
+        static void markResourceUAV(rs_buffer* buffer) {
+            RenderSystem::instance()->markGlobalBindlessDataBuffer(RenderSystem::instance()->getGlobalBindlessData(), buffer);
+        }
+
+        static void markResourceUAV(rs_image_view* view) {
+			RenderSystem::instance()->markGlobalBindlessDataRWTexture(RenderSystem::instance()->getGlobalBindlessData(), view);
+        }
+
+        static void markResourceSRV(rs_buffer* buffer) {
+			RenderSystem::instance()->markGlobalBindlessDataRWBuffer(RenderSystem::instance()->getGlobalBindlessData(), buffer);
+		}
+
+        static void markResourceSRV(rs_image_view* view) {
+			RenderSystem::instance()->markGlobalBindlessDataTexture(RenderSystem::instance()->getGlobalBindlessData(), view);
+		}
+
         static inline void initFatherUBO(PipelineBindingTable::_ParameterPair& pair) {
             if (pair.varArr[0].isValid()) {
                 return;
@@ -173,6 +189,74 @@ namespace Render {
             }
 
         }
+        if (!RenderSystem::instance()->isBindlessEnabled())return true;
+
+        for (const auto& pp : mBindlessItems) {
+            switch (pp.type)
+            {
+            case UniformType::ConstantBuffer:
+            case UniformType::UniformBuffer:
+            {
+                for (int i = 0;i < pp.bindlessData.size();++i) {
+					if (!pp.keepAliveRefs[i].isValid())continue;
+					const auto& data = pp.keepAliveRefs[i].getBufferPair();
+                    if (!data)continue;
+                    EngineBindlessAPI::markResourceSRV(data->buffer);
+                }
+                break;
+            }
+            case UniformType::StorageBuffer:
+            {
+				for (int i = 0;i < pp.bindlessData.size();++i) {
+					if (!pp.keepAliveRefs[i].isValid())continue;
+					const auto& data = pp.keepAliveRefs[i].getBufferPair();
+					if (!data)continue;
+					EngineBindlessAPI::markResourceUAV(data->buffer);
+				}
+				break;
+            }
+			case UniformType::StorageImage:
+			{
+				for (int i = 0;i < pp.bindlessData.size();++i) {
+					if (!pp.keepAliveRefs[i].isValid())continue;
+					rs_image_view* view = nullptr;
+                    const auto& refVar = pp.keepAliveRefs[i];
+                    if (refVar.getTexture()) {
+                        view = refVar.getTexture()->getRsImage()->defaultView;
+                    }
+                    else if (
+                        refVar.getTextureView()
+                        ) {
+                        view = refVar.getTextureView()->view;
+                    }
+					EngineBindlessAPI::markResourceUAV(view);
+				}
+				break;
+			}
+			case UniformType::Texture:
+			{
+				for (int i = 0;i < pp.bindlessData.size();++i) {
+                    if (!pp.keepAliveRefs[i].isValid())continue;
+                    rs_image_view* view = nullptr;
+					const auto& refVar = pp.keepAliveRefs[i];
+					if (refVar.getTexture()) {
+						view = refVar.getTexture()->getRsImage()->defaultView;
+					}
+					else if (
+						refVar.getTextureView()
+						) {
+						view = refVar.getTextureView()->view;
+					}
+					EngineBindlessAPI::markResourceSRV(view);
+				}
+				break;
+			}
+            default:
+                break;
+            }
+
+        }
+
         return true;
     }
 

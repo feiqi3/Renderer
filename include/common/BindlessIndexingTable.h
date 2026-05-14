@@ -12,16 +12,17 @@ namespace Render {
 		uint32_t usedRef = 0;
 		UniformType type = UniformType::Count;
 		uint32_t bindlessIndex = INVALID_BINDLESS_INDEX;
+		bool resourceStateNeedTransit = false;
 	};
 	//OPTIMIZE: add a free list to record.
 	class BindlessIndexingTable {
+	public:
 		const static uint32_t INVALID_INDEX = INVALID_BINDLESS_INDEX;
-	private:
 		//Index in the bindless array.
 		SmallVector<uint32_t> sparseIndices;
 		//Real data.
 		std::vector<BindlessSlot> denseData;
-
+		std::vector<uint32_t> denseIndexToTransit;
 		uint32_t maxCapacity;
 		uint32_t lastSearchIndex = 0;
 
@@ -32,6 +33,8 @@ namespace Render {
 		void			Free(uint32_t handleIndex);
 		uint32_t		IncRef(uint32_t handleIndex);
 		uint32_t		DeRef(uint32_t handleIndex);
+		void			ResourceStateMark(uint32_t handleIndex);
+		void			ClearResourceStateMarked();
 	};
 }
 

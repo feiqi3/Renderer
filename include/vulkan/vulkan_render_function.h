@@ -122,7 +122,9 @@ namespace Render::Vulkan {
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_image_vk* vk, rs_image_view* view);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_sampler_vk* vk);
 	void updateDrawData(rs_context_vk* context, uint64_t frame, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, rs_binding_pos pos, int subscript, rs_buffer_vk* vk,uint32_t offset,uint32_t size);
-	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context,uint64_t size);
+	void bindlessDataMarkResource(rs_bindless_data_vk* bindlessData, rs_image_view* view	,bool isUAV);
+	void bindlessDataMarkResource(rs_bindless_data_vk* bindlessData, rs_buffer* buffer		, bool isUAV);
+	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context, uint64_t size);
 	//-------------------------------------------------------------------------------------//     
 	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt);
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, const std::vector<ClearColor>& color, const ClearDepthStencil& clearDs);

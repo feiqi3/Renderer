@@ -1693,6 +1693,30 @@ namespace Render::Vulkan {
 		bindlessData->pendingUnbindTexture.clear();
 	}
 
+	void bindlessDataMarkResource(rs_bindless_data_vk* bindlessData, rs_image_view* view, bool isUAV)
+	{
+        if (view->bindlessIndex == INVALID_BINDLESS_INDEX) {
+            assert(false);
+            return;
+        }
+        if (isUAV) {
+            bindlessData->storageImagesBinding.ResourceStateMark(view->bindlessIndex);
+        }
+        else {
+			bindlessData->texturesBinding.ResourceStateMark(view->bindlessIndex);
+        }
+	}
+
+    void bindlessDataMarkResource(rs_bindless_data_vk* bindlessData, rs_buffer* buffer, bool isUAV)
+    {
+        if (isUAV) {
+            bindlessData->mPendingBuffersUAV.push_back(buffer);
+		}
+        else {
+            bindlessData->mPendingBuffersSRV.push_back(buffer);
+        }
+    }
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
@@ -3051,47 +3075,35 @@ namespace Render::Vulkan {
         }
 
         bool isCompute = (pipelineType == PipelineType::Compute);
-
-        for (auto& [type, resource] : drawData->pendingResource) {
-                if (type == UniformType::Count || type == UniformType::Sampler) {
-                    continue;
-                }
-
-                auto& bucket = cb->resourceToBeTransit[int(type)];
-
-                ResourceState targetState;
-                switch (type) {
-                case UniformType::ConstantBuffer:
-                case UniformType::UniformBuffer:
-                case UniformType::Texture:
-                case UniformType::InputAttachment:
-                    targetState = isCompute ? ResourceState::ComputeShaderResource : ResourceState::ShaderResource;
-                    break;
-                case UniformType::StorageBuffer:
-                case UniformType::StorageImage:
-                    targetState = isCompute ? ResourceState::ComputeUnorderedAccess : ResourceState::UnorderedAccess;
-                    break;
-                default:
-                    continue;
-                }
-
-                if (type == UniformType::Texture ||
-                    type == UniformType::StorageImage ||
-                    type == UniformType::InputAttachment)
-                {
-                    markPendingState((rs_image_view*)resource, targetState, bucket);
-                }
-                else if (type == UniformType::UniformBuffer)
-                {
-                    //Bindless not support this
-                    assert(false);
-                }
-                else
-                {
-                    markPendingState((rs_buffer_vk*)resource, targetState, bucket);
-                }
+        //1. texture
+        auto& bucketSRV = cb->resourceToBeTransit[(int)UniformType::Texture];
+        for (auto denseIndex : drawData->texturesBinding.denseIndexToTransit) {
+            markPendingState((rs_image_view*)drawData->texturesBinding.denseData[denseIndex].resource,
+                isCompute ? Render::ResourceState::ComputeShaderResource : ResourceState::ShaderResource, bucketSRV);
         }
-        drawData->pendingResource.clear();
+        drawData->texturesBinding.ClearResourceStateMarked();
+
+		auto& bucketUAV = cb->resourceToBeTransit[(int)UniformType::StorageImage];
+		for (auto denseIndex : drawData->storageImagesBinding.denseIndexToTransit) {
+			markPendingState((rs_image_view*)drawData->storageImagesBinding.denseData[denseIndex].resource,
+                isCompute ? Render::ResourceState::ComputeUnorderedAccess : ResourceState::UnorderedAccess, bucketUAV);
+		}
+        drawData->storageImagesBinding.ClearResourceStateMarked();
+
+		auto& bucketBufferSRV = cb->resourceToBeTransit[(int)UniformType::ConstantBuffer];
+		for (auto buffer : drawData->mPendingBuffersSRV) {
+			markPendingState((rs_buffer_vk*)buffer,
+                isCompute ? Render::ResourceState::ComputeShaderResource : ResourceState::ShaderResource, bucketBufferSRV);
+		}
+        drawData->mPendingBuffersSRV.clear();
+
+		auto& bucketBufferUAV = cb->resourceToBeTransit[(int)UniformType::StorageBuffer];
+		for (auto buffer : drawData->mPendingBuffersUAV) {
+			markPendingState((rs_buffer_vk*)buffer,
+                isCompute ? Render::ResourceState::ComputeUnorderedAccess : ResourceState::UnorderedAccess, bucketBufferUAV);
+		}
+        drawData->mPendingBuffersUAV.clear();
+
     }
 
     void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, PipelineType pipelineType, uint32_t curFif)

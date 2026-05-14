@@ -205,6 +205,8 @@ namespace Render {
 		uint32_t maxStorageImagesBinding = 0;
 		//TODO: the resource newly added to this bindless data.
 		std::vector<std::pair<UniformType, rs_resource*> > pendingResource;
+		std::vector<rs_buffer*> mPendingBuffersSRV;
+		std::vector<rs_buffer*> mPendingBuffersUAV;
 	};
 
 	struct rs_drawdata {

@@ -236,6 +236,9 @@ namespace Render{
 	}
 	void RenderSystem::cmdBeginRenderPass(rs_commandbuffer* cmdbuf, rs_renderpass* pass,std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs)
 	{
+		if (isBindlessEnabled()) {
+			Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_bindless_data_vk*)(getGlobalBindlessData()), PipelineType::Graphics, getCurFif());
+		}
 		Vulkan::cmdBeginRenderPass((Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_renderpass_vk*)pass, clearColor, clearDs);
 		cmdbuf->currentRenderPass = pass;
 	}
@@ -723,6 +726,9 @@ namespace Render{
 
 	void RenderSystem::dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ)
 	{
+		if (isBindlessEnabled()) {
+			Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_bindless_data_vk*)(getGlobalBindlessData()), PipelineType::Compute, getCurFif());
+		}
 		transitDrawdataResourceState(cmdBuffer, PipelineType::Compute, drawData);
 		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(),(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData,(Vulkan::rs_bindless_data_vk*)getGlobalBindlessData(), getCurFif(), groupX, groupY, groupZ);
 	}
@@ -750,9 +756,6 @@ namespace Render{
 	}
 	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type, rs_drawdata* drawdata)
 	{
-		if (isBindlessEnabled()) {
-			Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_bindless_data_vk*)(getGlobalBindlessData()), type, getCurFif());
-		}
 		//defered to begin render pass phase
 		Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)(drawdata), type, getCurFif());
 	}
@@ -992,6 +995,11 @@ namespace Render{
 		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_buffer_vk*)buffer, false);
 	}
 
+	void RenderSystem::markGlobalBindlessDataBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer)
+	{
+		Vulkan::bindlessDataMarkResource((Vulkan::rs_bindless_data_vk*)bindlessData, buffer, false);
+	}
+
 	uint64_t RenderSystem::updateGlobalBindlessDataRWBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer) {
 		if (!buffer)
 		{
@@ -999,6 +1007,11 @@ namespace Render{
 			return default_bindless_buffer_idx;
 		}
 		return Vulkan::updateBindlessData(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (Vulkan::rs_buffer_vk*)buffer, true);
+	}
+
+	void RenderSystem::markGlobalBindlessDataRWBuffer(rs_bindless_data* bindlessData, rs_buffer* buffer)
+	{
+		Vulkan::bindlessDataMarkResource((Vulkan::rs_bindless_data_vk*)bindlessData, buffer, true);
 	}
 
 	uint32_t RenderSystem::unbindGlobalBindlessDataTexture(rs_bindless_data* bindlessData, uint32_t idx)
@@ -1014,6 +1027,11 @@ namespace Render{
 		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, false);
 	}
 
+	void RenderSystem::markGlobalBindlessDataTexture(rs_bindless_data* bindlessData, rs_image_view* view)
+	{
+		Vulkan::bindlessDataMarkResource((Vulkan::rs_bindless_data_vk*)bindlessData, view, false);
+	}
+
 	uint32_t RenderSystem::unbindGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, uint32_t idx)
 	{
 		if (idx == INVALID_BINDLESS_INDEX)
@@ -1025,6 +1043,11 @@ namespace Render{
 	{
 		if (!img)return defalut_no_texture_UAV->defaultView->bindlessIndex;
 		return Vulkan::updateBindlessImage(getRenderContext(), (Vulkan::rs_bindless_data_vk*)bindlessData, (rs_image_view*)img, true);
+	}
+
+	void RenderSystem::markGlobalBindlessDataRWTexture(rs_bindless_data* bindlessData, rs_image_view* view)
+	{
+		Vulkan::bindlessDataMarkResource((Vulkan::rs_bindless_data_vk*)bindlessData, view, true);
 	}
 
 	uint32_t RenderSystem::unbindGlobalBindlessDataSampler(rs_bindless_data* bindlessData, uint32_t idx)
