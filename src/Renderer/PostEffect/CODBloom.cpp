@@ -67,6 +67,10 @@ namespace Render {
 
 		const static Name& paramMipN1Name = Name("MipN_1");
 		const static Name& paramMipNName = Name("MipN");
+
+		ImageViewKey Mip0ViewKey;
+		RenderSystem::instance()->cmdBlit(cmd, mainRT, Mip0ViewKey, mDp->mTempMipChain, Mip0ViewKey, Filter::Nearest);
+
 		//Down sample
 		for (int i = 1;i < this->mDp->mTempMipChain->getMips();++i) {
 			ImageViewKey MipN1ViewKey;
@@ -102,16 +106,18 @@ namespace Render {
 		//Up sample
 		for (int i = this->mDp->mTempMipChain->getMips() - 1;i >= 1; --i) {
 			updateCfg();
-			ImageViewKey MipNViewKey;
-			MipNViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i - 1)
-				.setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadWrite);
-			mDp->mUpsampleKernel->setParameter(paramMipN1Name, mDp->mTempMipChain, MipNViewKey);
 
-			ImageViewKey MipN_1ViewKey;
-			MipN_1ViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i)
-				.setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadOnly);
-			mDp->mUpsampleKernel->setParameter(paramMipNName, mDp->mTempMipChain, MipN_1ViewKey);
 			//Write to mip n - 1
+			ImageViewKey MipN_1ViewKey;
+			MipN_1ViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i-1)
+				.setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadWrite);
+
+			mDp->mUpsampleKernel->setParameter(paramMipN1Name, mDp->mTempMipChain, MipN_1ViewKey);
+
+			ImageViewKey MipNViewKey;
+			MipNViewKey.setAspect(ViewAspect::Color).setBaseLayer(0).setBaseMip(i)
+				.setViewType(ImageType::V2D).setUAVAccess(UAVAccess::ReadOnly);
+			mDp->mUpsampleKernel->setParameter(paramMipNName, mDp->mTempMipChain, MipNViewKey);
 			ivec2 writeMipSize = vec2(mDp->mSavedMainRT->getWidth() >> (i - 1), mDp->mSavedMainRT->getHeight() >> (i - 1));
 
 			mDp->mUpsampleKernel->dispatch(

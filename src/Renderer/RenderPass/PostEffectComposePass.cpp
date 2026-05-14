@@ -95,7 +95,9 @@ namespace Render {
 
 	void PostEffectComposePass::setBloomTex(const TexturePtr& tex)
 	{
-		entity->getMaterial()->bindParameter("u_bloomTex", tex);
+		ImageViewKey key;
+		key.setBaseMip(0);
+		entity->getMaterial()->bindParameter("u_bloomTex", tex, key);
 	}
 
 	void PostEffectComposePass::setMainRTColorTex(const TexturePtr& tex)
@@ -128,7 +130,7 @@ namespace Render {
 	{
 		entity = new PostEffectComposeEntity();
 
-		mPostEffectCfg.BloomStrength = 0.1;
+		mPostEffectCfg.BloomStrength = 0.5;
 		BufferDesc bufferDesc{};
 		bufferDesc.byteSize = sizeof(GPUShared::PostEffectConfig);
 		bufferDesc.bufUsage = BufferType_Uniform;

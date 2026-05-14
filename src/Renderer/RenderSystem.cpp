@@ -14,6 +14,7 @@
 #include "Renderer/RenderQueue.h"
 #include "Renderer/ConstShaderDataManager.h"
 #include "Renderer/TextureResourceMgr.h"
+#include "Renderer/Blit.h"
 #include "common/ResourceSystem.h"
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/MaterialTemplateManager.h"
@@ -67,7 +68,7 @@ namespace Render{
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
 		std::unique_ptr<RenderGroup> mRenderDispatcher;
-
+		Blitor* mBlitor = nullptr;
 		TexturePtr mErrorRGBTexture = nullptr;
 
 		Render::Platform::Win::WinFileSystem* mWinFileSystem;
@@ -107,11 +108,14 @@ namespace Render{
 		new CameraManager;
 		//TODO move it out;
 		new ComponentSystem;
+		sRenderSystem->mDp->mBlitor = new Blitor();
 	}
 	void RenderSystem::destroyRenderSystem()
 	{
 		using namespace Vulkan;
 		if (!sRenderSystem)return;
+		delete sRenderSystem->mDp->mBlitor;
+
 		delete ComponentSystem::instance();
 		delete CameraManager::instance();
 		delete ConstShaderDataManager::instance();
@@ -119,6 +123,8 @@ namespace Render{
 		sRenderSystem->mDp->mPassManager = 0;
 		sRenderSystem->mDp->mArena->shutdown();
 		sRenderSystem->mDp->mArena = 0;
+		
+
 		deinitVulkanBackEnd((rs_context_vk*)sRenderSystem->mBackEndContext);
 		sRenderSystem->mWindow = 0;
 		sRenderSystem->mBackEndContext = 0;
@@ -927,6 +933,11 @@ namespace Render{
 	void RenderSystem::excutePendingBufferCopies(rs_commandbuffer* cmdbuf)
 	{
 		mDp->mArena->executePendingCopies((Vulkan::rs_commandbuffer_vk*)cmdbuf);
+	}
+
+	void RenderSystem::cmdBlit(rs_commandbuffer* cmd, TexturePtr from, ImageViewKey fromKey, TexturePtr to, ImageViewKey toKey, Filter filter)
+	{
+		mDp->mBlitor->cmdBlit(cmd, from, fromKey, to, toKey, filter);
 	}
 
 	void RenderSystem::cmdBufferStateTransfer(rs_commandbuffer* cmdbuf, rs_buffer* resource, ResourceState toState)

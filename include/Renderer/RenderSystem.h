@@ -7,6 +7,7 @@
 #include "Renderer/MaterialVarient.h"
 #include "Common/Name.h"
 #include <render_resource.h>
+#include "Renderer/ResourceFwd.h"
 namespace Render{
 	class RenderQueue;
 	class Camera;
@@ -158,7 +159,7 @@ namespace Render{
 		bool isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt);
 
 		void excutePendingBufferCopies(rs_commandbuffer* cmdbuf);
-
+		void cmdBlit(rs_commandbuffer* cmd, TexturePtr from, ImageViewKey fromKey, TexturePtr to, ImageViewKey toKey, Filter filter);
 		void cmdBufferStateTransfer(rs_commandbuffer* cmdbuf,rs_buffer* resource, ResourceState toState);
 		void cmdImageStateTransfer(rs_commandbuffer* cmdbuf,rs_image* resource,
 			ResourceState newState,

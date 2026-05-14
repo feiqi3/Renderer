@@ -13,6 +13,7 @@
 #include "Renderer/RenderPass/PostEffectComposePass.h"
 #include "Renderer/PostEffect/CODBloom.h"
 #include "Renderer/TextureResourceMgr.h"
+#include "Renderer/Blit.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -27,7 +28,6 @@ namespace Render {
 		};
 
 	protected:
-		
 		std::list<RenderTargetPack> mRenderTargets;
 
 	};
@@ -57,7 +57,7 @@ namespace Render {
 			CameraManager::instance()->RegisterCamera(mCamera, 0);
 
 			mBloom = new CodBloom();
-			mBloom->setBloomRadius(0.1);
+			mBloom->setBloomRadius(0.75);
 
 ;		}
 

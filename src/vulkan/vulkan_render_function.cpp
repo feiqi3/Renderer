@@ -3447,7 +3447,7 @@ namespace Render::Vulkan {
 
     uint64_t unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav)
     {
-        if (BufferDeviceAddressEnable)return defalut_no_buffer_UAV->gpuAddress;
+        return defalut_no_buffer_UAV->gpuAddress;
     }
 
     uint32_t updateBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_sampler_vk* sampler)
