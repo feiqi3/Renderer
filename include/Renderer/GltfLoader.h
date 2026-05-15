@@ -4,6 +4,7 @@
 #include "Renderer/Texture.h"
 #include "Renderer/Mesh.h"
 #include "common/CommonMath.h"
+#include "Renderer/Light.h"
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
 #include "MaterialInstance.h"
@@ -80,6 +81,7 @@ namespace Render {
         vec3                scale;                 
         int                 meshIndex;   
         int                 skinIndex;
+        int                 lightIndex;
         std::vector<int>    children;
     };
 
@@ -105,6 +107,14 @@ namespace Render {
         std::vector<GLTFJoint> joints;
     };
 
+    struct GLTFLight {
+        std::string name;
+        vec3 color;
+        float intensity = 1.0f;
+        LightType type = LightType::Point;
+        float range = 10000.;
+    };
+
     struct GLTFModel {
         std::string                 modelName;
         std::vector<GLTFScene>      scenes;
@@ -114,6 +124,7 @@ namespace Render {
         std::vector<GLTFTexture>    textures;
         std::vector<GLTFSampler>    samplers;
         std::vector<GLTFSkeleton>   skeletons;
+        std::vector<GLTFLight>      lights;
     };
 
 

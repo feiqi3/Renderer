@@ -158,6 +158,11 @@ void main()
             GetSampledTexture(u_baseColorTex, u_baseColorSampler),
             uvBase
         );
+        #ifdef ALPHA_TEST
+        if(texColor.w > PBRDATA.alphaClipBar){
+            discard; 
+        }
+        #endif //ALPHA_TEST
         texColor.xyz = pow(texColor.xyz,vec3(2.2));
         baseColor *= texColor;
     }

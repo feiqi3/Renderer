@@ -27,6 +27,7 @@ namespace Render {
         void setEmissive(const vec3& factor);
 
         void setTexControl(const vec4& control);
+		void setAlphaClipBar(float bar);
 
         void updatePBRParams();
         virtual void OnUpdateParam(Pass* pass) override;

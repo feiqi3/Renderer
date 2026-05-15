@@ -139,4 +139,11 @@ namespace Render {
         mPBRData.texControl = control;
         mIsDirty = true;
     }
+
+	void PBRMaterial::setAlphaClipBar(float bar)
+	{
+        mPBRData.alphaClipBar = bar;
+		mIsDirty = true;
+	}
+
 }

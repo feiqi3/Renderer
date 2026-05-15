@@ -13,6 +13,11 @@ GPU_SHARED_NAMESPACE_BEGIN
 		vec4 emissiveFactor;
 		//x: baseCol tex id, y:metallic-roughness tex id, z: normal tex id, w: occlussion texcord id 0 or 1
 		vec4 texControl;
+		
+		float alphaClipBar = 0.1; 
+		float padding0;
+		float padding1;
+		float padding2;
 	GPU_STRUCT_END
 GPU_SHARED_NAMESPACE_END
 

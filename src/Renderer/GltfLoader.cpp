@@ -7,6 +7,7 @@
 #include "function/Scene.h"
 #include "function/Object.h"
 #include "Components/PBRRenderComponent.h"
+#include "Components/LightComponent.h"
 #include "Renderer/Materials/PBRMaterial.h"
 #include "Renderer/MaterialTemplateManager.h"
 #include "common/ResourceSystem.h"
@@ -513,7 +514,7 @@ namespace Render {
         bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture);
         bool            getSampler(const Name& name, GLTFSampler& out, const tinygltf::Model& model, const tinygltf::Sampler& sampler);
         bool            getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node);
-    
+        bool            getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light);
 		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat);
 		GLTFLoaderSetting setting;
     };
@@ -662,7 +663,7 @@ namespace Render {
 		Object* rootObj = scene->createObject(model->modelName.c_str());
 		assert(rootObj != nullptr);
 
-		std::function<void(int, Object*)> processNode = [&](int nodeIndex, Object* parentObj) {
+		std::function<void(int, Object*, const mat4&)> processNode = [&](int nodeIndex, Object* parentObj,const mat4& worldMat) {
 			if (nodeIndex < 0 || nodeIndex >= model->nodes.size()) return;
 
 			const GLTFNode& node = model->nodes[nodeIndex];
@@ -673,6 +674,31 @@ namespace Render {
 			currentObj->setLocalPosition(node.translation);
 			currentObj->setLocalRotation(fromEulerAngles(node.rotation));
 			currentObj->setLocalScale(node.scale);
+
+            if (node.lightIndex >= 0 && node.lightIndex < model->lights.size()) {
+				const auto& light = model->lights[node.lightIndex];
+                LightComponent* lightComp = nullptr;
+                if (light.type == LightType::Point) {
+                    auto pointLightComp = currentObj->addComponent<Render::PointLightComponent>();
+                    pointLightComp->setRange(light.range);
+                    lightComp = pointLightComp;
+                }
+                else if (light.type == LightType::Directional) {
+					auto dirLightComp = currentObj->addComponent<Render::DirectionalLightComponent>();
+				    // ....emit light in the direction of the local -z axis
+                    // This light type inherits the orientation of the node that it belongs to
+
+                    vec3 localDir(0, 0, -1);
+                    mat3 noTranslation(worldMat);
+                    vec3 realDir = noTranslation * localDir;
+                    realDir = normalize(realDir);
+                    dirLightComp->setDirection(realDir);
+                    lightComp = dirLightComp;
+                }
+                lightComp->setIntensity(light.intensity);
+                lightComp->setColor(light.color);
+                
+            }
 
 			if (node.meshIndex >= 0 && node.meshIndex < model->meshes.size()) {
 				const auto& mesh = model->meshes[node.meshIndex];
@@ -694,13 +720,15 @@ namespace Render {
 			}
 
 			for (int childIndex : node.children) {
-				processNode(childIndex, currentObj);
+                mat4 trs = getTRS(node.translation, node.rotation, node.scale);
+				processNode(childIndex, currentObj, worldMat * trs);
 			}
 			};
 
 		const GLTFScene& defaultScene = model->scenes[0];
 		for (int rootNodeIndex : defaultScene.nodes) {
-			processNode(rootNodeIndex, rootObj);
+            mat4 worldMat = getTRS(rootObj->localPosition(), rootObj->localRotation(), rootObj->localScale());
+			processNode(rootNodeIndex, rootObj, worldMat);
 		}
 
 		return rootObj;
@@ -714,6 +742,7 @@ namespace Render {
         out.textures.clear();
         out.samplers.clear();
         out.skeletons.clear();
+        out.lights.clear();
 
         Name modelNamePrefix = Name(modelName+":");
 
@@ -723,6 +752,7 @@ namespace Render {
         std::unordered_map<int, int> gltfTexToEngine;
         std::unordered_map<int, int> gltfSamplerToEngine;
         std::unordered_map<int, int> gltfSkinToEngine;
+		std::unordered_map<int, int> gltfLightToEngine;
 
         std::function<bool(int)> processSampler;
         std::function<bool(int)> processTexture;
@@ -730,6 +760,7 @@ namespace Render {
         std::function<bool(int)> processMesh;
         std::function<bool(int)> processNode;
         std::function<bool(int)> processSkin;
+		std::function<bool(int)> processLight;
 
         processSampler = [&](int tinySamplerIdx)->bool {
             if (tinySamplerIdx < 0) return true;
@@ -827,6 +858,20 @@ namespace Render {
             return true;
             };
 
+
+		processLight = [&](int tinyLightIdx) -> bool {
+			if (tinyLightIdx < 0) return true;
+			if (gltfLightToEngine.find(tinyLightIdx) != gltfLightToEngine.end()) return true;
+			if (tinyLightIdx >= static_cast<int>(model.lights.size())) return false;
+			out.lights.push_back({});
+			int engLightIdx = static_cast<int>(out.lights.size() - 1);
+			GLTFLight& engLight = out.lights.back();
+			if (!getLight(modelNamePrefix, engLight, model, model.lights[tinyLightIdx])) return false;
+			gltfLightToEngine[tinyLightIdx] = engLightIdx;
+			return true;
+			};
+
+
         processNode = [&](int tinyNodeIdx)->bool {
             if (tinyNodeIdx < 0) return true;
             if (gltfNodeToEngine.find(tinyNodeIdx) != gltfNodeToEngine.end()) return true; // 已处理
@@ -843,7 +888,7 @@ namespace Render {
                 if (!processNode(childTiny)) return false;
             }
 
-            // 处理此 node 引用的 mesh & skin
+            // 处理此 node 引用的 mesh & skin & light
             int tinyMeshIdx = model.nodes[tinyNodeIdx].mesh;
             if (tinyMeshIdx >= 0) {
                 if (!processMesh(tinyMeshIdx)) return false;
@@ -860,16 +905,25 @@ namespace Render {
                 engNode.skinIndex = (it != gltfSkinToEngine.end()) ? it->second : -1;
             }
             else engNode.skinIndex = -1;
+
+			int tinyLightIndex = model.nodes[tinyNodeIdx].light;
+			if (tinyLightIndex >= 0) {
+				if (!processLight(tinyLightIndex)) return false;
+				auto it = gltfLightToEngine.find(tinyLightIndex);
+				engNode.lightIndex = (it != gltfLightToEngine.end()) ? it->second : -1;
+			}
+			else engNode.lightIndex = -1;
+
             return true;
             };
 
-        // 从每个 scene 的 root node 出发遍历
-        for (size_t s = 0; s < model.scenes.size(); ++s) {
-            const tinygltf::Scene& sc = model.scenes[s];
-            for (int rootTiny : sc.nodes) {
-                if (!processNode(rootTiny)) return false;
-            }
-        }
+		// 从每个 scene 的 root node 出发遍历
+		for (size_t s = 0; s < model.scenes.size(); ++s) {
+			const tinygltf::Scene& sc = model.scenes[s];
+			for (int rootTiny : sc.nodes) {
+				if (!processNode(rootTiny)) return false;
+			}
+		}
 
         for (size_t engIdx = 0; engIdx < out.nodes.size(); ++engIdx) {
             GLTFNode& nn = out.nodes[engIdx];
@@ -1228,10 +1282,38 @@ namespace Render {
         out.skinIndex = node.skin;
         out.meshIndex = node.mesh;
         out.skinIndex = node.skin;
+        out.lightIndex= node.light;
         out.children = node.children;
         return true;
     }
-    MaterialPtr GLTFLoaderPrivate::createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat)
+
+    bool GLTFLoaderPrivate::getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light)
+    {
+        out.name = name.str() + light.name;
+        out.intensity = light.intensity;
+        out.color.x = light.color[0];
+        out.color.y = light.color[1];
+        out.color.z = light.color[2];
+        if (light.range > 0) {
+        
+            //Must be > 0, or is undefined, which is assumed to be inf.
+            out.range = light.range;
+        }
+        if (light.type == "directional") {
+            out.type = LightType::Directional;
+        }
+        else if (light.type == "point") {
+			out.type = LightType::Point;
+        }
+        else if (light.type == "spot") {
+            //NOT IMPELEMENT YET
+            //TREAT AS POINT!!!!
+            out.type = LightType::Point;
+        }
+        return true;
+    }
+
+	MaterialPtr GLTFLoaderPrivate::createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat)
     {
         Name matName = Name(gltfMat.name);
         auto pbrMatPtr = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, matName);
@@ -1251,6 +1333,7 @@ namespace Render {
             gltfMat.baseColorFactor[2],
             gltfMat.baseColorFactor[3]
         ));
+        pbrMat->setAlphaClipBar(gltfMat.alphaCutoff);
         pbrMat->setMetallic(gltfMat.metallicFactor);
         pbrMat->setRoughness(gltfMat.roughnessFactor);
         pbrMat->setAOStrength(gltfMat.occlusionStrength);
