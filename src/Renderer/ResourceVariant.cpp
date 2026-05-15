@@ -119,6 +119,11 @@ namespace Render {
 
 	void RenderResourceVariant::set(const TexturePtr& tex, rs_image_view* view)
 	{
+		if (!tex || !view) {
+			//In bindless mode we can bind null parameter 
+			//But in Non-Bindless mode, it's not ok.
+			return;
+		}
 		assert(view->image == tex->getRsImage());
 		TextureViewPair viewPair{};
 		viewPair.tex = tex;

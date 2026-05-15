@@ -1569,7 +1569,7 @@ namespace Render::Vulkan {
 
 	void cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData)
 	{
-        if (!BindlessAvailable) {
+        if (!isBindlessEnabled()) {
             return;
         }
 
@@ -1620,6 +1620,7 @@ namespace Render::Vulkan {
 
 	void beginFrameUnbindBindlessResource(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData)
 	{
+        if (!isBindlessEnabled())return;
 		std::vector<VkWriteDescriptorSet> writes{};
         std::vector<VkDescriptorImageInfo> imgInfos;
         imgInfos.reserve(bindlessData->pendingUnbindSampler.size());

@@ -62,6 +62,15 @@ namespace Render::Vulkan {
                 rs_buffer_vk* bufferVk = (rs_buffer_vk*)(*it);
                 assert(bufferVk->pendingState == newState && "Pending state should have been applied before transition!");
 
+                {
+					//Fast path: For read only state
+                    bool isReadOnlyOldState = (bufferVk->state == ResourceState::ShaderResource || bufferVk->state == ResourceState::ComputeShaderResource);
+					bool isReadOnlyNewState = (newState == ResourceState::ShaderResource || newState == ResourceState::ComputeShaderResource);
+                    if (isReadOnlyNewState && isReadOnlyOldState) {
+                        bufferVk->state = bufferVk->pendingState;
+                    }
+                }
+
                 if (bufferVk->state == newState) {
                     continue;
                 }
@@ -121,6 +130,15 @@ namespace Render::Vulkan {
                     continue;
                 }
 
+				{
+					//Fast path: For read only state
+					bool isReadOnlyOldState = (bufferVk->state == ResourceState::ShaderResource || bufferVk->state == ResourceState::ComputeShaderResource);
+					bool isReadOnlyNewState = (newState == ResourceState::ShaderResource || newState == ResourceState::ComputeShaderResource);
+					if (isReadOnlyNewState && isReadOnlyOldState) {
+						bufferVk->state = bufferVk->pendingState;
+					}
+				}
+
                 VulkanStateMapping oldMap = getVulkanMapping(bufferVk->state);
 
                 globalSrcStageMask |= oldMap.stageMask;
@@ -179,6 +197,16 @@ namespace Render::Vulkan {
 
                 for (auto buffer : buffers) {
                     assert(buffer->pendingState == newState && "Pending state should have been applied before transition!");
+
+					{
+						//Fast path: For read only state
+						bool isReadOnlyOldState = (buffer->state == ResourceState::ShaderResource || buffer->state == ResourceState::ComputeShaderResource);
+						bool isReadOnlyNewState = (newState == ResourceState::ShaderResource || newState == ResourceState::ComputeShaderResource);
+						if (isReadOnlyNewState && isReadOnlyOldState) {
+                            buffer->state = buffer->pendingState;
+						}
+					}
+
                     VkBufferMemoryBarrier barrier{};
                     barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
                     barrier.pNext = nullptr;
@@ -245,7 +273,14 @@ namespace Render::Vulkan {
 
                         if (oldSubState != newState) {
                             VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
-
+                            if (oldMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                                && newMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                                ) {
+                                //Fast path ---> if previous state is read only and target state is read only too
+                                //Then we actually don't need a barrier
+								image->subresourceStates[flatIndex] = newState;
+								continue;
+                            }
                             VkImageMemoryBarrier2 barrier{};
                             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
                             barrier.pNext = nullptr;
@@ -309,6 +344,15 @@ namespace Render::Vulkan {
                         if (oldSubState != newState) {
                             VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
 
+							if (oldMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+								&& newMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+								) {
+								//Fast path ---> if previous state is read only and target state is read only too
+								//Then we actually don't need a barrier
+								image->subresourceStates[flatIndex] = newState;
+								continue;
+							}
+
                             globalSrcStageMask |= oldMap.stageMask;
                             globalDstStageMask |= newMap.stageMask;
 
@@ -371,6 +415,14 @@ namespace Render::Vulkan {
                         if (oldSubState != newState) {
                             VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
 
+							if (oldMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+								&& newMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+								) {
+								//Fast path ---> if previous state is read only and target state is read only too
+								//Then we actually don't need a barrier
+								image->subresourceStates[flatIndex] = newState;
+								continue;
+							}
                             VkImageMemoryBarrier barrier{};
                             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
                             barrier.oldLayout = oldMap.imageLayout;

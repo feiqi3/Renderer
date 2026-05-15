@@ -22,10 +22,10 @@ RESOURCE_DECL_BEG(1)
     SLOT_SAMPLER(1,         sampler,        u_bloomTexSamp)
 #endif //BLOOM 
 
-    SLOT_CONST_BUFFER(1,    PostEffectConfigAlias,  PostEffectCfg)
+    SLOT_CONST_BUFFER(1,    PostEffectConfigAlias,  CBUFFER_PostEffectCfg)
 RESOURCE_DECL_END
 
-#define POST_EFFECT_CFG GetBuffer(PostEffectCfg)._content
+#define POST_EFFECT_CFG GetBuffer(CBUFFER_PostEffectCfg)._content
 
 layout(location = 0) in vec2 i_uv;
 layout(location = 1) in vec2 i_pos;

@@ -160,6 +160,8 @@ namespace Render {
 			bDesc.bufUsage = BufferType_Uniform;
 			bDesc.byteSize = sizeof(CODBloomCFG);
 			mDp->mCfgBuffer = RenderSystem::instance()->createBuffer(&mDp->mBloomCFG, sizeof(CODBloomCFG), bDesc);
+			mDp->mDownsampleKernel->setParameter("CBUFFER_Cfg", mDp->mCfgBuffer);
+			mDp->mUpsampleKernel->setParameter("CBUFFER_Cfg", mDp->mCfgBuffer);
 		}
 		else {
 			RenderSystem::instance()->updateBufferData(mDp->mCfgBuffer, &(mDp->mBloomCFG), sizeof(CODBloomCFG), 0);

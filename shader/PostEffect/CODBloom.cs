@@ -25,7 +25,7 @@ RESOURCE_DECL_BEG(1)
     SLOT_RWTEXTURE(1, image2D, MipN_1)
 #endif
     SLOT_SAMPLER(1, sampler, BilinearSampler)
-    SLOT_CONST_BUFFER(1,BloomConfig,Cfg)
+    SLOT_CONST_BUFFER(1,BloomConfig,CBUFFER_Cfg)
 RESOURCE_DECL_END
 
 // struct BloomConfig{
@@ -38,7 +38,7 @@ RESOURCE_DECL_END
 // layout(set = 1, binding = 0) uniform UBOBlock {
 //     BloomConfig _;
 // }cfg;
-#define BLOOM_CFG GetBuffer(Cfg)
+#define BLOOM_CFG GetBuffer(CBUFFER_Cfg)
 
 float Luminance(vec3 rgb){
     return dot(rgb , vec3(0.484375,0.515625,0.34375));

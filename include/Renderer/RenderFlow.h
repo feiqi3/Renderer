@@ -57,7 +57,7 @@ namespace Render {
 			CameraManager::instance()->RegisterCamera(mCamera, 0);
 
 			mBloom = new CodBloom();
-			mBloom->setBloomRadius(0.75);
+			mBloom->setBloomRadius(1.5);
 
 ;		}
 

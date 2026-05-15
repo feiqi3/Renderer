@@ -218,7 +218,7 @@ namespace Render::Vulkan {
         block->sizes = this->m_defaultSize;
 
         VkDescriptorPoolCreateInfo ci{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-        if (BindlessAvailable) {
+        if (isBindlessEnabled()) {
             ci.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
         }
         ci.                       maxSets = m_maxSet;
@@ -245,7 +245,7 @@ namespace Render::Vulkan {
             VkDescriptorPoolSize size{};
             size.type = toVkDescriptorType(descriptor.type);
             size.descriptorCount = descriptor.count;
-            if (BindlessAvailable &&
+            if (isBindlessEnabled() &&
                 descriptor.type != UniformType::UniformBuffer  &&
 				descriptor.type != UniformType::ConstantBuffer &&
 				descriptor.type != UniformType::StorageBuffer 
@@ -254,7 +254,7 @@ namespace Render::Vulkan {
             }
 
             if (descriptor.count == 0) {
-                if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && BindlessAvailable) {
+                if (layoutHash.DescriptorSetFlags & DescriptorSetVarCountBindingFlag && isBindlessEnabled()) {
                     size.descriptorCount = DESCRIPTOR_VAR_COUNT_SIZE; //this is the memory that driver will really allocated.
                     //Variable Length in shader.
                     flags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;

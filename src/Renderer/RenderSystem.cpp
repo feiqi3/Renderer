@@ -547,7 +547,9 @@ namespace Render{
 				bindDefaultResourceToBindless();
 			}
 		}
-		Vulkan::beginFrameUnbindBindlessResource(getRenderContext(), (Vulkan::rs_bindless_data_vk*)getGlobalBindlessData());
+		if (isBindlessEnabled()) {
+			Vulkan::beginFrameUnbindBindlessResource(getRenderContext(), (Vulkan::rs_bindless_data_vk*)getGlobalBindlessData());
+		}
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)

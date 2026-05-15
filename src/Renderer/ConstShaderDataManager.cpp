@@ -35,8 +35,10 @@ namespace Render {
 	}
 	ConstShaderDataManager::~ConstShaderDataManager()
 	{
-		RenderSystem::instance()->setGlobalBindlessData(nullptr);
-		RenderSystem::instance()->destroyBindlessData(mDp->mGlobalBindlessDrawData);
+		if (RenderSystem::instance()->isBindlessEnabled()) {
+			RenderSystem::instance()->setGlobalBindlessData(nullptr);
+			RenderSystem::instance()->destroyBindlessData(mDp->mGlobalBindlessDrawData);
+		}
 		delete mDp;
 		mDp = nullptr;
 	}

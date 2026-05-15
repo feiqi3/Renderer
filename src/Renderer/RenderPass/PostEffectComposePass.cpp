@@ -130,11 +130,12 @@ namespace Render {
 	{
 		entity = new PostEffectComposeEntity();
 
-		mPostEffectCfg.BloomStrength = 0.5;
 		BufferDesc bufferDesc{};
 		bufferDesc.byteSize = sizeof(GPUShared::PostEffectConfig);
 		bufferDesc.bufUsage = BufferType_Uniform;
 		mPostEffectCfgBuffer = RenderSystem::instance()->createBuffer(nullptr, 0, bufferDesc);
+		entity->getMaterial()->bindParameter("CBUFFER_PostEffectCfg", mPostEffectCfgBuffer);
+		setBloomStrength(0.05);
 	}
 
 }
