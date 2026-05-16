@@ -229,7 +229,7 @@ void main()
             uvAO
         ).r;
     }
-    directLight *= ao;
+    directLight *= vec3(ao);
 
     // --------------------------------------------------
     // Emissive
@@ -243,3 +243,4 @@ void main()
     color.xyz= pow(color.xyz,vec3(1./2.2));
     outColor = vec4(color, baseColor.a);
 }
+

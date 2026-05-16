@@ -6,6 +6,7 @@
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_shader_module.h"
 #include "Renderer/RenderPass.h"
+#include "platform/FileSystem/FileSystem.h"
 #include <cassert>
 namespace Render {
 
@@ -111,17 +112,10 @@ namespace Render {
 		ShaderDesc sd{};
 
 		for (auto& [stage, shader] : getShaderStageInfo()) {
-			auto File = fopen(shader.c_str(), "r");
-			if (!File) {
-				assert(0);
-				return nullptr;
-			}
-			fseek(File, 0, SEEK_END);
-			uint32_t size = ftell(File);
-			rewind(File);
-			std::string shaderCode;
-			shaderCode.resize(size);
-			fread(shaderCode.data(), 1, size, File);
+			
+			auto fileStream = Platform::FileSystem::instance()->openFileStream(shader);
+			compileDesc.shaderSrcCode.resize(fileStream->getSize());
+			fileStream->read(compileDesc.shaderSrcCode.data(), fileStream->getSize());
 			sd.shaderCode = 0;
 			sd.codeSizeByte = 0;
 			sd.stage = stage;
@@ -138,7 +132,6 @@ namespace Render {
 				compileDesc.macros.push_back({"BINDLESS_ENABLE","1"});
 			}
 
-			compileDesc.shaderSrcCode = shaderCode;
 			compileDesc.stage = stage;
 			compileDesc.shaderName = shader;
 			compileDesc.generateDebugInfo = true;

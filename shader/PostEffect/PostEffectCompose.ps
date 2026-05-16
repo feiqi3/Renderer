@@ -32,6 +32,15 @@ layout(location = 1) in vec2 i_pos;
 
 layout(location = 0) out vec4 o_color;
 
+vec3 ACESFilm(vec3 x) {
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 void main(){
    
    vec3 srcCol = SampleTexture(u_baseColorTex, u_colorTexSamp, i_uv).rgb;
@@ -44,6 +53,6 @@ void main(){
 
    #endif //BLOOM
 
-   o_color = vec4(outColor,1.);
+   o_color = vec4(ACESFilm(outColor),1.);
 
 }
