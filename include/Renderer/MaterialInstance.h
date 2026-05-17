@@ -53,13 +53,17 @@ namespace Render {
 
 		MaterialBindingTable& getBindingTable() { return mBindingTable; }
 		const MaterialBindingTable& getBindingTable() const { return mBindingTable; }
+		inline uint32_t getGlobalMaterialIndex()const {
+			return mMaterialIndex;
+		}
+		friend class MaterialManager;
 
 	protected:
 
 		std::vector<Name> passNamesToRender;
 		MaterialTemplatePtr m_template;
 		u32 mRenderOrder = 0;
-
+		uint32_t mMaterialIndex = 0;
 		// ====================================================================
 		// ====================================================================
 

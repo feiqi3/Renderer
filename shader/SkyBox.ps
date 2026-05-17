@@ -26,7 +26,6 @@ void main() {
     }
     vec3 exposureColor = (cubemapAlbedo.rgb * SKYBOX.colorexposureTuning.rgb * vec3(SKYBOX.colorexposureTuning.w));
 
-    fragColor.xyz = pow(exposureColor,vec3(1./2.2));
-
+    fragColor.xyz = exposureColor;
     fragColor.w = 1;
 }

@@ -212,6 +212,7 @@ namespace Render {
 	struct rs_drawdata {
 		uint32_t FiFDirtyFlag = 0xFFFFFFFF;
 		bool isOneShot = false; //This will lead to some optimize
+		uint64_t lastCommitFrame = 0xFFFFFFFFFFFFFFFF;
 	};
 
 	using rs_descriptor = BindingInfo;

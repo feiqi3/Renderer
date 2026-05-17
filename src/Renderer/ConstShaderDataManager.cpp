@@ -95,7 +95,7 @@ namespace Render {
 		auto camDrawData = camera->getDrawData();
 		Pass tempPass{};
 		tempPass.mDrawData = camDrawData;
-		tempPass.mMaterial = mDp->MainPassVirtualMaterial;
+		tempPass.mMaterialPass = mDp->MainPassVirtualMaterial;
 		auto gptdata = camera->toGPUData();
 		RenderSystem::instance()->updateUniformBufferData(mDp->CameraCommonDataBindingPos, (void*)&gptdata, sizeof(GPUShared::GPUCameraData), &tempPass);
 		return camDrawData;
@@ -107,7 +107,7 @@ namespace Render {
 		auto sceneDrawData = scene->getSceneDrawData();
 		Pass tempPass{};
 		tempPass.mDrawData = sceneDrawData;
-		tempPass.mMaterial = mDp->MainPassVirtualMaterial;
+		tempPass.mMaterialPass = mDp->MainPassVirtualMaterial;
 		auto& lightMgr = scene->getLightMgr();
 		auto& gptdata = lightMgr.updateLightData();
 		RenderSystem::instance()->updateUniformBufferData(mDp->SceneCommonDataBindingPos, (void*)&gptdata, sizeof(GPUShared::GPUSceneLightData), &tempPass);

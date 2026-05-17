@@ -62,7 +62,7 @@ namespace Render {
 			if (Variant) {
 				auto pass = new Pass;
 				pass->mDrawData = RenderSystem::instance()->createDrawData();
-				pass->mMaterial = Variant;
+				pass->mMaterialPass = Variant;
 				this->mPasses.insert({ passName,pass });
 				return pass;
 			}
@@ -150,7 +150,7 @@ namespace Render {
 			mEntityDrawData = RenderSystem::instance()->createDrawData();
 		}
 		Pass mockPass{};
-		mockPass.mMaterial = itor->second->mMaterial;
+		mockPass.mMaterialPass = itor->second->mMaterialPass;
 		mockPass.mDrawData = mEntityDrawData;
 
 		updateEntityCommonDataImpl(&mockPass);
@@ -163,7 +163,13 @@ namespace Render {
 		rs_binding_pos objCommonBindingPos = ConstShaderDataManager::instance()->getObjectCommonDataBindingPos();
 		GPUShared::ObjectCommonData objCommonData{};
 		objCommonData.worldMatrix = mModelMatrix;
-		objCommonData.invWorldMatrix = inverse(mModelMatrix);
+		objCommonData.tansInvWorldMatrix = transpose(inverse(mModelMatrix));
+		if (this->getMaterial()) {
+			objCommonData.materialIndex = this->getMaterial()->getGlobalMaterialIndex();
+		}
+		else {
+			objCommonData.materialIndex = 0;
+		}
 		renderSys->updateUniformBufferData(objCommonBindingPos, (void*)&objCommonData,sizeof(objCommonData), pass);
 	}
 

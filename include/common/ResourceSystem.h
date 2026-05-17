@@ -58,8 +58,8 @@ namespace Render {
 			}
 			auto res = mgr->acquire(resource);
 			//assert(res != nullptr && "No resource was found");
-			if (!res && !mgr->getDefaultResourceName().isEmpty() && resource != mgr->getDefaultResourceName()) {
-				res = mgr->acquire(mgr->getDefaultResourceName());
+			if (!res) {
+				return nullptr;
 			}
 			return ResourceHandle<T>(mgr, res);
 		}

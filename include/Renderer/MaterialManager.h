@@ -35,7 +35,7 @@ namespace Render {
             }
 
             T* mat = new T(std::forward<Args>(args)...);
-
+            mat->mMaterialIndex = ++mGlobalMaterialIndex;
             auto* newEntry = this->registerResource(
                 materialName,
                 mat,
@@ -55,6 +55,7 @@ namespace Render {
 
     private:
         virtual void createNecessaryPersistenceResources() override;
+        uint32_t mGlobalMaterialIndex = 0;
     };
 }
 

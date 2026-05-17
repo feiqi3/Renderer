@@ -49,17 +49,29 @@ namespace Render {
 	{
 		this->getMaterial()->bindParameter("SkyboxCubeMap", texture);
 		this->getMaterial()->bindParameter("cubemapSampler", sampler);
+		auto textureFmt = texture->getRsImage()->format;
+		mSkyboxTexture = texture;
+		mSkyboxSampler = sampler;
+		bool isHDR = (textureFmt == ImageFormat::RGBA16_SFLOAT) ||
+			(textureFmt == ImageFormat::RGBA32_SFLOAT) ||
+			(textureFmt == ImageFormat::R11G11B10_UFLOAT);
 		GPUShared::SkyBoxData sdata{
 .rotateQuat = vec4(0,0,0,1),
 .colorexposureTuning = vec4(1.,1.,1.,1.),
-.isHDR = vec4(texture->getRsImage()->format == ImageFormat::RGBA16_SFLOAT ? 1: -1,0,0,0)
+.isHDR = vec4(isHDR ? 1 : -1,0,0,0)
 		};
 		this->getMaterial()->bindParameter("skyboxData", &sdata, sizeof(GPUShared::SkyBoxData));
 
 	}
 
 	void SkyBoxRenderEntity::setGPUData(const GPUShared::SkyBoxData& data) {
-		this->getMaterial()->bindParameter("skyboxData", &data,sizeof(GPUShared::SkyBoxData));
+		auto textureFmt = mSkyboxTexture->getRsImage()->format;
+		bool isHDR = (textureFmt == ImageFormat::RGBA16_SFLOAT) ||
+			(textureFmt == ImageFormat::RGBA32_SFLOAT) ||
+			(textureFmt == ImageFormat::R11G11B10_UFLOAT);
+		auto dataCopy = data;
+		dataCopy.isHDR.x = isHDR ? 1. : -1.;
+		this->getMaterial()->bindParameter("skyboxData", &dataCopy,sizeof(GPUShared::SkyBoxData));
 	}
 
 

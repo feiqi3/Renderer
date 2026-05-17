@@ -57,7 +57,6 @@ namespace Render {
         std::map<Name, uint32_t> mName2BindingSlot;
         std::map<Name, uint32_t> mName2BindlessSlot;
         std::map<rs_binding_pos, uint32_t> mBindingPos2BindingSlot;
-		uint64_t mLastSubmitFrame = -1ull;
 	};
 	class MaterialBindingTable {
 	public:

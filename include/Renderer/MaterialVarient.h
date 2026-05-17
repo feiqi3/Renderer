@@ -45,7 +45,7 @@ namespace Render {
 	class Pass {
 	public:
 		const Name& getPassName()const;
-		MaterialPass* mMaterial;
+		MaterialPass* mMaterialPass;
 		rs_drawdata* mDrawData;
 	};
 

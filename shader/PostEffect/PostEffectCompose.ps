@@ -54,5 +54,7 @@ void main(){
    #endif //BLOOM
 
    o_color = vec4(ACESFilm(outColor),1.);
-
+   //Since we currently use BGRA8888_SRGB,
+   //don't use gamma 1./2.2
+   //or the final image will be super wired.
 }

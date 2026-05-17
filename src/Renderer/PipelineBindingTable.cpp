@@ -122,12 +122,12 @@ namespace Render {
         auto sys = RenderSystem::instance()->instance();
 
 
-        if (!allowMultiCommit && mLastSubmitFrame == sys->getNextRenderFrame()) {
+        if (!allowMultiCommit && drawdata->lastCommitFrame == sys->getNextRenderFrame()) {
             //avoid redundant uniform update.
             return false;
         }
 
-        mLastSubmitFrame = sys->getNextRenderFrame();
+        drawdata->lastCommitFrame = sys->getNextRenderFrame();
 
 
         for (auto& pp : mBindingSlots) {
@@ -245,7 +245,8 @@ namespace Render {
 					else if (
 						refVar.getTextureView()
 						) {
-						view = refVar.getTextureView()->view;
+                        auto texview = refVar.getTextureView();
+						view = texview->view;
 					}
 					EngineBindlessAPI::markResourceSRV(view);
 				}

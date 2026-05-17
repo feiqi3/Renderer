@@ -132,12 +132,13 @@ vec3 ApplyNormalMap(vec3 N, vec3 normalSample, float normalScale)
     return normalize(mix(N, n, normalScale > 0.0 ? 1.0 : 0.0));
 }
 
-vec3 fromTangentSpaceToWorld(vec3 vector){
-    return vector.x * i_tangent + 
-           vector.y * i_bitangent + 
-           vector.z * i_normal;
+vec3 fromTangentSpaceToWorld(vec3 vector) {
+    vec3 N = normalize(i_normal);
+    vec3 T = normalize(i_tangent - dot(i_tangent, N) * N);
+    vec3 B = cross(N, T); 
+    mat3 TBN = mat3(T, B, N);
+    return normalize(TBN * vector);
 }
-
 void main()
 {
     vec2 uvBase = i_texcoord0;
@@ -159,7 +160,7 @@ void main()
             uvBase
         );
         #ifdef ALPHA_TEST
-        if(texColor.w > PBRDATA.alphaClipBar){
+        if(texColor.w < PBRDATA.alphaClipBar){
             discard; 
         }
         #endif //ALPHA_TEST
@@ -179,8 +180,8 @@ void main()
             uvMR
         );
 
-        metallic  *= mrSample.b; // metallic
-        roughness *= mrSample.g; // roughness
+        metallic  = mrSample.b; // metallic
+        roughness = mrSample.g; // roughness
 
         metallic  = clamp(metallic, 0.0, 1.0);
         roughness = clamp(roughness, 0.04, 1.0);
@@ -200,6 +201,7 @@ void main()
         vec3 n = normalSample * 2.0 - vec3(1.0);
         n.xy *= normalScale;
         N = normalize(n);
+        N = fromTangentSpaceToWorld(N);
     }
 
     // --------------------------------------------------
@@ -240,7 +242,6 @@ void main()
     // Final
     // --------------------------------------------------
     vec3 color = directLight + emissive;
-    color.xyz= pow(color.xyz,vec3(1./2.2));
     outColor = vec4(color, baseColor.a);
 }
 

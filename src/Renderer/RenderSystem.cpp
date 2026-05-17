@@ -563,23 +563,23 @@ namespace Render{
 
 	void RenderSystem::updateUniformBufferData(rs_binding_pos binding, void* data, uint32_t size, Pass* pass)
 	{	
-		this->updateUniformBufferData(binding, data, size, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniformBufferData(binding, data, size, pass->mMaterialPass->getRsPipeline(), pass->mDrawData);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_buffer* buffer, uint32_t offset, uint32_t size, Pass* pass)
 	{
-		this->updateUniform(binding, dstArrayElement, buffer, pass->mMaterial->getRsPipeline(), pass->mDrawData, offset,size);
+		this->updateUniform(binding, dstArrayElement, buffer, pass->mMaterialPass->getRsPipeline(), pass->mDrawData, offset,size);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image* image, Pass* pass)
 	{
-		this->updateUniform(binding, dstArrayElement, image, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniform(binding, dstArrayElement, image, pass->mMaterialPass->getRsPipeline(), pass->mDrawData);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_image_view* view, Pass* pass)
 	{
-		this->updateUniform(binding, dstArrayElement, view, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniform(binding, dstArrayElement, view, pass->mMaterialPass->getRsPipeline(), pass->mDrawData);
 	}
 	void RenderSystem::updateUniform(rs_binding_pos binding, int dstArrayElement, rs_sampler* sampler, Pass* pass)
 	{
-		this->updateUniform(binding, dstArrayElement, sampler, pass->mMaterial->getRsPipeline(), pass->mDrawData);
+		this->updateUniform(binding, dstArrayElement, sampler, pass->mMaterialPass->getRsPipeline(), pass->mDrawData);
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, rs_pipeline* pipeline)
@@ -661,7 +661,7 @@ namespace Render{
 	void RenderSystem::updateUniform(rs_binding_pos binding,int dstArrayElement, rs_image* image, ImageViewKey viewkey, Pass* pass)
 	{
 		auto ctx = getRenderContext();
-		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterialPass->getRsPipeline();
 		auto drawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		rs_image_view* view = getViewFromImage(image, viewkey);
 		if (view == nullptr) {
@@ -750,7 +750,7 @@ namespace Render{
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
 	{
 		cmdBuffer->hasCommands = true;
-		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterial->getRsPipeline();
+		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterialPass->getRsPipeline();
 		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};

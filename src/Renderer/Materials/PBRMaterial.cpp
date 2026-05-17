@@ -107,6 +107,7 @@ namespace Render {
             mPBRData.texControl.y = -1.0f;
             return;
         }
+        mPBRData.texControl.y = 0.;
         mIsDirty = true;
     }
 
@@ -117,6 +118,7 @@ namespace Render {
             mPBRData.texControl.z = -1.f;
             return;
         }
+        mPBRData.texControl.z = 0.;
         mIsDirty = true;
     }
 
@@ -127,6 +129,7 @@ namespace Render {
             mPBRData.texControl.w = -1.0f;
             return;
         }
+        mPBRData.texControl.w = 0.;
         mIsDirty = true;
     }
 

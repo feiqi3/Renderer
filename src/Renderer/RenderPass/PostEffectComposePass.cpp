@@ -135,7 +135,7 @@ namespace Render {
 		bufferDesc.bufUsage = BufferType_Uniform;
 		mPostEffectCfgBuffer = RenderSystem::instance()->createBuffer(nullptr, 0, bufferDesc);
 		entity->getMaterial()->bindParameter("CBUFFER_PostEffectCfg", mPostEffectCfgBuffer);
-		setBloomStrength(0.05);
+		setBloomStrength(0.08);
 	}
 
 }

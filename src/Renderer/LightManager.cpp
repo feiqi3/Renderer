@@ -164,7 +164,9 @@ namespace Render {
 				irradianceMapKernel->setParameter("OutPrefilterEnvCubeMap", mPrefilterSkymap, key);
 
 				cfg.curRoughness = i / (mipsOfEnvMap - 1);
-				cfg.IsHDR = (rsImagePrefilter->format == ImageFormat::RGBA16_SFLOAT) ? 1. : -1.;
+				auto skyboxFormat = mSkybox->getRsImage()->format;
+				bool isHDRSkybox = (skyboxFormat == ImageFormat::RGBA16_SFLOAT || skyboxFormat == ImageFormat::RGBA32_SFLOAT);
+				cfg.IsHDR = isHDRSkybox ? 1. : -1.;
 				irradianceMapKernel->setParameter("PrefilterCfg", cfg);
 				irradianceMapKernel->dispatch(cmdbuf, imageSize / 8, imageSize / 8, 6);
 				imageSize /= 2;

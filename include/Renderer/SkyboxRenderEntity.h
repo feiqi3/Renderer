@@ -13,6 +13,7 @@ namespace Render {
 		void setGPUData(const GPUShared::SkyBoxData& data);
 	private:
 		MaterialPtr mSkyboxMaterial;
-		
+		TexturePtr mSkyboxTexture;
+		SamplerPtr mSkyboxSampler;
 	};
 }

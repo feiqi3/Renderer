@@ -239,19 +239,19 @@ namespace {
         using namespace Render;
         auto materialTemplateMgr = MaterialTemplateManager::instance();
         std::string materialName = "PBRMaterialTemplate";
-        std::string vsMarco = "";
-        std::string psMarco = "";
+        MacroPairs  vsMarcos;
+        MacroPairs  psMarcos;
         switch (material->alphaMode) {
             case GLTFAlphaMode::Opaque:
                 materialName += "_Opaque";
 				break;
             case GLTFAlphaMode::Mask:
 				materialName += "_Mask";
-                psMarco += "#define ALPHA_TEST\n";
+				psMarcos.push_back({ "ALPHA_TEST", "1" });
                 break;
             case GLTFAlphaMode::Blend:
 				materialName += "_Blend";
-                psMarco += "#define ALPHA_BLEND\n";
+                psMarcos.push_back({ "ALPHA_BLEND", "1" });
                 break;
         }
         Name tpltName = Name(materialName);
@@ -312,7 +312,9 @@ namespace {
 			offset += sizeof(uint32_t);
 
             auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/StandardPBR.vs"},{ShaderStage::Fragment,"../shader/StandardPBR.ps"} }, state, vtxID);
-            tplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass));
+            tplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass), {
+                {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+                });
             return tplt;
         }
         else {
@@ -421,7 +423,7 @@ namespace {
                 Render::SubMesh sub;
                 //bake into indice
                 //sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
-                sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
+                sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset) * sizeof(uint32_t);
                 sub.indexCount = static_cast<uint32_t>(indiceAcc.count);
                 outSubmeshes.push_back(sub);
 				baseIndiceOffset += indiceAcc.count;
@@ -510,8 +512,8 @@ namespace Render {
         bool            getGLTFScene(GLTFScene& out, const tinygltf::Scene& scene);
         bool            getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin);
         bool            getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
-        bool            getMaterial(const Name& name, GLTFMaterial& out, const tinygltf::Model& model, const tinygltf::Material& mat);
-        bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture);
+        bool            getMaterial(const Name& name, GLTFMaterial& out, const tinygltf::Model& model, const tinygltf::Material& mat, int idx);
+        bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture, int idx);
         bool            getSampler(const Name& name, GLTFSampler& out, const tinygltf::Model& model, const tinygltf::Sampler& sampler);
         bool            getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node);
         bool            getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light);
@@ -781,7 +783,7 @@ namespace Render {
             const tinygltf::Texture& t = model.textures[tinyTexIdx];
             if (t.source < 0 || t.source >= static_cast<int>(model.images.size())) return false;
             GLTFTexture engTex;
-            if (!getTexture(modelNamePrefix, engTex, model, t)) return false;
+            if (!getTexture(modelNamePrefix, engTex, model, t, tinyTexIdx)) return false;
             int tinySamplerIdx = t.sampler;
             if (tinySamplerIdx >= 0) {
                 if (!processSampler(tinySamplerIdx)) return false;
@@ -802,7 +804,7 @@ namespace Render {
             if (gltfMatToEngine.find(tinyMatIdx) != gltfMatToEngine.end()) return true;
             if (tinyMatIdx >= static_cast<int>(model.materials.size())) return false;
             GLTFMaterial engMat;
-            if (!getMaterial(modelNamePrefix, engMat, model, model.materials[tinyMatIdx])) return false;
+            if (!getMaterial(modelNamePrefix, engMat, model, model.materials[tinyMatIdx], tinyMatIdx)) return false;
             auto tryRemapTexField = [&](int& field) {
                 if (field < 0) return true;
                 if (!processTexture(field)) return false;
@@ -1147,12 +1149,16 @@ namespace Render {
         const Name& name,
         GLTFMaterial& out,
         const tinygltf::Model& model,
-        const tinygltf::Material& mat)
+        const tinygltf::Material& mat,
+        int idx)
     {
         // name
         out.name = name.str();
         if (!mat.name.empty()) {
             out.name += "_" + mat.name;
+        }
+        else {
+            out.name += "_" + std::to_string(idx);
         }
 
         if (mat.emissiveFactor.size() >= 3) {
@@ -1210,7 +1216,7 @@ namespace Render {
         out.occlusionStrength = static_cast<float>(mat.occlusionTexture.strength);
         return true;
     }
-    bool GLTFLoaderPrivate::getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture)
+    bool GLTFLoaderPrivate::getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture, int idx)
     {
         auto imgIdx = texture.source;
         if (imgIdx < 0 || imgIdx >= model.images.size()) {
@@ -1221,18 +1227,34 @@ namespace Render {
             assert(false);
             return false;
         }
-        auto imageData = image.image.data();
-        auto imageRaw = ImageRaw::createImageRaw(
-            image.width, image.height, image.component
-        );
-        assert(imageRaw->getByteSize() == image.image.size());
-        memcpy(imageRaw->getImageRaw(), image.image.data(), image.image.size());
-        Name imageName = Name(name.str() + "_" + image.name);
+
+        Name imageName = Name::Empty();
+        if (!image.uri.empty()) {
+            imageName = Name(name.str() + image.uri);
+        }
+        else
+        {
+            imageName = Name(name.str() + std::to_string(imgIdx));
+        }
+        auto tex = ResourceSystem::instance()->getResource<Texture>(Texture::typeName(), imageName);
         out.name = imageName.str();
-        out.texture = ResourceSystem::instance()->registerResource(ResourceName::Texture, imageName, imageRaw->toTextureResource());
         out.smaplerIndex = texture.sampler;
-        delete imageRaw;
-        imageRaw = nullptr;
+        if (tex) {
+            out.texture = tex;
+        }
+        else {
+            std::string imageNameStr = image.uri;
+            auto imageData = image.image.data();
+            auto imageRaw = ImageRaw::createImageRaw(
+                image.width, image.height, image.component
+            );
+            assert(imageRaw->getByteSize() == image.image.size());
+            memcpy(imageRaw->getImageRaw(), image.image.data(), image.image.size());
+
+            out.texture = ResourceSystem::instance()->registerResource(ResourceName::Texture, imageName, imageRaw->toTextureResource());
+            delete imageRaw;
+            imageRaw = nullptr;
+        }
         return true;
     }
     bool GLTFLoaderPrivate::getSampler(const Name& name, GLTFSampler& out, const tinygltf::Model& model, const tinygltf::Sampler& sampler)

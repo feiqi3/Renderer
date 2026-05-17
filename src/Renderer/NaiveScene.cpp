@@ -71,9 +71,9 @@ namespace Render {
 		//objectB->addComponent<SimpleRenderComponent>();
 		//objectB->addComponent<MoveComponent>( vec3(0,0,-5),3 );
 		GLTFLoader loader;
-		auto model = loader.createFromFilePath("../resources/Fox/fox.gltf");
+		auto model = loader.createFromFilePath("../resources/Sponza/Sponza.gltf");
 		auto node = loader.toEngineSceneNode(naiveScene, model);
-		node->setLocalScale(vec3(0.25, 0.25, 0.25));
+		node->setLocalScale(vec3(3, 3, 3));
 		node->setLocalPosition(vec3(0,-10, -40));
 		node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
 		//node->addComponent<SpinComponent>();
