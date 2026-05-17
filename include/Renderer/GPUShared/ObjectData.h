@@ -4,7 +4,7 @@
 GPU_SHARED_NAMESPACE_BEGIN
 	GPU_STRUCT_BEGIN(ObjectCommonData)
 		mat4 worldMatrix;
-		mat4 invWorldMatrix;
+		mat4 tansInvWorldMatrix;
 	GPU_STRUCT_END
 GPU_SHARED_NAMESPACE_END
 

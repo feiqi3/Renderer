@@ -42,13 +42,13 @@ vec3 PrefilterEnvMap( uvec2 Random, float Roughness, vec3 R )
 	vec3 FilteredColor = vec3(0.);
 	float Weight = 0;
 		
-	const uint NumSamples = 1024;
+	const uint NumSamples = 4096;
 	for( uint i = 0; i < NumSamples; i++ )
 	{
 		vec2 E = HammersleyRandomized( i, NumSamples, Random);
         vec3 H = TangentToWorld( ImportanceSampleGGX( E, Pow4(Roughness) ).xyz, R );
 		vec3 L = 2 * dot( R, H ) * H - R;
-        const float HDRSampleMax = 15;
+        const float HDRSampleMax = 25.f;
 		float NoL = Saturate( dot( R, L ) );
 		if( NoL > 0 )
 		{

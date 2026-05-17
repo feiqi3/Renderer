@@ -23,7 +23,7 @@ layout(location = 5) out vec3 o_viewDir;
 void main(){
     vec4 worldPos =  OBJDATA.worldMatrix * vec4(i_pos,1.f);
     o_worldPos       = worldPos.xyz;
-    vec3 worldNormal = normalize(mat3(OBJDATA.invWorldMatrix) * i_normal);
+    vec3 worldNormal = normalize(mat3(OBJDATA.tansInvWorldMatrix) * i_normal);
     o_normal         = worldNormal;
     vec3 viewDir     = o_worldPos - CAMDATA.CameraPosition.xyz;
     o_viewDir = viewDir;

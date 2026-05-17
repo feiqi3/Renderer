@@ -44,7 +44,7 @@ vec2 IntegrateBRDF(float Roughness,float NoV /*Cos ThetaV*/){
     V.z = NoV;
     float A = 0;
     float B = 0;
-    const uint NumSamples = 1024;
+    const uint NumSamples = 2048;
     for( uint i = 0; i < NumSamples; i++ )
     {
         vec2 Xi = Hammersley( i, NumSamples);

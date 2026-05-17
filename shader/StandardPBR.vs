@@ -23,16 +23,17 @@ layout(location = 6) out vec3 o_viewDir;
 
 void main(){
     vec4 worldPos =  (ObjData.ObjData.worldMatrix) * vec4(i_pos,1.f);
-    vec3 worldNormal = mat3(ObjData.ObjData.invWorldMatrix) * i_normal;
+    vec3 worldNormal = mat3(ObjData.ObjData.tansInvWorldMatrix) * i_normal;
     vec3 viewDir = vec3(worldPos - CAMDATA.CameraPosition).xyz;
     o_worldPos = worldPos.xyz;
-    o_normal = worldNormal;
+    o_normal = normalize(worldNormal);
     o_color = i_color.xyz;
-    o_viewDir = viewDir;
+    o_viewDir = normalize(viewDir);
     o_texcoord0 = i_texcoord0;
 
     o_tangent = mat3(ObjData.ObjData.worldMatrix) * i_tangent.xyz;
-    o_bitangent = cross(worldNormal, o_tangent)* i_tangent.w;
-
+    o_tangent = normalize(o_tangent);
+    o_bitangent = cross(o_normal, o_tangent)* i_tangent.w;
+    o_bitangent = normalize(o_bitangent);
     gl_Position = CAMDATA.MatViewProj * worldPos;
 }
