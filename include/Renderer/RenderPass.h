@@ -28,6 +28,10 @@ namespace Render {
 		virtual void collectRenderEntities(std::vector<RenderPack>& pack);
 		virtual void beginFrame(uint64_t frame) {};
 		const Name& getPassName() { return mPassName; }
+
+		void setNextMarkColorAndName(const vec4& color,const std::string& name);
+		void setNextViewport(Rect2D rect2d);
+
 	protected:
 		std::vector<RenderPack> mRenderPacks;
 	protected: 
@@ -43,6 +47,14 @@ namespace Render {
 		const PassDesc mPassDesc;
 		std::vector<ClearColor> mClrColor;
 		ClearDepthStencil mDsClear;
+
+		Rect2D mViewportRect;
+		bool mNextViewportSet = false;
+		bool mNextRenderAreaSet = false;
+
+		vec4 mNextMarkColor;
+		std::string mNextMarkName;
+		bool mNextColorMarked = false;
 	};
 }
 

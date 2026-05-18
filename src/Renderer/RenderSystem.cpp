@@ -262,7 +262,7 @@ namespace Render{
 	
 	}
 
-	void RenderSystem::cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget)
+	void RenderSystem::cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget, const Rect2D& renderArea)
 	{
 		for (auto img : rendertarget->m_attachments) {
 			cmdImageStateTransfer(cmdbuf, img, ResourceState::RenderTarget, 0, img->mipLevels, 0, img->arrayLayers);
@@ -273,7 +273,7 @@ namespace Render{
 				cmdbuf->currentRenderPass->writeDepth ? ResourceState::DepthStencilWrite : ResourceState::DepthStencilRead;
 			cmdImageStateTransfer(cmdbuf, depthStencil, toState, 0, depthStencil->mipLevels, 0, depthStencil->arrayLayers);
 		}
-		Vulkan::cmdsetRenderTarget(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_rendertarget_vk*)rendertarget);
+		Vulkan::cmdsetRenderTarget(getRenderContext(), (Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_rendertarget_vk*)rendertarget, renderArea);
 	}
 	void RenderSystem::cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect)
 	{

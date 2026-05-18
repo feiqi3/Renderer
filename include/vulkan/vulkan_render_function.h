@@ -126,7 +126,7 @@ namespace Render::Vulkan {
 	void bindlessDataMarkResource(rs_bindless_data_vk* bindlessData, rs_buffer* buffer		, bool isUAV);
 	rs_buffer_vk* createStageBufferTemp(rs_context_vk* context, uint64_t size);
 	//-------------------------------------------------------------------------------------//     
-	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt);
+	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt, const Rect2D& renderArea);
 	void cmdBeginRenderPass(rs_commandbuffer_vk* cb, rs_renderpass_vk* renderpass, const std::vector<ClearColor>& color, const ClearDepthStencil& clearDs);
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);

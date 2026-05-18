@@ -516,7 +516,7 @@ namespace Render {
         bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture, int idx);
         bool            getSampler(const Name& name, GLTFSampler& out, const tinygltf::Model& model, const tinygltf::Sampler& sampler);
         bool            getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node);
-        bool            getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light);
+        bool            getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light, int idx);
 		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat);
 		GLTFLoaderSetting setting;
     };
@@ -868,7 +868,7 @@ namespace Render {
 			out.lights.push_back({});
 			int engLightIdx = static_cast<int>(out.lights.size() - 1);
 			GLTFLight& engLight = out.lights.back();
-			if (!getLight(modelNamePrefix, engLight, model, model.lights[tinyLightIdx])) return false;
+			if (!getLight(modelNamePrefix, engLight, model, model.lights[tinyLightIdx], tinyLightIdx)) return false;
 			gltfLightToEngine[tinyLightIdx] = engLightIdx;
 			return true;
 			};
@@ -1309,9 +1309,9 @@ namespace Render {
         return true;
     }
 
-    bool GLTFLoaderPrivate::getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light)
+    bool GLTFLoaderPrivate::getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light,int idx)
     {
-        out.name = name.str() + light.name;
+        out.name = name.str() + light.name + "_" + light.type + std::to_string(idx);
         out.intensity = light.intensity;
         out.color.x = light.color[0];
         out.color.y = light.color[1];

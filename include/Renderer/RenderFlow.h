@@ -14,6 +14,7 @@
 #include "Renderer/PostEffect/CODBloom.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/Blit.h"
+#include "Renderer/EnginePass.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -60,6 +61,24 @@ namespace Render {
 			mBloom->setBloomRadius(1.5);
 
 ;		}
+
+		void deinitDirectionalLightShadowPass() {
+			delete mDirectionalLightRenderPass;
+		}
+
+		void initDirectionalLightShadowPass() {
+			auto rsys = RenderSystem::instance();
+			PassDesc directionalShadowPassDesc{};
+			PassAttachment attachmentDepth{};
+			attachmentDepth.fmt = RenderTextureFormat::R16F;
+			directionalShadowPassDesc.attachments.push_back({
+				attachmentDepth
+				});
+			directionalShadowPassDesc.lastDepth = true;
+			directionalShadowPassDesc.writeDepth = true;
+
+			mDirectionalLightRenderPass = new RenderPass(PassName::DirectionalShadowPass, directionalShadowPassDesc);
+		}
 
 		void initPostEffectPass() {
 			auto rsys = RenderSystem::instance();
@@ -166,6 +185,7 @@ namespace Render {
 		MainCameraPass* mMainCamPass = 0;
 		PostEffectComposePass* mPostEffectPass = 0;
 		SwapchainPass* mSwapchainPass = 0;
+		RenderPass* mDirectionalLightRenderPass = nullptr;
 		std::vector<RenderEntity*> mRenderEntities;
 		std::vector<RenderEntity*> mPostEffectEntities;
 		

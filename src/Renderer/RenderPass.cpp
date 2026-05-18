@@ -20,6 +20,12 @@ namespace Render {
 			return;
 		}
 
+		Rect2D renderArea = {};
+		if (mNextRenderAreaSet) {
+			mNextRenderAreaSet = false;
+			renderArea = mViewportRect;
+		}
+
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		if (!RenderSystem::instance()->isRenderTargetCompatibleToRenderPass(mRenderPass, renderTarget)) {
 			assert(0);
@@ -29,7 +35,20 @@ namespace Render {
 	}
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer)
 	{
-		RenderMarker Marker(cmdbuffer, mPassName.c_str(), 1.f, 0.f, 0.f, 1.f);
+		vec4 markerColorUsed;
+		const char* markerNameUsed = nullptr;
+		markerNameUsed = mPassName.c_str();
+		if (mNextColorMarked) {
+			mNextColorMarked = false;
+			markerColorUsed = mNextMarkColor;
+			if (!mNextMarkName.empty()) {
+				markerNameUsed = mNextMarkName.c_str();
+			}
+		}
+		else {
+			markerColorUsed = vec4(1.f, 0.f, 0.f, 1.f);
+		}
+		RenderMarker Marker(cmdbuffer, markerNameUsed, markerColorUsed.x, markerColorUsed.y, markerColorUsed.z, markerColorUsed.w);
 		collectRenderEntities(mRenderPacks);
 		//Update parameters must before renderpass begin.
 		for (auto&& pack : mRenderPacks) {
@@ -38,7 +57,7 @@ namespace Render {
 		RenderSystem::instance()->excutePendingBufferCopies(cmdbuffer);
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
 		if (mRendertarget) {
-			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget);
+			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget, renderArea);
 			updateViewportAndScissor(cmdbuffer, mRendertarget);
 		}
 		drawImpl(cmdbuffer);
@@ -57,6 +76,20 @@ namespace Render {
 			};
 			packs.push_back(pack);
 		}
+	}
+
+	void RenderPass::setNextMarkColorAndName(const vec4& color, const std::string& name)
+	{
+		mNextColorMarked = true;
+		mNextMarkColor = color;
+		mNextMarkName = name;
+	}
+
+	void RenderPass::setNextViewport(Rect2D rect2d)
+	{
+		mNextRenderAreaSet = true;
+		mNextViewportSet = true;
+		mViewportRect = rect2d;
 	}
 
 	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer)
@@ -153,6 +186,11 @@ namespace Render {
 		rect.t = 0.f;
 		rect.b = 1.f;
 		rect.r = 1.f;
+
+		if (mNextViewportSet) {
+			rect = mViewportRect;
+			mNextViewportSet = false;
+		}
 
 		if (rt) {
 			auto renderSys = RenderSystem::instance();

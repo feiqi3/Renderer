@@ -1277,7 +1277,7 @@ namespace Render::Vulkan {
         swapchainImages.resize(0);
     }
 
-	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt)
+	void cmdsetRenderTarget(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_rendertarget_vk* rt,const Rect2D& renderArea)
 	{
         auto curRp = (rs_renderpass_vk*)cmd->currentRenderPass;
         if (!curRp) {
@@ -1372,11 +1372,10 @@ namespace Render::Vulkan {
         VkRenderPassBeginInfo info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
         info.renderPass = renderPass;
         info.framebuffer = *frameBuffer;
-        auto& renderArea = info.renderArea;
-        renderArea.extent.width = width;
-		renderArea.extent.height = height;
-        renderArea.offset = {};
-
+        info.renderArea.extent.width     = (renderArea.r - renderArea.l) * width;
+        info.renderArea.extent.height    = (renderArea.t - renderArea.b) * height;
+        info.renderArea.offset.x         = renderArea.l * width;
+		info.renderArea.offset.y         = renderArea.l * height;
 
 		info.             clearValueCount = clearValues.size();
         info.             pClearValues    = clearValues.data();

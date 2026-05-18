@@ -6,6 +6,7 @@ namespace Render {
 		inline const Name MainCameraPass			= Name("MainCameraPass");
 		inline const Name SwapchainPass				= Name("SwapchainPass");
 		inline const Name PostEffectComposePass		= Name("PostEffectComposePass");
+		inline const Name DirectionalShadowPass		= Name("DirectionalShadowPass");
 	}
 }
 

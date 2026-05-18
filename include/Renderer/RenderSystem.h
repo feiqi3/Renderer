@@ -43,7 +43,7 @@ namespace Render{
 		void destoyRenderPass(rs_renderpass* renderPass);
 		void cmdBeginRenderPass(rs_commandbuffer* cmdbuf,rs_renderpass* pass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs);
 		void cmdEndRenderPass(rs_commandbuffer* cmdbuf);
-		void cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget);
+		void cmdSetRendertarget(rs_commandbuffer* cmdbuf, rs_rendertarget* rendertarget, const Rect2D& renderArea = {});
 
 		void cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect);
 		void cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth,const Rect2D& rect);
