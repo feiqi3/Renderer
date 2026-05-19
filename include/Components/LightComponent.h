@@ -8,7 +8,8 @@
 namespace Render {
 	class LightComponent : public  Component {
 	public:
-		inline LightComponent(LightType type);
+		LightComponent(LightType type);
+		void setHasShadow(bool hasShadow);
 		Light* getLight();
 		void onEnable() override;
 		void onDisable() override;

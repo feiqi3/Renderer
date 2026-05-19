@@ -3,6 +3,7 @@
 
 #include "GPUSharedDef.h"
 #define RENDER_MAX_LIGHT_PER_SCENE 8
+#define RENDER_MAX_DIR_SHADOW_PER_SCENE 1
 
 GPU_SHARED_NAMESPACE_BEGIN
 	GPU_STRUCT_BEGIN(GPULightData)
@@ -32,6 +33,16 @@ GPU_SHARED_NAMESPACE_BEGIN
 		// x: total light num, y, z, w unused
 		vec4 sceneLightInfo;
 		GPULightData lights[RENDER_MAX_LIGHT_PER_SCENE];
+	GPU_STRUCT_END
+
+	GPU_STRUCT_BEGIN(GPUDirLightShadowData)
+		mat4 ViewProjMat;
+		vec4 AtlasInfo;     //x,y :uv offset x,y; z,w :uv extent x,y
+		GPU_STRUCT_END
+
+	GPU_STRUCT_BEGIN(GPUSceneShadowData)
+		vec4 ShadowInfo;
+		GPUDirLightShadowData DirLightShadowInfo[RENDER_MAX_DIR_SHADOW_PER_SCENE];
 	GPU_STRUCT_END
 
 GPU_SHARED_NAMESPACE_END

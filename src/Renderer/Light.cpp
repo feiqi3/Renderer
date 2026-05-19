@@ -84,7 +84,17 @@ namespace Render {
         return m_dirty;
     }
 
-    // 构造 GPU 数据
+	void Light::setHasShadow(bool hasShadow)
+	{
+        m_hasShadow = hasShadow;
+	}
+
+	bool Light::getHashShadow() const
+	{
+        return m_hasShadow;
+	}
+
+	// 构造 GPU 数据
     GPUShared::GPULightData Light::toGPUData() const {
         GPUShared::GPULightData data{};
 

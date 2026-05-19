@@ -1,4 +1,5 @@
 #include "Renderer/LightManager.h"
+#include "Renderer/Light.h"
 #include "Renderer/ComputeKernel.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/TextureResourceMgr.h"
@@ -83,7 +84,33 @@ namespace Render {
 
 	void LightManager::update()
 	{
-		
+		//Copy
+		std::vector<Light*> sortedIntensityList;
+		std::vector<Light*> sortedIntensityListDirLight;
+		for (auto&& [idx, lightData] : this->lightMap) {
+			auto light = lightData.light;
+			LightType lightType = lightData.light->getType();
+			if(lightType == LightType::Point)
+			{			
+				sortedIntensityList.push_back(light);
+			}
+			else if(lightType == LightType::Directional){
+				sortedIntensityListDirLight.push_back(light);
+			}
+		}
+		std::sort(sortedIntensityList.begin(), sortedIntensityList.end(), [](Light* a, Light* b) {
+			return a->getIntensity() > b->getIntensity();
+		});
+		mShadowLights = sortedIntensityList;
+		std::sort(sortedIntensityListDirLight.begin(), sortedIntensityListDirLight.end(), [](Light* a, Light* b) {
+			return a->getIntensity() > b->getIntensity();
+			});
+		mMainDirLight = sortedIntensityListDirLight.size() > 0 ? sortedIntensityListDirLight[0] : nullptr;
+	}
+
+	void LightManager::setShadowLightNum(uint32_t lightNum)
+	{
+		mShadowLightNum = lightNum;
 	}
 
 	void LightManager::setSkybox(TexturePtr skybox)

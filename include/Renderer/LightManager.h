@@ -11,6 +11,13 @@ namespace Render {
 	class ComputeKernel;
 	class LightManager{
 	public:
+
+		struct LightData {
+			Light* light;
+			GPUShared::GPULightData data;
+		};
+
+	public:
 		LightManager();
 		~LightManager();
 		//Do a copy internal
@@ -19,35 +26,35 @@ namespace Render {
 		Light* getLight(int idx);
 		const Light* getLight(int idx) const;
 		void update();
-
+		void setShadowLightNum(uint32_t lightNum);
 		TexturePtr getBRDFLut();
 		TexturePtr getPrefilterEnvMap();
 		SamplerPtr getIBLSampler();
 		void calculateIBLData(rs_commandbuffer* cmdbuf);
 		const GPUShared::GPUSceneLightData& updateLightData();
-
+		const std::map<int, LightData>& getLightMap();
 	public:
 		void setSkybox(TexturePtr skybox);
-		void setSkyboxRotation(quat rotation);
-		void setSkyboxExposure(float exposure);
+		//void setSkyboxRotation(quat rotation);
+		//void setSkyboxExposure(float exposure);
 
 	private:
 
-		void calculatePrefilterEnv(rs_commandbuffer* cmd);
-		void calculateBRDFLut(rs_commandbuffer* cmd);
 
 		void calcMipMap(TexturePtr tex);
 
-		struct LightData {
-			Light* light;
-			GPUShared::GPULightData data;
-		};
+
 		TexturePtr mSkybox;
 		TexturePtr mBRDFLut;
 		TexturePtr mPrefilterSkymap;
 		SamplerPtr mSampler;
 		std::map<int, LightData> lightMap;
 		GPUShared::GPUSceneLightData mLightData;
+
+		Light* mMainDirLight = nullptr;
+		std::vector<Light*> mShadowLights;
+		int		mShadowLightNum = -1;
+
 		bool lightDataDirty = true;
 		bool prefilterMapNeedGenerate = false;
 		bool brdfLutNeedGenerate = true;

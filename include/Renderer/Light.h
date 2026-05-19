@@ -36,6 +36,9 @@ namespace Render {
         void setDirty(bool lightDataDirty = true);
         bool isDirty() const;
 
+        void setHasShadow(bool hasShadow);
+        bool getHashShadow() const;
+
         // GPU data
         GPUShared::GPULightData toGPUData() const;
 
@@ -48,6 +51,7 @@ namespace Render {
         float m_range = 10.0f;
         float m_innerCone = 20.0f;
         float m_outerCone = 30.0f;
+        bool  m_hasShadow = false;
         bool m_dirty = true;
     };
 

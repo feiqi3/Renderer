@@ -15,6 +15,7 @@
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/Blit.h"
 #include "Renderer/EnginePass.h"
+#include "Renderer/LightManager.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -143,7 +144,12 @@ namespace Render {
 		}
 
 		void Excute(){
+			
 			auto RenderSys = RenderSystem::instance();
+			auto curScene = Scene::getCurrentScene();
+			if (curScene) {
+				curScene->getLightMgr().update();
+			}
 			RenderSys->setCurrentCamera(mCamera);
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
 
