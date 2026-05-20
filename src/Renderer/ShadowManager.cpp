@@ -1,9 +1,11 @@
 #include "Renderer/ShadowManager.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/TextureResourceMgr.h"
+#include "Renderer/CameraManager.h"
 #include "function/Scene.h"
 #include "Renderer/Light.h"
-
+#include "Renderer/Camera.h"
+#include "function/AABB.h"
 #include <algorithm>
 namespace Render {
 	class ShadowManagerPrivate {
@@ -11,15 +13,20 @@ namespace Render {
 
 		std::vector<Light*> mPointLightsToDrawShadow;
 		std::vector<Light*> mDirLightsToDrawShadow;
+
+		std::unique_ptr<Camera> mDirLightCamera = nullptr;
 		
 	};
 	ShadowManager::ShadowManager()
 	{
 		mDp = new ShadowManagerPrivate;
+		mDp->mDirLightCamera = std::make_unique<Camera>(Name("DirLightShadowCamera"));
+		CameraManager::instance()->RegisterCamera(mDp->mDirLightCamera.get(), 1);
 	}
 
 	ShadowManager::~ShadowManager()
 	{
+		CameraManager::instance()->UnregisterCamera(mDp->mDirLightCamera.get());
 		delete mDp;
 	}
 
@@ -48,9 +55,11 @@ namespace Render {
 			prepareDirShadowResource();
 			isDirShadowConfigDirty = false;
 		}
+
+
 	}
 
-	void ShadowManager::drawDirLightShadow(rs_commandbuffer* cmdBuffer, Light* light, Camera* currentCamera)
+	void ShadowManager::setDirLightCamera(rs_commandbuffer* cmdBuffer, Light* light, Camera* currentCamera)
 	{
 		//1. calculate dir light's viewproj
 		// the view space of light should wrap 
@@ -58,8 +67,44 @@ namespace Render {
 
 		// get frustum info
 		// get frustum AABB
-		mat4 viewMat;
+		// calculate a sphere that contains the aabb
+		// set camera with this 
+		const vec4 NDCCoord[] = {
+			vec4(0,0,0,1.),
+			vec4(1,0,0,1.),
+			vec4(1,1,0,1.),
+			vec4(0,1,0,1.),
+		};
 
+		const float FarestDistanceDirShadow = 1000.;
+
+		AxisAlignedBoundingBox aabbOfFrustum;
+		float nearPlaneZ =	0;
+		float farPlaneZ =	clamp(FarestDistanceDirShadow / currentCamera->getFar(),0.1,1.);
+		auto viewProjOfCurCam = currentCamera->getProjectionMatrix() * currentCamera->getViewMatrix();
+		auto invViewProj = inverse(viewProjOfCurCam);
+		for (int i = 0;i < 4;++i) {
+			vec4 NDCCoordNear = NDCCoord[i];
+			NDCCoordNear.z = nearPlaneZ;
+			vec4 nearPlanePoint = invViewProj * NDCCoordNear;
+			aabbOfFrustum.expand(nearPlanePoint);
+		}
+		for (int i = 0;i < 4;++i) {
+			vec4 NDCCoordFar = NDCCoord[i];
+			NDCCoordFar.z = farPlaneZ;
+			vec4 farPlanePoint = invViewProj * NDCCoordFar;
+			aabbOfFrustum.expand(farPlanePoint);
+		}
+
+		float radius = length(aabbOfFrustum.getCenter() - aabbOfFrustum.getMax());
+		vec3 camPos = aabbOfFrustum.getCenter() - light->getDirection() * radius;
+		float nearPlane = 0.0f;
+		float farPlane = radius * 2.0f;
+		mDp->mDirLightCamera->setTarget(aabbOfFrustum.getCenter());
+		mDp->mDirLightCamera->setOrthoSize(radius);
+		mDp->mDirLightCamera->setOrthographic(radius, 1., nearPlane, farPlane);
+
+		RenderSystem::instance()->setCurrentCamera(mDp->mDirLightCamera.get());
 	}
 
 	void ShadowManager::processShadowDrawInfo(Scene* scene)

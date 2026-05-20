@@ -6,119 +6,218 @@
 
 namespace Render {
 
-    Camera::Camera(const Name& name,
-        const vec3& position,
-        const vec3& target,
-        const vec3& up,
-        float fovDegrees,
-        float aspectRatio,
-        float nearPlane,
-        float farPlane)
-        : mCamName(name)
-        , m_position(position)
-        , m_direction(target - position)
-        , m_up(up)
-        , m_fov(fovDegrees)
-        , m_aspect(aspectRatio)
-        , m_near(nearPlane)
-        , m_far(farPlane)
-    {
-        updateView();
-        updateProjection();
-    }
+	Camera::Camera(const Name& name,
+		const vec3& position,
+		const vec3& target,
+		const vec3& up,
+		float fovDegrees,
+		float aspectRatio,
+		float nearPlane,
+		float farPlane)
+		: mCamName(name)
+		, m_position(position)
+		, m_direction(target - position)
+		, m_up(up)
+		, m_type(CameraType::Perspective)
+		, m_fov(fovDegrees)
+		, m_orthoSize(5.0f) 
+		, m_aspect(aspectRatio)
+		, m_near(nearPlane)
+		, m_far(farPlane)
+	{
+		updateView();
+		updateProjection();
+	}
 
-    Camera::~Camera()
-    {
-        if (mCameraDrawData) {
-            RenderSystem::instance()->destroyDrawData(mCameraDrawData);
-            mCameraDrawData = nullptr;
-        }
-    }
+	Camera::Camera(const Name& name,
+		const vec3& position,
+		const vec3& target,
+		const vec3& up,
+		float orthoSize,
+		float aspectRatio,
+		float nearPlane,
+		float farPlane)
+		: mCamName(name)
+		, m_position(position)
+		, m_direction(target - position)
+		, m_up(up)
+		, m_type(CameraType::Orthographic)
+		, m_fov(45.0f) 
+		, m_orthoSize(orthoSize)
+		, m_aspect(aspectRatio)
+		, m_near(nearPlane)
+		, m_far(farPlane)
+	{
+		updateView();
+		updateProjection();
+	}
 
-    void Camera::updateView()
-    {
-        m_view = lookAt(m_position, m_position + m_direction, m_up);
-    }
+	Camera::~Camera()
+	{
+		if (mCameraDrawData) {
+			RenderSystem::instance()->destroyDrawData(mCameraDrawData);
+			mCameraDrawData = nullptr;
+		}
+	}
 
-    void Camera::updateProjection()
-    {
-        m_projection = perspective(radians(m_fov), m_aspect, m_near, m_far);
-    }
+	void Camera::updateView()
+	{
+		m_view = lookAt(m_position, m_position + m_direction, m_up);
+	}
 
-    void Camera::setPosition(const vec3& pos)
-    {
-        m_position = pos;
-        updateView();
-    }
+	void Camera::updateProjection()
+	{
+		if (m_type == CameraType::Perspective)
+		{
+			m_projection = perspective(radians(m_fov), m_aspect, m_near, m_far);
+		}
+		else // CameraType::Orthographic
+		{
+			float top = m_orthoSize;
+			float bottom = -m_orthoSize;
+			float right = m_orthoSize * m_aspect;
+			float left = -right;
 
-    void Camera::setTarget(const vec3& tgt)
-    {
-        m_direction = normalize(tgt - m_position);
-        updateView();
-    }
+			left += m_orthoCenterOffset.x;
+			right += m_orthoCenterOffset.x;
+			bottom += m_orthoCenterOffset.y;
+			top += m_orthoCenterOffset.y;
+
+			m_projection = ortho(left, right, bottom, top, m_near, m_far);
+		}
+	}
+
+	void Camera::setPosition(const vec3& pos)
+	{
+		m_position = pos;
+		updateView();
+	}
+
+	void Camera::setTarget(const vec3& tgt)
+	{
+		m_direction = normalize(tgt - m_position);
+		updateView();
+	}
 
 	void Camera::setDirection(const vec3& dir)
 	{
-        m_direction = normalize(dir);
+		m_direction = normalize(dir);
 		updateView();
 	}
 
 	void Camera::setUp(const vec3& up)
-    {
-        m_up = normalize(up);
-        updateView();
-    }
+	{
+		m_up = normalize(up);
+		updateView();
+	}
 
-    void Camera::setPerspective(float fovDegrees, float aspect, float nearPlane, float farPlane)
-    {
-        m_fov = fovDegrees;
-        m_aspect = aspect;
-        m_near = nearPlane;
-        m_far = farPlane;
-        updateProjection();
-    }
+	void Camera::setPerspective(float fovDegrees, float aspect, float nearPlane, float farPlane)
+	{
+		m_type = CameraType::Perspective;
+		m_fov = fovDegrees;
+		m_aspect = aspect;
+		m_near = nearPlane;
+		m_far = farPlane;
+		updateProjection();
+	}
 
-    void Camera::setViewMatrix(const mat4& view)
-    {
-        m_view = view;
-    }
+	void Camera::setOrthographic(float orthoSize, float aspect, float nearPlane, float farPlane)
+	{
+		m_type = CameraType::Orthographic;
+		m_orthoSize = orthoSize;
+		m_aspect = aspect;
+		m_near = nearPlane;
+		m_far = farPlane;
+		m_orthoCenterOffset = vec2(0.0f, 0.0f); 
+		updateProjection();
+	}
 
-    void Camera::setProjectionMatrix(const mat4& proj)
-    {
-        m_projection = proj;
-    }
+	void Camera::setOrthographicBounds(float left, float right, float bottom, float top)
+	{
+		m_type = CameraType::Orthographic;
 
-    GPUShared::GPUCameraData Camera::toGPUData() const
-    {
-        GPUShared::GPUCameraData common{};
+		float width = right - left;
+		float height = top - bottom;
 
-        // fill matrices
-        common.MatView = getViewMatrix();
-        common.MatProj = getProjectionMatrix();
+		m_orthoSize = height * 0.5f;
 
-        // MatViewProj: projection * view (typical column-major convention)
-        common.MatViewProj = common.MatProj * common.MatView;
+		m_aspect = (height != 0.0f) ? (width / height) : 1.0f;
 
-        // inverses
-        common.MatInvView = inverse(common.MatView);
-        common.MatInvProj = inverse(common.MatProj);
+		m_orthoCenterOffset.x = (left + right) * 0.5f;
+		m_orthoCenterOffset.y = (bottom + top) * 0.5f;
 
-        // vectors
-        common.CameraPosition = vec4(getPosition(), 1.0f);
-        common.CameraUp = vec4(getUp(), 0.0f);
+		updateProjection();
+	}
 
-        // Camera front: normalized (target - position) is usually the forward direction
-        common.CameraFront = vec4(normalize(getDirection() - getPosition()), 0.0f);
+	void Camera::setType(CameraType type)
+	{
+		if (m_type != type) {
+			m_type = type;
+			updateProjection();
+		}
+	}
 
-        return common;
-    }
+	void Camera::setOrthoSize(float size)
+	{
+		m_orthoSize = size;
+		if (m_type == CameraType::Orthographic) {
+			updateProjection();
+		}
+	}
 
-    rs_drawdata* Camera::getDrawData()
-    {
-        if (!this->mCameraDrawData) {
-            mCameraDrawData = RenderSystem::instance()->createDrawData();
-        }
-        return mCameraDrawData;
-    }
+	void Camera::setAspectRatio(float aspect)
+	{
+		m_aspect = aspect;
+		updateProjection();
+	}
+
+	void Camera::setFar(float far)
+	{
+		m_far = far;
+		updateProjection();
+	}
+
+	void Camera::setNear(float near)
+	{
+		m_near = near;
+		updateProjection();
+	}
+
+	void Camera::setViewMatrix(const mat4& view)
+	{
+		m_view = view;
+	}
+
+	void Camera::setProjectionMatrix(const mat4& proj)
+	{
+		m_projection = proj;
+	}
+
+	GPUShared::GPUCameraData Camera::toGPUData() const
+	{
+		GPUShared::GPUCameraData common{};
+		common.MatView = getViewMatrix();
+		common.MatProj = getProjectionMatrix();
+		common.MatViewProj = common.MatProj * common.MatView;
+
+		common.MatInvView = inverse(common.MatView);
+		common.MatInvProj = inverse(common.MatProj);
+
+		common.CameraPosition = vec4(getPosition(), 1.0f);
+		common.CameraUp = vec4(getUp(), 0.0f);
+
+
+		common.CameraFront = vec4(normalize(getDirection()), 0.0f);
+
+		return common;
+	}
+
+	rs_drawdata* Camera::getDrawData()
+	{
+		if (!this->mCameraDrawData) {
+			mCameraDrawData = RenderSystem::instance()->createDrawData();
+		}
+		return mCameraDrawData;
+	}
 
 } // namespace Render

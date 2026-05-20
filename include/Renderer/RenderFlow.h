@@ -64,6 +64,8 @@ namespace Render {
 ;		}
 
 		void deinitDirectionalLightShadowPass() {
+			auto rsys = RenderSystem::instance();
+			rsys->getRenderPassManager()->registerRenderPass(mDirectionalLightRenderPass);
 			delete mDirectionalLightRenderPass;
 		}
 
@@ -79,6 +81,7 @@ namespace Render {
 			directionalShadowPassDesc.writeDepth = true;
 
 			mDirectionalLightRenderPass = new RenderPass(PassName::DirectionalShadowPass, directionalShadowPassDesc);
+			rsys->getRenderPassManager()->registerRenderPass(mDirectionalLightRenderPass);
 		}
 
 		void initPostEffectPass() {

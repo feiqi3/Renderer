@@ -16,7 +16,7 @@ namespace Render {
 		void setShadowTexFormat(RenderTextureFormat fmt);
 		void drawShadow(rs_commandbuffer* cmdBuffer,Camera* currentCamera,Scene* scene);
 	protected:
-		void drawDirLightShadow(rs_commandbuffer* cmdBuffer,Light* light, Camera* currentCamera);
+		void setDirLightCamera(rs_commandbuffer* cmdBuffer,Light* light, Camera* currentCamera);
 		void processShadowDrawInfo(Scene* scene);
 		void prepareDirShadowResource();
 	private:
@@ -31,7 +31,6 @@ namespace Render {
 		class ShadowManagerPrivate* mDp;;
 
 		TexturePtr mDirLightShadowMap;
-
 	};
 };
 
