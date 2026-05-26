@@ -1,6 +1,11 @@
 #include "function/Scene.h"
 #include "function/Object.h"
 #include "Renderer/RenderSystem.h"
+#include "Renderer/Camera.h"
+#include "Components/RenderComponent.h"
+#include "Renderer/RenderEntity.h"
+#include "Renderer/MaterialInstance.h"
+#include "function/CullUtils.h"
 #include <algorithm>
 #include <cassert>
 
@@ -201,7 +206,70 @@ namespace Render {
     {
     }
 
-    void Scene::updateObjectsTransform()
+	void Scene::registerRenderComponent(RenderComponent* comp)
+	{
+		if (!comp || comp->getSceneIndex() != static_cast<size_t>(-1)) return;
+
+		m_renderComponents.push_back(comp);
+
+		comp->setSceneIndex(m_renderComponents.size() - 1);
+	}
+
+	void Scene::unregisterRenderComponent(RenderComponent* comp)
+	{
+		if (!comp || comp->getSceneIndex() == static_cast<size_t>(-1)) return;
+
+		size_t targetIdx = comp->getSceneIndex();
+		size_t lastIdx = m_renderComponents.size() - 1;
+
+		if (targetIdx != lastIdx) {
+			std::swap(m_renderComponents[targetIdx], m_renderComponents[lastIdx]);
+
+			m_renderComponents[targetIdx]->setSceneIndex(targetIdx);
+		}
+
+		m_renderComponents.pop_back();
+
+		comp->setSceneIndex(static_cast<size_t>(-1));
+	}
+
+	void Scene::collectVisibleObjects(Camera* camera)
+	{
+        if (!camera) return;
+        Frustum camFrustum;
+        camFrustum.update(*camera);
+        auto renderQueue = camera->getRenderQueue();
+        renderQueue->clear();
+        auto camType = camera->getType();
+        bool isShadowCam = camType == CameraType::Shadow;
+        uint32_t cullMask = camera->getCullMask();
+       
+        for (auto&& comp : m_renderComponents) {
+            if (!comp) continue;
+			
+            if (isShadowCam && !comp->isCastShadow()) {
+				continue;
+			}
+
+			if ((cullMask & comp->getLayer()) == 0) {
+				continue;
+			}
+			const auto& entities = comp->getRenderEntities();
+			for (RenderEntity* entity : entities)
+			{
+				if (entity && entity->getMaterial())
+				{
+                    bool isVisible = camFrustum.isVisible(entity->getWorldBounding());
+                    if (!isVisible)continue;
+					u64 renderMask = entity->getMaterial()->getRenderMask();
+                    renderQueue->submit(entity, renderMask);
+				}
+			}
+        }
+
+    }
+
+	void Scene::updateObjectsTransform()
     {
         for (auto& obj : m_objects) {
             if (obj->isRoot()) {

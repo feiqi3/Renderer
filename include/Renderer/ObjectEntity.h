@@ -82,7 +82,7 @@ namespace Render {
 			VtxIA.bindings.push_back(binding);
 
 			auto temp =  MaterialTemplateManager::instance()->createMaterialTemplate(Name("NormalTemplate"), NomralTemplateInfo, normalState, VtxIA);
-			temp->createMaterialPass(RenderSystem::instance()->getRenderPass(Name("MainCameraPass")), {});
+			temp->createMaterialPass(PassName::MainCameraPass, {});
 			auto mat = MaterialManager::instance()->createMaterial<Material>(Name("NormalMaterial"),temp);
 			return mat;
 		}

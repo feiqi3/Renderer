@@ -13,6 +13,7 @@ namespace Render {
 	class Component;
 	class Object;
     struct rs_drawdata;
+    class RenderComponent;
     class Scene {
     public:
 		static void setCurrentScene(Scene* scene);
@@ -35,7 +36,12 @@ namespace Render {
         void update(float deltaTime);
 
         virtual void renderOneFrame();
-    private:
+
+        void registerRenderComponent(RenderComponent* comp);
+		void unregisterRenderComponent(RenderComponent* comp);
+
+        void collectVisibleObjects(Camera* camera);
+	private:
         void updateObjectsTransform();
 
         friend class Object;
@@ -52,7 +58,7 @@ namespace Render {
 
         std::vector<Object*> m_pendingDestroyObjects;
         std::vector<ObjectID> m_pendingDestroyObjectsID;
-
+        std::vector<RenderComponent*> m_renderComponents;
         std::unique_ptr<LightManager> m_lightMgr;
 
         rs_drawdata* m_drawData = nullptr;

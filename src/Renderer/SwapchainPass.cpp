@@ -6,6 +6,7 @@
 #include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/MaterialManager.h"
 #include "common/ResourceSystem.h"
+#include "Renderer/EnginePass.h"
 namespace Render {
 
 	class NormalEntity :public RenderEntity{
@@ -29,9 +30,9 @@ namespace Render {
 				state.depthTestEnable = false;
 				VertexInputDescription vtxIA{};
 				matTempPtr = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SwapChain"), stageInfo, state, vtxIA);
-				matTempPtr->createMaterialPass(RenderSystem::instance()->getRenderPass(Name("Swapchain")), {});
+				matTempPtr->createMaterialPass(PassName::SwapchainPass, {});
 				mMaterial = MaterialManager::instance()->createMaterial<Material>(Name("SwapChainMat"), matTempPtr);
-				mMaterial->addMaterialPassToRender(Name("Swapchain"));
+				mMaterial->addMaterialPassToRender(PassName::SwapchainPass);
 			}
 			return mMaterial.get();
 		}
@@ -49,7 +50,7 @@ namespace Render {
 		.writeDepth = false
 	};
 
-	SwapchainPass::SwapchainPass():RenderPass(Name("Swapchain"), SwapchainPassDesc)
+	SwapchainPass::SwapchainPass():RenderPass(PassName::SwapchainPass, SwapchainPassDesc)
 	{
 		ClearColor SwapchainImgClrColor = {};
 		SwapchainImgClrColor.rgba[0] = 0.f;

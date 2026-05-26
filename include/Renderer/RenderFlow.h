@@ -55,8 +55,8 @@ namespace Render {
 			RenderSys->setSignalCanPresentToPresentImageSemaphore(mPresentToScreenSemaphore);
 			//Is Rendered to present image finished?
 			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
-			mCamera = new Camera(Name("Scene"));
-			CameraManager::instance()->RegisterCamera(mCamera, 0);
+			mMainCamera = new Camera(Name("Scene"));
+			CameraManager::instance()->RegisterCamera(mMainCamera, 0);
 
 			mBloom = new CodBloom();
 			mBloom->setBloomRadius(1.5);
@@ -113,7 +113,7 @@ namespace Render {
 			RenderSystem* renderSys = RenderSystem::instance();
 			renderSys->getRenderPassManager()->registerRenderPass(mSwapchainPass);
 			//Swapchain draw data rely on swapchain to be registered into pass manager.
-			RenderSystem::instance()->setCurrentCamera(mCamera);
+			RenderSystem::instance()->setCurrentCamera(mMainCamera);
 			mSwapchainPass->init();
 		};
 		void deinitSwapchainPass() {
@@ -130,9 +130,9 @@ namespace Render {
 		}
 
 		void deinit() {
-			CameraManager::instance()->UnregisterCamera(mCamera);
-			delete mCamera;
-			mCamera = nullptr;
+			CameraManager::instance()->UnregisterCamera(mMainCamera);
+			delete mMainCamera;
+			mMainCamera = nullptr;
 			deinitMainCamPass();
 			deinitSwapchainPass();
 			deinitPostEffectPass();
@@ -150,24 +150,25 @@ namespace Render {
 			
 			auto RenderSys = RenderSystem::instance();
 			auto curScene = Scene::getCurrentScene();
+			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
+
+			//1. update camera data.
+			CameraManager::instance()->updateAllCamera(cmdbufOffscreen);
 			if (curScene) {
 				curScene->getLightMgr().update();
 			}
-			RenderSys->setCurrentCamera(mCamera);
-			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
+			RenderSys->setCurrentCamera(mMainCamera);
 
 
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
 			/////////////////////////////////////////////////////
 			Scene::getCurrentScene()->getLightMgr().calculateIBLData(cmdbufOffscreen);
-
 			//Transit common data
-			RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, RenderSys->getCurCameraDrawData());
 			RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneDrawData());
 
 
-			mMainCamPass->draw(cmdbufOffscreen);
+			mMainCamPass->draw(cmdbufOffscreen,mMainCamera);
 			mBloom->draw(cmdbufOffscreen, mMainColorTex);
 			RenderSys->cmdEnd(cmdbufOffscreen);
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);
@@ -208,7 +209,7 @@ namespace Render {
 		rs_image* mainDepthImg = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;
 		CodBloom* mBloom = nullptr;
-		Camera* mCamera = nullptr;
+		Camera* mMainCamera = nullptr;
 
 		TexturePtr mMainColorTex = nullptr;
 		TexturePtr mMainDepthTex = nullptr;

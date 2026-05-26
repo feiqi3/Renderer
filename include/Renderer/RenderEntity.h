@@ -2,6 +2,7 @@
 #define RENDER_ENTITY_H
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
+#include "function/AABB.h"
 #include "common/NoCopyable.h"
 #include "common/Name.h"
 #include "common/CommonMath.h"
@@ -25,7 +26,7 @@ namespace Render {
 	public:
 		virtual bool isRenderReady() { return true; }
 		virtual ~RenderEntity() ;
-
+		virtual AxisAlignedBoundingBox getWorldBounding() = 0;
 		virtual Material* getMaterial() = 0;
 		rs_buffer* getIndexBuffer();
 		IndexType getIndexType()const;

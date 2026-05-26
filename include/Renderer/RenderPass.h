@@ -1,21 +1,46 @@
 #ifndef RENDER_PASS_H
 #define RENDER_PASS_H
+
+#include "common/CoreDefs.h"
 #include "common/Name.h"
+#include "Renderer/Camera.h"
 #include "render_resource_createinfo.h"  
 #include <string>
+#include <vector>
+
 namespace Render {
 	struct rs_renderpass;
 	struct rs_rendertarget;
 	struct rs_commandbuffer;
+
+	struct LogicalPass {
+		Name name;
+		int priority = 0;
+		u64 filterMask = 0xFFFFFFFFFFFFFFFF;
+
+		bool hasCustomViewport = false;
+		Rect2D viewportRect{};
+	};
+
+	struct LogicPassDesc {
+		Name logicPassName;
+		int priority;
+		u64 filterMask;
+	};
+
 	class RenderPass {
 	public:
+		RenderPass(const PassDesc& desc);
 		RenderPass(const Name& passName, const PassDesc& desc);
+		RenderPass(const std::vector<LogicPassDesc>& passName, const PassDesc& desc);
+
 		virtual void init() {}
 		virtual ~RenderPass();
 		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer, rs_rendertarget* rt);
-		rs_renderpass* getRaw()const { return mRenderPass; }
+		rs_renderpass* getRaw() const { return mRenderPass; }
 		void setRenderTarget(rs_rendertarget* renderTarget);
-		virtual void draw(rs_commandbuffer* cmdbuffer);
+		virtual void draw(rs_commandbuffer* cmdbuffer,Camera* cam);
+
 		inline void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
 			mClrColor = clrColor;
 			mDsClear = dsClear;
@@ -23,25 +48,36 @@ namespace Render {
 
 		struct RenderPack {
 			class RenderEntity* entity;
-			class Pass*			pass;
+			class Pass* pass;
 		};
-		virtual void collectRenderEntities(std::vector<RenderPack>& pack);
-		virtual void beginFrame(uint64_t frame) {};
-		const Name& getPassName() { return mPassName; }
 
-		void setNextMarkColorAndName(const vec4& color,const std::string& name);
+		void addLogicalPass(const Name& name, int priority, u64 filterMask = 0xFFFFFFFFFFFFFFFF);
+		void removeLogicalPass(const Name& name);
+		void setLogicalPassPriority(const Name& name, int priority);
+		bool hasLogicalPass(const Name& name) const;
+		const std::vector<LogicalPass>& getLogicalPasses() const { return mLogicalPasses; }
+
+		virtual void beginFrame(uint64_t frame) {};
+
+		const Name& getPassName() const;
+
+		void setNextMarkColorAndName(const vec4& color, const std::string& name);
 		void setNextViewport(Rect2D rect2d);
+		void setEntityFilterFlag(u64 flags);
 
 	protected:
 		std::vector<RenderPack> mRenderPacks;
-	protected: 
+		std::vector<LogicalPass> mLogicalPasses;
+
+		void collectRenderEntitiesForName(const RenderQueue& renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs);
+
+	protected:
 		friend class RenderPassManager;
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
-		bool needRebuildPipeline(rs_rendertarget* oldrt,rs_rendertarget* newrt);
-
+		bool needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt);
 		bool isRTCompatible(rs_rendertarget* rtA, rs_rendertarget* rtB);
+
 	protected:
-		Name mPassName;
 		rs_rendertarget* mRendertarget = nullptr;
 		rs_renderpass* mRenderPass;
 		const PassDesc mPassDesc;

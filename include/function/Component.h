@@ -23,6 +23,8 @@ namespace Render {
 
         virtual void onDestroy() {};
 
+        virtual void onOwnerSetScene(Scene* originScene, Scene* scene) {}
+
         virtual void onFrameEnd() {};
         bool enabled() const noexcept;
         void setEnabled(bool enabled);

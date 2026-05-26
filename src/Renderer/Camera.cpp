@@ -18,7 +18,7 @@ namespace Render {
 		, m_position(position)
 		, m_direction(target - position)
 		, m_up(up)
-		, m_type(CameraType::Perspective)
+		, m_type(CameraProjectType::Perspective)
 		, m_fov(fovDegrees)
 		, m_orthoSize(5.0f) 
 		, m_aspect(aspectRatio)
@@ -41,7 +41,7 @@ namespace Render {
 		, m_position(position)
 		, m_direction(target - position)
 		, m_up(up)
-		, m_type(CameraType::Orthographic)
+		, m_type(CameraProjectType::Orthographic)
 		, m_fov(45.0f) 
 		, m_orthoSize(orthoSize)
 		, m_aspect(aspectRatio)
@@ -67,11 +67,11 @@ namespace Render {
 
 	void Camera::updateProjection()
 	{
-		if (m_type == CameraType::Perspective)
+		if (m_type == CameraProjectType::Perspective)
 		{
 			m_projection = perspective(radians(m_fov), m_aspect, m_near, m_far);
 		}
-		else // CameraType::Orthographic
+		else // CameraProjectType::Orthographic
 		{
 			float top = m_orthoSize;
 			float bottom = -m_orthoSize;
@@ -113,7 +113,7 @@ namespace Render {
 
 	void Camera::setPerspective(float fovDegrees, float aspect, float nearPlane, float farPlane)
 	{
-		m_type = CameraType::Perspective;
+		m_type = CameraProjectType::Perspective;
 		m_fov = fovDegrees;
 		m_aspect = aspect;
 		m_near = nearPlane;
@@ -123,7 +123,7 @@ namespace Render {
 
 	void Camera::setOrthographic(float orthoSize, float aspect, float nearPlane, float farPlane)
 	{
-		m_type = CameraType::Orthographic;
+		m_type = CameraProjectType::Orthographic;
 		m_orthoSize = orthoSize;
 		m_aspect = aspect;
 		m_near = nearPlane;
@@ -134,7 +134,7 @@ namespace Render {
 
 	void Camera::setOrthographicBounds(float left, float right, float bottom, float top)
 	{
-		m_type = CameraType::Orthographic;
+		m_type = CameraProjectType::Orthographic;
 
 		float width = right - left;
 		float height = top - bottom;
@@ -149,7 +149,7 @@ namespace Render {
 		updateProjection();
 	}
 
-	void Camera::setType(CameraType type)
+	void Camera::setType(CameraProjectType type)
 	{
 		if (m_type != type) {
 			m_type = type;
@@ -157,10 +157,20 @@ namespace Render {
 		}
 	}
 
+	void Camera::setCullMask(u32 cullMask)
+	{
+		mCullMask = cullMask;
+	}
+
+	Render::u32 Camera::getCullMask()
+	{
+		return mCullMask;
+	}
+
 	void Camera::setOrthoSize(float size)
 	{
 		m_orthoSize = size;
-		if (m_type == CameraType::Orthographic) {
+		if (m_type == CameraProjectType::Orthographic) {
 			updateProjection();
 		}
 	}

@@ -3,8 +3,9 @@
 #include "function/Component.h"
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/Mesh.h"
+#include "Components/RenderComponent.h"
 namespace Render {
-	class SimpleRenderComponent : public Component {
+	class SimpleRenderComponent : public RenderComponent {
 	public:
 		virtual void onUpdate(float dt) override;
 		virtual void onDestroy() override;

@@ -55,9 +55,8 @@ namespace Render {
 
 		RenderSystem* pSys = RenderSystem::instance();
 		//1. create a pipeline 
-		auto pass = pSys->getRenderPass(Name("VirtualRenderPass"));
 		mDp->VirtualCameraTemplate = MaterialTemplateManager::instance()->createMaterialTemplate(Name("VirtualCamera"), VirtualCameraShaderStageInfo, renderState, vtxIA);
-		mDp->MainPassVirtualMaterial = mDp->VirtualCameraTemplate->createMaterialPass(pass, {});
+		mDp->MainPassVirtualMaterial = mDp->VirtualCameraTemplate->createMaterialPass(Name("VirtualRenderPass"), {});
 		mDp->CameraCommonDataBindingPos = pSys->getBindingPos("CameraCommon", mDp->MainPassVirtualMaterial);
 		
 		//TODO: FIX ME

@@ -6,12 +6,83 @@
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/RenderQueue.h"
+#include <algorithm>
+#include <cassert>
+
 namespace Render {
-	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) :mPassName(passName), mRenderPass(nullptr), mPassDesc(desc)
+
+	RenderPass::RenderPass(const PassDesc& desc) : mRenderPass(nullptr), mPassDesc(desc)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		mRenderPass = createRsRenderPassVk(ctx, mPassDesc);
 	}
+
+	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) : RenderPass(desc)
+	{
+		addLogicalPass(passName, 0);
+	}
+
+	RenderPass::RenderPass(const std::vector<LogicPassDesc>& logicPassDesc, const PassDesc& desc) : RenderPass(desc)
+	{
+		for (const auto& logicPass : logicPassDesc) {
+			this->addLogicalPass(logicPass.logicPassName,logicPass.priority,logicPass.filterMask);
+		}
+	}
+
+	void RenderPass::addLogicalPass(const Name& name, int priority, u64 filterMask)
+	{
+		if (hasLogicalPass(name)) return;
+
+		mLogicalPasses.push_back({ name, priority, filterMask });
+
+		std::sort(mLogicalPasses.begin(), mLogicalPasses.end(), [](const LogicalPass& a, const LogicalPass& b) {
+			return a.priority < b.priority;
+			});
+	}
+
+	void RenderPass::removeLogicalPass(const Name& name)
+	{
+		auto it = std::remove_if(mLogicalPasses.begin(), mLogicalPasses.end(), [&](const LogicalPass& lp) {
+			return lp.name == name;
+			});
+		if (it != mLogicalPasses.end()) {
+			mLogicalPasses.erase(it, mLogicalPasses.end());
+		}
+	}
+
+	void RenderPass::setLogicalPassPriority(const Name& name, int priority)
+	{
+		for (auto& lp : mLogicalPasses) {
+			if (lp.name == name) {
+				lp.priority = priority;
+				break;
+			}
+		}
+		std::sort(mLogicalPasses.begin(), mLogicalPasses.end(), [](const LogicalPass& a, const LogicalPass& b) {
+			return a.priority < b.priority;
+			});
+	}
+
+	bool RenderPass::hasLogicalPass(const Name& name) const
+	{
+		return std::any_of(mLogicalPasses.begin(), mLogicalPasses.end(), [&](const LogicalPass& lp) {
+			return lp.name == name;
+			});
+	}
+
+	const Name& RenderPass::getPassName() const
+	{
+		static const Name emptyName("");
+		return mLogicalPasses.empty() ? emptyName : mLogicalPasses[0].name;
+	}
+
+	void RenderPass::setEntityFilterFlag(u64 flags)
+	{
+		if (!mLogicalPasses.empty()) {
+			mLogicalPasses[0].filterMask = flags;
+		}
+	}
+
 	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget)
 	{
 		using namespace Vulkan;
@@ -33,48 +104,91 @@ namespace Render {
 		}
 		this->mRendertarget = renderTarget;
 	}
-	void RenderPass::draw(rs_commandbuffer* cmdbuffer)
+
+
+	void RenderPass::draw(rs_commandbuffer* cmdbuffer, Camera* cam)
 	{
-		vec4 markerColorUsed;
-		const char* markerNameUsed = nullptr;
-		markerNameUsed = mPassName.c_str();
-		if (mNextColorMarked) {
-			mNextColorMarked = false;
-			markerColorUsed = mNextMarkColor;
-			if (!mNextMarkName.empty()) {
-				markerNameUsed = mNextMarkName.c_str();
+		if (mLogicalPasses.empty()) return;
+
+		struct RenderBatch {
+			Name passName;
+			std::vector<RenderPack> packs;
+			bool hasCustomViewport;
+			Rect2D viewportRect;
+		};
+		std::vector<RenderBatch> batches;
+		batches.reserve(mLogicalPasses.size());
+
+		for (const auto& logicalPass : mLogicalPasses) {
+			RenderBatch batch{
+				.passName = logicalPass.name,
+				.hasCustomViewport = logicalPass.hasCustomViewport,
+				.viewportRect = logicalPass.viewportRect
+			};
+			collectRenderEntitiesForName(*(cam->getRenderQueue()), logicalPass.name, logicalPass.filterMask, batch.packs);
+
+			for (auto&& pack : batch.packs) {
+				if (pack.pass) {
+					RenderSystem::instance()->updateParameters(cmdbuffer, pack.entity, pack.pass);
+				}
 			}
+			batches.push_back(std::move(batch));
 		}
-		else {
-			markerColorUsed = vec4(1.f, 0.f, 0.f, 1.f);
-		}
-		RenderMarker Marker(cmdbuffer, markerNameUsed, markerColorUsed.x, markerColorUsed.y, markerColorUsed.z, markerColorUsed.w);
-		collectRenderEntities(mRenderPacks);
-		//Update parameters must before renderpass begin.
-		for (auto&& pack : mRenderPacks) {
-			RenderSystem::instance()->updateParameters(cmdbuffer, pack.entity, pack.pass);
-		}
+
 		RenderSystem::instance()->excutePendingBufferCopies(cmdbuffer);
+
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
+
 		if (mRendertarget) {
-			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget, renderArea);
+			Rect2D nextRenderArea{};
+			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget, nextRenderArea);
+
 			updateViewportAndScissor(cmdbuffer, mRendertarget);
 		}
-		drawImpl(cmdbuffer);
+
+		for (auto& batch : batches) {
+			RenderMarker phaseMarker(cmdbuffer, batch.passName.c_str(), 0.2f, 0.7f, 0.9f, 1.f);
+			if (batch.hasCustomViewport && mRendertarget) {
+				auto renderSys = RenderSystem::instance();
+				for (size_t i = 0; i < mRendertarget->m_attachments.size(); i++) {
+					renderSys->cmdSetViewport(cmdbuffer, static_cast<uint32_t>(i), 0.0f, 1.f, batch.viewportRect);
+					renderSys->cmdSetScissor(cmdbuffer, static_cast<uint32_t>(i), batch.viewportRect);
+				}
+				if (mRendertarget->m_depthStencilAttachment) {
+					uint32_t dsIndex = static_cast<uint32_t>(mRendertarget->m_attachments.size());
+					renderSys->cmdSetViewport(cmdbuffer, dsIndex, 0.0f, 1.f, batch.viewportRect);
+					renderSys->cmdSetScissor(cmdbuffer, dsIndex, batch.viewportRect);
+				}
+			}
+
+			mRenderPacks = std::move(batch.packs);
+			drawImpl(cmdbuffer);
+			mRenderPacks.clear();
+		}
+
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
-		mRenderPacks.clear();
 	}
 
-	void RenderPass::collectRenderEntities(std::vector<RenderPack>& packs)
+	void RenderPass::collectRenderEntitiesForName(const RenderQueue& renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs)
 	{
-		auto view = RenderSystem::instance()->getMainRenderQueue()->getView(this->getPassName());
+		auto view = renderQueue.getView(renderMask);
 		while (true) {
 			auto renderData = view.next();
-			if (renderData == nullptr)break;
-			RenderPack pack{ .entity = renderData->entity,
-				.pass = renderData->entity->getPass(this->getPassName())
+			if (renderData == nullptr) break;
+			auto pass = renderData->entity->getPass(passName);
+			if (!pass)continue;
+			RenderPack pack{
+				.entity = renderData->entity,
+				.pass = pass
 			};
 			packs.push_back(pack);
+		}
+	}
+
+	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer)
+	{
+		for (auto& pack : mRenderPacks) {
+			RenderSystem::instance()->drawIndexed(cmdbuffer, pack.entity, pack.pass);
 		}
 	}
 
@@ -92,13 +206,6 @@ namespace Render {
 		mViewportRect = rect2d;
 	}
 
-	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer)
-	{
-		for (auto& pack : mRenderPacks) {
-			RenderSystem::instance()->drawIndexed(cmdbuffer, pack.entity, pack.pass);
-		}
-	}
-
 	bool RenderPass::needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt)
 	{
 		return !isRTCompatible(oldrt, newrt);
@@ -106,7 +213,6 @@ namespace Render {
 
 	bool RenderPass::isRTCompatible(rs_rendertarget* rtA, rs_rendertarget* rtB)
 	{
-
 		auto imageCompatibleTest = [](const rs_image_view* va, const rs_image_view* vb) {
 			if (!va || !vb || !va->image || !vb->image) {
 				return false;
@@ -117,16 +223,16 @@ namespace Render {
 
 			uint32_t mipA = aViewKey.getBaseMip();
 			uint32_t mipB = bViewKey.getBaseMip();
-			uint32_t mipCountA = aViewKey.getMipCount(); 
+			uint32_t mipCountA = aViewKey.getMipCount();
 			uint32_t mipCountB = bViewKey.getMipCount();
 
 			auto a = va->image;
-			auto b = vb->image;  
+			auto b = vb->image;
 
 			if (a->format != b->format) return false;
 			if (a->sampleCount != b->sampleCount) return false;
 			if (a->usage != b->usage) return false;
-			if (a->type != b->type) return false; 
+			if (a->type != b->type) return false;
 
 			if (mipCountA != mipCountB) return false;
 			if (aViewKey.getLayerCount() != bViewKey.getLayerCount()) return false;
@@ -154,21 +260,20 @@ namespace Render {
 			(
 				(rtA->m_depthStencilAttachment == nullptr) ^
 				(rtB->m_depthStencilAttachment != nullptr)
-			)
-		   ) {
+				)
+			) {
 			return false;
 		}
-		for (int i = 0;i < rtA->m_attachments.size();++i) {
+
+		for (size_t i = 0; i < rtA->m_attachments.size(); ++i) {
 			auto attOld = rtA->m_views[i];
 			auto attNew = rtB->m_views[i];
 			if (!imageCompatibleTest(attOld, attNew)) {
 				return false;
 			}
-
 		}
 
 		return true;
-
 	}
 
 	RenderPass::~RenderPass()
@@ -177,9 +282,10 @@ namespace Render {
 		auto ctx = RenderSystem::instance()->getRenderContext();
 		auto pass = (rs_renderpass_vk*)mRenderPass;
 		destroyRsRenderPassVk(ctx, pass);
-		mRenderPass = 0;
+		mRenderPass = nullptr;
 	}
-	void RenderPass::updateViewportAndScissor(rs_commandbuffer* cmdbuffer,rs_rendertarget* rt)
+
+	void RenderPass::updateViewportAndScissor(rs_commandbuffer* cmdbuffer, rs_rendertarget* rt)
 	{
 		Rect2D rect{};
 		rect.l = 0.f;
@@ -194,14 +300,14 @@ namespace Render {
 
 		if (rt) {
 			auto renderSys = RenderSystem::instance();
-			for (auto i = 0; i < rt->m_attachments.size(); i++) {
-				renderSys->cmdSetViewport(cmdbuffer, i, 0.0f, 1.f, rect);
-				renderSys->cmdSetScissor(cmdbuffer, i, rect);
+			for (size_t i = 0; i < rt->m_attachments.size(); i++) {
+				renderSys->cmdSetViewport(cmdbuffer, static_cast<uint32_t>(i), 0.0f, 1.f, rect);
+				renderSys->cmdSetScissor(cmdbuffer, static_cast<uint32_t>(i), rect);
 			}
-			if(rt->m_depthStencilAttachment){
-				renderSys->cmdSetViewport(cmdbuffer, rt->m_attachments.size(), 0.0f, 1.f, rect);
-				renderSys->cmdSetScissor(cmdbuffer, rt->m_attachments.size(), rect);
+			if (rt->m_depthStencilAttachment) {
+				renderSys->cmdSetViewport(cmdbuffer, static_cast<uint32_t>(rt->m_attachments.size()), 0.0f, 1.f, rect);
+				renderSys->cmdSetScissor(cmdbuffer, static_cast<uint32_t>(rt->m_attachments.size()), rect);
 			}
 		}
 	}
-};
+}

@@ -30,9 +30,9 @@ namespace Render {
 
         virtual void onRenderPassRTChangedNeedRebuild(RenderPass* pass);
 
-		MaterialPass* createMaterialPass(RenderPass* pass);
-		MaterialPass* createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco);
-        MaterialPass* createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco, const RenderState& state);
+		MaterialPass* createMaterialPass(const Name& passName);
+		MaterialPass* createMaterialPass(const Name& passName, const StageMacroPairs& shaderMarco);
+        MaterialPass* createMaterialPass(const Name& passName, const StageMacroPairs& shaderMarco, const RenderState& state);
         MaterialPass* getMaterialPass(const Name& passName);
         inline const std::map<Name, MaterialPass*>& getMaterialMap()const {
             return mMaterialPassMap;

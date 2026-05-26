@@ -5,10 +5,11 @@
 #include "Renderer/GltfLoader.h"
 #include "Renderer/MaterialInstance.h"
 #include "Renderer/Mesh.h"
+#include "Components/RenderComponent.h"
 namespace Render {
 	class MaterialTemplate;
 	class RenderEntity;
-	class PBRRenderComponent : public Component{
+	class PBRRenderComponent : public RenderComponent {
 	public:
 		virtual void onAttach() override;
 		virtual void setMesh(const MeshPtr& mesh);

@@ -79,11 +79,12 @@ namespace Render {
 			});
 	}
 
-	void CameraManager::updateAllCamera()
+	void CameraManager::updateAllCamera(rs_commandbuffer* cmdbuf)
 	{
-		TraversalCameras([this](Camera* cam) {
+		TraversalCameras([this, cmdbuf](Camera* cam) {
 			if (cam->getCameraActive()) {
-				ConstShaderDataManager::instance()->updateCameraDrawData(cam);
+				auto drawData = ConstShaderDataManager::instance()->updateCameraDrawData(cam);
+				RenderSystem::instance()->transitDrawdataResourceState(cmdbuf, PipelineType::Graphics, drawData);
 			}
 			return true;
 		});

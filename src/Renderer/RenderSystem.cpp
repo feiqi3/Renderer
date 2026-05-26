@@ -245,6 +245,9 @@ namespace Render{
 		if (isBindlessEnabled()) {
 			Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_bindless_data_vk*)(getGlobalBindlessData()), PipelineType::Graphics, getCurFif());
 		}
+		if (mDp->mCurrentCameraData) {
+			transitDrawdataResourceState(cmdbuf, PipelineType::Graphics, mDp->mCurrentCameraData);
+		}
 		Vulkan::cmdBeginRenderPass((Vulkan::rs_commandbuffer_vk*)cmdbuf, (Vulkan::rs_renderpass_vk*)pass, clearColor, clearDs);
 		cmdbuf->currentRenderPass = pass;
 	}
@@ -728,8 +731,6 @@ namespace Render{
 			transitDrawdataResourceState(cmdBuffer,PipelineType::Graphics, entityCommonDrawData);
 		if (entityDrawData)
 			transitDrawdataResourceState(cmdBuffer, PipelineType::Graphics, entityDrawData);
-		if (mDp->mCurrentCameraData)
-			transitDrawdataResourceState(cmdBuffer, PipelineType::Graphics, mDp->mCurrentCameraData);
 	}
 
 	void RenderSystem::dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ)
@@ -896,6 +897,7 @@ namespace Render{
 		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, FiF);
 	}
 
+	//TODO: remove this.
 	void RenderSystem::setCurrentCamera(Camera* camera)
 	{
 		if (!camera) {
@@ -908,8 +910,7 @@ namespace Render{
 			mDp->mCurrentCameraData = nullptr;
 			return;
 		}
-		//TOOD: use CameraManager::instance()->updateCamera();
-		mDp->mCurrentCameraData = ConstShaderDataManager::instance()->updateCameraDrawData(camera);
+		mDp->mCurrentCameraData = camera->getDrawData();
 	}
 
 	Camera* RenderSystem::getCurrentCamera()

@@ -4,7 +4,7 @@
 namespace Render {
 
 	class ShadowPass :public RenderPass{
-	
+	public:
 	};
 
 }

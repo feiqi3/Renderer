@@ -49,12 +49,16 @@ namespace Render {
 
 	void RenderPassManager::registerRenderPass(RenderPass* pass)
 	{
-		addRenderPass(pass->getPassName(), pass);
+		for (const auto& logicalPass : pass->getLogicalPasses()) {
+			addRenderPass(logicalPass.name, pass);
+		}
 	}
 
 	void RenderPassManager::unregisterRenderPass(RenderPass* pass)
 	{
-		removeRenderPass(pass->getPassName());
+		for (const auto& logicalPass : pass->getLogicalPasses()) {
+			removeRenderPass(logicalPass.name);
+		}
 	}
 
 	void RenderPassManager::addRenderPass(const Name& passName, RenderPass* pass)

@@ -141,9 +141,11 @@ namespace Render {
         static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
 
         auto comp = std::make_unique<T>(std::forward<Args>(args)...);
-
-        comp->setOwner(this);
-
+        {
+            auto formerOwner = comp->owner();
+            comp->setOwner(this);
+            comp->onOwnerSetScene(formerOwner ? formerOwner->scene() : nullptr, this->scene());
+        }
         comp->onAttach();
         if (comp->enabled()) {
             comp->onEnable();

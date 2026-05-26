@@ -72,8 +72,13 @@ namespace Render {
         }
     }
 
-    void Object::setScene(Scene* scene) noexcept {
-        m_scene = scene;
+    void Object::setScene(Scene* s) noexcept {
+        auto formerScene = m_scene;
+        m_scene = s;
+        for (auto& comp : m_components) {
+            comp->onOwnerSetScene(formerScene, s);
+        }
+
     }
 
     void Object::updateTransformRecursive(bool needUpdate)

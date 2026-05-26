@@ -2,6 +2,8 @@
 #ifndef CAMERA_H_
 #define CAMERA_H_
 
+#include "Renderer/RenderQueue.h"
+#include "Renderer/EngineCullMasks.h"
 #include "common/CommonMath.h"
 #include "common/Name.h"
 
@@ -11,9 +13,15 @@ namespace Render {
 
 	namespace GPUShared { struct GPUCameraData; } // forward-declare GPU data struct
 
-	enum class CameraType {
+	enum class CameraProjectType {
 		Perspective,
 		Orthographic
+	};
+
+	enum class CameraType {
+		Main,
+		Shadow,
+		Reflection
 	};
 
 	class Camera {
@@ -28,13 +36,13 @@ namespace Render {
 			float farPlane = 100.0f);
 
 		Camera(const Name& name,
-			const vec3& position,
-			const vec3& target,
-			const vec3& up,
-			float orthoSize,
-			float aspectRatio,
-			float nearPlane,
-			float farPlane);
+			const vec3& position = vec3(0.0f, 0.0f, 3.0f),
+			const vec3& target = vec3(0.0f, 0.0f, 0.0f),
+			const vec3& up = vec3(0.0f, 1.0f, 0.0f),
+			float orthoSize = 1.f,
+			float aspectRatio = 16.f/9.f,
+			float nearPlane = 0.1f,
+			float farPlane = 100.f);
 
 		~Camera();
 
@@ -48,7 +56,8 @@ namespace Render {
 		inline const float getNear() const { return m_near; }
 		inline const Name& getName() const { return mCamName; }
 
-		inline CameraType getType() const { return m_type; }
+		inline CameraType		 getType() const { return m_camType; }
+		inline CameraProjectType getProjType() const { return m_type; }
 		inline float getOrthoSize() const { return m_orthoSize; }
 		inline float getAspectRatio() const { return m_aspect; }
 		inline float getFov() const { return m_fov; }
@@ -64,7 +73,9 @@ namespace Render {
 
 		void setOrthographicBounds(float left, float right, float bottom, float top);
 
-		void setType(CameraType type);
+		void setType(CameraProjectType type);
+		void setCullMask(u32 cullMask);
+		u32  getCullMask();
 		void setOrthoSize(float size);
 		void setAspectRatio(float aspect);
 		void setFar(float far);
@@ -78,6 +89,9 @@ namespace Render {
 
 		bool getCameraActive() const { return m_active; }
 		struct rs_drawdata* getDrawData();
+		inline RenderQueue* getRenderQueue() {
+			return &mRenderQueue;
+		}
 
 	private:
 		void updateView();
@@ -90,7 +104,7 @@ namespace Render {
 		vec3 m_direction;
 		vec3 m_up;
 
-		CameraType m_type;
+		CameraProjectType m_type;
 		float m_fov;         // Perspective
 		float m_orthoSize;   // Orthographic
 		float m_aspect;      
@@ -103,6 +117,10 @@ namespace Render {
 		mat4 m_projection;
 
 		bool m_active = true;
+
+		CameraType		m_camType;
+		uint32_t		mCullMask		= CullMask::All;         
+		RenderQueue		mRenderQueue; 
 
 		friend class CameraManager;
 		rs_drawdata* mCameraDrawData = nullptr;

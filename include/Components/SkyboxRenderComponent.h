@@ -5,8 +5,9 @@
 #include "Renderer/Texture.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/GPUShared/SkyBoxData.h"
+#include "Components/RenderComponent.h"
 namespace Render {
-	class SkyboxRenderComponent : public Component {
+	class SkyboxRenderComponent : public RenderComponent {
 	public:
 		SkyboxRenderComponent();
 		~SkyboxRenderComponent();

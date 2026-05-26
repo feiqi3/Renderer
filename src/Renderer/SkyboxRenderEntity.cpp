@@ -34,7 +34,7 @@ namespace Render {
 			matTplt = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SkyBox"), {
 				{ShaderStage::Vertex, "../shader/SkyBox.vs"},{ShaderStage::Fragment,"../shader/SkyBox.ps"}
 				}, skyBoxRenderState, iaDesc);
-			matTplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass));
+			matTplt->createMaterialPass(PassName::MainCameraPass);
 		}
 		MaterialPtr matSkyBox = MaterialManager::instance()->getMaterial(Name("SkyBoxMaterial"));
 		if (!matSkyBox)

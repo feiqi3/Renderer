@@ -21,7 +21,7 @@ namespace Render {
 		void TraversalCameras(const std::function<bool(Camera*)>& func);
 		void deactiveCamera(Camera* cam);
 		void activeCamera(Camera* cam);
-		void updateAllCamera();
+		void updateAllCamera(rs_commandbuffer* cmdbuf);
 		Camera* getCamera(const Name& cameraName);
 		friend class RenderSystem;
 	private:

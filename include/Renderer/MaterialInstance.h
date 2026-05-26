@@ -51,6 +51,8 @@ namespace Render {
 		void setRenderOrder(u32 order);
 		u32 getRenderOrder() const;
 
+		inline u64 getRenderMask()const		{ return mMaterialRenderMask; }
+		inline void setRenderMask(u64 mask) { mMaterialRenderMask = mask; }
 		MaterialBindingTable& getBindingTable() { return mBindingTable; }
 		const MaterialBindingTable& getBindingTable() const { return mBindingTable; }
 		inline uint32_t getGlobalMaterialIndex()const {
@@ -62,6 +64,7 @@ namespace Render {
 
 		std::vector<Name> passNamesToRender;
 		MaterialTemplatePtr m_template;
+		u64 mMaterialRenderMask = 0;
 		u32 mRenderOrder = 0;
 		uint32_t mMaterialIndex = 0;
 		// ====================================================================

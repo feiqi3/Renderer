@@ -61,30 +61,31 @@ namespace Render {
 
 	}
 
-	MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco)
+	MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName, const StageMacroPairs& shaderMarco)
 	{
-		return createMaterialPass(pass, shaderMarco, mRenderState);
+		return createMaterialPass(passName, shaderMarco, mRenderState);
 	}
 
-	Render::MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass, const StageMacroPairs& shaderMarco, const RenderState& state)
+	Render::MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName, const StageMacroPairs& shaderMarco, const RenderState& state)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 
-		auto itor = mMaterialPassMap.find(pass->getPassName());
+		auto itor = mMaterialPassMap.find(passName);
 		if (itor != mMaterialPassMap.end()) {
 			destroyMaterialPass(itor->second);
 		}
-		auto pipeline = createVariantPipeline(pass, shaderMarco, state);
-		MaterialPass* mat = new MaterialPass(pass, this, pipeline, shaderMarco);
+		auto renderPass = RenderSystem::instance()->getRenderPass(passName);
+		auto pipeline = createVariantPipeline(renderPass, shaderMarco, state);
+		MaterialPass* mat = new MaterialPass(renderPass, this, pipeline, shaderMarco);
 
-		mMaterialPassMap[pass->getPassName()] = mat;
+		mMaterialPassMap[passName] = mat;
 
 		return mat;
 	}
 
-	Render::MaterialPass* MaterialTemplate::createMaterialPass(RenderPass* pass)
+	Render::MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName)
 	{
-		return createMaterialPass(pass, {});
+		return createMaterialPass(passName, {});
 	}
 
 	MaterialPass* MaterialTemplate::getMaterialPass(const Name& name)
