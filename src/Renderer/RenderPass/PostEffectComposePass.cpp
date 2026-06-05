@@ -19,7 +19,7 @@ namespace Render {
 		return desc;
 	}
 	
-	MaterialPtr createPostEffectComposeMaterial(RenderPass* rp) {
+	MaterialPtr createPostEffectComposeMaterial() {
 		auto matName = Name("PostEffectCompose");
 		auto mat = MaterialManager::instance()->getMaterial(matName);
 		if (mat)return mat;
@@ -37,7 +37,7 @@ namespace Render {
 			}, postEffectRenderState, {}
 		);
 
-		matTemp->createMaterialPass(rp, { 
+		matTemp->createMaterialPass(PassName::PostEffectComposePass, { 
 				{
 					ShaderStage::Fragment, 
 					{
@@ -47,7 +47,7 @@ namespace Render {
 			}
 		);
 		mat = MaterialManager::instance()->createMaterial<Material>(matName, matTemp);
-		mat->addMaterialPassToRender(rp->getPassName());
+		mat->addMaterialPassToRender(PassName::PostEffectComposePass);
 		return mat;
 	}
 
@@ -69,13 +69,16 @@ namespace Render {
 		}
 		Material* getMaterial()override {
 			if (!mMaterial) {
-				mMaterial = createPostEffectComposeMaterial(RenderSystem::instance()->getRenderPass(PassName::PostEffectComposePass));
+				mMaterial = createPostEffectComposeMaterial();
 			}
 			return mMaterial.get();
 		}
 
 		Pass* getPostEffectPass()const {
 			return mPass;
+		}
+		virtual AxisAlignedBoundingBox getWorldBounding() {
+			return AxisAlignedBoundingBox();
 		}
 	private:
 		MaterialPtr mMaterial = nullptr;
@@ -113,17 +116,24 @@ namespace Render {
 
 	void PostEffectComposePass::drawImpl(rs_commandbuffer* cmdbuffer)
 	{
+	}
+
+	void PostEffectComposePass::draw(rs_commandbuffer* cmdbuffer, Camera* cam /*= nullptr*/)
+	{
 		auto RenderSys = RenderSystem::instance();
 		RenderSys->setCurrentCamera(nullptr);
 		auto nextSwapchainRt = RenderSys->getNextSwapchainRendertarget();
-		RenderSys->cmdSetRendertarget(cmdbuffer, nextSwapchainRt);
-		updateViewportAndScissor(cmdbuffer, nextSwapchainRt);
-		RenderSys->drawIndexed(cmdbuffer, entity, entity->getPostEffectPass());
-	}
 
-	void PostEffectComposePass::collectRenderEntities(std::vector<RenderPack>& pack)
-	{
-		pack.push_back({ entity,entity->getPostEffectPass()});
+		RenderSys->updateParameters(cmdbuffer, this->entity, entity->getPostEffectPass());
+
+		RenderSys->excutePendingBufferCopies(cmdbuffer);
+
+		RenderSys->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
+		Rect2D nextRenderArea{};
+		RenderSys->cmdSetRendertarget(cmdbuffer, nextSwapchainRt);
+		updateViewportAndScissor(cmdbuffer, mRendertarget);
+		drawImpl(cmdbuffer);
+		RenderSys->drawIndexed(cmdbuffer, entity, entity->getPostEffectPass());
 	}
 
 	void PostEffectComposePass::init()

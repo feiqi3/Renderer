@@ -41,6 +41,7 @@ namespace Render {
 		void unregisterRenderComponent(RenderComponent* comp);
 
         void collectVisibleObjects(Camera* camera);
+        const std::vector<class RenderEntity*>& getCollectedEntites()const;
 	private:
         void updateObjectsTransform();
 
@@ -60,7 +61,7 @@ namespace Render {
         std::vector<ObjectID> m_pendingDestroyObjectsID;
         std::vector<RenderComponent*> m_renderComponents;
         std::unique_ptr<LightManager> m_lightMgr;
-
+        std::vector<class RenderEntity*> m_entities;
         rs_drawdata* m_drawData = nullptr;
         uint32_t m_nextObjectID = 1;
         std::vector<std::unique_ptr<Object>> m_objects;

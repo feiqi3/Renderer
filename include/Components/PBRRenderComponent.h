@@ -17,8 +17,8 @@ namespace Render {
 		virtual MeshPtr getMesh(const MeshPtr& mesh);
 		virtual MaterialPtr getMaterial(int submeshID, MaterialPtr& mat);
 
+		void collectRenderEntities(std::vector<RenderEntity*>& outEntities)const override;
 		virtual void onUpdate(float dt)override;
-		virtual void onRender()override;
 		virtual void onDestroy()override;
 		~PBRRenderComponent();
 	private :

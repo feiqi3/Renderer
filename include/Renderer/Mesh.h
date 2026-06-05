@@ -3,6 +3,7 @@
 
 #include "render_resource_def.h"
 #include "common/ResourceHandler.h"
+#include "function/AABB.h"
 #include <vector>
 
 namespace Render {
@@ -35,6 +36,7 @@ namespace Render {
 		int32_t  vertexOffset = 0; // base vertex for indexed draw
 		uint32_t indexOffset = 0;  // index draw
 		uint32_t indexCount = 0;
+		AxisAlignedBoundingBox aabb = {};
 	};
 
 	// ==========================================

@@ -12,13 +12,13 @@ namespace Render {
 
         AxisAlignedBoundingBox(const vec3& min, const vec3& max);
 
-        // 获取属性
         inline const vec3& getMin() const { return minPoint; }
         inline const vec3& getMax() const { return maxPoint; }
         bool isInfinity() const;
         vec3 getCenter() const;
         vec3 getSize() const;
 
+        AxisAlignedBoundingBox transform(const mat4& trans);
 
         bool intersects(const AxisAlignedBoundingBox& other) const;
         bool contains(const vec3& point) const;  

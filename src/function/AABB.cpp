@@ -2,7 +2,7 @@
 #include <cmath>
 
 namespace Render {
-	Render::AxisAlignedBoundingBox::AxisAlignedBoundingBox() : minPoint(vec3(INFINITY)), maxPoint(vec3(INFINITY))
+	AxisAlignedBoundingBox::AxisAlignedBoundingBox() : minPoint(vec3(INFINITY)), maxPoint(vec3(INFINITY))
 	{
 	}
 	AxisAlignedBoundingBox::AxisAlignedBoundingBox(const vec3& min, const vec3& max) :minPoint(min), maxPoint(max)
@@ -22,6 +22,35 @@ namespace Render {
 		if (this->isInfinity())return vec3(INFINITY);
 		return maxPoint - minPoint;
 	}
+
+	AxisAlignedBoundingBox AxisAlignedBoundingBox::transform(const mat4& trans)
+	{
+		if (this->isInfinity()) return AxisAlignedBoundingBox();
+
+		vec3 corners[8] = {
+			vec3(minPoint.x, minPoint.y, minPoint.z),
+			vec3(maxPoint.x, minPoint.y, minPoint.z),
+			vec3(minPoint.x, maxPoint.y, minPoint.z),
+			vec3(maxPoint.x, maxPoint.y, minPoint.z),
+			vec3(minPoint.x, minPoint.y, maxPoint.z),
+			vec3(maxPoint.x, minPoint.y, maxPoint.z),
+			vec3(minPoint.x, maxPoint.y, maxPoint.z),
+			vec3(maxPoint.x, maxPoint.y, maxPoint.z)
+		};
+
+		AxisAlignedBoundingBox transformedBox;
+
+		for (int i = 0; i < 8; ++i) {
+			vec4 homogeneousCorner(corners[i].x, corners[i].y, corners[i].z, 1.0f);
+			vec4 transformedHomogeneous = trans * homogeneousCorner;
+			vec3 transformedCorner(transformedHomogeneous.x, transformedHomogeneous.y, transformedHomogeneous.z);
+
+			transformedBox.expand(transformedCorner);
+		}
+
+		return transformedBox;
+	}
+
 	bool AxisAlignedBoundingBox::intersects(const AxisAlignedBoundingBox& other) const
 	{
 		if (this->isInfinity())return false;

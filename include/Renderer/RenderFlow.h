@@ -1,7 +1,6 @@
 #ifndef RENDER_FLOW_H
 #define RENDER_FLOW_H
 #include "Renderer/RenderPass/MainCameraPass.h"
-#include "SwapchainPass.h"   
 #include "RenderSystem.h"
 #include "RenderPassManager.h"
 #include "RenderQueue.h"
@@ -39,11 +38,9 @@ namespace Render {
 
 		void init() {
 			mMainCamPass = new MainCameraPass;
-			mSwapchainPass = new SwapchainPass;
 			mPostEffectPass = new PostEffectComposePass();
 
 			initMainCamPass();
-			initSwapChainPass();
 			initPostEffectPass();
 
 			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemaphore();
@@ -55,7 +52,8 @@ namespace Render {
 			RenderSys->setSignalCanPresentToPresentImageSemaphore(mPresentToScreenSemaphore);
 			//Is Rendered to present image finished?
 			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
-			mMainCamera = new Camera(Name("Scene"));
+			mMainCamera = new Camera(Name("SceneMainCamera"));
+			mMainCamera->setCullMask(CullMask::MainCamera);
 			CameraManager::instance()->RegisterCamera(mMainCamera, 0);
 
 			mBloom = new CodBloom();
@@ -109,19 +107,6 @@ namespace Render {
 			mMainCamPass->setRenderTarget(mRenderTarget);
 		}
 
-		void initSwapChainPass() {
-			RenderSystem* renderSys = RenderSystem::instance();
-			renderSys->getRenderPassManager()->registerRenderPass(mSwapchainPass);
-			//Swapchain draw data rely on swapchain to be registered into pass manager.
-			RenderSystem::instance()->setCurrentCamera(mMainCamera);
-			mSwapchainPass->init();
-		};
-		void deinitSwapchainPass() {
-			RenderSystem* renderSys = RenderSystem::instance();
-			renderSys->getRenderPassManager()->unregisterRenderPass(mSwapchainPass);
-			delete mSwapchainPass;
-		}
-
 		void deinitMainCamPass() {
 			RenderSystem* renderSys = RenderSystem::instance();
 			renderSys->getRenderPassManager()->unregisterRenderPass(mMainCamPass);
@@ -134,7 +119,6 @@ namespace Render {
 			delete mMainCamera;
 			mMainCamera = nullptr;
 			deinitMainCamPass();
-			deinitSwapchainPass();
 			deinitPostEffectPass();
 			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
 			RenderSystem::instance()->destroySemaphore(mAccquireImgSemaphore);
@@ -159,6 +143,7 @@ namespace Render {
 			}
 			RenderSys->setCurrentCamera(mMainCamera);
 
+			curScene->collectVisibleObjects(mMainCamera);
 
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
@@ -183,7 +168,6 @@ namespace Render {
 			mPostEffectPass->draw(cmdbufSwapchain);
 			RenderSys->cmdEnd(cmdbufSwapchain);
 			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
-			RenderSys->getMainRenderQueue()->clear();
 			
 			//Wait for last time frame Render finished
 			//Like frame 1 is wait for frame 0 to render finished
@@ -194,7 +178,6 @@ namespace Render {
 	private:
 		MainCameraPass* mMainCamPass = 0;
 		PostEffectComposePass* mPostEffectPass = 0;
-		SwapchainPass* mSwapchainPass = 0;
 		RenderPass* mDirectionalLightRenderPass = nullptr;
 		std::vector<RenderEntity*> mRenderEntities;
 		std::vector<RenderEntity*> mPostEffectEntities;

@@ -34,8 +34,6 @@ namespace Render{
 		}
 		void getWindowSize(int& x,int& y);
 		void setCursorEnable(bool enable);
-		RenderQueue* getMainRenderQueue()const;
-		RenderQueue* getRenderQueue(const Name& queueName)const;
 		class RenderPassManager* getRenderPassManager()const;
 		RenderPass* getRenderPass(const Name& pass);
 		rs_commandbuffer* GetCommandBufferCurFrameCurThread();

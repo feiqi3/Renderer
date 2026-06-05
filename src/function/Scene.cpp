@@ -236,6 +236,7 @@ namespace Render {
 	void Scene::collectVisibleObjects(Camera* camera)
 	{
         if (!camera) return;
+        m_entities.clear();
         Frustum camFrustum;
         camFrustum.update(*camera);
         auto renderQueue = camera->getRenderQueue();
@@ -251,23 +252,28 @@ namespace Render {
 				continue;
 			}
 
-			if ((cullMask & comp->getLayer()) == 0) {
+			if ((cullMask & comp->getCullMask()) == 0) {
 				continue;
 			}
-			const auto& entities = comp->getRenderEntities();
-			for (RenderEntity* entity : entities)
-			{
-				if (entity && entity->getMaterial())
-				{
-                    bool isVisible = camFrustum.isVisible(entity->getWorldBounding());
-                    if (!isVisible)continue;
-					u64 renderMask = entity->getMaterial()->getRenderMask();
-                    renderQueue->submit(entity, renderMask);
-				}
-			}
-        }
+			comp->collectRenderEntities(m_entities);
 
+        }
+		for (RenderEntity* entity : m_entities)
+		{
+			if (entity && entity->getMaterial())
+			{
+				bool isVisible = camFrustum.isVisible(entity->getWorldBounding());
+				if (!isVisible)continue;
+				u64 renderMask = entity->getMaterial()->getRenderMask();
+				renderQueue->submit(entity, renderMask);
+			}
+		}
     }
+
+	const std::vector<class RenderEntity*>& Scene::getCollectedEntites() const
+	{
+        return m_entities;
+	}
 
 	void Scene::updateObjectsTransform()
     {

@@ -11,7 +11,6 @@
 #include "platform/FileSystem/WinFileSystem.h"
 #include "Renderer/CameraManager.h"
 #include "Renderer/Camera.h"
-#include "SimpleScene.h"
 #include "common/ResourceSystem.h"
 #include "function/EngineResourceManager.h"
 namespace Render {

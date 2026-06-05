@@ -1,5 +1,6 @@
 #ifndef OBJECT_ENTITY_H
 #define OBJECT_ENTITY_H
+#include "EnginePass.h"
 #include "Renderer/RenderEntity.h"
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderPass.h"

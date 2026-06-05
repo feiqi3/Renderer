@@ -2,6 +2,8 @@
 #include "platform/FileSystem/FileSystem.h"
 #include "common/ResourceSystem.h"
 #include <iostream>
+#include "function/AABB.h"
+
 #include "Renderer/ModelVertex.h"
 #include "Renderer/Mesh.h"
 #include "function/Scene.h"
@@ -312,7 +314,7 @@ namespace {
 			offset += sizeof(uint32_t);
 
             auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/StandardPBR.vs"},{ShaderStage::Fragment,"../shader/StandardPBR.ps"} }, state, vtxID);
-            tplt->createMaterialPass(RenderSystem::instance()->getRenderPass(PassName::MainCameraPass), {
+            tplt->createMaterialPass(PassName::MainCameraPass, {
                 {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
                 });
             return tplt;
@@ -352,6 +354,7 @@ namespace {
 		size_t baseIndiceOffset = 0;
 
 		for (const auto& prim : mesh.primitives) {
+           Render::AxisAlignedBoundingBox aabb;
 			auto itPos = prim.attributes.find("POSITION");
 			size_t vertexCount = static_cast<size_t>(model.accessors[itPos->second].count);
 			if (vertexCount == 0) return false;
@@ -393,6 +396,7 @@ namespace {
 				}
 
 				outVertices[baseVertexOffset + i] = vtx;
+                aabb.expand(vtx.position);
 			}
 
             if (prim.indices >= 0) {
@@ -421,6 +425,7 @@ namespace {
                 }
 
                 Render::SubMesh sub;
+                sub.aabb = aabb;
                 //bake into indice
                 //sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
                 sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset) * sizeof(uint32_t);

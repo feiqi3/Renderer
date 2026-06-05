@@ -1,7 +1,6 @@
 #include "Renderer/NaiveScene.h"
 #include "function/Object.h"
 #include "common/CommonMath.h"
-#include "Components/SimpleRenderComponent.h"
 #include "Renderer/GltfLoader.h"
 
 #include "Components/LightComponent.h"

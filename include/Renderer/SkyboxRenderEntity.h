@@ -11,6 +11,7 @@ namespace Render {
 		static MaterialPtr getSkyBoxMaterial();
 		void setSkyboxCubemap(TexturePtr texture,SamplerPtr sampler);
 		void setGPUData(const GPUShared::SkyBoxData& data);
+		AxisAlignedBoundingBox getWorldBounding() override;
 	private:
 		MaterialPtr mSkyboxMaterial;
 		TexturePtr mSkyboxTexture;

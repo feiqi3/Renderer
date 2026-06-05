@@ -4,8 +4,9 @@
 
 namespace Render {
 	namespace CullMask {
-		inline u32 Default			= 1		<<	0;
-		inline u32 ShadowOnly		= 1		<<	1;
+		inline u32 Default			= 1			<< 0;
+		inline u32 MainCamera		= 1			<< 1;
+		inline u32 PostEffect		= 1			<< 15;
 
 		inline u32 All				= 0xFFFFFFFF;
 	};

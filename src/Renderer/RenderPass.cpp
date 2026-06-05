@@ -125,7 +125,7 @@ namespace Render {
 				.hasCustomViewport = logicalPass.hasCustomViewport,
 				.viewportRect = logicalPass.viewportRect
 			};
-			collectRenderEntitiesForName(*(cam->getRenderQueue()), logicalPass.name, logicalPass.filterMask, batch.packs);
+			collectRenderEntitiesForName((cam->getRenderQueue()), logicalPass.name, logicalPass.filterMask, batch.packs);
 
 			for (auto&& pack : batch.packs) {
 				if (pack.pass) {
@@ -169,9 +169,9 @@ namespace Render {
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
 	}
 
-	void RenderPass::collectRenderEntitiesForName(const RenderQueue& renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs)
+	void RenderPass::collectRenderEntitiesForName(RenderQueue* renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs)
 	{
-		auto view = renderQueue.getView(renderMask);
+		auto view = renderQueue->getView(renderMask);
 		while (true) {
 			auto renderData = view.next();
 			if (renderData == nullptr) break;

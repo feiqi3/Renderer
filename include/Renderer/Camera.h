@@ -35,15 +35,6 @@ namespace Render {
 			float nearPlane = 0.1f,
 			float farPlane = 100.0f);
 
-		Camera(const Name& name,
-			const vec3& position = vec3(0.0f, 0.0f, 3.0f),
-			const vec3& target = vec3(0.0f, 0.0f, 0.0f),
-			const vec3& up = vec3(0.0f, 1.0f, 0.0f),
-			float orthoSize = 1.f,
-			float aspectRatio = 16.f/9.f,
-			float nearPlane = 0.1f,
-			float farPlane = 100.f);
-
 		~Camera();
 
 		// ========== Getters ==========

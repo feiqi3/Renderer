@@ -75,4 +75,9 @@ namespace Render {
 	}
 
 
+	Render::AxisAlignedBoundingBox SkyBoxRenderEntity::getWorldBounding()
+	{
+		return AxisAlignedBoundingBox();
+	}
+
 }

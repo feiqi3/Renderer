@@ -67,7 +67,6 @@ namespace Render{
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
 		std::vector<rs_rendertarget*> mSwapchainRT;
-		std::unique_ptr<RenderGroup> mRenderDispatcher;
 		Blitor* mBlitor = nullptr;
 		TexturePtr mErrorRGBTexture = nullptr;
 
@@ -97,7 +96,6 @@ namespace Render{
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>();
 		sRenderSystem->mDp->mArena->init(sRenderSystem->getRenderContext()->maxFrameInFlight, Render::STAGING_BLOCK_SIZE);
 
-		sRenderSystem->mDp->mRenderDispatcher = std::make_unique<RenderGroup>();
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
 		new Platform::FileSystem;
@@ -206,15 +204,6 @@ namespace Render{
 		}
 	}
 
-	RenderQueue* RenderSystem::getMainRenderQueue()const
-	{
-		const static Name mainQueueName = Name("Main");
-		return &mDp->mRenderDispatcher->getQueue(mainQueueName);
-	}
-	RenderQueue* RenderSystem::getRenderQueue(const Name& queueName) const
-	{
-		return &mDp->mRenderDispatcher->getQueue(queueName);
-	}
 	RenderPassManager* RenderSystem::getRenderPassManager() const
 	{
 		return mDp->mPassManager.get();

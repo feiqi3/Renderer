@@ -37,28 +37,16 @@ namespace Render {
 		return mMaterials[submeshID];
 	}
 
+	void PBRRenderComponent::collectRenderEntities(std::vector<RenderEntity*>& outEntities) const
+	{
+		for (RenderEntity* entity : mRenderEntities) {
+			outEntities.push_back(entity);
+		}
+	}
+
 	void PBRRenderComponent::onUpdate(float dt)
 	{
 
-	}
-
-	void PBRRenderComponent::onRender()
-	{
-		auto sys = RenderSystem::instance();
-		auto queue = sys->getMainRenderQueue();
-		if (mRenderEntities.size() != mMaterials.size()) {
-			mRenderEntities.resize(mMaterials.size(), nullptr);
-		}
-		for (int i = 0; i < mMaterials.size(); ++i) {
-			if (mRenderEntities[i] == nullptr) {
-				mRenderEntities[i] = createRenderEntity(i, mMaterials[i]);
-			}
-			mRenderEntities[i]->setModelMatrix(owner()->worldMatrix());
-			auto* pass = mRenderEntities[i]->getPass(PassName::MainCameraPass);
-			if (pass) {
-				queue->submit(mRenderEntities[i]);
-			}
-		}
 	}
 
 	void PBRRenderComponent::onDestroy()

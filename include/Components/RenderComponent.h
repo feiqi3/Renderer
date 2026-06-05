@@ -11,17 +11,17 @@ namespace Render {
 	class RenderComponent : public Component {
 	public:
 		RenderComponent()
-			: mLayer(1 << 0)
+			: mCullMask(1 << 0)
 			, mCastShadow(true)
 			, mSceneIndex(static_cast<size_t>(-1)) 
 		{
 		}
 		virtual ~RenderComponent() = default;
 
-		virtual const std::vector<RenderEntity*>& getRenderEntities() const = 0;
+		virtual void collectRenderEntities(std::vector<RenderEntity*>& outEntities)const = 0;
 
-		uint32_t getLayer() const { return mLayer; }
-		void setLayer(uint32_t layer) { mLayer = layer; }
+		uint32_t getCullMask() const { return mCullMask; }
+		void setCullMask(uint32_t layer) { mCullMask = layer; }
 
 		bool isCastShadow() const { return mCastShadow; }
 		void setCastShadow(bool cast) { mCastShadow = cast; }
@@ -32,7 +32,7 @@ namespace Render {
 		void onOwnerSetScene(Scene* originScene, Scene* scene) override;
 
 	protected:
-		uint32_t mLayer;
+		uint32_t mCullMask;
 		bool mCastShadow;
 		size_t mSceneIndex;
 	};

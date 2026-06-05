@@ -13,10 +13,12 @@ namespace Render {
 		}
 		inline void updateUniforms(Pass* pass) override {
 		}
+
+		AxisAlignedBoundingBox getWorldBounding() override;
 	private:
 		MaterialPtr mMaterial;
 		Pass*		mainPass;
-
+		AxisAlignedBoundingBox mAABB;
 	};
 }
 

@@ -79,8 +79,8 @@ namespace Render {
 		const float FarestDistanceDirShadow = 1000.;
 
 		AxisAlignedBoundingBox aabbOfFrustum;
-		float nearPlaneZ =	0;
-		float farPlaneZ =	clamp(FarestDistanceDirShadow / currentCamera->getFar(),0.1,1.);
+		float nearPlaneZ = 0;
+		float farPlaneZ	 = clamp(FarestDistanceDirShadow / currentCamera->getFar(),0.1f,1.f);
 		auto viewProjOfCurCam = currentCamera->getProjectionMatrix() * currentCamera->getViewMatrix();
 		auto invViewProj = inverse(viewProjOfCurCam);
 		for (int i = 0;i < 4;++i) {

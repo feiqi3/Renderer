@@ -19,8 +19,6 @@ namespace Render {
 
         virtual void onUpdate(float dt) {}
 
-        virtual void onRender() {};
-
         virtual void onDestroy() {};
 
         virtual void onOwnerSetScene(Scene* originScene, Scene* scene) {}

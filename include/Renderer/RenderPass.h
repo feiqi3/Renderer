@@ -69,7 +69,7 @@ namespace Render {
 		std::vector<RenderPack> mRenderPacks;
 		std::vector<LogicalPass> mLogicalPasses;
 
-		void collectRenderEntitiesForName(const RenderQueue& renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs);
+		void collectRenderEntitiesForName(RenderQueue* renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs);
 
 	protected:
 		friend class RenderPassManager;

@@ -50,6 +50,11 @@ namespace Render {
 		mDataDirty = true;
 	}
 
+	void SkyboxRenderComponent::collectRenderEntities(std::vector<RenderEntity*>& outEntities)const 
+	{
+		outEntities.push_back(mEntity);
+	}
+
 	void SkyboxRenderComponent::onUpdate(float dt)
 	{
 		if (mDataDirty) {
@@ -57,9 +62,6 @@ namespace Render {
 			this->mEntity->setSkyboxCubemap(mSkyboxCubeMap, mSkyboxSampler);
 			this->mEntity->setGPUData(mData);
 		}
-		RenderSystem::instance()->getMainRenderQueue()->submit(
-			mEntity, RenderMask::SkyBox
-		);
 	}
 
 }

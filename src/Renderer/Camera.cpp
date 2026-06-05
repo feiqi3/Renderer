@@ -10,29 +10,6 @@ namespace Render {
 		const vec3& position,
 		const vec3& target,
 		const vec3& up,
-		float fovDegrees,
-		float aspectRatio,
-		float nearPlane,
-		float farPlane)
-		: mCamName(name)
-		, m_position(position)
-		, m_direction(target - position)
-		, m_up(up)
-		, m_type(CameraProjectType::Perspective)
-		, m_fov(fovDegrees)
-		, m_orthoSize(5.0f) 
-		, m_aspect(aspectRatio)
-		, m_near(nearPlane)
-		, m_far(farPlane)
-	{
-		updateView();
-		updateProjection();
-	}
-
-	Camera::Camera(const Name& name,
-		const vec3& position,
-		const vec3& target,
-		const vec3& up,
 		float orthoSize,
 		float aspectRatio,
 		float nearPlane,
