@@ -1373,7 +1373,7 @@ namespace Render::Vulkan {
         info.renderPass = renderPass;
         info.framebuffer = *frameBuffer;
         info.renderArea.extent.width     = (renderArea.r - renderArea.l) * width;
-        info.renderArea.extent.height    = (renderArea.t - renderArea.b) * height;
+        info.renderArea.extent.height    = (renderArea.b - renderArea.t) * height;
         info.renderArea.offset.x         = renderArea.l * width;
 		info.renderArea.offset.y         = renderArea.l * height;
 

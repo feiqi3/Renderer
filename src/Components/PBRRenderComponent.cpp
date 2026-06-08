@@ -37,8 +37,19 @@ namespace Render {
 		return mMaterials[submeshID];
 	}
 
-	void PBRRenderComponent::collectRenderEntities(std::vector<RenderEntity*>& outEntities) const
+	void PBRRenderComponent::collectRenderEntities(std::vector<RenderEntity*>& outEntities) 
 	{
+		if (mRenderEntities.size() < mMaterials.size()) {
+			mRenderEntities.resize(mMaterials.size());
+		}
+
+		for (int i = 0; i < mMaterials.size(); ++i) {
+			if (mRenderEntities[i] == nullptr) {
+				mRenderEntities[i] = createRenderEntity(i, mMaterials[i]);
+			}
+			mRenderEntities[i]->setModelMatrix(owner()->worldMatrix());
+		}
+
 		for (RenderEntity* entity : mRenderEntities) {
 			outEntities.push_back(entity);
 		}
@@ -85,7 +96,7 @@ namespace Render {
 		info.bindingBuffers.resize(1);
 		info.bindingBuffers[0].buffer = mMesh->getVertexBuffer();
 		info.bindingBuffers[0].offset = 0;
-		
+		entity->setLocalBounding(subMesh.aabb);
 		auto* mainPass = mat->getMaterialPassToRender(PassName::MainCameraPass);
 		assert(mainPass != nullptr);
 		entity->createPass(PassName::MainCameraPass);

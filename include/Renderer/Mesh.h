@@ -76,6 +76,7 @@ namespace Render {
 
 		/* ================= SubMesh ================= */
 		void addSubMesh(uint32_t indexOffset, uint32_t indexCount, int32_t vertexOffset = 0);
+		void addSubMesh(uint32_t indexOffset, uint32_t indexCount, const AxisAlignedBoundingBox& aabb, int32_t vertexOffset = 0);
 		inline void setSubMeshes(std::vector<SubMesh>& submesh) { mSubMeshes = submesh; }
 
 		inline size_t getSubMeshCount() const { return mSubMeshes.size(); }

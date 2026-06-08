@@ -49,34 +49,34 @@ namespace Render {
 	int LightManager::addLight(Light* light)
 	{
 		static int LightIDX = 0;
-		auto size = this->lightMap.size();
+		auto size = this->mLightMap.size();
 		if (size > RENDER_MAX_LIGHT_PER_SCENE) {
 			return -1;
 		}
 		lightDataDirty = true;
 		int idxCur = LightIDX++;
-		lightMap.insert({ idxCur,LightData{.light = light} });
+		mLightMap.insert({ idxCur,LightData{.light = light} });
 		return idxCur;
 	}
 	void LightManager::removeLight(int idx)
 	{
-		if (lightMap.find(idx) != lightMap.end()) {
+		if (mLightMap.find(idx) != mLightMap.end()) {
 			lightDataDirty = true;
-			lightMap.erase(idx);
+			mLightMap.erase(idx);
 		}
 	}
 	Light* LightManager::getLight(int idx)
 	{
-		auto it = lightMap.find(idx);
-		if (it == lightMap.end()) {
+		auto it = mLightMap.find(idx);
+		if (it == mLightMap.end()) {
 			return nullptr;
 		}
 		return it->second.light;
 	}
 	const Light* LightManager::getLight(int idx) const
 	{
-		auto it = lightMap.find(idx);
-		if (it == lightMap.end()) {
+		auto it = mLightMap.find(idx);
+		if (it == mLightMap.end()) {
 			return nullptr;
 		}
 		return it->second.light;
@@ -87,7 +87,7 @@ namespace Render {
 		//Copy
 		std::vector<Light*> sortedIntensityList;
 		std::vector<Light*> sortedIntensityListDirLight;
-		for (auto&& [idx, lightData] : this->lightMap) {
+		for (auto&& [idx, lightData] : this->mLightMap) {
 			auto light = lightData.light;
 			LightType lightType = lightData.light->getType();
 			if(lightType == LightType::Point)
@@ -210,7 +210,7 @@ namespace Render {
 		if (this->mPrefilterSkymap) {
 			sceneLightData.x = mPrefilterSkymap->getRsImage()->mipLevels;
 		}
-		for (auto& [lightIdx, lightData] : lightMap) {
+		for (auto& [lightIdx, lightData] : mLightMap) {
 			auto& light = lightData.light;
 			bool needUpdate = lightDataDirty;
 			if (light->isDirty()) {
@@ -230,6 +230,12 @@ namespace Render {
 		lightDataDirty = false;
 		return mLightData;
 	}
+
+	const std::map<int, Render::LightManager::LightData>& LightManager::getLightMap()
+	{
+		return mLightMap;
+	}
+
 	void LightManager::calcMipMap(TexturePtr tex)
 	{
 		//1. Calculate MipMap Level Count

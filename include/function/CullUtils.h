@@ -24,7 +24,7 @@ namespace Render {
 
 		Frustum() = default;
 
-		void update(const Camera& camera);
+		void update(const Camera& camera, float viewportNearZ, float viewportFarZ);
 
 		bool isVisible(const vec3& point) const;
 		bool isVisible(const Sphere& sphere) const;

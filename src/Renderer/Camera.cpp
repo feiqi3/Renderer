@@ -18,7 +18,7 @@ namespace Render {
 		, m_position(position)
 		, m_direction(target - position)
 		, m_up(up)
-		, m_type(CameraProjectType::Orthographic)
+		, m_type(CameraProjectType::Perspective)
 		, m_fov(45.0f) 
 		, m_orthoSize(orthoSize)
 		, m_aspect(aspectRatio)

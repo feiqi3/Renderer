@@ -76,6 +76,9 @@ namespace Render{
 		ShaderIncFindFunc mShaderIncludeFunction;
 		Camera* mCurrentCamera = nullptr;
 		rs_bindless_data* globalBindlessData = nullptr;
+
+		float globalViewPortZNear = 0.;
+		float globalViewPortZFar =  1.;
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -275,6 +278,12 @@ namespace Render{
 	void RenderSystem::cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth, const Rect2D& rect)
 	{
 		Vulkan::cmdSetViewport((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect,minDepth,maxDepth,framebufferIdx);
+	}
+
+	void RenderSystem::getGlobalViewportZRange(float& nearZ, float& farZ)
+	{
+		nearZ	= mDp->globalViewPortZNear;
+		farZ	= mDp->globalViewPortZFar;
 	}
 
 	void RenderSystem::cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size)

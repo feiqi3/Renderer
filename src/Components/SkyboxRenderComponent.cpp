@@ -50,7 +50,7 @@ namespace Render {
 		mDataDirty = true;
 	}
 
-	void SkyboxRenderComponent::collectRenderEntities(std::vector<RenderEntity*>& outEntities)const 
+	void SkyboxRenderComponent::collectRenderEntities(std::vector<RenderEntity*>& outEntities) 
 	{
 		outEntities.push_back(mEntity);
 	}

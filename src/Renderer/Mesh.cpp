@@ -51,6 +51,18 @@ namespace Render {
 			);
 	}
 
+	void MeshData::addSubMesh(uint32_t indexOffset, uint32_t indexCount, const AxisAlignedBoundingBox& aabb, int32_t vertexOffset /*= 0*/)
+	{
+		mSubMeshes.push_back(
+			SubMesh{
+				.vertexOffset = vertexOffset,
+				.indexOffset = indexOffset,
+				.indexCount = indexCount,
+				.aabb = aabb
+			}
+			);
+	}
+
 	rs_buffer* MeshData::updateToGPUVertex()
 	{
 		auto rSys = RenderSystem::instance();

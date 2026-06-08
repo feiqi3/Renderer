@@ -4,7 +4,6 @@
 namespace Render {
 	class Texture;
 	class Material;
-	class MaterialInstance;
 	class RenderPass;
 	class RenderEntity;
 

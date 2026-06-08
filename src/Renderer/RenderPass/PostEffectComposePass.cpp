@@ -131,9 +131,10 @@ namespace Render {
 		RenderSys->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
 		Rect2D nextRenderArea{};
 		RenderSys->cmdSetRendertarget(cmdbuffer, nextSwapchainRt);
-		updateViewportAndScissor(cmdbuffer, mRendertarget);
+		updateViewportAndScissor(cmdbuffer, nextSwapchainRt);
 		drawImpl(cmdbuffer);
 		RenderSys->drawIndexed(cmdbuffer, entity, entity->getPostEffectPass());
+		RenderSys->cmdEndRenderPass(cmdbuffer);
 	}
 
 	void PostEffectComposePass::init()

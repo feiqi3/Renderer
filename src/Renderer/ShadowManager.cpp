@@ -110,10 +110,10 @@ namespace Render {
 	void ShadowManager::processShadowDrawInfo(Scene* scene)
 	{
 		auto& lightMgr = scene->getLightMgr();
-		auto& lightMap = lightMgr.getLightMap();
+		const auto& mLightMap = lightMgr.getLightMap();
 		mDp->mPointLightsToDrawShadow.clear();
 		mDp->mDirLightsToDrawShadow.clear();
-		for (auto& [idx, lightData] : lightMap) {
+		for (auto& [idx, lightData] : mLightMap) {
 			auto light = lightData.light;
 			if (!light->getHashShadow())	continue;
 			if (light->getType() == LightType::Point) {

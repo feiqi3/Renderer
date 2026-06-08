@@ -1,5 +1,14 @@
 #include "components/RenderComponent.h"
+#include "Renderer/EngineCullMasks.h"
 namespace Render {
+
+	RenderComponent::RenderComponent()
+		: mCullMask(CullMask::MainCamera)
+		, mCastShadow(true)
+		, mSceneIndex(static_cast<size_t>(-1))
+	{
+
+	}
 
 	void RenderComponent::onOwnerSetScene(Scene* originScene, Scene* scene)
 	{

@@ -71,7 +71,11 @@ namespace Render {
 				36,
 				IndexType::Uint32
 			);
-			cube->addSubMesh(0, 36, 0);
+			AxisAlignedBoundingBox aabb;
+			for (int i = 0;i < sizeof(cubeVertices) / sizeof(StandardModelVertex);++i) {
+				aabb.expand(cubeVertices[i].position);
+			}
+			cube->addSubMesh(0, 36, aabb, 0);
 			cube->setStride(sizeof(CubeVertex));
 			auto ret = cube->toMeshResource();
 			delete cube;

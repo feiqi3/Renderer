@@ -73,7 +73,7 @@ uint32_t vertexFormatToSize(VertexFormat format)
 
 	case VertexFormat::Uint4:    return 16;
 	case VertexFormat::UByte4N:  return 4;
-
+	case VertexFormat::Mat4:	 return 4 * 16;
 	default: return 0;
 	}
 }
@@ -90,7 +90,7 @@ ImageFormat fromVertexFormatToImageFormat(VertexFormat fmt)
 	case VertexFormat::Half4:   return ImageFormat::RGBA16_SFLOAT;
 
 	case VertexFormat::UByte4N: return ImageFormat::RGBA8_UNORM;
-
+	case VertexFormat::Mat4:	return ImageFormat::RGBA16_SFLOAT;
 		// 明确禁止
 	case VertexFormat::Uint4:
 		return ImageFormat::Invalid;
@@ -113,6 +113,7 @@ VertexFormat fromImaegFormatToVertexFormat(ImageFormat fmt)
 
 	case ImageFormat::RGBA8_UNORM:     return VertexFormat::UByte4N;
 
+	case ImageFormat::RGBA16_SFLOAT:     return VertexFormat::Mat4;
 	default:
 		// depth / srgb / integer / compressed 都不应作为 vertex
 		return VertexFormat::Invalid;

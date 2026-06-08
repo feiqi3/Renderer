@@ -10,15 +10,10 @@ namespace Render {
 
 	class RenderComponent : public Component {
 	public:
-		RenderComponent()
-			: mCullMask(1 << 0)
-			, mCastShadow(true)
-			, mSceneIndex(static_cast<size_t>(-1)) 
-		{
-		}
+		RenderComponent();
 		virtual ~RenderComponent() = default;
 
-		virtual void collectRenderEntities(std::vector<RenderEntity*>& outEntities)const = 0;
+		virtual void collectRenderEntities(std::vector<RenderEntity*>& outEntities) = 0;
 
 		uint32_t getCullMask() const { return mCullMask; }
 		void setCullMask(uint32_t layer) { mCullMask = layer; }

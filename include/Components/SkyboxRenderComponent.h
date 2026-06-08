@@ -16,7 +16,7 @@ namespace Render {
 		void setRotation(const quat& q);
 		void setExposure(float exposure);
 		void setColor(vec3 color);
-		void collectRenderEntities(std::vector<RenderEntity*>& outEntities)const override;
+		void collectRenderEntities(std::vector<RenderEntity*>& outEntities) override;
 		void onUpdate(float dt)override;
 	private:
 		TexturePtr mSkyboxCubeMap;

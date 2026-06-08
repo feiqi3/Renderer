@@ -48,7 +48,7 @@ namespace Render {
 		TexturePtr mBRDFLut;
 		TexturePtr mPrefilterSkymap;
 		SamplerPtr mSampler;
-		std::map<int, LightData> lightMap;
+		std::map<int, LightData> mLightMap;
 		GPUShared::GPUSceneLightData mLightData;
 
 		Light* mMainDirLight = nullptr;

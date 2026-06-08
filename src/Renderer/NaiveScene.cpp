@@ -75,7 +75,8 @@ namespace Render {
 		node->setLocalScale(vec3(3, 3, 3));
 		node->setLocalPosition(vec3(0,-10, -40));
 		node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
-		//node->addComponent<SpinComponent>();
+		node->addComponent<SpinComponent>();
+		node->children()[0]->getComponent<PBRRenderComponent>()->setEnabled(false);
 		auto nodeLight = naiveScene->createObject("DirLightNode");
 		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 		nodeLight->setLocalPosition(vec3(0, 10, -35));
@@ -87,7 +88,7 @@ namespace Render {
 
 		auto cameraNode = naiveScene->createObject("Camera");
 		auto cameraComponent = cameraNode->addComponent<FPSControllerComponent>();
-		cameraComponent->setCamera(CameraManager::instance()->getCamera(Name("Scene")));
+		cameraComponent->setCamera(CameraManager::instance()->getCamera(Name("SceneMainCamera")));
 
 		auto directionalLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
 		directionalLightcomponent->setDirection(-vec3(-0.3f, -1.0f, 0.2f));

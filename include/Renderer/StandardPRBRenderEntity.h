@@ -13,7 +13,7 @@ namespace Render {
 		}
 		inline void updateUniforms(Pass* pass) override {
 		}
-
+		void				   setLocalBounding(const AxisAlignedBoundingBox& aabb);
 		AxisAlignedBoundingBox getWorldBounding() override;
 	private:
 		MaterialPtr mMaterial;

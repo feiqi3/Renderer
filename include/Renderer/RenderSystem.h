@@ -46,6 +46,7 @@ namespace Render{
 		void cmdSetScissor(rs_commandbuffer* cmdbuf, int framebufferIdx, const Rect2D& rect);
 		void cmdSetViewport(rs_commandbuffer* cmdbuf, int framebufferIdx, float minDepth, float maxDepth,const Rect2D& rect);
 
+		void getGlobalViewportZRange(float& nearZ,	float& farZ);
 		//Gain a better performance
 		void cmdCopyBufferToBuffer(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_buffer* dstBuffer, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 		void cmdCopyBufferToImage(rs_commandbuffer* cmdbuf, rs_buffer* srcBuffer, rs_image* dstImg, uint32_t srcOffset, int x, int y, int z, int width, int height, int depth, uint32_t baseMip, uint32_t mipCount, int layeroff, int layerSize);

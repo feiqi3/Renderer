@@ -84,7 +84,7 @@ namespace Render {
 		TraversalCameras([this, cmdbuf](Camera* cam) {
 			if (cam->getCameraActive()) {
 				auto drawData = ConstShaderDataManager::instance()->updateCameraDrawData(cam);
-				RenderSystem::instance()->transitDrawdataResourceState(cmdbuf, PipelineType::Graphics, drawData);
+				//RenderSystem::instance()->transitDrawdataResourceState(cmdbuf, PipelineType::Graphics, drawData);
 			}
 			return true;
 		});

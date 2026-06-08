@@ -11,7 +11,7 @@
 #include "common/SmallVector.h"
 
 #include "Renderer/PipelineBindingTable.h"
-
+#include "Renderer/RenderQueue.h"
 #include <string>
 #include <vector>
 
@@ -64,7 +64,7 @@ namespace Render {
 
 		std::vector<Name> passNamesToRender;
 		MaterialTemplatePtr m_template;
-		u64 mMaterialRenderMask = 0;
+		u64 mMaterialRenderMask = RenderMask::Normal;
 		u32 mRenderOrder = 0;
 		uint32_t mMaterialIndex = 0;
 		// ====================================================================

@@ -42,6 +42,7 @@ namespace Render {
 			matSkyBox = MaterialManager::instance()->createMaterial<Material>(Name("SkyBoxMaterial"), matTplt);
 			matSkyBox->addMaterialPassToRender(PassName::MainCameraPass);
 		}
+		matSkyBox->setRenderMask(RenderMask::SkyBox);
 		return matSkyBox;
 	}
 

@@ -17,7 +17,7 @@ namespace Render {
 		virtual MeshPtr getMesh(const MeshPtr& mesh);
 		virtual MaterialPtr getMaterial(int submeshID, MaterialPtr& mat);
 
-		void collectRenderEntities(std::vector<RenderEntity*>& outEntities)const override;
+		void collectRenderEntities(std::vector<RenderEntity*>& outEntities) override;
 		virtual void onUpdate(float dt)override;
 		virtual void onDestroy()override;
 		~PBRRenderComponent();
@@ -27,7 +27,7 @@ namespace Render {
 	private:
 		MeshPtr mMesh;
 		std::vector<MaterialPtr> mMaterials;
-		std::vector<RenderEntity*> mRenderEntities;
+		mutable std::vector<RenderEntity*> mRenderEntities;
 	};
 }
 

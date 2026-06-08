@@ -238,7 +238,10 @@ namespace Render {
         if (!camera) return;
         m_entities.clear();
         Frustum camFrustum;
-        camFrustum.update(*camera);
+		float viewportNearZ;float viewportFarZ;
+		RenderSystem::instance()->getGlobalViewportZRange(viewportNearZ, viewportFarZ);
+
+        camFrustum.update(*camera, viewportNearZ, viewportFarZ);
         auto renderQueue = camera->getRenderQueue();
         renderQueue->clear();
         auto camType = camera->getType();
@@ -247,7 +250,7 @@ namespace Render {
        
         for (auto&& comp : m_renderComponents) {
             if (!comp) continue;
-			
+            if (comp->enabled() == false)continue;
             if (isShadowCam && !comp->isCastShadow()) {
 				continue;
 			}
@@ -258,6 +261,7 @@ namespace Render {
 			comp->collectRenderEntities(m_entities);
 
         }
+
 		for (RenderEntity* entity : m_entities)
 		{
 			if (entity && entity->getMaterial())

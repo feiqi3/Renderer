@@ -4,4 +4,10 @@ namespace Render {
 	{
 		return this->mAABB.transform(this->getModelMatrix());
 	}
+
+	void StandardPBRRenderEntity::setLocalBounding(const AxisAlignedBoundingBox& aabb)
+	{
+		mAABB = aabb;
+	}
+
 }

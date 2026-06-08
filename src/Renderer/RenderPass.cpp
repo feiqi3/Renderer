@@ -6,6 +6,7 @@
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/RenderQueue.h"
+#include "function/Scene.h"
 #include <algorithm>
 #include <cassert>
 
@@ -110,6 +111,15 @@ namespace Render {
 	{
 		if (mLogicalPasses.empty()) return;
 
+		auto camDrawData = RenderSystem::instance()->getCurCameraDrawData();
+		if (camDrawData) {
+			RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, camDrawData);
+		}
+		auto currentSceneDrawData = Scene::getCurrentScene() ? Scene::getCurrentScene()->getSceneDrawData() : nullptr;
+		if (currentSceneDrawData) {
+			RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, currentSceneDrawData);
+		}
+
 		struct RenderBatch {
 			Name passName;
 			std::vector<RenderPack> packs;
@@ -145,18 +155,20 @@ namespace Render {
 
 			updateViewportAndScissor(cmdbuffer, mRendertarget);
 		}
-
+		float nearZ = 0.;
+		float farZ = 1.;
+		RenderSystem::instance()->getGlobalViewportZRange(nearZ, farZ);
 		for (auto& batch : batches) {
 			RenderMarker phaseMarker(cmdbuffer, batch.passName.c_str(), 0.2f, 0.7f, 0.9f, 1.f);
 			if (batch.hasCustomViewport && mRendertarget) {
 				auto renderSys = RenderSystem::instance();
 				for (size_t i = 0; i < mRendertarget->m_attachments.size(); i++) {
-					renderSys->cmdSetViewport(cmdbuffer, static_cast<uint32_t>(i), 0.0f, 1.f, batch.viewportRect);
+					renderSys->cmdSetViewport(cmdbuffer, static_cast<uint32_t>(i), nearZ, farZ, batch.viewportRect);
 					renderSys->cmdSetScissor(cmdbuffer, static_cast<uint32_t>(i), batch.viewportRect);
 				}
 				if (mRendertarget->m_depthStencilAttachment) {
 					uint32_t dsIndex = static_cast<uint32_t>(mRendertarget->m_attachments.size());
-					renderSys->cmdSetViewport(cmdbuffer, dsIndex, 0.0f, 1.f, batch.viewportRect);
+					renderSys->cmdSetViewport(cmdbuffer, dsIndex, nearZ, farZ, batch.viewportRect);
 					renderSys->cmdSetScissor(cmdbuffer, dsIndex, batch.viewportRect);
 				}
 			}
