@@ -17,6 +17,7 @@ namespace Render {
     namespace RenderMask {
         inline u64 Normal = 1ull << 0;
         inline u64 SkyBox = 1ull << 32;
+        inline u64 DebugDraw = 1ull << 50;
     };
 
     class Pass;

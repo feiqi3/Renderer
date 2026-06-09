@@ -25,6 +25,7 @@ namespace Render {
 
         void expand(const vec3& point);          
         void expand(const AxisAlignedBoundingBox& other);
+        AxisAlignedBoundingBox offset(const vec3& pos);
     };
 }
 #endif // AABB_H

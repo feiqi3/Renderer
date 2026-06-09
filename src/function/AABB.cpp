@@ -86,4 +86,10 @@ namespace Render {
 		expand(other.minPoint);
 		expand(other.maxPoint);
 	}
+
+	AxisAlignedBoundingBox AxisAlignedBoundingBox::offset(const vec3& pos)
+	{
+		return AxisAlignedBoundingBox(minPoint - pos, maxPoint - pos);
+	}
+
 }

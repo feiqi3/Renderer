@@ -14,6 +14,7 @@
 #include "function/EngineResourceManager.h"
 #include "Renderer/NaiveScene.h"
 #include "function/InputManager.h"
+#include "Renderer/DebugDrawManager.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -32,6 +33,7 @@ int main() {
 	Render::RenderFlow* renderFlow = new Render::RenderFlow();
 	auto renderSystem = Render::RenderSystem::instance();
 	CreateAllPersistentResource();
+	new DebugDrawManager;
 	renderFlow->init();
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;

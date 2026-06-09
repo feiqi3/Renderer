@@ -10,8 +10,8 @@ namespace Render {
 	public:
 		DebugDrawManager();
 		~DebugDrawManager();
-		void drawPoint(const vec3& pos,const vec4 color);
-		void drawAABB(AxisAlignedBoundingBox& aabb);
+		void drawPoint(const vec3& pos,const vec4& color);
+		void drawAABB(AxisAlignedBoundingBox& aabb, const vec4& color);
 
 		void onRender(Camera* cam);
 	private:

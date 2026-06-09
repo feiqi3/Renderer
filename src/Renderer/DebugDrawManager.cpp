@@ -7,6 +7,7 @@
 #include "Renderer/MaterialManager.h"
 #include "Renderer/MeshResourceManager.h"
 #include "Renderer/Mesh.h"
+#include "Renderer/Camera.h"
 namespace Render {
 	namespace {
 		struct PerObjectInfo {
@@ -55,7 +56,7 @@ namespace Render {
 		std::unique_ptr<DebugDrawEntity> mPointEntity;
 		bool init = false;
 		rs_buffer* mPointPerInstanceBuffer = nullptr;
-		int pointNumber = 0;
+		int pointInsBufferNumber = 0;
 		std::vector<PerObjectInfo> mPointInfo;
 	};
 
@@ -66,27 +67,65 @@ namespace Render {
 
 	DebugDrawManager::~DebugDrawManager()
 	{
+		RenderSystem::instance()->destroyBuffer(mDp->mPointPerInstanceBuffer);
+		mDp->mPointPerInstanceBuffer = nullptr;
 		mDp = nullptr;
 	}
 
 
-void DebugDrawManager::drawPoint(const vec3& pos, const vec4 color)
+void DebugDrawManager::drawPoint(const vec3& pos, const vec4& color)
 {
 	PerObjectInfo info;
 	mat4 id = mat4(1.);
-	info.world = translate(id, pos);
+	info.world =translate(scale(id,vec3(0.05)), pos);
 	info.color = color;
 	mDp->mPointInfo.push_back(info);
 }
 
-void DebugDrawManager::drawAABB(AxisAlignedBoundingBox& aabb)
+void DebugDrawManager::drawAABB(AxisAlignedBoundingBox& aabb,const vec4& color)
 {
+	//TODO:
+	//1. fit box to aabb
 
+	mat4 id = mat4(1.);
+	vec3 scaleSize = aabb.getSize();
+	
+	PerObjectInfo info;
+	info.world = translate( scale(id, scaleSize),aabb.getCenter());
+	info.color = color;
 }
 
 void DebugDrawManager::onRender(Camera* cam)
 {
+	//TODO: transparent!!!!!!!!!!!!
+	bool bufferUpdated = false;
 	//1. create buffer 
+	auto sizeByte = sizeof(PerObjectInfo) * mDp->mPointInfo.size();
+	if (this->mDp->mPointPerInstanceBuffer == nullptr || this->mDp->pointInsBufferNumber < mDp->mPointInfo.size()) {
+		RenderSystem::instance()->destroyBuffer(mDp->mPointPerInstanceBuffer);
+		BufferDesc desc{};
+		desc.bufUsage = BufferType_Vertex;
+		desc.byteSize = sizeByte;
+		desc.queueType = QueueType_Graphics;
+		mDp->mPointPerInstanceBuffer = RenderSystem::instance()->createBuffer(mDp->mPointInfo.data(), sizeByte, desc);
+		bufferUpdated = true;
+		mDp->pointInsBufferNumber = mDp->mPointInfo.size();
+	}
+
+	//2. update data to buffer
+	if (!bufferUpdated) {
+		RenderSystem::instance()->updateBufferData(
+			mDp->mPointPerInstanceBuffer, mDp->mPointInfo.data(), sizeByte, 0
+		);
+	}
+
+	//3. update render entity
+	mDp->mPointEntity->setPerInstanceBuffer(mDp->mPointPerInstanceBuffer);
+	mDp->mPointEntity->setInstanceCount(mDp->mPointInfo.size());
+
+	cam->getRenderQueue()->submit(mDp->mPointEntity.get(), RenderMask::DebugDraw);
+	
+	mDp->mPointInfo.clear();
 }
 
 void DebugDrawManager::initDebugDrawInfo()

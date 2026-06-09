@@ -152,7 +152,7 @@ namespace Render {
 			//Transit common data
 			RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneDrawData());
 
-
+			DebugDrawManager::instance()->onRender(mMainCamera);
 			mMainCamPass->draw(cmdbufOffscreen,mMainCamera);
 			mBloom->draw(cmdbufOffscreen, mMainColorTex);
 			RenderSys->cmdEnd(cmdbufOffscreen);
