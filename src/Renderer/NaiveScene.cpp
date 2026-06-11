@@ -75,8 +75,7 @@ namespace Render {
 		node->setLocalScale(vec3(3, 3, 3));
 		node->setLocalPosition(vec3(0,-10, -40));
 		node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
-		node->addComponent<SpinComponent>();
-		node->children()[0]->getComponent<PBRRenderComponent>()->setEnabled(false);
+		//node->addComponent<SpinComponent>();
 		auto nodeLight = naiveScene->createObject("DirLightNode");
 		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 		nodeLight->setLocalPosition(vec3(0, 10, -35));

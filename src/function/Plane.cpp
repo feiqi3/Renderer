@@ -66,7 +66,8 @@ namespace Render {
 		vec3 center = aabb.getCenter();
 
 		//Project its long edge to normal
-		float r = dot(halfExtents, m_normal);
+		//cause it's a half-size and aabb is go along both dir of normal
+		float r = dot(halfExtents, abs(m_normal));
 
 		float sDist = getSignedDistance(center);
 

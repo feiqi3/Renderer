@@ -71,6 +71,7 @@ namespace Render {
     }
 
     void Material::addMaterialPassToRender(const Name& passName) {
+        //Delete
         passNamesToRender.push_back(passName);
         if (this->m_template) {
             auto pass = m_template->getMaterialPass(passName);
@@ -79,12 +80,9 @@ namespace Render {
     }
 
     MaterialPass* Material::getMaterialPassToRender(const Name& passName) {
-        for (const auto& name : passNamesToRender) {
-            if (name == passName) {
-                return m_template->getMaterialPass(passName);
-            }
-        }
-        return nullptr;
+        auto pass = m_template->getMaterialPass(passName);
+        mBindingTable.registerPipeline(passName, pass->getRsPipeline());
+        return pass;
     }
 
     void Material::setRenderOrder(u32 order) {

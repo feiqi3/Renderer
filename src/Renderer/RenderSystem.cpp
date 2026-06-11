@@ -754,12 +754,13 @@ namespace Render{
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};
 		fillDrawDataArray((DrawDataArray*)&drawDataArr, entity, pass);
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer,getRenderContext(), pipeline, entity->getRenderInfo(), drawDataArr, getCurFif());
+	
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer,getRenderContext(), pipeline, entity->getRenderInfo(), drawDataArr, getCurFif(),true);
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas)
 	{
 		cmdBuffer->hasCommands = true;
-		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(), (Vulkan::rs_graphic_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif());
+		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(), (Vulkan::rs_graphic_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif(), true);
 	}
 	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type, rs_drawdata* drawdata)
 	{

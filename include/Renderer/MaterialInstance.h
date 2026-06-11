@@ -45,6 +45,7 @@ namespace Render {
 		// ====================================================================
 		// ====================================================================
 		MaterialPass* getMaterialPass(const Name& name);
+		//No use
 		void addMaterialPassToRender(const Name& passName);
 		MaterialPass* getMaterialPassToRender(const Name& passName);
 

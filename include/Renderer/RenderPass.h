@@ -33,7 +33,8 @@ namespace Render {
 		RenderPass(const PassDesc& desc);
 		RenderPass(const Name& passName, const PassDesc& desc);
 		RenderPass(const std::vector<LogicPassDesc>& passName, const PassDesc& desc);
-
+		
+		virtual StageMacroPairs	getPassStageShaderMacro(const Name& logicPassName);
 		virtual void init() {}
 		virtual ~RenderPass();
 		virtual void updateViewportAndScissor(rs_commandbuffer* cmdbuffer, rs_rendertarget* rt);

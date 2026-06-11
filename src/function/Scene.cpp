@@ -8,7 +8,8 @@
 #include "function/CullUtils.h"
 #include <algorithm>
 #include <cassert>
-
+#include "Renderer/DebugDrawManager.h"
+#include "function/InputManager.h"
 namespace Render {
 
 	static Scene* s_currentScene = nullptr;
@@ -237,11 +238,18 @@ namespace Render {
 	{
         if (!camera) return;
         m_entities.clear();
-        Frustum camFrustum;
 		float viewportNearZ;float viewportFarZ;
 		RenderSystem::instance()->getGlobalViewportZRange(viewportNearZ, viewportFarZ);
 
-        camFrustum.update(*camera, viewportNearZ, viewportFarZ);
+        static bool shouldForzeCull = false;
+        if (InputManager::instance()->isKeyDown(KeyCode::F)) {
+            shouldForzeCull = !shouldForzeCull;
+        }
+
+        if (!shouldForzeCull) {
+			camFrustum.update(*camera, viewportNearZ, viewportFarZ);
+        }
+
         auto renderQueue = camera->getRenderQueue();
         renderQueue->clear();
         auto camType = camera->getType();
@@ -266,7 +274,9 @@ namespace Render {
 		{
 			if (entity && entity->getMaterial())
 			{
-				bool isVisible = camFrustum.isVisible(entity->getWorldBounding());
+                auto aabb = entity->getWorldBounding();
+				bool isVisible = camFrustum.isVisible(aabb);
+
 				if (!isVisible)continue;
 				u64 renderMask = entity->getMaterial()->getRenderMask();
 				renderQueue->submit(entity, renderMask);

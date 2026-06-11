@@ -10,6 +10,30 @@
 #include <cassert>
 namespace Render {
 
+	static StageMacroPairs mergeStageMacroPairs(const StageMacroPairs& lhs, const StageMacroPairs& rhs)
+	{
+		StageMacroPairs result = lhs;
+
+		for (const auto& rhsStagePair : rhs)
+		{
+			ShaderStage stage = rhsStagePair.first;
+			const auto& rhsMacros = rhsStagePair.second;
+
+			auto it = std::find_if(result.begin(), result.end(), [stage](const auto& pair) {
+				return pair.first == stage;
+				});
+
+			if (it != result.end())
+			{
+				it->second.insert(it->second.end(), rhsMacros.begin(), rhsMacros.end());
+			}
+			else
+			{
+				result.push_back(rhsStagePair);
+			}
+		}
+	}
+
 	MaterialTemplate::MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc)
 		: mRenderState(state), mShaderInfo(shaderInfo), mInputDesc(inputDesc)
 	{
@@ -61,12 +85,12 @@ namespace Render {
 
 	}
 
-	MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName, const StageMacroPairs& shaderMarco)
+	MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName, const StageMacroPairs& shaderMacro)
 	{
-		return createMaterialPass(passName, shaderMarco, mRenderState);
+		return createMaterialPass(passName, shaderMacro, mRenderState);
 	}
 
-	Render::MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName, const StageMacroPairs& shaderMarco, const RenderState& state)
+	Render::MaterialPass* MaterialTemplate::createMaterialPass(const Name& passName, const StageMacroPairs& shaderMacro, const RenderState& state)
 	{
 		auto ctx = RenderSystem::instance()->getRenderContext();
 
@@ -75,8 +99,10 @@ namespace Render {
 			destroyMaterialPass(itor->second);
 		}
 		auto renderPass = RenderSystem::instance()->getRenderPass(passName);
-		auto pipeline = createVariantPipeline(renderPass, shaderMarco, state);
-		MaterialPass* mat = new MaterialPass(renderPass, this, pipeline, shaderMarco);
+		auto renderPassMacro = renderPass->getPassStageShaderMacro(passName);
+		auto newMacro = mergeStageMacroPairs(renderPassMacro, shaderMacro);
+		auto pipeline = createVariantPipeline(renderPass, shaderMacro, state);
+		MaterialPass* mat = new MaterialPass(renderPass, this, pipeline, shaderMacro);
 
 		mMaterialPassMap[passName] = mat;
 

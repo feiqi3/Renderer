@@ -14,7 +14,7 @@
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/Blit.h"
 #include "Renderer/EnginePass.h"
-#include "Renderer/LightManager.h"
+#include "Renderer/DebugDrawManager.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -55,7 +55,7 @@ namespace Render {
 			mMainCamera = new Camera(Name("SceneMainCamera"));
 			mMainCamera->setCullMask(CullMask::MainCamera);
 			CameraManager::instance()->RegisterCamera(mMainCamera, 0);
-
+			DebugDrawManager::instance()->init();
 			mBloom = new CodBloom();
 			mBloom->setBloomRadius(1.5);
 

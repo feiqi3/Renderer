@@ -143,9 +143,6 @@ namespace Render {
 
         Uint4,   // bone indices
         UByte4N, // normalized color / weights
-
-        Mat4,
-
         Invalid,
     };
 

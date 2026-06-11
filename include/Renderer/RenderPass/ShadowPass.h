@@ -3,8 +3,11 @@
 #include "Renderer/RenderPass.h"
 namespace Render {
 
-	class ShadowPass :public RenderPass{
+	class DirLightShadowPass :public RenderPass{
 	public:
+		DirLightShadowPass();
+		virtual StageMacroPairs	getPassStageShaderMacro(const Name& logicPassName)override;
+	private:
 	};
 
 }

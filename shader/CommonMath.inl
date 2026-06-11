@@ -4,6 +4,17 @@ vec3 RotateVector(vec3 v, vec4 q) {
     return v + q_normalized.w * t + cross(q_normalized.xyz, t);
 }
 
+float GetVecAngle(vec3 v1, vec3 v2) {
+    return acos(clamp(dot(normalize(v1), normalize(v2)), -1.0, 1.0));
+}
+
+vec3 RotateAroundAxis(vec3 p, vec3 axis, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    vec3 k = normalize(axis); 
+    return p * c + cross(k, p) * s + k * dot(k, p) * (1.0 - c);
+}
+
 mat3 MatTangentToWorld(vec3 N)
 {
     vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);

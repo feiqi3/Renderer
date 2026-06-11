@@ -2,7 +2,8 @@
 #include "Renderer/Camera.h"
 #include "function/Sphere.h"
 #include "function/AABB.h"
-
+#include "Renderer/DebugDrawManager.h"
+#include "function/InputManager.h"
 namespace Render {
 
 	void Frustum::update(const Camera& camera,float viewportNearZ,float viewportFarZ)
@@ -19,6 +20,9 @@ namespace Render {
 			vec4(1	,-1	,viewportFarZ	,1.)		,
 			vec4(-1	,-1	,viewportFarZ	,1.)		,
 		};
+
+
+
 		mat4 invVp = inverse(vp);
 		vec4 frustumCorner[8];
 		
@@ -29,26 +33,41 @@ namespace Render {
 		}
 
 		// Left Plane
-		m_planes[Left]		= Plane(frustumCorner[4], frustumCorner[3], frustumCorner[0]);
+		m_planes[Left]		= Plane(frustumCorner[4], frustumCorner[7], frustumCorner[0]);
 
 		// Right Plane
-		m_planes[Right]		= Plane(frustumCorner[2], frustumCorner[1], frustumCorner[5]);
+		m_planes[Right]		= Plane(frustumCorner[1], frustumCorner[2], frustumCorner[5]);
 
 		// Bottom Plane
-		m_planes[Bottom]	= Plane(frustumCorner[1], frustumCorner[0], frustumCorner[4]);
+		m_planes[Bottom]	= Plane(frustumCorner[1], frustumCorner[5], frustumCorner[0]);
 
 		// Top Plane
-		m_planes[Top]		= Plane(frustumCorner[7], frustumCorner[3], frustumCorner[2]);
+		m_planes[Top]		= Plane(frustumCorner[2], frustumCorner[3], frustumCorner[6]);
 
 		// Near Plane
-		m_planes[Near]		= Plane(frustumCorner[0], frustumCorner[1], frustumCorner[2]);
+		m_planes[Near]		= Plane(frustumCorner[0], frustumCorner[3], frustumCorner[1]);
 
 		// Far Plane
-		m_planes[Far]		= Plane(frustumCorner[6], frustumCorner[5], frustumCorner[4]);
+		m_planes[Far]		= Plane(frustumCorner[5], frustumCorner[6], frustumCorner[4]);
 
 		for (auto& plane : m_planes) {
 			plane.normalizePlane();
 		}
+
+		static std::vector<Plane> planesToDraw;
+
+		auto inputMgr = InputManager::instance();
+		if (inputMgr->isKeyPressed(KeyCode::E)) {
+			if (planesToDraw.size() > 0) {
+				planesToDraw.clear();
+			}
+			else {
+					planesToDraw.push_back(m_planes[Left]);
+					planesToDraw.push_back(m_planes[Right]);
+			}
+
+		}
+
 	}
 
 	bool Frustum::isVisible(const vec3& point) const
@@ -70,7 +89,6 @@ namespace Render {
 	bool Frustum::isVisible(const AxisAlignedBoundingBox& aabb) const
 	{
 		if (aabb.isInfinity())return true;
-
 		for (const auto& plane : m_planes) {
 			if (!plane.intersects(aabb)) return false;
 		}

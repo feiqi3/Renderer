@@ -5,6 +5,57 @@
 namespace Render {
 
 	namespace {
+
+		Mesh* getQuadMesh() {
+			struct QuadVertex
+			{
+				float px, py, pz;   // Position
+				float nx, ny, nz;   // Normal
+				float u, v;         // TexCoord0
+			};
+
+			StandardModelVertex quadVertices[4] = {
+				// --- Front Face (+Z) ---
+				// position               normal              tangent                 uv_0         color
+				{{-0.5f, -0.5f,  0.0f},  { 0.0f, 0.0f, 1.0f}, { 1.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, 0}, // 0: Bottom-Left
+				{{ 0.5f, -0.5f,  0.0f},  { 0.0f, 0.0f, 1.0f}, { 1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, 0}, // 1: Bottom-Right
+				{{ 0.5f,  0.5f,  0.0f},  { 0.0f, 0.0f, 1.0f}, { 1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, 0}, // 2: Top-Right
+				{{-0.5f,  0.5f,  0.0f},  { 0.0f, 0.0f, 1.0f}, { 1.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, 0}  // 3: Top-Left
+			};
+
+			std::vector<uint32_t> quadIndices;
+			quadIndices.reserve(6);
+
+			quadIndices.push_back(0);
+			quadIndices.push_back(1);
+			quadIndices.push_back(2);
+			quadIndices.push_back(2);
+			quadIndices.push_back(3);
+			quadIndices.push_back(0);
+
+			MeshData* quad = new MeshData(
+				quadVertices,
+				sizeof(quadVertices),
+				4,
+				quadIndices.data(),
+				6,
+				IndexType::Uint32
+			);
+
+			AxisAlignedBoundingBox aabb;
+			for (int i = 0; i < sizeof(quadVertices) / sizeof(StandardModelVertex); ++i) {
+				aabb.expand(quadVertices[i].position);
+			}
+
+			quad->addSubMesh(0, 6, aabb, 0);
+
+			quad->setStride(sizeof(StandardModelVertex));
+
+			auto ret = quad->toMeshResource();
+			delete quad;
+			return ret;
+		}
+
 		Mesh* getCubeMesh() {
 			struct CubeVertex
 			{
@@ -95,6 +146,8 @@ namespace Render {
 	{
 		auto cube = getCubeMesh();
 		this->registerResource(Name("Builtin::Cube"), cube, ResourceLifetime::Persistent, nullptr);
+		auto quad = getQuadMesh();
+		this->registerResource(Name("Builtin::Quad"), quad, ResourceLifetime::Persistent, nullptr);
 	}
 
 	Mesh* MeshResourceManager::loadImpl(const Name& id) {

@@ -70,7 +70,7 @@ int main() {
 		glfwWindow->setTitle((std::string("fps: ") + std::to_string(CurrentFPS)).c_str());
 	}
 	delete naiveScene;
-
+	delete DebugDrawManager::instance();
 	renderFlow->deinit();
 	Render::RenderSystem::destroyRenderSystem();
 	InputManager::instance()->deinitByWindowSystem(glfwWindow);

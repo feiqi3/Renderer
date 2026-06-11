@@ -4,6 +4,7 @@
 #include "function/ObjectFwd.h"
 #include "common/Name.h"
 #include "Renderer/LightManager.h"
+#include "function/CullUtils.h"
 #include <vector>
 #include <memory>
 #include <map>
@@ -67,7 +68,8 @@ namespace Render {
         std::vector<std::unique_ptr<Object>> m_objects;
         std::map<ObjectID, size_t> m_objectIdx;
         std::mutex m_mutex;
-    };
+		Frustum camFrustum;
+	};
 
 
 }
