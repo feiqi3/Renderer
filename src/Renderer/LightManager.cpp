@@ -101,11 +101,23 @@ namespace Render {
 		std::sort(sortedIntensityList.begin(), sortedIntensityList.end(), [](Light* a, Light* b) {
 			return a->getIntensity() > b->getIntensity();
 		});
-		mShadowLights = sortedIntensityList;
+		mShadowLights.clear();
+		for (auto&& light : sortedIntensityList) {
+			if (light->getHasShadow()) {
+				mShadowLights.push_back(light);
+			}
+		}
+
 		std::sort(sortedIntensityListDirLight.begin(), sortedIntensityListDirLight.end(), [](Light* a, Light* b) {
 			return a->getIntensity() > b->getIntensity();
 			});
-		mMainDirLight = sortedIntensityListDirLight.size() > 0 ? sortedIntensityListDirLight[0] : nullptr;
+		mMainDirLight = nullptr;
+		for (auto&& light : sortedIntensityListDirLight) {
+			if (light->getHasShadow()) {
+				mMainDirLight = light;
+				break;
+			}
+		}
 	}
 
 	void LightManager::setShadowLightNum(uint32_t lightNum)

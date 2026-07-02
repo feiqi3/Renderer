@@ -1,9 +1,11 @@
 #include "common/Name.h"
 #include "RenderPass.h"
+#include <vector>
 namespace Render {
 	class RenderPassManager {
 	public:
 		RenderPass* getRenderPass(const Name& passName);
+		std::vector<Name> getAllRenderPassNames()const;
 		~RenderPassManager();
 		RenderPassManager();
 		void onFrameBegin();

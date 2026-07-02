@@ -32,7 +32,19 @@ namespace Render {
 
 	Render::StageMacroPairs RenderPass::getPassStageShaderMacro(const Name& logicPassName)
 	{
-		return {};
+		return 
+		{ 
+			{	
+				ShaderStage::Vertex,	{
+					{logicPassName.str(),""}
+				}
+			},
+			{
+				ShaderStage::Fragment,	{
+					{logicPassName.str(),""}
+				}
+			}
+		};
 	}
 
 	void RenderPass::addLogicalPass(const Name& name, int priority, u64 filterMask)

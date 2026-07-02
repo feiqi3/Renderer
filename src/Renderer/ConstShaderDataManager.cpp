@@ -15,12 +15,22 @@ namespace Render {
 	public:
 		MaterialTemplatePtr VirtualCameraTemplate = nullptr;
 		MaterialPass* MainPassVirtualMaterial = nullptr;
+		
+		//Common UBO
 		rs_binding_pos CameraCommonDataBindingPos;
 		rs_binding_pos SceneCommonDataBindingPos;
 		rs_binding_pos ObjectCommonBindingPos;
+		
+		//IBL
 		rs_binding_pos PrefilterEnvMapBindingPos;
 		rs_binding_pos BRDFLutBindingPos;
 		rs_binding_pos EnvMapSamplerBIndingPos;
+
+		//Shadow 
+		rs_binding_pos ShadowInfoDataPos;
+		rs_binding_pos DirLightShadowPos;
+		rs_binding_pos ShadowSamplerPos;
+
 		rs_binding_pos GlobalBindlessUAVBuffersBindingPos;
 		rs_binding_pos GlobalBindlessUAVImagesBindingPos;
 		rs_binding_pos GlobalBindlessSamplersBindingPos;
@@ -71,6 +81,10 @@ namespace Render {
 		mDp->BRDFLutBindingPos			= pSys->getBindingPos("BRDFLut", mDp->MainPassVirtualMaterial);
 		mDp->EnvMapSamplerBIndingPos	= pSys->getBindingPos("SceneTextureSampler", mDp->MainPassVirtualMaterial);
 		
+		//Shadow related
+		mDp->DirLightShadowPos	= pSys->getBindingPos("DirShadowMap", mDp->MainPassVirtualMaterial);
+		mDp->ShadowSamplerPos	= pSys->getBindingPos("ShadowSampler", mDp->MainPassVirtualMaterial);
+
 		//Enable bindless related
 		mDp->GlobalBindlessUAVBuffersBindingPos = pSys->getBindingPos("GlobalUAVBuffers", mDp->MainPassVirtualMaterial);
 		mDp->GlobalBindlessUAVImagesBindingPos = pSys->getBindingPos("GlobalUAVImages", mDp->MainPassVirtualMaterial);
@@ -123,6 +137,25 @@ namespace Render {
 			RenderSystem::instance()->updateUniform(mDp->EnvMapSamplerBIndingPos, 0, lightMgr.getIBLSampler()->getRsSampler(), &tempPass);
 		}
 		return sceneDrawData;
+	}
+
+	Render::rs_drawdata* ConstShaderDataManager::updateShadowDrawData(Scene* scene)
+	{
+		auto& shadowMgr = scene->getShadowMgr();
+		Pass tempPass{};
+		tempPass.mDrawData = shadowMgr.getShadowDrawData();
+		tempPass.mMaterialPass = mDp->MainPassVirtualMaterial;
+		auto shadowTex = shadowMgr.getDirShadowTexture();
+
+		if (shadowTex) {
+			RenderSystem::instance()->updateUniform(mDp->DirLightShadowPos, 0, shadowTex->getRsImage(), &tempPass);
+		}
+
+		auto shadowSampler = shadowMgr.getShadowSampler();
+		if (shadowSampler) {
+			RenderSystem::instance()->updateUniform(mDp->ShadowSamplerPos, 0, shadowSampler->getRsSampler(), &tempPass);
+		}
+		return  shadowMgr.getShadowDrawData();;
 	}
 
 	Render::rs_binding_pos ConstShaderDataManager::getObjectCommonDataBindingPos()

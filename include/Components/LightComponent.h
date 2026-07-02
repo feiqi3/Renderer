@@ -9,7 +9,10 @@ namespace Render {
 	class LightComponent : public  Component {
 	public:
 		LightComponent(LightType type);
-		void setHasShadow(bool hasShadow);
+		inline void setHasShadow(bool hasShadow) {
+			mLight->setHasShadow(hasShadow);
+		}
+		inline bool getHasShadow()const { return mLight->getHasShadow(); }
 		Light* getLight();
 		void onEnable() override;
 		void onDisable() override;

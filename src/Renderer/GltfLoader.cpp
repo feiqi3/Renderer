@@ -317,6 +317,9 @@ namespace {
             tplt->createMaterialPass(PassName::MainCameraPass, {
                 {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
                 });
+            tplt->createMaterialPass(PassName::DirectionalShadowPass, {
+                {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+                });
             return tplt;
         }
         else {

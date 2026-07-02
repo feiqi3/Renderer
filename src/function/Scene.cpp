@@ -27,6 +27,7 @@ namespace Render {
 
     Scene::Scene() {
         m_lightMgr = std::make_unique<LightManager>();
+        m_shadowMgr = std::make_unique<ShadowManager>();
         m_drawData = RenderSystem::instance()->createDrawData();
     }
 
@@ -179,12 +180,27 @@ namespace Render {
         return *m_lightMgr;
     }
 
-    rs_drawdata* Scene::getSceneDrawData() const
+	Render::ShadowManager& Scene::getShadowMgr()
+	{
+        return *m_shadowMgr;
+	}
+
+	const Render::ShadowManager& Scene::getShadowMgr() const
+	{
+		return *m_shadowMgr;
+	}
+
+	rs_drawdata* Scene::getSceneDrawData() const
     {
         return m_drawData;
     }
 
-    void Scene::update(float deltaTime) {
+	Render::rs_drawdata* Scene::getSceneShadowData() const
+	{
+        return m_shadowMgr->getShadowDrawData();
+	}
+
+	void Scene::update(float deltaTime) {
         _doDelayDestroy();
         for (auto& obj : m_objects) {
             Object* o = obj.get();

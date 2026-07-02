@@ -15,11 +15,19 @@ namespace Render {
 
 		virtual void collectRenderEntities(std::vector<RenderEntity*>& outEntities) = 0;
 
-		uint32_t getCullMask() const { return mCullMask; }
-		void setCullMask(uint32_t layer) { mCullMask = layer; }
+		inline uint32_t getCullMask() const { return mCullMask; }
+		inline void setCullMask(uint32_t layer) { mCullMask = layer; }
 
-		bool isCastShadow() const { return mCastShadow; }
-		void setCastShadow(bool cast) { mCastShadow = cast; }
+		inline bool isCastShadow() const { return mCastShadow; }
+		inline void setCastShadow(bool cast) { 
+			bool triggerChange = mCastShadow != cast;
+			mCastShadow = cast; 
+			if (triggerChange) {
+				onShadowSettingChanged();
+			}
+		}
+
+		inline virtual void onShadowSettingChanged() {};
 
 		size_t getSceneIndex() const { return mSceneIndex; }
 		void setSceneIndex(size_t idx) { mSceneIndex = idx; }

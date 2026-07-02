@@ -7,26 +7,41 @@
 #include "Renderer/Camera.h"
 #include "function/AABB.h"
 #include <algorithm>
+#include "Renderer/EnginePass.h"
+#include "Renderer/ConstShaderDataManager.h"
+#include "Renderer/RenderPass.h"
 namespace Render {
 	class ShadowManagerPrivate {
 	public:
 
 		std::vector<Light*> mPointLightsToDrawShadow;
 		std::vector<Light*> mDirLightsToDrawShadow;
-
 		std::unique_ptr<Camera> mDirLightCamera = nullptr;
-		
+		rs_rendertarget* m_dirlightShadowRT = nullptr;
+		u64 lastDrawDirShadowFrame = -1;
+		rs_drawdata* mShadowDrawData = nullptr;
+		SamplerPtr	mShadowSamplerPtr = nullptr;
+		GPUShared::GPUSceneShadowData shadowData{};
 	};
 	ShadowManager::ShadowManager()
 	{
 		mDp = new ShadowManagerPrivate;
 		mDp->mDirLightCamera = std::make_unique<Camera>(Name("DirLightShadowCamera"));
 		CameraManager::instance()->RegisterCamera(mDp->mDirLightCamera.get(), 1);
+		mDp->mShadowDrawData = RenderSystem::instance()->createDrawData();
+		SamplerDesc samplerDesc{};
+		samplerDesc.borderColor = BorderColor::FloatOpaqueBlack;
+		samplerDesc.addressU = AddressMode::ClampToBorder;
+		samplerDesc.addressV = AddressMode::ClampToBorder;
+		mDp->mShadowSamplerPtr = SamplerResourceManager::instance()->getOrCreateSampler(samplerDesc);
 	}
 
 	ShadowManager::~ShadowManager()
 	{
+		RenderSystem::instance()->destroyRenderTarget(mDp->m_dirlightShadowRT);
+		RenderSystem::instance()->destroyDrawData(mDp->mShadowDrawData);
 		CameraManager::instance()->UnregisterCamera(mDp->mDirLightCamera.get());
+		
 		delete mDp;
 	}
 
@@ -55,50 +70,89 @@ namespace Render {
 			prepareDirShadowResource();
 			isDirShadowConfigDirty = false;
 		}
+		//Begin shadowPass
+		auto dirLight = scene->getLightMgr().getMainDirLight();
+		bool cleanDirShadowTexture = false;
+		auto dirShadowPass = RenderSystem::instance()->getRenderPass(PassName::DirectionalShadowPass);
+		ClearDepthStencil depthClear{};
+		depthClear.depth = 1.;
+		bool dirLightShadowDrawn = false;
+		if (dirLight) {
+			setDirLightCamera(cmdBuffer, dirLight, mDp->mDirLightCamera.get());
+			ConstShaderDataManager::instance()->updateCameraDrawData(mDp->mDirLightCamera.get());
+			scene->collectVisibleObjects(mDp->mDirLightCamera.get());
+			dirShadowPass->draw(cmdBuffer, mDp->mDirLightCamera.get());
+			dirLightShadowDrawn = true;
+		}
+		if (dirLightShadowDrawn) {
+			mDp->lastDrawDirShadowFrame = RenderSystem::instance()->getNextRenderFrame();
+		}
 
+	}
 
+	Render::rs_drawdata* ShadowManager::getShadowDrawData()const
+	{
+		return mDp->mShadowDrawData;
+	}
+
+	Render::TexturePtr ShadowManager::getDirShadowTexture() const
+	{
+		if (RenderSystem::instance()->getNextRenderFrame() == mDp->lastDrawDirShadowFrame) {
+			return mDirLightShadowMap;
+		}
+		return nullptr;
+	}
+
+	SamplerPtr ShadowManager::getShadowSampler() const
+	{
+		return mDp->mShadowSamplerPtr;
 	}
 
 	void ShadowManager::setDirLightCamera(rs_commandbuffer* cmdBuffer, Light* light, Camera* currentCamera)
 	{
 		//1. calculate dir light's viewproj
 		// the view space of light should wrap 
-		//main camera's frustum.
+		// main camera's frustum.
 
 		// get frustum info
 		// get frustum AABB
 		// calculate a sphere that contains the aabb
-		// set camera with this 
-		const vec4 NDCCoord[] = {
-			vec4(0,0,0,1.),
-			vec4(1,0,0,1.),
-			vec4(1,1,0,1.),
-			vec4(0,1,0,1.),
-		};
+		// set camera with this
+
+		float zDepthMin,zDepthMax;
+		RenderSystem::instance()->getGlobalViewportZRange(zDepthMin, zDepthMax);
+		float farZ = currentCamera->getFar();
 
 		const float FarestDistanceDirShadow = 1000.;
+		float factorOfDepthZInNDC = std::min(FarestDistanceDirShadow / farZ, 1.f);
+
+
+		const vec4 NDCCoord[8] = {
+			vec4(0,0,zDepthMin				,1.),
+			vec4(1,0,zDepthMin				,1.),
+			vec4(1,1,zDepthMin				,1.),
+			vec4(0,1,zDepthMin				,1.),
+			vec4(0,0,factorOfDepthZInNDC	,1.),
+			vec4(1,0,factorOfDepthZInNDC	,1.),
+			vec4(1,1,factorOfDepthZInNDC	,1.),
+			vec4(0,1,factorOfDepthZInNDC	,1.),
+		};
 
 		AxisAlignedBoundingBox aabbOfFrustum;
 		float nearPlaneZ = 0;
 		float farPlaneZ	 = clamp(FarestDistanceDirShadow / currentCamera->getFar(),0.1f,1.f);
 		auto viewProjOfCurCam = currentCamera->getProjectionMatrix() * currentCamera->getViewMatrix();
 		auto invViewProj = inverse(viewProjOfCurCam);
-		for (int i = 0;i < 4;++i) {
-			vec4 NDCCoordNear = NDCCoord[i];
-			NDCCoordNear.z = nearPlaneZ;
-			vec4 nearPlanePoint = invViewProj * NDCCoordNear;
-			aabbOfFrustum.expand(nearPlanePoint);
-		}
-		for (int i = 0;i < 4;++i) {
-			vec4 NDCCoordFar = NDCCoord[i];
-			NDCCoordFar.z = farPlaneZ;
-			vec4 farPlanePoint = invViewProj * NDCCoordFar;
-			aabbOfFrustum.expand(farPlanePoint);
+		for (int i = 0;i < 8;++i) {
+			vec4 PointNDCCoord = NDCCoord[i];
+			PointNDCCoord.z = nearPlaneZ;
+			vec4 worldPoint = invViewProj * PointNDCCoord;
+			aabbOfFrustum.expand(worldPoint);
 		}
 
-		float radius = length(aabbOfFrustum.getCenter() - aabbOfFrustum.getMax());
+		float radius = length(aabbOfFrustum.getSize()) / 2.;
 		vec3 camPos = aabbOfFrustum.getCenter() - light->getDirection() * radius;
-		float nearPlane = 0.0f;
+		float nearPlane = 0.01f;
 		float farPlane = radius * 2.0f;
 		mDp->mDirLightCamera->setTarget(aabbOfFrustum.getCenter());
 		mDp->mDirLightCamera->setOrthoSize(radius);
@@ -115,7 +169,7 @@ namespace Render {
 		mDp->mDirLightsToDrawShadow.clear();
 		for (auto& [idx, lightData] : mLightMap) {
 			auto light = lightData.light;
-			if (!light->getHashShadow())	continue;
+			if (!light->getHasShadow())	continue;
 			if (light->getType() == LightType::Point) {
 				mDp->mPointLightsToDrawShadow.push_back(light);
 			}
@@ -138,6 +192,17 @@ namespace Render {
 	void ShadowManager::prepareDirShadowResource()
 	{
 		this->mDirLightShadowMap = TextureResourceManager::instance()->createRenderTexture(ShadowConfig.shadowRTFormat, ShadowConfig.shadowRTSize, ShadowConfig.shadowRTSize, 1, 1, 1, false);
+		if (mDp->m_dirlightShadowRT) {
+			RenderSystem::instance()->destroyRenderTarget(mDp->m_dirlightShadowRT);
+		}
+		this->mDp->m_dirlightShadowRT = RenderSystem::instance()->createRendertarget(
+			{}, mDirLightShadowMap->getRsImage()
+		);
+
+		//Construct shadow info data
+		auto& shadowData = mDp->shadowData;
+		shadowData.DirLightShadowInfo.ViewProjMat = mDp->mDirLightCamera->getProjectionMatrix() * mDp->mDirLightCamera->getViewMatrix();
+
 	}
 
 }

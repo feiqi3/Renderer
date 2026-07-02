@@ -4,7 +4,9 @@
 #include "function/ObjectFwd.h"
 #include "common/Name.h"
 #include "Renderer/LightManager.h"
+#include "Renderer/ShadowManager.h"
 #include "function/CullUtils.h"
+#include "Renderer/PipelineBindingTable.h"
 #include <vector>
 #include <memory>
 #include <map>
@@ -33,7 +35,12 @@ namespace Render {
         Object* getObjectById(ObjectID id);
         LightManager& getLightMgr();
         const LightManager& getLightMgr()const;
+
+        ShadowManager& getShadowMgr();
+		const ShadowManager& getShadowMgr()const;
+
         rs_drawdata* getSceneDrawData()const;
+        rs_drawdata* getSceneShadowData()const;
         void update(float deltaTime);
 
         virtual void renderOneFrame();
@@ -62,6 +69,7 @@ namespace Render {
         std::vector<ObjectID> m_pendingDestroyObjectsID;
         std::vector<RenderComponent*> m_renderComponents;
         std::unique_ptr<LightManager> m_lightMgr;
+        std::unique_ptr<ShadowManager>m_shadowMgr;
         std::vector<class RenderEntity*> m_entities;
         rs_drawdata* m_drawData = nullptr;
         uint32_t m_nextObjectID = 1;

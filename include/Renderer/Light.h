@@ -37,7 +37,7 @@ namespace Render {
         bool isDirty() const;
 
         void setHasShadow(bool hasShadow);
-        bool getHashShadow() const;
+        bool getHasShadow() const;
 
         // GPU data
         GPUShared::GPULightData toGPUData() const;

@@ -17,7 +17,7 @@
 
 namespace Render::Vulkan {
 	inline uint32_t VulkanVersion = VK_API_VERSION_1_3;
-	using DrawDataArray = std::array<struct rs_drawdata_vk*, 5>;//!!! last slot is for bindless drawdata!!!
+	using DrawDataArray = std::array<struct rs_drawdata_vk*, MAX_DRAWDATA_PER_DRAWCALL>;//!!! last slot is for bindless drawdata!!!
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;
 	using VkObjHandle = void*;

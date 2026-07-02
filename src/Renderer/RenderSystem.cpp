@@ -463,7 +463,26 @@ namespace Render{
 
 		desc.type = type;
 		desc.format = fromRtFormatToImageFormat(getRenderContext(),format);
-		desc.usage = ImageUsage::ImageUsage_ColorAttachment;
+
+		bool isDepthFMT = false;
+		bool isStencilFMT = false;
+		if (format == RenderTextureFormat::D24S8 || format == RenderTextureFormat::D32
+			|| format == RenderTextureFormat::D32S8) {
+		
+			isDepthFMT = true;
+		}
+
+		if (format == RenderTextureFormat::D24S8
+			|| format == RenderTextureFormat::D32S8) {
+			isStencilFMT = true;
+		}
+
+		if (isDepthFMT || isStencilFMT) {
+			desc.usage = ImageUsage_DepthStencilAttachment;
+		}
+		else {
+			desc.usage = ImageUsage::ImageUsage_ColorAttachment;
+		}
 
 		if (needSample) {
 			desc.usage |= ImageUsage::ImageUsage_Sampled;
@@ -776,9 +795,11 @@ namespace Render{
 		(*arr)[2] = mDp->mCurrentCameraData;
 		if (Scene::getCurrentScene()) {
 			(*arr)[3] = Scene::getCurrentScene()->getSceneDrawData();
+			(*arr)[4] = Scene::getCurrentScene()->getSceneShadowData();
 		}
+
 		if (isBindlessEnabled()) {
-			(*arr)[4] = (rs_drawdata*)getGlobalBindlessData();
+			(*arr)[5] = (rs_drawdata*)getGlobalBindlessData();
 		}
 	}
 

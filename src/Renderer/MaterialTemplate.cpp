@@ -32,6 +32,7 @@ namespace Render {
 				result.push_back(rhsStagePair);
 			}
 		}
+		return result;
 	}
 
 	MaterialTemplate::MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc)
@@ -101,8 +102,8 @@ namespace Render {
 		auto renderPass = RenderSystem::instance()->getRenderPass(passName);
 		auto renderPassMacro = renderPass->getPassStageShaderMacro(passName);
 		auto newMacro = mergeStageMacroPairs(renderPassMacro, shaderMacro);
-		auto pipeline = createVariantPipeline(renderPass, shaderMacro, state);
-		MaterialPass* mat = new MaterialPass(renderPass, this, pipeline, shaderMacro);
+		auto pipeline = createVariantPipeline(renderPass, newMacro, state);
+		MaterialPass* mat = new MaterialPass(renderPass, this, pipeline, newMacro);
 
 		mMaterialPassMap[passName] = mat;
 

@@ -12,6 +12,7 @@ namespace Render {
 
 		rs_drawdata* updateCameraDrawData(Camera* camera);
 		rs_drawdata* updateSceneDrawData(Scene* camera);
+		rs_drawdata* updateShadowDrawData(Scene* scene);
 		rs_binding_pos getObjectCommonDataBindingPos();
 		rs_binding_pos getSceneCommonDataBindingPos();
 		rs_binding_pos getCameraCommonDataBindngPos();

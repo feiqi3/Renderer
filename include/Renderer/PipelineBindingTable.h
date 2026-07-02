@@ -18,6 +18,7 @@ namespace Render {
         PipelineBindingTable() = default;
         ~PipelineBindingTable();
 
+		bool commit(rs_drawdata* drawdata, bool allowMultiCommit = false);
         bool commit(rs_pipeline* pipeline,rs_drawdata* drawdata, bool allowMultiCommit = false);
         void init(const Name& passName, rs_pipeline* pipeline);
 

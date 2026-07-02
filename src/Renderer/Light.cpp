@@ -89,7 +89,7 @@ namespace Render {
         m_hasShadow = hasShadow;
 	}
 
-	bool Light::getHashShadow() const
+	bool Light::getHasShadow() const
 	{
         return m_hasShadow;
 	}

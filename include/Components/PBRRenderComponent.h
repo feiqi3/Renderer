@@ -20,6 +20,9 @@ namespace Render {
 		void collectRenderEntities(std::vector<RenderEntity*>& outEntities) override;
 		virtual void onUpdate(float dt)override;
 		virtual void onDestroy()override;
+		
+		void onShadowSettingChanged()override;
+		
 		~PBRRenderComponent();
 	private :
 		void updateRenderEntities();

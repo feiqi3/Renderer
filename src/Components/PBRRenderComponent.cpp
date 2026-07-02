@@ -68,6 +68,19 @@ namespace Render {
 		}
 	}
 
+	void PBRRenderComponent::onShadowSettingChanged()
+	{
+		for (auto& entity : mRenderEntities) {
+			if (isCastShadow()) {
+				entity->createPass(PassName::DirectionalShadowPass);
+			}
+			else {
+				entity->destroyPass(PassName::DirectionalShadowPass);
+			}
+		}
+			
+	}
+
 	PBRRenderComponent::~PBRRenderComponent()
 	{
 		for (auto entity : mRenderEntities) {
@@ -100,6 +113,9 @@ namespace Render {
 		auto* mainPass = mat->getMaterialPassToRender(PassName::MainCameraPass);
 		assert(mainPass != nullptr);
 		entity->createPass(PassName::MainCameraPass);
+		if (this->isCastShadow()) {
+			entity->createPass(PassName::DirectionalShadowPass);
+		}
 		return entity;
 	}
 

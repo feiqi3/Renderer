@@ -9,7 +9,7 @@ namespace Render::Vulkan {
 
 	VkFormat toVkFormat(ImageFormat fmt);
 
-	VkImageAspectFlags toVkAspect(ViewAspect aspect);
+	VkImageAspectFlags fromEngineAspecttoVkAspect(ViewAspect aspect);
 	VkImageAspectFlags toVkAspect(uint32_t usageFlags);
 
 	VkImageViewType toVkImageViewType(ImageType t);

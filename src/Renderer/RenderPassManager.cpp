@@ -13,6 +13,15 @@ namespace Render {
 		return nullptr;
 	}
 
+	std::vector<Name> RenderPassManager::getAllRenderPassNames() const
+	{
+		std::vector<Name> passNames;
+		for (auto& [name, pass] : mRenderPasses) {
+			passNames.push_back(name);
+		}
+		return passNames;
+	}
+
 	void RenderPassManager::removeRenderPass(const Name& name)
 	{
 		auto pass = getRenderPass(name);

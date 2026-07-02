@@ -690,9 +690,25 @@ namespace Render::Vulkan {
 
     rs_rendertarget_vk* createRsRenderTarget(rs_context_vk* ctx,rs_image_vk** images,int imageNum, rs_image_vk* depthStencil)
     {
-        int iw = images[0]->width;
-        int ih = images[0]->height;
-        int il = images[0]->arrayLayers;
+        int iw = 0;
+        int ih = 0;
+        int il = 0;
+
+
+        if (imageNum > 0) {
+            iw = images[0]->width;
+			ih = images[0]->height;
+			il = images[0]->arrayLayers;
+        }
+        else if (depthStencil != nullptr) {
+			iw = depthStencil->width;
+			ih = depthStencil->height;
+			il = depthStencil->arrayLayers;
+        }
+        else {
+            assert(false);
+            return nullptr;
+        }
 
         for (int i = 0; i < imageNum; ++i) {
             const auto img = images[i];
@@ -1406,6 +1422,7 @@ namespace Render::Vulkan {
 				VK_COMPONENT_SWIZZLE_IDENTITY ,
 				VK_COMPONENT_SWIZZLE_IDENTITY
         };
+
 		ivci.subresourceRange.aspectMask = (aspect);
 		ivci.subresourceRange.baseMipLevel = baseMip;
 		ivci.subresourceRange.levelCount = mipCnt;
@@ -1417,7 +1434,7 @@ namespace Render::Vulkan {
 
 	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav)
 	{
-        auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
+        auto view = createRsImageViewInner(ctx, image, viewType, fromEngineAspecttoVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
         view->image = image;
         view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt, uav);
 		image->imageViews.emplace_back(view);
@@ -1426,19 +1443,26 @@ namespace Render::Vulkan {
 
 	Render::rs_image_view* createRsImageView(rs_context_vk* ctx, rs_image* image, ImageType viewType, uint32_t imageUsage, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav)
 	{
-		auto view = createRsImageViewInner(ctx, image, viewType, toVkAspect(imageUsage), baseMip, mipCnt, baseLayer, layerCnt);
-        ViewAspect aspect = ViewAspect::Color;
 
-        if (imageUsage & ImageUsage_DepthStencilAttachment) {
-            aspect = ViewAspect::DepthAndStencil;
-        }
+		ViewAspect aspect = ViewAspect::Color;
+		if (imageUsage & ImageUsage_DepthStencilAttachment) {
+			if (image->format == ImageFormat::D16_UNORM || image->format == ImageFormat::D32_SFLOAT) {
+				aspect = ViewAspect::Depth;
+			}
+			else {
+				aspect = ViewAspect::DepthAndStencil;
+			}
+		}
+		auto view = createRsImageViewInner(ctx, image, viewType, fromEngineAspecttoVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
+
+
         view->image = image;
         view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt, uav);
 		image->imageViews.emplace_back(view);
 		return view;
 	}
 
-    VkImageAspectFlags toVkAspect(ViewAspect aspect)
+    VkImageAspectFlags fromEngineAspecttoVkAspect(ViewAspect aspect)
 	{
         switch (aspect)
         {

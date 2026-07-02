@@ -15,6 +15,8 @@
 #include "Renderer/Blit.h"
 #include "Renderer/EnginePass.h"
 #include "Renderer/DebugDrawManager.h"
+#include "Renderer/RenderPass/ShadowPass.h"
+#include "Renderer/ConstShaderDataManager.h"
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -39,7 +41,7 @@ namespace Render {
 		void init() {
 			mMainCamPass = new MainCameraPass;
 			mPostEffectPass = new PostEffectComposePass();
-
+			initDirectionalLightShadowPass();
 			initMainCamPass();
 			initPostEffectPass();
 
@@ -69,16 +71,11 @@ namespace Render {
 
 		void initDirectionalLightShadowPass() {
 			auto rsys = RenderSystem::instance();
-			PassDesc directionalShadowPassDesc{};
-			PassAttachment attachmentDepth{};
-			attachmentDepth.fmt = RenderTextureFormat::R16F;
-			directionalShadowPassDesc.attachments.push_back({
-				attachmentDepth
-				});
-			directionalShadowPassDesc.lastDepth = true;
-			directionalShadowPassDesc.writeDepth = true;
 
-			mDirectionalLightRenderPass = new RenderPass(PassName::DirectionalShadowPass, directionalShadowPassDesc);
+			mDirectionalLightRenderPass = new DirLightShadowPass();
+			ClearDepthStencil clearData{};
+			clearData.depth = 1.;
+			mDirectionalLightRenderPass->setClearData({}, clearData);
 			rsys->getRenderPassManager()->registerRenderPass(mDirectionalLightRenderPass);
 		}
 
@@ -118,6 +115,7 @@ namespace Render {
 			CameraManager::instance()->UnregisterCamera(mMainCamera);
 			delete mMainCamera;
 			mMainCamera = nullptr;
+			initDirectionalLightShadowPass();
 			deinitMainCamPass();
 			deinitPostEffectPass();
 			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
@@ -135,12 +133,12 @@ namespace Render {
 			auto RenderSys = RenderSystem::instance();
 			auto curScene = Scene::getCurrentScene();
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
-
-			//1. update camera data.
-			CameraManager::instance()->updateAllCamera(cmdbufOffscreen);
 			if (curScene) {
 				curScene->getLightMgr().update();
 			}
+			//1. update camera data.
+			CameraManager::instance()->updateAllCamera(cmdbufOffscreen);
+
 			RenderSys->setCurrentCamera(mMainCamera);
 
 			curScene->collectVisibleObjects(mMainCamera);
@@ -148,9 +146,15 @@ namespace Render {
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
 			/////////////////////////////////////////////////////
-			Scene::getCurrentScene()->getLightMgr().calculateIBLData(cmdbufOffscreen);
 			//Transit common data
-			RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneDrawData());
+			auto currentScene = Scene::getCurrentScene();
+			if (currentScene) {
+				currentScene->getLightMgr().calculateIBLData(cmdbufOffscreen);
+				RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneDrawData());
+				currentScene->getShadowMgr().drawShadow(cmdbufOffscreen, mMainCamera,currentScene);
+				ConstShaderDataManager::instance()->updateShadowDrawData(currentScene);
+				RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneShadowData());
+			}
 
 			DebugDrawManager::instance()->onRender(mMainCamera);
 			mMainCamPass->draw(cmdbufOffscreen,mMainCamera);

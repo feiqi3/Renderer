@@ -229,6 +229,7 @@ namespace Render {
                         ) {
                         view = refVar.getTextureView()->view;
                     }
+                    if (!view)continue;
 					EngineBindlessAPI::markResourceUAV(view);
 				}
 				break;
@@ -261,7 +262,12 @@ namespace Render {
         return true;
     }
 
-    void PipelineBindingTable::init(const Name& passName, rs_pipeline* pipeline) {
+	bool PipelineBindingTable::commit(rs_drawdata* drawdata, bool allowMultiCommit /*= false*/)
+	{
+        return commit(mPipeline, drawdata, allowMultiCommit);
+	}
+
+	void PipelineBindingTable::init(const Name& passName, rs_pipeline* pipeline) {
         if (!pipeline) return;
 
         mPassName = passName;

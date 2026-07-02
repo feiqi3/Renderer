@@ -365,8 +365,8 @@ namespace Render {
     };
 
     using rs_binding_pos = uint32_t;
-
-	using DrawDataArray = std::array<struct rs_drawdata*, 5>;
+#define MAX_DRAWDATA_PER_DRAWCALL 6
+	using DrawDataArray = std::array<struct rs_drawdata*, MAX_DRAWDATA_PER_DRAWCALL>;
 
 #define INVALID_BINDLESS_INDEX 0xFFFFFFFF
 };
