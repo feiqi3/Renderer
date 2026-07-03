@@ -10,6 +10,7 @@
 #include "Renderer/EnginePass.h"
 #include "Renderer/ConstShaderDataManager.h"
 #include "Renderer/RenderPass.h"
+#include "Renderer/RenderDebuger.h"
 namespace Render {
 	class ShadowManagerPrivate {
 	public:
@@ -66,6 +67,7 @@ namespace Render {
 
 	void ShadowManager::drawShadow(rs_commandbuffer* cmdBuffer, Camera* currentCamera, Scene* scene)
 	{
+		RenderMarker shadowDrawMarker(cmdBuffer, "Shadow Passes", 0.3, 0.5, 0.2, 1.);
 		if (isDirShadowConfigDirty) {
 			prepareDirShadowResource();
 			isDirShadowConfigDirty = false;
@@ -74,15 +76,19 @@ namespace Render {
 		auto dirLight = scene->getLightMgr().getMainDirLight();
 		bool cleanDirShadowTexture = false;
 		auto dirShadowPass = RenderSystem::instance()->getRenderPass(PassName::DirectionalShadowPass);
-		ClearDepthStencil depthClear{};
-		depthClear.depth = 1.;
+		vec4 clearCol(1., 0., 0., 0.);
 		bool dirLightShadowDrawn = false;
 		if (dirLight) {
+			RenderSystem::instance()->cmdClearRT(cmdBuffer, getDirShadowTexture(),mDp->m_dirlightShadowRT->m_dsView->viewKey, clearCol);
 			setDirLightCamera(cmdBuffer, dirLight, mDp->mDirLightCamera.get());
 			ConstShaderDataManager::instance()->updateCameraDrawData(mDp->mDirLightCamera.get());
 			scene->collectVisibleObjects(mDp->mDirLightCamera.get());
 			dirShadowPass->draw(cmdBuffer, mDp->mDirLightCamera.get());
 			dirLightShadowDrawn = true;
+		}
+		else {
+			//Clear this rt.
+			RenderSystem::instance()->cmdClearRT(cmdBuffer, getDirShadowTexture(), mDp->m_dirlightShadowRT->m_dsView->viewKey, clearCol);
 		}
 		if (dirLightShadowDrawn) {
 			mDp->lastDrawDirShadowFrame = RenderSystem::instance()->getNextRenderFrame();
@@ -97,10 +103,7 @@ namespace Render {
 
 	Render::TexturePtr ShadowManager::getDirShadowTexture() const
 	{
-		if (RenderSystem::instance()->getNextRenderFrame() == mDp->lastDrawDirShadowFrame) {
-			return mDirLightShadowMap;
-		}
-		return nullptr;
+		return mDirLightShadowMap;
 	}
 
 	SamplerPtr ShadowManager::getShadowSampler() const
@@ -191,7 +194,7 @@ namespace Render {
 
 	void ShadowManager::prepareDirShadowResource()
 	{
-		this->mDirLightShadowMap = TextureResourceManager::instance()->createRenderTexture(ShadowConfig.shadowRTFormat, ShadowConfig.shadowRTSize, ShadowConfig.shadowRTSize, 1, 1, 1, false);
+		this->mDirLightShadowMap = TextureResourceManager::instance()->createRenderTexture(ShadowConfig.shadowRTFormat, ShadowConfig.shadowRTSize, ShadowConfig.shadowRTSize, 1, 1, 1, true);
 		if (mDp->m_dirlightShadowRT) {
 			RenderSystem::instance()->destroyRenderTarget(mDp->m_dirlightShadowRT);
 		}

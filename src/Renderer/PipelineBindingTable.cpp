@@ -240,14 +240,13 @@ namespace Render {
                     if (!pp.keepAliveRefs[i].isValid())continue;
                     rs_image_view* view = nullptr;
 					const auto& refVar = pp.keepAliveRefs[i];
-					if (refVar.getTexture()) {
+					if (refVar.isTexture()) {
 						view = refVar.getTexture()->getRsImage()->defaultView;
 					}
 					else if (
-						refVar.getTextureView()
+						refVar.isTextureView()
 						) {
-                        auto texview = refVar.getTextureView();
-						view = texview->view;
+                        view = refVar.getTextureView()->view;
 					}
 					EngineBindlessAPI::markResourceSRV(view);
 				}

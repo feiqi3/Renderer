@@ -13,6 +13,8 @@ namespace Render::Vulkan {
         VkAccessFlags accessMask;      
         VkImageLayout imageLayout;     
     };
+    
+    VkImageAspectFlags getImageAspectByImage(rs_image_vk* image);
     VulkanStateMapping getVulkanMapping(ResourceState state);
     void transitionBufferState(rs_commandbuffer_vk* cb, rs_buffer_vk* buffer, ResourceState newState);
     void transitionBufferStateBatch(rs_commandbuffer_vk* cb, auto buffersItor,auto buffersItorEnd, ResourceState newState);
@@ -26,6 +28,12 @@ namespace Render::Vulkan {
         uint32_t layerCount = VK_REMAINING_ARRAY_LAYERS
     );
 
+	void transitionImageViewState(
+		rs_commandbuffer_vk* cb,
+		rs_image_view* view,
+		ResourceState newState
+	);
+
     void transitionImageStateBatch(
         rs_commandbuffer_vk* cb,
         auto itorBegin,
@@ -37,6 +45,7 @@ namespace Render::Vulkan {
         rs_image_view* view,ResourceState newState
     );
 
+    ResourceState getViewState(rs_image_view* view);
 
     ///////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////
@@ -61,15 +70,6 @@ namespace Render::Vulkan {
             {
                 rs_buffer_vk* bufferVk = (rs_buffer_vk*)(*it);
                 assert(bufferVk->pendingState == newState && "Pending state should have been applied before transition!");
-
-                {
-					//Fast path: For read only state
-                    bool isReadOnlyOldState = (bufferVk->state == ResourceState::ShaderResource || bufferVk->state == ResourceState::ComputeShaderResource);
-					bool isReadOnlyNewState = (newState == ResourceState::ShaderResource || newState == ResourceState::ComputeShaderResource);
-                    if (isReadOnlyNewState && isReadOnlyOldState) {
-                        bufferVk->state = bufferVk->pendingState;
-                    }
-                }
 
                 if (bufferVk->state == newState) {
                     continue;
@@ -129,15 +129,6 @@ namespace Render::Vulkan {
                 if (bufferVk->state == newState) {
                     continue;
                 }
-
-				{
-					//Fast path: For read only state
-					bool isReadOnlyOldState = (bufferVk->state == ResourceState::ShaderResource || bufferVk->state == ResourceState::ComputeShaderResource);
-					bool isReadOnlyNewState = (newState == ResourceState::ShaderResource || newState == ResourceState::ComputeShaderResource);
-					if (isReadOnlyNewState && isReadOnlyOldState) {
-						bufferVk->state = bufferVk->pendingState;
-					}
-				}
 
                 VulkanStateMapping oldMap = getVulkanMapping(bufferVk->state);
 
@@ -262,8 +253,7 @@ namespace Render::Vulkan {
                 uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
                 uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-                VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
-                    (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
+                VkImageAspectFlags aspectMask = getImageAspectByImage(image);
 
                 for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
                     for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
@@ -273,14 +263,7 @@ namespace Render::Vulkan {
 
                         if (oldSubState != newState) {
                             VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
-                            if (oldMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-                                && newMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-                                ) {
-                                //Fast path ---> if previous state is read only and target state is read only too
-                                //Then we actually don't need a barrier
-								image->subresourceStates[flatIndex] = newState;
-								continue;
-                            }
+
                             VkImageMemoryBarrier2 barrier{};
                             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
                             barrier.pNext = nullptr;
@@ -331,8 +314,8 @@ namespace Render::Vulkan {
                 uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
                 uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-                VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
-                    (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
+				VkImageAspectFlags aspectMask =  getImageAspectByImage(image);
+
 
                 for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
                     for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
@@ -343,15 +326,6 @@ namespace Render::Vulkan {
 
                         if (oldSubState != newState) {
                             VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
-
-							if (oldMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-								&& newMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-								) {
-								//Fast path ---> if previous state is read only and target state is read only too
-								//Then we actually don't need a barrier
-								image->subresourceStates[flatIndex] = newState;
-								continue;
-							}
 
                             globalSrcStageMask |= oldMap.stageMask;
                             globalDstStageMask |= newMap.stageMask;
@@ -402,8 +376,7 @@ namespace Render::Vulkan {
                 uint32_t actualMips = (key.getMipCount() == VK_REMAINING_MIP_LEVELS) ? image->mipLevels - key.getBaseMip() : key.getMipCount();
                 uint32_t actualLayers = (key.getLayerCount() == VK_REMAINING_ARRAY_LAYERS) ? image->arrayLayers - key.getBaseLayer() : key.getLayerCount();
 
-                VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
-                    (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
+				VkImageAspectFlags aspectMask = getImageAspectByImage(image);
 
                 for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
                     for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
@@ -415,14 +388,6 @@ namespace Render::Vulkan {
                         if (oldSubState != newState) {
                             VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
 
-							if (oldMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-								&& newMap.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-								) {
-								//Fast path ---> if previous state is read only and target state is read only too
-								//Then we actually don't need a barrier
-								image->subresourceStates[flatIndex] = newState;
-								continue;
-							}
                             VkImageMemoryBarrier barrier{};
                             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
                             barrier.oldLayout = oldMap.imageLayout;

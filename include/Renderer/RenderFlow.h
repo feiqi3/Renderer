@@ -150,10 +150,8 @@ namespace Render {
 			auto currentScene = Scene::getCurrentScene();
 			if (currentScene) {
 				currentScene->getLightMgr().calculateIBLData(cmdbufOffscreen);
-				RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneDrawData());
 				currentScene->getShadowMgr().drawShadow(cmdbufOffscreen, mMainCamera,currentScene);
 				ConstShaderDataManager::instance()->updateShadowDrawData(currentScene);
-				RenderSys->transitDrawdataResourceState(cmdbufOffscreen, PipelineType::Graphics, Scene::getCurrentScene()->getSceneShadowData());
 			}
 
 			DebugDrawManager::instance()->onRender(mMainCamera);

@@ -127,14 +127,20 @@ namespace Render {
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer, Camera* cam)
 	{
 		if (mLogicalPasses.empty()) return;
-
-		auto camDrawData = RenderSystem::instance()->getCurCameraDrawData();
-		if (camDrawData) {
-			RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, camDrawData);
+		if (!mRendertarget) {
+			return;
 		}
-		auto currentSceneDrawData = Scene::getCurrentScene() ? Scene::getCurrentScene()->getSceneDrawData() : nullptr;
-		if (currentSceneDrawData) {
-			RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, currentSceneDrawData);
+		if (cam) {
+			RenderSystem::instance()->setCurrentCamera(cam);
+			auto camDrawData = RenderSystem::instance()->getCurCameraDrawData();
+			if (camDrawData) {
+				RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, camDrawData);
+			}
+		}
+		auto scene = Scene::getCurrentScene();
+		if (scene) {
+			RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, scene->getSceneDrawData());
+			RenderSystem::instance()->transitDrawdataResourceState(cmdbuffer, PipelineType::Graphics, scene->getSceneShadowData());
 		}
 
 		struct RenderBatch {
@@ -164,14 +170,12 @@ namespace Render {
 
 		RenderSystem::instance()->excutePendingBufferCopies(cmdbuffer);
 
+
 		RenderSystem::instance()->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
+		Rect2D nextRenderArea{};
+		RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget, nextRenderArea);
 
-		if (mRendertarget) {
-			Rect2D nextRenderArea{};
-			RenderSystem::instance()->cmdSetRendertarget(cmdbuffer, mRendertarget, nextRenderArea);
-
-			updateViewportAndScissor(cmdbuffer, mRendertarget);
-		}
+		updateViewportAndScissor(cmdbuffer, mRendertarget);
 		float nearZ = 0.;
 		float farZ = 1.;
 		RenderSystem::instance()->getGlobalViewportZRange(nearZ, farZ);
@@ -194,8 +198,8 @@ namespace Render {
 			drawImpl(cmdbuffer);
 			mRenderPacks.clear();
 		}
-
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
+
 	}
 
 	void RenderPass::collectRenderEntitiesForName(RenderQueue* renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs)

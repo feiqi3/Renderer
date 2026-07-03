@@ -93,6 +93,7 @@ namespace Render {
 		directionalLightcomponent->setDirection(-vec3(-0.3f, -1.0f, 0.2f));
 		directionalLightcomponent->setColor(vec3(1.0, 0.95, 0.9));
 		directionalLightcomponent->setIntensity(15.f);
+		directionalLightcomponent->setHasShadow(true);
 		auto skyBoxNode = naiveScene->createObject("Skybox");
 		auto skyBoxComponent = skyBoxNode->addComponent<SkyboxRenderComponent>();
 		skyBoxComponent->setSkybox(TextureResourceManager::instance()->getOrCreateCubemap(Name("../resources/skyboxes/CityViewHdr")));

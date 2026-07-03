@@ -17,6 +17,7 @@
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_resource_state.h"
 #include "vulkan/vulkan_global_def.h"
+#include "vulkan/vulkan_resource_state.h"
 #include "render_function.h"
 #include "render_log.h"
 #include <set>
@@ -67,7 +68,6 @@ namespace {
             (void)*((int*)_);
         }
 
-        // 2. 分配数组并再次调用填充数据
         std::vector<VkPresentModeKHR> modes(modeCount);
         res = vkGetPhysicalDeviceSurfacePresentModesKHR(
             physicalDevice,
@@ -228,6 +228,20 @@ namespace Render::Vulkan {
         default:                              return VK_FORMAT_UNDEFINED;
         }
     }
+
+	VkImageSubresourceRange toVkImageSubresourceRange(const ImageViewKey& viewKey) {
+		VkImageSubresourceRange subresourceRange{};
+
+		subresourceRange.aspectMask = fromEngineAspecttoVkAspect(viewKey.getAspect());
+
+		subresourceRange.baseMipLevel = viewKey.getBaseMip();
+		subresourceRange.levelCount = viewKey.getMipCount();
+
+		subresourceRange.baseArrayLayer = viewKey.getBaseLayer();
+		subresourceRange.layerCount = viewKey.getLayerCount();
+
+		return subresourceRange;
+	}
 
     void queryAllImageFormatCaps(rs_context_vk* ctx)
     {
@@ -1741,6 +1755,60 @@ namespace Render::Vulkan {
         }
     }
 
+	bool cmdClearImage(rs_commandbuffer_vk* cb, rs_image_view* view, const vec4& color)
+	{
+        if ((view->image->usage & ImageUsage_TransferDst) == 0) {
+            return false;
+        }
+
+		//DO A STATE TRANSIT, IT'S A REQUIRE 
+		Vulkan::transitionImageViewState(cb, view, ResourceState::TransferDst);
+
+
+        
+        auto resourceRange = toVkImageSubresourceRange(view->viewKey);
+
+        auto currentResourceState = getViewState(view);
+        auto mapping = getVulkanMapping(currentResourceState);
+
+        if (view->image->usage & ImageUsage_DepthStencilAttachment) {
+            VkClearDepthStencilValue clearCol{};
+            clearCol.depth = color.r;
+            clearCol.stencil = color.g;
+			vkCmdClearDepthStencilImage(
+				(VkCommandBuffer)cb->native,
+				(VkImage)view->image->native,
+				mapping.imageLayout,
+				&clearCol,
+				1, &resourceRange
+			);
+        }else{
+
+			VkClearColorValue clearColor{};
+			memcpy(clearColor.float32, &color, sizeof(vec4));
+			//Remap?
+			clearColor.int32[0] = int(color.r / 255.);
+			clearColor.int32[1] = int(color.g / 255.);
+			clearColor.int32[2] = int(color.b / 255.);
+			clearColor.int32[3] = int(color.a / 255.);
+
+			clearColor.uint32[0] = clearColor.int32[0];
+			clearColor.uint32[1] = clearColor.int32[1];
+			clearColor.uint32[2] = clearColor.int32[2];
+			clearColor.uint32[3] = clearColor.int32[3];
+
+			vkCmdClearColorImage(
+				(VkCommandBuffer)cb->native,
+				(VkImage)view->image->native,
+				mapping.imageLayout,
+				&clearColor,
+				1, &resourceRange
+			);
+        }
+
+        return true;
+	}
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
@@ -2562,6 +2630,7 @@ namespace Render::Vulkan {
     {
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
 		auto renderPass = (rs_renderpass_vk*)cb->currentRenderPass;
+
 		auto renderTarget = cb->currentRenderTarget;
         
         for (int i = 0; i < renderTarget->m_attachments.size();++i) {
@@ -3366,12 +3435,6 @@ namespace Render::Vulkan {
         if (!buffer) {
             return INVALID_BINDLESS_INDEX;
         }
-        if (uav) {
-            bindlessData->pendingResource.push_back({ UniformType::StorageBuffer, buffer });
-        }
-        else {
-            bindlessData->pendingResource.push_back({ UniformType::ConstantBuffer, buffer });
-        }
 
         return getRsBufferDeviceAddress(ctx, buffer);
 
@@ -3379,13 +3442,6 @@ namespace Render::Vulkan {
 
     uint32_t updateBindlessImage(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, rs_image_view* view, bool uav)
     {
-
-        if (uav) {
-            bindlessData->pendingResource.push_back({ UniformType::StorageImage, view });
-        }
-        else {
-            bindlessData->pendingResource.push_back({ UniformType::Texture, view });
-        }
 
         if (view && view->bindlessIndex != INVALID_BINDLESS_INDEX) {
             view->bindingRef.fetch_add(1);

@@ -3,6 +3,23 @@
 #include "render_log.h"
 #include <map>
 namespace Render::Vulkan {
+    VkImageAspectFlags getImageAspectByImage(rs_image_vk* image) {
+		VkImageAspectFlags aspectMask = 0;
+		if ((image->usage & ImageUsage_DepthStencilAttachment) > 0) {
+			if (image->format == ImageFormat::D16_UNORM || image->format == ImageFormat::D32_SFLOAT) {
+				//Its a pure depth?
+				aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			}
+			else {
+				aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			}
+		}
+		else {
+			aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		}
+        return aspectMask;
+    }
+
     VulkanStateMapping getVulkanMapping(ResourceState state) {
         switch (state) {
         case ResourceState::Common:
@@ -215,9 +232,7 @@ namespace Render::Vulkan {
         std::vector<VkImageMemoryBarrier> barriersToSubmit;
         VkPipelineStageFlags srcStageMaskAccumulate = 0;
         VkPipelineStageFlags dstStageMaskAccumulate = 0;
-
-        VkImageAspectFlags aspectMask = (image->usage & ImageUsage_DepthStencilAttachment) ?
-            (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_COLOR_BIT;
+        VkImageAspectFlags aspectMask = getImageAspectByImage(image);
 
         for (uint32_t layer = baseArrayLayer; layer < baseArrayLayer + actualLayers; ++layer) {
             for (uint32_t mip = baseMipLevel; mip < baseMipLevel + actualMips; ++mip) {
@@ -274,10 +289,103 @@ namespace Render::Vulkan {
         auto image = view->image;
         for (uint32_t layer = baseLayer; layer < baseLayer + layerCount; ++layer) {
             for (uint32_t mip = baseMipLevel; mip < baseMipLevel + mipCount; ++mip) {
-                uint32_t flatIndex = layer * mipLevels + mip;
+                uint32_t flatIndex = baseLayer * mipLevels + baseMipLevel;
                 image->subresourceStates[flatIndex] = newState;
             }
         }
     }
+
+	ResourceState getViewState(rs_image_view* view)
+	{
+		auto baseLayer = view->viewKey.getBaseLayer();
+		auto baseMipLevel = view->viewKey.getBaseMip();
+		auto layerCount = view->viewKey.getLayerCount();
+		auto mipCount = view->viewKey.getMipCount();
+		auto mipLevels = view->image->mipLevels;
+		auto image = view->image;
+        if (layerCount + mipCount > 2) {
+			assert(false && "Can only get one state");
+            return ResourceState::Common;
+        }
+        uint32_t resourceLoc = baseLayer * baseMipLevel;
+        return view->image->subresourceStates[resourceLoc];
+
+	}
+
+	void transitionImageViewState(rs_commandbuffer_vk* cb, rs_image_view* view, ResourceState newState)
+	{
+		rs_image_vk* image = (rs_image_vk*)view->image;
+		auto& key = view->viewKey;
+		VulkanStateMapping newMap = getVulkanMapping(newState);
+
+		uint32_t keyMipCount = key.getMipCount();
+		uint32_t keyLayerCount = key.getLayerCount();
+
+		uint32_t actualMips = (keyMipCount == 0x3F) ? image->mipLevels - key.getBaseMip() : keyMipCount;
+		uint32_t actualLayers = (keyLayerCount == 0x3F) ? image->arrayLayers - key.getBaseLayer() : keyLayerCount;
+
+        VkImageAspectFlags aspectMask = getImageAspectByImage(image);
+
+		std::vector<VkImageMemoryBarrier> barrierBatch;
+		barrierBatch.reserve(actualLayers * actualMips); 
+
+		VkPipelineStageFlags srcStageMaskCombined = 0;
+		VkPipelineStageFlags dstStageMaskCombined = newMap.stageMask;
+
+		for (uint32_t layer = key.getBaseLayer(); layer < key.getBaseLayer() + actualLayers; ++layer) {
+			for (uint32_t mip = key.getBaseMip(); mip < key.getBaseMip() + actualMips; ++mip) {
+
+				uint32_t flatIndex = layer * image->mipLevels + mip;
+				assert(image->subresourcePendingStates[flatIndex] == newState);
+				ResourceState oldSubState = image->subresourceStates[flatIndex];
+
+				if (oldSubState != newState) {
+					VulkanStateMapping oldMap = getVulkanMapping(oldSubState);
+
+					if (oldMap.imageLayout == newMap.imageLayout && oldMap.stageMask == newMap.stageMask) {
+						image->subresourceStates[flatIndex] = newState;
+						continue;
+					}
+
+					VkImageMemoryBarrier barrier{};
+					barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+					barrier.oldLayout = oldMap.imageLayout;
+					barrier.newLayout = newMap.imageLayout;
+					barrier.srcAccessMask = oldMap.accessMask;
+					barrier.dstAccessMask = newMap.accessMask;
+					barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+					barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+					barrier.image = (VkImage)image->native;
+
+					barrier.subresourceRange.aspectMask = aspectMask;
+					barrier.subresourceRange.baseMipLevel = mip;
+					barrier.subresourceRange.levelCount = 1;
+					barrier.subresourceRange.baseArrayLayer = layer;
+					barrier.subresourceRange.layerCount = 1;
+
+					image->subresourceStates[flatIndex] = newState;
+					assert(image->subresourceStates[flatIndex] == image->subresourcePendingStates[flatIndex]);
+
+					barrierBatch.push_back(barrier);
+					srcStageMaskCombined |= oldMap.stageMask; 
+				}
+			}
+		}
+
+		if (!barrierBatch.empty()) {
+			if (srcStageMaskCombined == 0) {
+				srcStageMaskCombined = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			}
+
+			vkCmdPipelineBarrier(
+				(VkCommandBuffer)cb->native,
+				srcStageMaskCombined, dstStageMaskCombined,
+				0,
+				0, nullptr,
+				0, nullptr,
+				static_cast<uint32_t>(barrierBatch.size()), barrierBatch.data()
+			);
+		}
+	}
 
 }

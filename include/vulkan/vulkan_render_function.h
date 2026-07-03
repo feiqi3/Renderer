@@ -1,6 +1,7 @@
 #include "vulkan_render_resource.h"
 #include "render_resource_createinfo.h"
 #include "render_resource_window.h"
+#include "common/CommonMath.h"
 #include <vector>
 namespace Render::Vulkan {
 
@@ -103,7 +104,7 @@ namespace Render::Vulkan {
 	
 	void createDebugUtilsMessengerEXT(rs_context_vk* ctx);
 	void destroyDebugUtilsMessengerEXT(rs_context_vk* ctx);
-
+	VkImageSubresourceRange toVkImageSubresourceRange(const ImageViewKey& viewKey);
 	std::set<std::string> getExtensionEnableDevice(rs_context_vk* context);
 	VkPhysicalDeviceFeatures getExtensionEnablePhysicalDevice(rs_context_vk* context);
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
@@ -151,6 +152,8 @@ namespace Render::Vulkan {
 	void cmdBeginRecord(rs_commandbuffer_vk* cb);
 	void cmdEndRecord(rs_commandbuffer_vk* cb);
 	void cmdSubmitOneShotAndWait(rs_context_vk* ctx, rs_commandbuffer_vk* cb);
+
+	bool cmdClearImage(rs_commandbuffer_vk* cb, rs_image_view* image, const vec4& color);
 	//-------------------------------------------------------------------------------------//     
 	
 	//Bindless related. 

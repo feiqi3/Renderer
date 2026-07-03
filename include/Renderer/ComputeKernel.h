@@ -46,8 +46,9 @@ namespace Render {
         }
 
         void dispatch(rs_commandbuffer* cmd, uint32_t groupX, uint32_t groupY, uint32_t groupZ);
-
-    private:
+        inline rs_pipeline* getRsPipeline()const { return mPipeline; }
+		inline rs_drawdata* getRsDrawdata()const { return mCurrentDrawData; }
+	private:
         rs_compute_pipeline* mPipeline = nullptr;
         rs_drawdata* mCurrentDrawData = nullptr;
 

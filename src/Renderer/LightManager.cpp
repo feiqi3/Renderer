@@ -4,6 +4,7 @@
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/GPUShared/IBLGenConfig.h"
+#include "Renderer/RenderDebuger.h"
 #include "common/ResourceSystem.h"
 namespace Render {
 	static int MAX_MIPS_TO_GEN = 5;
@@ -180,12 +181,14 @@ namespace Render {
 		}
 		auto rsys = RenderSystem::instance();
 		if (brdfLutNeedGenerate) {
+			RenderMarker marker(cmdbuf, "IBL Calculation - BRDF LUT", 0.2, 0.3, 0.8, 1.);
 			brdfLutNeedGenerate = false;
 			this->brdfLUTKernel->setParameter("OutBrdfLUT", mBRDFLut);
 			brdfLUTKernel->dispatch(cmdbuf, 1024 / 8, 1024 / 8, 1);
 		}
 
 		if (prefilterMapNeedGenerate) {
+			RenderMarker marker(cmdbuf, "IBL Calculation - ENV MAP", 0.2, 0.3, 0.8, 1.);
 			this->lightDataDirty = true;
 			prefilterMapNeedGenerate = false;
 			GPUShared::PrefilterEnvMapCfg cfg{};

@@ -167,6 +167,7 @@ namespace Render{
 			uint32_t baseArrayLayer,
 			uint32_t layerCount
 		);
+		void cmdClearRT(rs_commandbuffer* cmdbuf,const TexturePtr& tex,ImageViewKey viewKey, const vec4& color);
 		void cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo);
 		rs_bindless_data* createBindlessData(rs_pipeline* pipeline);
 

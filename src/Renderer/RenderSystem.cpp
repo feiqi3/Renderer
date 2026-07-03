@@ -22,6 +22,8 @@
 #include "function/EngineResourceManager.h"
 #include "function/ComponentSystem.h"
 #include "render_resource_global.h"
+#include "Renderer/ComputeKernel.h"
+#include <memory>
 #include <set>
 namespace Render{
 	TexturePtr geterrorTexture(class RenderSystemPrivate* dp);
@@ -76,9 +78,9 @@ namespace Render{
 		ShaderIncFindFunc mShaderIncludeFunction;
 		Camera* mCurrentCamera = nullptr;
 		rs_bindless_data* globalBindlessData = nullptr;
-
 		float globalViewPortZNear = 0.;
 		float globalViewPortZFar =  1.;
+		std::unique_ptr< ComputeKernel> clearRTCompute;
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -116,7 +118,7 @@ namespace Render{
 		using namespace Vulkan;
 		if (!sRenderSystem)return;
 		delete sRenderSystem->mDp->mBlitor;
-
+		sRenderSystem->mDp->clearRTCompute = nullptr;
 		delete ComponentSystem::instance();
 		delete CameraManager::instance();
 		delete ConstShaderDataManager::instance();
@@ -246,6 +248,7 @@ namespace Render{
 	void RenderSystem::cmdEndRenderPass(rs_commandbuffer* cmdbuf)
 	{
 		auto curRenderTarget = cmdbuf->currentRenderTarget;
+		if (!curRenderTarget)return; //No rt now, also there must be no render pass now
 		Vulkan::cmdEndRenderPass((Vulkan::rs_commandbuffer_vk*)cmdbuf);
 		for (auto&& img : curRenderTarget->m_attachments) {
 			if (img->usage & ImageUsage_PresentSrc) {
@@ -987,6 +990,33 @@ namespace Render{
 			baseArrayLayer, 
 			layerCount
 		);
+	}
+
+	void RenderSystem::cmdClearRT(rs_commandbuffer* cmdbuf, const TexturePtr& tex, ImageViewKey viewKey, const vec4& color)
+	{
+		if (mDp->clearRTCompute == nullptr) {
+			mDp->clearRTCompute = std::make_unique<ComputeKernel>("../shader/ClearRTCompute.cs", MacroPairs());
+		}
+		auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), viewKey);
+		//is texture a UAV?
+		if (view->image->usage & ImageUsage::ImageUsage_Storage)
+		{
+			float h = view->image->height;
+			float w = view->image->width;
+			//DO a Compute?
+			static Name clearDataName = Name("clearData");
+			static Name clearTexName = Name("outClear");
+			mDp->clearRTCompute->setParameter(clearDataName, &color, sizeof(color));
+			mDp->clearRTCompute->setParameter(clearTexName, tex,viewKey,0);
+			mDp->clearRTCompute->dispatch(cmdbuf, std::ceil(w / 8.), std::ceil(h / 8.), 1);
+		}
+		else {
+			if (!Vulkan::cmdClearImage((Vulkan::rs_commandbuffer_vk*)cmdbuf, view, color)) {
+				assert(false && "Do a hardware clear requires image with ImageUsage_TransferDst");
+				return;
+			}
+
+		}
 	}
 
 	void RenderSystem::cmdTransferRenderBufferState(rs_commandbuffer* cmdbuf, RenderInfo& renderInfo)
