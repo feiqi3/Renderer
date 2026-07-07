@@ -35,8 +35,8 @@ namespace Render {
 			uint32_t shadowRTSize = 2048;//x, y
 			RenderTextureFormat shadowRTFormat = RenderTextureFormat::D32;
 			int pointLightShadowNum = 0;
-			float dirLightCameraHeight = 200.f;
-			float dirLightShadowFarZ = 50.f;
+			float dirLightCameraHeight = 100.f;
+			float dirLightShadowFarZ = 40.f;
 		}ShadowConfig;
 		bool isDirShadowConfigDirty = true;
 		bool isPointShadowConfigDirty = true;

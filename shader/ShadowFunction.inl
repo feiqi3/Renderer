@@ -1,4 +1,4 @@
-#define SHADOW_BIAS 0.01f
+#define SHADOW_BIAS 0.001f
 
 #if !defined(SHADOW_PASS)
 
@@ -23,6 +23,7 @@ float calculateShadowVisFactor(vec4 worldSpacePos)
         float shadowMapDepth = texture(sampler2D(DirShadowMap, ShadowSampler), shadowPosNDC.xy).r;
         //depth from world space to dirlight shadow camera
         float depth = ndcPos.z;
+        depth = min(1.,depth);
         if(depth - SHADOW_BIAS < shadowMapDepth)
         {
             shadowVis = 1.0f;

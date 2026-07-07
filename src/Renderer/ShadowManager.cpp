@@ -31,6 +31,8 @@ namespace Render {
 		CameraManager::instance()->RegisterCamera(mDp->mDirLightCamera.get(), 1);
 		mDp->mShadowDrawData = RenderSystem::instance()->createDrawData();
 		SamplerDesc samplerDesc{};
+		samplerDesc.minFilter = Filter::Linear;
+		samplerDesc.magFilter = Filter::Linear;
 		samplerDesc.borderColor = BorderColor::FloatOpaqueBlack;
 		samplerDesc.addressU = AddressMode::ClampToBorder;
 		samplerDesc.addressV = AddressMode::ClampToBorder;
@@ -192,7 +194,7 @@ namespace Render {
 		vec3 camPos = worldPosOfShadowCamera;
 		//DebugDrawManager::instance()->drawAABB(aabbOfFrustum,vec4(1,.0,0,0.3));
 		float nearPlane = 0.01f;
-		float farPlane = radius * 2.0f;
+		float farPlane = radius * 2.0f + ShadowConfig.dirLightCameraHeight;
 		mDp->mDirLightCamera->setPosition(camPos);
 		mDp->mDirLightCamera->setTarget(worldCenterOfBox);
 		mDp->mDirLightCamera->setOrthoSize(radius);
