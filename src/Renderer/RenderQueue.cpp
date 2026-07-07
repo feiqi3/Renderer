@@ -6,68 +6,52 @@ namespace Render {
 
 	class IViewImpl {
 	public:
-		IViewImpl(const RenderQueue::PriorityMap& map)
-			: mMap(map), mBeg(mMap.cbegin()), mEnd(mMap.cend()), mCur(mBeg) {
-		}
-
 		virtual const RenderCommand* next() = 0;
 		virtual ~IViewImpl() = default;
-
-	protected:
-		const RenderQueue::PriorityMap& mMap; 
-		RenderQueue::PriorityMap::const_iterator mBeg;
-		RenderQueue::PriorityMap::const_iterator mEnd;
-		RenderQueue::PriorityMap::const_iterator mCur;
 	};
 
-	class ViewImplPassNameMaskFilter : public IViewImpl {
+	class BucketViewImpl : public IViewImpl {
 	public:
-		ViewImplPassNameMaskFilter(const RenderQueue::PriorityMap& map, Name passName, u64 mask)
-			: IViewImpl(map), mName(passName), mMask(mask) {
+		BucketViewImpl(std::vector<const std::vector<RenderCommand>*>&& buckets)
+			: mBuckets(std::move(buckets)), mBucketIdx(0), mCmdIdx(0), mHasPassFilter(false), mPassName("") {
+		}
+
+		BucketViewImpl(std::vector<const std::vector<RenderCommand>*>&& buckets, const Name& passName)
+			: mBuckets(std::move(buckets)), mBucketIdx(0), mCmdIdx(0), mHasPassFilter(true), mPassName(passName) {
 		}
 
 		virtual const RenderCommand* next() override {
-			const RenderCommand* cmd = nullptr;
-			while (mCur != mEnd) {
-				cmd = &mCur->second;
-				mCur++;
+			while (mBucketIdx < mBuckets.size()) {
+				const auto& bucket = *mBuckets[mBucketIdx];
 
-				if ((cmd->renderMask & mMask) != 0) {
-					Pass* pass = cmd->entity->getPass(mName);
-					if (pass) {
-						return cmd;
+				if (mCmdIdx < bucket.size()) {
+					const auto& cmd = bucket[mCmdIdx++];
+
+					if (mHasPassFilter) {
+						if (cmd.entity->getPass(mPassName) != nullptr) {
+							return &cmd;
+						}
+					}
+					else {
+						return &cmd;
 					}
 				}
-			}
-			return nullptr;
-		}
-
-	private:
-		Name mName;
-		u64 mMask;
-	};
-
-	class ViewImplMaskFilter : public IViewImpl {
-	public:
-		ViewImplMaskFilter(const RenderQueue::PriorityMap& map, u64 mask)
-			: IViewImpl(map), mMaskTag(mask) {
-		}
-
-		virtual const RenderCommand* next() override {
-			const RenderCommand* cmd = nullptr;
-			while (mCur != mEnd) {
-				cmd = &mCur->second;
-				mCur++;
-
-				if ((cmd->renderMask & mMaskTag) != 0) {
-					return cmd;
+				else {
+					mBucketIdx++;
+					mCmdIdx = 0;
 				}
 			}
 			return nullptr;
 		}
+
 	private:
-		u64 mMaskTag;
+		std::vector<const std::vector<RenderCommand>*> mBuckets;
+		size_t mBucketIdx;
+		size_t mCmdIdx;
+		bool mHasPassFilter;
+		Name mPassName;
 	};
+
 
 	void RenderQueue::submit(RenderEntity* entity, u64 renderMask)
 	{
@@ -75,30 +59,45 @@ namespace Render {
 
 		RenderCommand cmd{};
 		cmd.entity = entity;
-		cmd.renderMask = renderMask;
 		cmd.worldPos = entity->getWorldPos();
 
-		mCommands.emplace(entity->getMaterial()->getRenderOrder(), cmd);
+		u64 mask = renderMask;
+		uint32_t bitIdx = 0;
+		while (mask > 0 && bitIdx < BUCKET_COUNT) {
+			if (mask & 1ull) {
+				mBuckets[bitIdx].push_back(cmd);
+				mTotalSize++;
+			}
+			mask >>= 1;
+			bitIdx++;
+		}
 	}
 
 	void RenderQueue::clear()
 	{
-		mCommands.clear();
+		for (size_t i = 0; i < BUCKET_COUNT; ++i) {
+			mBuckets[i].clear();
+		}
+		mTotalSize = 0;
 	}
 
-	size_t RenderQueue::size() const
+	size_t RenderQueue::size(RenderMaskID maskID) const
 	{
-		return mCommands.size();
+		size_t idx = static_cast<size_t>(maskID);
+		if (idx < BUCKET_COUNT) {
+			return mBuckets[idx].size();
+		}
+		return 0;
 	}
 
-	RenderQueue::View::View(const PriorityMap& map, uint64_t tagMask)
+	RenderQueue::View::View(std::vector<const std::vector<RenderCommand>*>&& buckets)
 	{
-		mDp = new ViewImplMaskFilter(map, tagMask);
+		mDp = new BucketViewImpl(std::move(buckets));
 	}
 
-	RenderQueue::View::View(const PriorityMap& map, const Name& passName, uint64_t tagMask)
+	RenderQueue::View::View(std::vector<const std::vector<RenderCommand>*>&& buckets, const Name& passName)
 	{
-		mDp = new ViewImplPassNameMaskFilter(map, passName, tagMask);
+		mDp = new BucketViewImpl(std::move(buckets), passName);
 	}
 
 	RenderQueue::View::~View()
@@ -115,11 +114,35 @@ namespace Render {
 
 	RenderQueue::View RenderQueue::getView(uint64_t tagMask) const
 	{
-		return View(mCommands, tagMask);
+		std::vector<const std::vector<RenderCommand>*> activeBuckets;
+		u64 mask = tagMask;
+		uint32_t bitIdx = 0;
+		while (mask > 0 && bitIdx < BUCKET_COUNT) {
+			if (mask & 1ull) {
+				if (!mBuckets[bitIdx].empty()) {
+					activeBuckets.push_back(&mBuckets[bitIdx]);
+				}
+			}
+			mask >>= 1;
+			bitIdx++;
+		}
+		return View(std::move(activeBuckets));
 	}
 
 	RenderQueue::View RenderQueue::getView(const Name& passName, uint64_t tagMask) const
 	{
-		return View(mCommands, passName, tagMask);
+		std::vector<const std::vector<RenderCommand>*> activeBuckets;
+		u64 mask = tagMask;
+		uint32_t bitIdx = 0;
+		while (mask > 0 && bitIdx < BUCKET_COUNT) {
+			if (mask & 1ull) {
+				if (!mBuckets[bitIdx].empty()) {
+					activeBuckets.push_back(&mBuckets[bitIdx]);
+				}
+			}
+			mask >>= 1;
+			bitIdx++;
+		}
+		return View(std::move(activeBuckets), passName);
 	}
 }

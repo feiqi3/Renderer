@@ -8,9 +8,7 @@ namespace Render {
 	class RenderEntity;
 	struct RenderCommand {
 		RenderEntity* entity;
-		u64 renderMask;
 		vec3 worldPos;
-		u32 renderPriority;
 	};
 }
 

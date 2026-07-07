@@ -6,6 +6,7 @@
 #include "Renderer/RenderDebuger.h"
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/MaterialTemplateManager.h"
+#include "Renderer/MaterialInstance.h"
 #include "Renderer/RenderQueue.h"
 #include "function/Scene.h"
 #include <algorithm>
@@ -180,10 +181,8 @@ namespace Render {
 			collectRenderEntitiesForName((cam->getRenderQueue()), logicalPass, batch.packs);
 
 			static auto getEntityDistToCam = [](const vec3& camPos, RenderEntity* entity) -> float {
-				auto worldBounding = entity->getWorldBounding();
-				if (worldBounding.isInfinity())return std::numeric_limits<float>::infinity();
-				vec3 boundingCenter = worldBounding.getCenter();
-				return length(camPos - boundingCenter);
+				auto worldPos = entity->getWorldPos();
+				return length(camPos - worldPos);
 			};
 
 
@@ -194,7 +193,14 @@ namespace Render {
 				switch (logicalPass.drawOrder)
 				{
 				case PassDrawOrder::None:
+				{
+					std::sort(batch.packs.begin(), batch.packs.end(), [](RenderPack& a, RenderPack& b) {
+						auto priorityA = a.entity->getMaterial()->getRenderOrder();
+						auto priorityB = b.entity->getMaterial()->getRenderOrder();
+						return priorityA < priorityB;
+						});
 					break;
+				}
 				case PassDrawOrder::FromFarToNear:
 				{
 					std::sort(batch.packs.begin(), batch.packs.end(), [&camPos]( RenderPack& a, RenderPack& b) {
@@ -271,7 +277,7 @@ namespace Render {
 			if (!pass)continue;
 			RenderPack pack{
 				.entity = renderData->entity,
-				.pass = pass
+				.pass = pass,
 			};
 			packs.push_back(pack);
 		}

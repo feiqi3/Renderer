@@ -1,82 +1,75 @@
 #ifndef RENDER_QUEUE_H_
 #define RENDER_QUEUE_H_
+
 #include "RenderEntity.h"
 #include "common/CoreDefs.h"
 #include "common/Name.h"
-#include <map>
 #include "Renderer/RenderCommand.h"
-#include <unordered_map>
+#include <vector>
+
 namespace Render {
 
-    namespace RenderOrder {
-        inline u32 Opaque = 1000;
-        inline u32 SkyBox = 9999;
-        inline u32 Transparent = 10000;
-    };
+	namespace RenderOrder {
+		inline u32 Opaque = 1000;
+		inline u32 SkyBox = 9999;
+		inline u32 Transparent = 10000;
+	};
 
-    namespace RenderMask {
-        inline u64 Normal = 1ull << 0;
-        inline u64 ShadowCaster = 1ull << 1;
-		inline u64 Transparent = 1ull << 16;
-		inline u64 SkyBox = 1ull << 32;
-        inline u64 DebugDraw = 1ull << 50;
-    };
+	enum class RenderMaskID {
+		Normal = 0,
+		ShadowCaster = 1,
+		Transparent = 16,
+		Skybox = 32,
+		DebugDraw = 50
+	};
 
-    class Pass;
-    class RenderQueue
-    {
-    public:
-        using PriorityMap = std::multimap<uint32_t, RenderCommand>; // key = renderOrder
+	namespace RenderMask {
+		inline u64 Normal = 1ull << (int)RenderMaskID::Normal;
+		inline u64 ShadowCaster = 1ull << (int)RenderMaskID::ShadowCaster;
+		inline u64 Transparent = 1ull << (int)RenderMaskID::Transparent;
+		inline u64 SkyBox = 1ull << (int)RenderMaskID::Skybox;
+		inline u64 DebugDraw = 1ull << (int)RenderMaskID::DebugDraw;
+	};
 
-        RenderQueue() = default;
-        ~RenderQueue() = default;
+	class Pass;
 
-        RenderQueue(const RenderQueue&) = delete;
-        RenderQueue& operator=(const RenderQueue&) = delete;
+	class RenderQueue
+	{
+	public:
+		RenderQueue() = default;
+		~RenderQueue() = default;
 
-        void submit(RenderEntity* entity,u64 renderMask = UINT64_MAX);
+		RenderQueue(const RenderQueue&) = delete;
+		RenderQueue& operator=(const RenderQueue&) = delete;
 
-        void clear();
+		void submit(RenderEntity* entity, u64 renderMask = 0);
 
-        size_t size() const;
+		void clear();
+		size_t size(RenderMaskID maskID) const;
 
-        class View
-        {
-        public:
-            View(const PriorityMap& map, uint64_t tagMask = UINT64_MAX);
-            View(const PriorityMap& map,const Name& passName, uint64_t tagMask = UINT64_MAX);
-            ~View();
-            const RenderCommand* next();
+		class View
+		{
+		public:
+			View(std::vector<const std::vector<RenderCommand>*>&& buckets);
+			View(std::vector<const std::vector<RenderCommand>*>&& buckets, const Name& passName);
+			~View();
+			const RenderCommand* next();
 
-        private:
-            class IViewImpl* mDp = 0;
-        };
+		private:
+			class IViewImpl* mDp = nullptr;
+		};
 
-        View getView(uint64_t tagMask = UINT64_MAX) const;
-        View getView(const Name& name, uint64_t tagMask = UINT64_MAX)const;
-    private:
-        PriorityMap mCommands;
-    };
+		View getView(uint64_t tagMask = UINT64_MAX) const;
+		View getView(const Name& name, uint64_t tagMask = UINT64_MAX) const;
 
+	private:
+		static constexpr size_t BUCKET_COUNT = 64;
 
-    class RenderGroup
-    {
-    public:
-        RenderGroup() = default;
-        ~RenderGroup() = default;
+		mutable std::vector<RenderCommand> mBuckets[BUCKET_COUNT];
+		mutable bool mBucketSorted[BUCKET_COUNT] = { false };
 
-        RenderGroup(const RenderGroup&) = delete;
-        RenderGroup& operator=(const RenderGroup&) = delete;
-        RenderQueue& getQueue(const Name& queueName);
-
-        const RenderQueue* getQueue(const Name& queueName) const;
-
-        void clear();
-
-
-    private:
-        std::unordered_map<Name, RenderQueue> mPasses;
-    };
+		size_t mTotalSize = 0;
+	};
 }
 
-#endif
+#endif // RENDER_QUEUE_H_
