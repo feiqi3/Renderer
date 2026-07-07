@@ -12,7 +12,11 @@ namespace Render {
 	struct rs_renderpass;
 	struct rs_rendertarget;
 	struct rs_commandbuffer;
-
+	enum class PassDrawOrder {
+		None,
+		FromFarToNear,
+		FromNearToFar
+	};
 	struct LogicalPass {
 		Name name;
 		int priority = 0;
@@ -20,12 +24,16 @@ namespace Render {
 
 		bool hasCustomViewport = false;
 		Rect2D viewportRect{};
+		StageMacroPairs passMacros;
+		PassDrawOrder drawOrder = PassDrawOrder::None;
 	};
 
 	struct LogicPassDesc {
 		Name logicPassName;
 		int priority;
-		u64 filterMask;
+		u64 filterMask = 0xFFFFFFFFFFFFFFFF; //RenderMask::
+		PassDrawOrder drawOrder = PassDrawOrder::None;
+		StageMacroPairs passMacros;
 	};
 
 	class RenderPass {
@@ -52,7 +60,7 @@ namespace Render {
 			class Pass* pass;
 		};
 
-		void addLogicalPass(const Name& name, int priority, u64 filterMask = 0xFFFFFFFFFFFFFFFF);
+		void addLogicalPass(const LogicPassDesc& desc);
 		void removeLogicalPass(const Name& name);
 		void setLogicalPassPriority(const Name& name, int priority);
 		bool hasLogicalPass(const Name& name) const;
@@ -70,7 +78,7 @@ namespace Render {
 		std::vector<RenderPack> mRenderPacks;
 		std::vector<LogicalPass> mLogicalPasses;
 
-		void collectRenderEntitiesForName(RenderQueue* renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs);
+		void collectRenderEntitiesForName(RenderQueue* renderQueue,const LogicalPass& logicPass, std::vector<RenderPack>& packs);
 
 	protected:
 		friend class RenderPassManager;

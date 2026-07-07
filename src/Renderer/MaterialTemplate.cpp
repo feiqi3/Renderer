@@ -2,6 +2,7 @@
 #include "Renderer/MaterialTemplate.h"
 #include "Renderer/MaterialVarient.h"
 #include "Renderer/RenderSystem.h"
+#include "render_function.h"
 #include "vulkan/vulkan_render_function.h"
 #include "vulkan/vulkan_pipeline.h"
 #include "vulkan/vulkan_shader_module.h"
@@ -9,31 +10,6 @@
 #include "platform/FileSystem/FileSystem.h"
 #include <cassert>
 namespace Render {
-
-	static StageMacroPairs mergeStageMacroPairs(const StageMacroPairs& lhs, const StageMacroPairs& rhs)
-	{
-		StageMacroPairs result = lhs;
-
-		for (const auto& rhsStagePair : rhs)
-		{
-			ShaderStage stage = rhsStagePair.first;
-			const auto& rhsMacros = rhsStagePair.second;
-
-			auto it = std::find_if(result.begin(), result.end(), [stage](const auto& pair) {
-				return pair.first == stage;
-				});
-
-			if (it != result.end())
-			{
-				it->second.insert(it->second.end(), rhsMacros.begin(), rhsMacros.end());
-			}
-			else
-			{
-				result.push_back(rhsStagePair);
-			}
-		}
-		return result;
-	}
 
 	MaterialTemplate::MaterialTemplate(const ShaderStageInfo& shaderInfo, const RenderState& state, const VertexInputDescription& inputDesc)
 		: mRenderState(state), mShaderInfo(shaderInfo), mInputDesc(inputDesc)
@@ -103,10 +79,8 @@ namespace Render {
 		auto renderPassMacro = renderPass->getPassStageShaderMacro(passName);
 		auto newMacro = mergeStageMacroPairs(renderPassMacro, shaderMacro);
 		auto pipeline = createVariantPipeline(renderPass, newMacro, state);
-		MaterialPass* mat = new MaterialPass(renderPass, this, pipeline, newMacro);
-
+		MaterialPass* mat = new MaterialPass(renderPass, passName, this, pipeline, newMacro);
 		mMaterialPassMap[passName] = mat;
-
 		return mat;
 	}
 

@@ -30,6 +30,7 @@ namespace Render {
 		rs_binding_pos ShadowInfoDataPos;
 		rs_binding_pos DirLightShadowPos;
 		rs_binding_pos ShadowSamplerPos;
+		rs_binding_pos ShadowCommonDataPos;
 
 		rs_binding_pos GlobalBindlessUAVBuffersBindingPos;
 		rs_binding_pos GlobalBindlessUAVImagesBindingPos;
@@ -82,8 +83,9 @@ namespace Render {
 		mDp->EnvMapSamplerBIndingPos	= pSys->getBindingPos("SceneTextureSampler", mDp->MainPassVirtualMaterial);
 		
 		//Shadow related
-		mDp->DirLightShadowPos	= pSys->getBindingPos("DirShadowMap", mDp->MainPassVirtualMaterial);
-		mDp->ShadowSamplerPos	= pSys->getBindingPos("ShadowSampler", mDp->MainPassVirtualMaterial);
+		mDp->DirLightShadowPos	= pSys->getBindingPos("DirShadowMap"	, mDp->MainPassVirtualMaterial);
+		mDp->ShadowSamplerPos	= pSys->getBindingPos("ShadowSampler"	, mDp->MainPassVirtualMaterial);
+		mDp->ShadowCommonDataPos= pSys->getBindingPos("ShadowData"		, mDp->MainPassVirtualMaterial);
 
 		//Enable bindless related
 		mDp->GlobalBindlessUAVBuffersBindingPos = pSys->getBindingPos("GlobalUAVBuffers", mDp->MainPassVirtualMaterial);
@@ -155,7 +157,14 @@ namespace Render {
 		if (shadowSampler) {
 			RenderSystem::instance()->updateUniform(mDp->ShadowSamplerPos, 0, shadowSampler->getRsSampler(), &tempPass);
 		}
-		return  shadowMgr.getShadowDrawData();;
+
+		//Update scene shadow drawdata
+		auto shadowDrawData = scene->getShadowMgr().getShadowDrawData();
+		auto shadowData		= scene->getShadowMgr().getSceneShadowData();
+		tempPass.mDrawData = shadowDrawData;
+		RenderSystem::instance()->updateUniformBufferData(mDp->ShadowCommonDataPos, &shadowData,sizeof(GPUShared::GPUSceneShadowData), &tempPass);
+
+		return  shadowMgr.getShadowDrawData();
 	}
 
 	Render::rs_binding_pos ConstShaderDataManager::getObjectCommonDataBindingPos()

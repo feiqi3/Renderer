@@ -1320,9 +1320,10 @@ namespace Render::Vulkan {
 			return;
 		}
 
-        int width = rt->m_attachments[0]->width;
-		int height = rt->m_attachments[0]->height;
-        int arrLayer = rt->m_attachments[0]->arrayLayers;
+		auto rtSize = getRenderTargetSize(rt);
+		int width = rtSize.width;
+		int height = rtSize.height;
+		int arrLayer = rtSize.arrayLayers;
 		VkFramebuffer* frameBuffer = (VkFramebuffer*)&rt->native;
 		VkRenderPass renderPass = (VkRenderPass)cmd->currentRenderPass->native;
         if (*frameBuffer == nullptr){
@@ -2630,7 +2631,6 @@ namespace Render::Vulkan {
     {
         vkCmdEndRenderPass((VkCommandBuffer)cb->native);
 		auto renderPass = (rs_renderpass_vk*)cb->currentRenderPass;
-
 		auto renderTarget = cb->currentRenderTarget;
         
         for (int i = 0; i < renderTarget->m_attachments.size();++i) {
@@ -2646,9 +2646,10 @@ namespace Render::Vulkan {
         assert(cb->currentRenderPass != nullptr);
         VkViewport viewport{};
         auto& rt = cb->currentRenderTarget;
-        int width = rt->m_attachments[0]->width;
-        int height = rt->m_attachments[0]->height;
-        int arrLayer = rt->m_attachments[0]->arrayLayers;
+        auto rtSize = getRenderTargetSize(rt);
+        int width = rtSize.width;
+        int height = rtSize.height;
+        int arrLayer = rtSize.arrayLayers;
         viewport.x = rect.l * width;
         viewport.y = rect.t * height;
         viewport.width = (rect.r - rect.l) * width;
@@ -2662,9 +2663,10 @@ namespace Render::Vulkan {
     {
         assert(cb->currentRenderPass != nullptr);
         auto& rt = cb->currentRenderTarget;
-        int width = rt->m_attachments[0]->width;
-        int height = rt->m_attachments[0]->height;
-        int arrLayer = rt->m_attachments[0]->arrayLayers;
+		auto rtSize = getRenderTargetSize(rt);
+		int width = rtSize.width;
+		int height = rtSize.height;
+		int arrLayer = rtSize.arrayLayers;
         
         VkRect2D scissor{};
         scissor.extent.width = (rect.r - rect.l) * width;

@@ -8,6 +8,12 @@
 #include "Renderer/GPUShared/ObjectData.h"
 
 namespace Render {
+
+	RenderEntity::RenderEntity()
+	{
+		mRenderMask = RenderMask::Normal;
+	}
+
 	RenderEntity::~RenderEntity()
 	{
 		if (mEntityDrawData) {
@@ -59,15 +65,19 @@ namespace Render {
 		auto material = this->getMaterial();
 		if (material) {
 			auto Variant = getMaterial()->getMaterialPassToRender(passName);
-			if (Variant) {
-				auto pass = new Pass;
-				pass->mDrawData = RenderSystem::instance()->createDrawData();
-				pass->mMaterialPass = Variant;
-				this->mPasses.insert({ passName,pass });
-				return pass;
-			}
+			return createPass(passName, Variant);
 		}
 		return nullptr;
+	}
+
+	Pass* RenderEntity::createPass(const Name& passName, MaterialPass* matPass)
+	{
+		if (!matPass)return nullptr;
+		auto pass = new Pass;
+		pass->mDrawData = RenderSystem::instance()->createDrawData();
+		pass->mMaterialPass = matPass;
+		this->mPasses.insert({ passName,pass });
+		return pass;
 	}
 
 	void RenderEntity::destroyPass(const Name& passName)
@@ -83,6 +93,14 @@ namespace Render {
 
 	Pass* RenderEntity::getPass(const Name& passName)
 	{
+		if (!mIsInited && getMaterial()!= nullptr) {
+			const auto& matMap = getMaterial()->getMaterialTemplate()->getMaterialMap();
+			for (const auto& [matPassName, matPass] : matMap) {
+				createPass(matPassName, matPass);
+			}
+			mIsInited = true;
+		}
+
 		if (mPasses.size() < 10) {
 			//fast path
 			for (const auto& [name, pass] : mPasses) {

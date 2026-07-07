@@ -1,6 +1,7 @@
 #ifndef RENDER_DEBUGER_H
 #define RENDER_DEBUGER_H
 #include "common/NoCopyable.h"
+#include "Renderer/DebugDrawManager.h"
 #include <string>
 namespace Render {
 	struct rs_commandbuffer;

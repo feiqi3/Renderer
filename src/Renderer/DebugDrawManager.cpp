@@ -205,6 +205,17 @@ namespace Render {
 			{ShaderStage::Fragment,		"../shader/DebugDraw.ps"},
 		};
 		RenderState state{};
+		BlendState blendInfo{};
+		blendInfo.blendEnable = true;
+		blendInfo.colorBlendOp = BlendOp::Add;
+		
+		blendInfo.srcAlphaBlend = BlendFactor::SrcAlpha;
+		blendInfo.dstAlphaBlend = BlendFactor::OneMinusSrcAlpha;
+
+		blendInfo.srcColorBlend = BlendFactor::SrcColor;
+		blendInfo.dstColorBlend = BlendFactor::DstColor;
+		
+		state.blendStates.push_back(blendInfo);
 		VertexInputDescription desc{};
 		{
 			desc.bindings.push_back(InputBufferBinding{ .stride = sizeof(StandardModelVertex),.perInstance = false });
@@ -264,16 +275,17 @@ namespace Render {
 			Name("DebugDrawMaterialTemplate"), stageInfo, state, desc
 		);
 		mDp->debugDrawTemp = matTemp;
-		matTemp->createMaterialPass(PassName::MainCameraPass);
+		matTemp->createMaterialPass(PassName::MainCameraTransparentPass);
 		mDp->debugDrawMat = MaterialManager::instance()->createMaterial<Material>(Name("DebugDrawMaterial"), matTemp);
+		mDp->debugDrawMat->setRenderMask(RenderMask::DebugDraw);
 
 		mDp->mCubeEntity = std::make_unique<DebugDrawEntity>(Name("Builtin::Cube"));
 		mDp->mCubeEntity->material = mDp->debugDrawMat;
-		mDp->mCubeEntity->createPass(PassName::MainCameraPass);
+		mDp->mCubeEntity->setRenderMask(RenderMask::DebugDraw);
 
 		mDp->mQuadEntity = std::make_unique<DebugDrawEntity>(Name("Builtin::Quad"));
 		mDp->mQuadEntity->material = mDp->debugDrawMat;
-		mDp->mQuadEntity->createPass(PassName::MainCameraPass);
+		mDp->mQuadEntity->setRenderMask(RenderMask::DebugDraw);
 	}
 
 	void DebugDrawManager::init()

@@ -12,6 +12,7 @@
 #include "Renderer/MaterialManager.h"
 #include "Renderer/Materials/PBRMaterial.h"
 
+#include "Renderer/Camera.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "common/ResourceSystem.h"
@@ -76,7 +77,7 @@ namespace Render {
 		node->setLocalPosition(vec3(0,-10, -40));
 		node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
 		//node->addComponent<SpinComponent>();
-		auto nodeLight = naiveScene->createObject("DirLightNode");
+		auto nodeLight = naiveScene->createObject("Lights");
 		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 		nodeLight->setLocalPosition(vec3(0, 10, -35));
 		nodeLight->addComponent<MoveComponent>();
@@ -87,10 +88,12 @@ namespace Render {
 
 		auto cameraNode = naiveScene->createObject("Camera");
 		auto cameraComponent = cameraNode->addComponent<FPSControllerComponent>();
-		cameraComponent->setCamera(CameraManager::instance()->getCamera(Name("SceneMainCamera")));
+		auto camera = CameraManager::instance()->getCamera(Name("SceneMainCamera"));
+		camera->setFar(1500.f);
+		cameraComponent->setCamera(camera);
 
 		auto directionalLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
-		directionalLightcomponent->setDirection(-vec3(-0.3f, -1.0f, 0.2f));
+		directionalLightcomponent->setDirection(vec3(-0.1f, -1.0f, 0.1f));
 		directionalLightcomponent->setColor(vec3(1.0, 0.95, 0.9));
 		directionalLightcomponent->setIntensity(15.f);
 		directionalLightcomponent->setHasShadow(true);
@@ -111,7 +114,6 @@ namespace Render {
 		auto cubeMaterial = MaterialManager::instance()->createMaterial<PBRMaterial>(Name("CubeMaterial"), pbrTemplate);
 		cubeRenderer->setMaterial(0, cubeMaterial);
 		cubeMaterial->setRenderOrder(RenderOrder::Opaque);
-		cubeMaterial->addMaterialPassToRender(PassName::MainCameraPass);
 		auto cubePBRMaterial = (PBRMaterial*)cubeMaterial.get();
 		cubePBRMaterial->setMetallic(0.5);
 		cubePBRMaterial->setRoughness(0.25);

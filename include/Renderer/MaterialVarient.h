@@ -19,6 +19,8 @@ namespace Render {
 		
 		inline RenderPass* getRenderPass()const { return mRenderPass; }
 
+		inline const Name& getMaterialPassName()const { return mLogicPassName; }
+
 		inline const std::vector<ResourceLocation>& getResourceLocations()const {
 			return mRsPipeline->resources;
 		}
@@ -33,9 +35,10 @@ namespace Render {
 		}
 
 	private:
-		MaterialPass(RenderPass* renderpass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const StageMacroPairs& stageInfo);
+		MaterialPass(RenderPass* renderpass,const Name& logicPassName, MaterialTemplate* fromTemplate, rs_pipeline* pipeline,const StageMacroPairs& stageInfo);
 	private:
 		friend class MaterialTemplate;
+		Name		mLogicPassName;
 		RenderPass* mRenderPass;
 		MaterialTemplate* mMaterialTemplate = nullptr;
 		rs_pipeline* mRsPipeline = 0;

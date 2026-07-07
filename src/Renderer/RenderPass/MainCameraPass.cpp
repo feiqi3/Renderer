@@ -15,7 +15,31 @@ namespace Render{
 		return desc;
 	}
 
-	MainCameraPass::MainCameraPass():RenderPass(PassName::MainCameraPass,getMainCamPassDesc())
+	static std::vector<LogicPassDesc> getMainCamLogicPassDesc() {
+		LogicPassDesc logicPassDesc{};
+		std::vector<LogicPassDesc> descs{};
+		
+		//1. Main cam opaque pass 
+		logicPassDesc.filterMask = RenderMask::Normal;
+		logicPassDesc.priority = 5;
+		logicPassDesc.logicPassName = PassName::MainCameraPass;
+		descs.push_back(logicPassDesc);
+		//2. Skybox pass
+		logicPassDesc.filterMask = RenderMask::SkyBox;
+		logicPassDesc.priority = 10;
+		logicPassDesc.logicPassName = PassName::SkyboxPass;
+		descs.push_back(logicPassDesc);
+		//3. Main cam transparent pass
+		logicPassDesc.filterMask = RenderMask::Transparent | RenderMask::DebugDraw;
+		logicPassDesc.priority = 15;
+		logicPassDesc.logicPassName = PassName::MainCameraTransparentPass;
+		logicPassDesc.drawOrder = PassDrawOrder::FromFarToNear;
+		descs.push_back(logicPassDesc);
+		return descs;
+
+	};
+
+	MainCameraPass::MainCameraPass():RenderPass(getMainCamLogicPassDesc(), getMainCamPassDesc())
 	{
 		ClearColor mainColorAtt = {};
 		mainColorAtt.rgba[0] = 0.f;

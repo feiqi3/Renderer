@@ -47,7 +47,6 @@ namespace Render {
 			}
 		);
 		mat = MaterialManager::instance()->createMaterial<Material>(matName, matTemp);
-		mat->addMaterialPassToRender(PassName::PostEffectComposePass);
 		return mat;
 	}
 

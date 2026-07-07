@@ -11,9 +11,9 @@ namespace Render {
 		auto& renderInfo = getRenderInfo();
 		renderInfo.idxCount = 3;
 		this->mSkyboxMaterial = getSkyBoxMaterial();
-		this->createPass(PassName::MainCameraPass);
 		this->getMaterial()->setRenderOrder(RenderOrder::SkyBox);
-
+		//2. set Render Mask
+		mRenderMask = RenderMask::SkyBox;
 	}
 
 	Render::Material* SkyBoxRenderEntity::getMaterial()
@@ -34,13 +34,12 @@ namespace Render {
 			matTplt = MaterialTemplateManager::instance()->createMaterialTemplate(Name("SkyBox"), {
 				{ShaderStage::Vertex, "../shader/SkyBox.vs"},{ShaderStage::Fragment,"../shader/SkyBox.ps"}
 				}, skyBoxRenderState, iaDesc);
-			matTplt->createMaterialPass(PassName::MainCameraPass);
+			matTplt->createMaterialPass(PassName::SkyboxPass);
 		}
 		MaterialPtr matSkyBox = MaterialManager::instance()->getMaterial(Name("SkyBoxMaterial"));
 		if (!matSkyBox)
 		{
 			matSkyBox = MaterialManager::instance()->createMaterial<Material>(Name("SkyBoxMaterial"), matTplt);
-			matSkyBox->addMaterialPassToRender(PassName::MainCameraPass);
 		}
 		matSkyBox->setRenderMask(RenderMask::SkyBox);
 		return matSkyBox;

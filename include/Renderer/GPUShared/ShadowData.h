@@ -5,7 +5,8 @@
     
 GPU_SHARED_NAMESPACE_BEGIN
 	GPU_STRUCT_BEGIN(GPUDirLightShadowData)
-		mat4 ViewProjMat;
+		mat4 ViewMat;
+		mat4 ProjMat;
 		vec4 AtlasInfo;     //x,y :uv offset x,y; z,w :uv extent x,y
 	GPU_STRUCT_END
 

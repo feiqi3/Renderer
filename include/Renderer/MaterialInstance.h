@@ -52,6 +52,8 @@ namespace Render {
 		void setRenderOrder(u32 order);
 		u32 getRenderOrder() const;
 
+		//This is the default RenderMask for RenderEntity
+		//Render entity will be given should be given with this when its material was set.
 		inline u64 getRenderMask()const		{ return mMaterialRenderMask; }
 		inline void setRenderMask(u64 mask) { mMaterialRenderMask = mask; }
 		MaterialBindingTable& getBindingTable() { return mBindingTable; }
@@ -60,7 +62,7 @@ namespace Render {
 			return mMaterialIndex;
 		}
 		friend class MaterialManager;
-
+		inline const MaterialTemplatePtr& getMaterialTemplate()const { return m_template; }
 	protected:
 
 		std::vector<Name> passNamesToRender;

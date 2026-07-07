@@ -18,6 +18,10 @@ namespace Render {
     {
         assert(m_template.get() != nullptr);
         mState = ResourceLoadState::Loaded;
+
+        for (const auto& [passName,pass] : matTplt->getMaterialMap()) {
+            this->addMaterialPassToRender(passName);
+        }
     }
 
     Material::~Material() {

@@ -25,6 +25,7 @@ namespace Render {
 	class RenderEntity : Common::NonCopyable{
 	public:
 		virtual bool isRenderReady() { return true; }
+		RenderEntity();
 		virtual ~RenderEntity() ;
 		virtual AxisAlignedBoundingBox getWorldBounding() = 0;
 		virtual Material* getMaterial() = 0;
@@ -55,17 +56,28 @@ namespace Render {
 		virtual void updateEntityCommonData();
 		virtual void updateEntityCommonDataImpl(Pass* pass);
 		rs_drawdata* getEntityCommonDrawData()const;
+
+		inline void onMaterialChanged() {
+			mIsInited = false;
+		}
+
+		inline bool isInited()const { return mIsInited; }
+		inline u64 getRenderMask()const { return mRenderMask; }
+		inline void setRenderMask(u64 renderMask) {  mRenderMask = renderMask; }
+	protected:
+		u64 mRenderMask;
 	private:
+		Pass* createPass(const Name& passName,MaterialPass* matPass);
 		void destroyPass(Pass* pass);
 		mat4 mModelMatrix = mat4(1.f);
 		friend class RenderSystem;
 		//TODO: Write every thing into descriptor
 		std::map<Name, Pass*> mPasses;
-		
 		u64 mEntityDrawDataUpdatedFrame = 0;
 		rs_drawdata* mEntityDrawData = nullptr;
 		
 		RenderInfo mRenderInfo;
+		bool mIsInited = false;
 	};
 };
 

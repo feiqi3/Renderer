@@ -4,9 +4,11 @@
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
-
+#include "ShadowFunction.inl"
 #include "CommonMath.inl"
 #include "CommonLight.inl"
+
+
 
 DECL_RBUFFER_STD430_BEG(PBRDataAlias)
     PBRData pbrData;
@@ -106,8 +108,12 @@ vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const f
         vec3 radiance = lightColor * light.colorIntensity.w;
         if(lightType == 0){
             //Dir
+            float vis = 1.0f;
+            #if !defined(SHADOW_PASS)
+            vis = calculateShadowVisFactor(vec4(i_worldPos,1.0));
+            #endif //!SHADOW_PASS
             vec3 L = light.directionRange.xyz;
-            col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,F0,radiance);
+            col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,F0,radiance) * vis;
         }else{
             //Spot/Point
             vec3 L = normalize(lightPos - pos);
@@ -169,7 +175,7 @@ void main()
         texColor.xyz = pow(texColor.xyz,vec3(2.2));
         baseColor *= texColor;
     }
-    #ifndef SHADOW_PASS
+#ifndef SHADOW_PASS
     vec3 albedo = baseColor.rgb;
 
     // --------------------------------------------------
@@ -245,7 +251,9 @@ void main()
     // Final
     // --------------------------------------------------
     vec3 color = directLight + emissive;
+
+
     outColor = vec4(color, baseColor.a);
-    #endif//!SHADOW_PASS
+#endif//!SHADOW_PASS
 }
 

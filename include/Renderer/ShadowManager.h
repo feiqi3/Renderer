@@ -16,7 +16,8 @@ namespace Render {
 		void setPointLightMaxCount(uint32_t count);
 		void setShadowTexSize(uint32_t size);
 		void setShadowTexFormat(RenderTextureFormat fmt);
-		
+		void setShadowCameraHeight(float h);
+		void setDirLightShadowFarZ(float f);
 		//Update some nessary data light camera or render texture
 		//Before cameramanager update and before scene update.
 		//void update(Scene* scene);
@@ -24,6 +25,7 @@ namespace Render {
 		rs_drawdata* getShadowDrawData()const;
 		TexturePtr	getDirShadowTexture()const;
 		SamplerPtr	getShadowSampler()const;
+		GPUShared::GPUSceneShadowData getSceneShadowData()const;
 	protected:
 		void setDirLightCamera(rs_commandbuffer* cmdBuffer,Light* light, Camera* currentCamera);
 		void processShadowDrawInfo(Scene* scene);
@@ -33,6 +35,8 @@ namespace Render {
 			uint32_t shadowRTSize = 2048;//x, y
 			RenderTextureFormat shadowRTFormat = RenderTextureFormat::D32;
 			int pointLightShadowNum = 0;
+			float dirLightCameraHeight = 200.f;
+			float dirLightShadowFarZ = 50.f;
 		}ShadowConfig;
 		bool isDirShadowConfigDirty = true;
 		bool isPointShadowConfigDirty = true;

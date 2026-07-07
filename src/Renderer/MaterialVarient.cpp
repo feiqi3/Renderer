@@ -7,7 +7,8 @@
 #include <stdio.h>
 namespace Render {
 
-	MaterialPass::MaterialPass(RenderPass* renderPass, MaterialTemplate* fromTemplate, rs_pipeline* pipeline, const StageMacroPairs& stageInfo):mRenderPass(renderPass),mMaterialTemplate(fromTemplate), mRsPipeline(pipeline),mShaderMacro(stageInfo)
+	MaterialPass::MaterialPass(RenderPass* renderPass, const Name& logicPassName, MaterialTemplate* fromTemplate, rs_pipeline* pipeline, const StageMacroPairs& stageInfo)
+		:mLogicPassName(logicPassName), mRenderPass(renderPass),mMaterialTemplate(fromTemplate), mRsPipeline(pipeline),mShaderMacro(stageInfo)
 	{
 		mRsPipeline = pipeline;
 		//Construct a binding table
@@ -15,7 +16,7 @@ namespace Render {
 
 	const Name& Pass::getPassName() const
 	{
-		return mMaterialPass->getRenderPass()->getPassName();
+		return mMaterialPass->getMaterialPassName();
 	}
 
 }

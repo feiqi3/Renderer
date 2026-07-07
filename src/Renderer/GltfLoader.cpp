@@ -262,10 +262,11 @@ namespace {
             //Try create one
             RenderState state{};
             if (material->alphaMode == GLTFAlphaMode::Blend) {
+                state.depthWriteEnable = false;
                 BlendState glassBlendForMainRT;
 
                 glassBlendForMainRT.blendEnable = true;
-
+                
                 glassBlendForMainRT.srcColorBlend = BlendFactor::SrcAlpha;        
                 glassBlendForMainRT.dstColorBlend = BlendFactor::OneMinusSrcAlpha; 
                 glassBlendForMainRT.colorBlendOp = BlendOp::Add;                 
@@ -314,12 +315,22 @@ namespace {
 			offset += sizeof(uint32_t);
 
             auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/StandardPBR.vs"},{ShaderStage::Fragment,"../shader/StandardPBR.ps"} }, state, vtxID);
-            tplt->createMaterialPass(PassName::MainCameraPass, {
-                {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
-                });
-            tplt->createMaterialPass(PassName::DirectionalShadowPass, {
-                {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
-                });
+            
+            if (material->alphaMode == Render::GLTFAlphaMode::Blend) {
+				tplt->createMaterialPass(PassName::MainCameraTransparentPass, {
+                    {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+					});
+
+            }else{
+				tplt->createMaterialPass(PassName::MainCameraPass, {
+	            {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+					});
+				tplt->createMaterialPass(PassName::DirectionalShadowPass, {
+					{ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+					});
+            }
+            
+
             return tplt;
         }
         else {
@@ -1348,8 +1359,13 @@ namespace Render {
         Name matName = Name(gltfMat.name);
         auto pbrMatPtr = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, matName);
         if (!pbrMatPtr) {
-            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName,getPBRMaterialTemplate(&gltfMat));
-            pbrMatPtr->addMaterialPassToRender(PassName::MainCameraPass);
+            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName, getPBRMaterialTemplate(&gltfMat));
+            if (gltfMat.alphaMode == GLTFAlphaMode::Blend) {
+                pbrMatPtr->setRenderMask(RenderMask::Transparent);
+			}
+            else {
+				pbrMatPtr->setRenderMask(RenderMask::Normal | RenderMask::ShadowCaster);
+			}
         }
         else {
             return pbrMatPtr;

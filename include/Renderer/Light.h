@@ -17,6 +17,7 @@ namespace Render {
         virtual ~Light() = default;
 
         void setPosition(const glm::vec3& pos);
+        //Direction from surface to light!
         void setDirection(const glm::vec3& dir);
         void setColor(const glm::vec3& col);
         void setIntensity(float i);

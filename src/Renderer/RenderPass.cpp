@@ -1,6 +1,7 @@
 #include "Renderer/RenderPass.h"
 #include "Vulkan/vulkan_render_function.h"
 #include "Vulkan/vulkan_pipeline.h"
+#include "render_function.h"
 #include "Renderer/RenderSystem.h"
 #include "Renderer/RenderDebuger.h"
 #include "Renderer/RenderPassManager.h"
@@ -20,38 +21,56 @@ namespace Render {
 
 	RenderPass::RenderPass(const Name& passName, const PassDesc& desc) : RenderPass(desc)
 	{
-		addLogicalPass(passName, 0);
+		LogicPassDesc logicPassDesc;
+		logicPassDesc.logicPassName = passName;
+		logicPassDesc.priority = 0;
+		addLogicalPass(logicPassDesc);
 	}
 
 	RenderPass::RenderPass(const std::vector<LogicPassDesc>& logicPassDesc, const PassDesc& desc) : RenderPass(desc)
 	{
 		for (const auto& logicPass : logicPassDesc) {
-			this->addLogicalPass(logicPass.logicPassName,logicPass.priority,logicPass.filterMask);
+			this->addLogicalPass(logicPass);
 		}
 	}
 
 	Render::StageMacroPairs RenderPass::getPassStageShaderMacro(const Name& logicPassName)
 	{
+		for (const auto& logicPass : mLogicalPasses) {
+			if (logicPass.name == logicPassName) {
+				auto& macro =  logicPass.passMacros;
+				StageMacroPairs passNameMacro = {
+					{
+						ShaderStage::Vertex,	{
+							{logicPassName.str(),""}
+						}
+					},
+					{
+						ShaderStage::Fragment,	{
+							{logicPassName.str(),""}
+						}
+					}
+				};
+				return mergeStageMacroPairs(macro, passNameMacro);
+			}
+		}
+
 		return 
 		{ 
-			{	
-				ShaderStage::Vertex,	{
-					{logicPassName.str(),""}
-				}
-			},
-			{
-				ShaderStage::Fragment,	{
-					{logicPassName.str(),""}
-				}
-			}
+
 		};
 	}
 
-	void RenderPass::addLogicalPass(const Name& name, int priority, u64 filterMask)
+	void RenderPass::addLogicalPass(const LogicPassDesc& desc)
 	{
-		if (hasLogicalPass(name)) return;
-
-		mLogicalPasses.push_back({ name, priority, filterMask });
+		if (hasLogicalPass(desc.logicPassName)) return;
+		LogicalPass logicPass{};
+		logicPass.name = desc.logicPassName;
+		logicPass.filterMask = desc.filterMask;
+		logicPass.priority = desc.priority;
+		logicPass.passMacros = desc.passMacros;
+		logicPass.drawOrder = desc.drawOrder;
+		mLogicalPasses.push_back(logicPass);
 
 		std::sort(mLogicalPasses.begin(), mLogicalPasses.end(), [](const LogicalPass& a, const LogicalPass& b) {
 			return a.priority < b.priority;
@@ -151,21 +170,60 @@ namespace Render {
 		};
 		std::vector<RenderBatch> batches;
 		batches.reserve(mLogicalPasses.size());
-
 		for (const auto& logicalPass : mLogicalPasses) {
 			RenderBatch batch{
 				.passName = logicalPass.name,
 				.hasCustomViewport = logicalPass.hasCustomViewport,
 				.viewportRect = logicalPass.viewportRect
 			};
-			collectRenderEntitiesForName((cam->getRenderQueue()), logicalPass.name, logicalPass.filterMask, batch.packs);
+			//This can do a parallel?
+			collectRenderEntitiesForName((cam->getRenderQueue()), logicalPass, batch.packs);
+
+			static auto getEntityDistToCam = [](const vec3& camPos, RenderEntity* entity) -> float {
+				auto worldBounding = entity->getWorldBounding();
+				if (worldBounding.isInfinity())return std::numeric_limits<float>::infinity();
+				vec3 boundingCenter = worldBounding.getCenter();
+				return length(camPos - boundingCenter);
+			};
+
+
+			if (cam != nullptr) {
+
+				const auto& camPos = cam->getPosition();
+
+				switch (logicalPass.drawOrder)
+				{
+				case PassDrawOrder::None:
+					break;
+				case PassDrawOrder::FromFarToNear:
+				{
+					std::sort(batch.packs.begin(), batch.packs.end(), [&camPos]( RenderPack& a, RenderPack& b) {
+						float distToCamA = getEntityDistToCam(camPos, a.entity);
+						float distToCamB = getEntityDistToCam(camPos, b.entity);
+						return distToCamA >= distToCamB;
+						});
+					break;
+				}
+				case PassDrawOrder::FromNearToFar:
+				{
+					std::sort(batch.packs.begin(), batch.packs.end(), [&camPos](RenderPack& a, RenderPack& b) {
+						float distToCamA = getEntityDistToCam(camPos, a.entity);
+						float distToCamB = getEntityDistToCam(camPos, b.entity);
+						return distToCamA <= distToCamB;
+						});
+					break;
+
+				}
+				default:break;
+				}
+			}
 
 			for (auto&& pack : batch.packs) {
 				if (pack.pass) {
 					RenderSystem::instance()->updateParameters(cmdbuffer, pack.entity, pack.pass);
 				}
 			}
-			batches.push_back(std::move(batch));
+			batches.emplace_back(std::move(batch));
 		}
 
 		RenderSystem::instance()->excutePendingBufferCopies(cmdbuffer);
@@ -202,9 +260,10 @@ namespace Render {
 
 	}
 
-	void RenderPass::collectRenderEntitiesForName(RenderQueue* renderQueue, const Name& passName, u64 renderMask, std::vector<RenderPack>& packs)
+	void RenderPass::collectRenderEntitiesForName(RenderQueue* renderQueue, const LogicalPass& logicPass, std::vector<RenderPack>& packs)
 	{
-		auto view = renderQueue->getView(renderMask);
+		auto view = renderQueue->getView(logicPass.filterMask);
+		const auto& passName = logicPass.name;
 		while (true) {
 			auto renderData = view.next();
 			if (renderData == nullptr) break;

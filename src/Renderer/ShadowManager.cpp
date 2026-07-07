@@ -65,6 +65,16 @@ namespace Render {
 		ShadowConfig.shadowRTFormat = fmt;
 	}
 
+	void ShadowManager::setShadowCameraHeight(float h)
+	{
+		ShadowConfig.dirLightCameraHeight = h;
+	}
+
+	void ShadowManager::setDirLightShadowFarZ(float f)
+	{
+		ShadowConfig.dirLightShadowFarZ = f;
+	}
+
 	void ShadowManager::drawShadow(rs_commandbuffer* cmdBuffer, Camera* currentCamera, Scene* scene)
 	{
 		RenderMarker shadowDrawMarker(cmdBuffer, "Shadow Passes", 0.3, 0.5, 0.2, 1.);
@@ -79,8 +89,7 @@ namespace Render {
 		vec4 clearCol(1., 0., 0., 0.);
 		bool dirLightShadowDrawn = false;
 		if (dirLight) {
-			RenderSystem::instance()->cmdClearRT(cmdBuffer, getDirShadowTexture(),mDp->m_dirlightShadowRT->m_dsView->viewKey, clearCol);
-			setDirLightCamera(cmdBuffer, dirLight, mDp->mDirLightCamera.get());
+			setDirLightCamera(cmdBuffer, dirLight, currentCamera);
 			ConstShaderDataManager::instance()->updateCameraDrawData(mDp->mDirLightCamera.get());
 			scene->collectVisibleObjects(mDp->mDirLightCamera.get());
 			dirShadowPass->draw(cmdBuffer, mDp->mDirLightCamera.get());
@@ -111,9 +120,17 @@ namespace Render {
 		return mDp->mShadowSamplerPtr;
 	}
 
+	GPUShared::GPUSceneShadowData ShadowManager::getSceneShadowData() const
+	{
+		GPUShared::GPUSceneShadowData shadowData{};
+		shadowData.DirLightShadowInfo.ViewMat = mDp->mDirLightCamera->getViewMatrix();
+		shadowData.DirLightShadowInfo.ProjMat = mDp->mDirLightCamera->getProjectionMatrix();
+		return shadowData;
+	}
+
 	void ShadowManager::setDirLightCamera(rs_commandbuffer* cmdBuffer, Light* light, Camera* currentCamera)
 	{
-		//1. calculate dir light's viewproj
+		// calculate dir light's viewproj
 		// the view space of light should wrap 
 		// main camera's frustum.
 
@@ -121,43 +138,63 @@ namespace Render {
 		// get frustum AABB
 		// calculate a sphere that contains the aabb
 		// set camera with this
+		//-----------------------------------------------------------//
+		// v2 //
+		// Camera rotate invoke shadow camera boundary size change in world space, cause jitter or other artifacts  
+		// So what i gonna do is to calculate the aabb inside camera space(main cam), and then the boundary sphere's r 
+		// is the target size of aabb, then translate the center point into world space.
 
-		float zDepthMin,zDepthMax;
+		float zDepthMin, zDepthMax;
 		RenderSystem::instance()->getGlobalViewportZRange(zDepthMin, zDepthMax);
+
 		float farZ = currentCamera->getFar();
+		const float FarestDistanceDirShadow = ShadowConfig.dirLightShadowFarZ;
+		float shadowFarZ = std::min(FarestDistanceDirShadow, farZ);
 
-		const float FarestDistanceDirShadow = 1000.;
-		float factorOfDepthZInNDC = std::min(FarestDistanceDirShadow / farZ, 1.f);
+		vec4 viewPointFar(0.0f, 0.0f, -shadowFarZ, 1.0f);
+		vec4 clipPointFar = currentCamera->getProjectionMatrix() * viewPointFar;
+		float ndcFarZ = clipPointFar.z / clipPointFar.w;
 
+		float ndcNearZ = zDepthMin; 
 
 		const vec4 NDCCoord[8] = {
-			vec4(0,0,zDepthMin				,1.),
-			vec4(1,0,zDepthMin				,1.),
-			vec4(1,1,zDepthMin				,1.),
-			vec4(0,1,zDepthMin				,1.),
-			vec4(0,0,factorOfDepthZInNDC	,1.),
-			vec4(1,0,factorOfDepthZInNDC	,1.),
-			vec4(1,1,factorOfDepthZInNDC	,1.),
-			vec4(0,1,factorOfDepthZInNDC	,1.),
+			vec4(-1.0f, -1.0f, ndcNearZ, 1.0f),
+			vec4(1.0f, -1.0f, ndcNearZ, 1.0f),
+			vec4(1.0f,  1.0f, ndcNearZ, 1.0f),
+			vec4(-1.0f,  1.0f, ndcNearZ, 1.0f),
+			vec4(-1.0f, -1.0f, ndcFarZ,  1.0f),
+			vec4(1.0f, -1.0f, ndcFarZ,  1.0f),
+			vec4(1.0f,  1.0f, ndcFarZ,  1.0f),
+			vec4(-1.0f,  1.0f, ndcFarZ,  1.0f)
 		};
 
+		vec4 worldSpacePoints[8] = {};
+
 		AxisAlignedBoundingBox aabbOfFrustum;
-		float nearPlaneZ = 0;
-		float farPlaneZ	 = clamp(FarestDistanceDirShadow / currentCamera->getFar(),0.1f,1.f);
+		AxisAlignedBoundingBox aabbOfWorldFrustum;
+		float farPlaneZ = clamp(FarestDistanceDirShadow / currentCamera->getFar(), 0.1f, 1.f);
 		auto viewProjOfCurCam = currentCamera->getProjectionMatrix() * currentCamera->getViewMatrix();
 		auto invViewProj = inverse(viewProjOfCurCam);
 		for (int i = 0;i < 8;++i) {
 			vec4 PointNDCCoord = NDCCoord[i];
-			PointNDCCoord.z = nearPlaneZ;
 			vec4 worldPoint = invViewProj * PointNDCCoord;
-			aabbOfFrustum.expand(worldPoint);
+			worldPoint = worldPoint / worldPoint.w;
+			worldSpacePoints[i] = worldPoint;
+			aabbOfWorldFrustum.expand(worldPoint);
 		}
-
+		for (int i = 0;i < 8;++i) {
+			vec4 mainCamSpacePoint = currentCamera->getViewMatrix() * worldSpacePoints[i];
+			aabbOfFrustum.expand(mainCamSpacePoint);
+		}
 		float radius = length(aabbOfFrustum.getSize()) / 2.;
-		vec3 camPos = aabbOfFrustum.getCenter() - light->getDirection() * radius;
+		vec4 worldCenterOfBox = inverse(currentCamera->getViewMatrix()) * vec4(aabbOfFrustum.getCenter(), 1.);
+		vec3 worldPosOfShadowCamera = vec3(worldCenterOfBox) + light->getDirection() * ShadowConfig.dirLightCameraHeight;
+		vec3 camPos = worldPosOfShadowCamera;
+		//DebugDrawManager::instance()->drawAABB(aabbOfFrustum,vec4(1,.0,0,0.3));
 		float nearPlane = 0.01f;
 		float farPlane = radius * 2.0f;
-		mDp->mDirLightCamera->setTarget(aabbOfFrustum.getCenter());
+		mDp->mDirLightCamera->setPosition(camPos);
+		mDp->mDirLightCamera->setTarget(worldCenterOfBox);
 		mDp->mDirLightCamera->setOrthoSize(radius);
 		mDp->mDirLightCamera->setOrthographic(radius, 1., nearPlane, farPlane);
 
@@ -203,9 +240,7 @@ namespace Render {
 		);
 
 		//Construct shadow info data
-		auto& shadowData = mDp->shadowData;
-		shadowData.DirLightShadowInfo.ViewProjMat = mDp->mDirLightCamera->getProjectionMatrix() * mDp->mDirLightCamera->getViewMatrix();
-
+		RenderSystem::instance()->getRenderPass(PassName::DirectionalShadowPass)->setRenderTarget(mDp->m_dirlightShadowRT);
 	}
 
 }

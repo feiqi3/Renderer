@@ -220,7 +220,7 @@ namespace Render::Vulkan {
             }
             // 布局
             ad.initialLayout = pickLayout(usage, attPassDesc.loadOp,desc.writeDepth);
-            ad.finalLayout = usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(usage, attPassDesc.storeOp);
+            ad.finalLayout = usage & ImageUsage_PresentSrc ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pickLayout(usage, attPassDesc.storeOp,desc.writeDepth);
             ResourceState stateAfterRenderPass = ResourceState::RenderTarget;
 
             if (ad.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {

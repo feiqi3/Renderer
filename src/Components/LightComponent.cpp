@@ -60,7 +60,9 @@ namespace Render {
 
 	void DirectionalLightComponent::setDirection(const vec3& dir)
 	{
-		getLight()->setDirection(dir);
+		//Light direction is set as the vector from surface to light direction, but to make it easy to understand in component
+		//I take a minus dir as parameter......
+		getLight()->setDirection(-dir);
 	}
 
 

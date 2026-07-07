@@ -70,12 +70,16 @@ namespace Render {
 
 	void PBRRenderComponent::onShadowSettingChanged()
 	{
-		for (auto& entity : mRenderEntities) {
-			if (isCastShadow()) {
-				entity->createPass(PassName::DirectionalShadowPass);
+		if (mCastShadow) {
+			for (auto& entity : mRenderEntities) {
+				auto curRenderMask = entity->getRenderMask();
+				curRenderMask &= curRenderMask ^ RenderMask::ShadowCaster;
 			}
-			else {
-				entity->destroyPass(PassName::DirectionalShadowPass);
+		}
+		else {
+			for (auto& entity : mRenderEntities) {
+				auto curRenderMask = entity->getRenderMask();
+				curRenderMask |= RenderMask::ShadowCaster;
 			}
 		}
 			
@@ -110,12 +114,7 @@ namespace Render {
 		info.bindingBuffers[0].buffer = mMesh->getVertexBuffer();
 		info.bindingBuffers[0].offset = 0;
 		entity->setLocalBounding(subMesh.aabb);
-		auto* mainPass = mat->getMaterialPassToRender(PassName::MainCameraPass);
-		assert(mainPass != nullptr);
-		entity->createPass(PassName::MainCameraPass);
-		if (this->isCastShadow()) {
-			entity->createPass(PassName::DirectionalShadowPass);
-		}
+		entity->setRenderMask(mat->getRenderMask());
 		return entity;
 	}
 
