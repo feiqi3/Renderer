@@ -37,12 +37,12 @@ int main() {
 	renderFlow->init();
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;
-	int TargetFps = 60;
+	float TargetFps = 60.;
 	float TargetFrameTime = 1000. / TargetFps;
 	auto* naiveScene = createSceneByCode();
 
 	while (!glfwWindow->shouldClose()) {
-		auto frameBegin = std::chrono::system_clock::now();
+		auto frameBegin = std::chrono::steady_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
 
 		//scene->updateScene(0.01666);
@@ -53,17 +53,12 @@ int main() {
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();
 		renderSystem->BeginRenderFrame();
-		auto frameEnd = std::chrono::system_clock::now();
-		auto frameDuration = frameEnd - frameBegin;
-		FrameTime = (std::chrono::duration_cast<std::chrono::microseconds>(frameDuration).count()) / 1000.f;
-		float sleepTime = TargetFrameTime - FrameTime;
-		while (true) {
-			auto nowTime = std::chrono::system_clock::now();
-			float elapsedTimeSinceFrameBegin = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - frameBegin).count();
-			if (elapsedTimeSinceFrameBegin >= sleepTime)break;
-		}
+		auto frameEnd = std::chrono::steady_clock::now();
+		auto targetDuration = std::chrono::microseconds(static_cast<int64_t>(TargetFrameTime * 1000.f));
+		auto targetEndFrameTime = frameBegin + targetDuration;
+		std::this_thread::sleep_until(targetEndFrameTime);
 
-		auto frameNewEnd = std::chrono::system_clock::now();
+		auto frameNewEnd = std::chrono::steady_clock::now();
 		auto frameNewDuration = frameNewEnd - frameBegin;
 		float frameNewTime = (std::chrono::duration_cast<std::chrono::microseconds>(frameNewDuration).count()) / 1000.f;
 		CurrentFPS = int(1000.f / frameNewTime);

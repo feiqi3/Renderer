@@ -37,6 +37,7 @@ namespace Render{
 		class RenderPassManager* getRenderPassManager()const;
 		RenderPass* getRenderPass(const Name& pass);
 		rs_commandbuffer* GetCommandBufferCurFrameCurThread();
+		rs_commandbuffer* GetCommandBufferInCurRenderThread();
 		rs_renderpass* createRenderPass(const PassDesc& passDescription);
 		void destoyRenderPass(rs_renderpass* renderPass);
 		void cmdBeginRenderPass(rs_commandbuffer* cmdbuf,rs_renderpass* pass, std::vector<ClearColor>& clearColor, ClearDepthStencil& clearDs);
@@ -132,7 +133,7 @@ namespace Render{
 		void cmdBegin(rs_commandbuffer* cmdBuffer);
 		void cmdEnd(rs_commandbuffer* cmdBuffer);
 
-		rs_semaphore* createSemaphore();
+		rs_semaphore* createSemaphore(SemaphoreWait waitFlag = SemaphoreWait::CurRenderFrame, ResourceState waitResourceState = ResourceState::RenderTarget);
 		//Set to -1 to wait for current frame
 		void destroySemaphore(rs_semaphore* semphore);
 
@@ -146,10 +147,10 @@ namespace Render{
 		Camera* getCurrentCamera();
 
 		void setSignalCanRenderToPresentImageSemaphore(rs_semaphore*semaphores) {
-			SignalCanRenderToPresentImageSemaphore = semaphores;
+			SemaphorePresentImageReady = semaphores;
 		}
 		void setSignalCanPresentToPresentImageSemaphore(rs_semaphore* semaphores) {
-			SignalCanPresentToPresentImageSemaphore = semaphores;
+			SemaphoreBlitToPresentImageReady = semaphores;
 		}
 
 		void setEngineIdle();
@@ -193,6 +194,15 @@ namespace Render{
 		void			  setGlobalBindlessData(rs_bindless_data * bindlessData);
 		rs_bindless_data* getGlobalBindlessData();
 		bool isBindlessEnabled()const;
+		void			 createPresentRT();
+		void			 destroyPresentRT();
+		rs_rendertarget* getPresentRenderTarget();
+		rs_image*		 getPresentImage();
+		void			 setMainRenderResolution(int x, int y);
+		//Actully we do a defer blit inside cause we can only get 
+		void			 blitToSwapchain(rs_image* fromImage);
+		rs_semaphore*    getRenderFinishSemaphore();
+		void			 waitLastRenderEnd();
 	public:
 		void onWindowResize(int x,int y);
 	private:
@@ -208,8 +218,8 @@ namespace Render{
 		std::unique_ptr<RenderSystemPrivate> mDp;
 		bool mUseRenderThread = false;
 
-		rs_semaphore* SignalCanRenderToPresentImageSemaphore ;
-		rs_semaphore* SignalCanPresentToPresentImageSemaphore ;
+		rs_semaphore* SemaphorePresentImageReady ;
+		rs_semaphore* SemaphoreBlitToPresentImageReady ;
 		
 	private: 
 		static RenderSystem* sRenderSystem;

@@ -46,14 +46,8 @@ namespace Render {
 			initPostEffectPass();
 
 			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemaphore();
-			this->mAccquireImgSemaphore = RenderSystem::instance()->createSemaphore();
-			this->mPresentToScreenSemaphore = RenderSystem::instance()->createSemaphore();
 			mWaitForRenderEndFence = RenderSystem::instance()->createFence();
 			auto RenderSys = RenderSystem::instance();
-			//Is Present image accquired?  
-			RenderSys->setSignalCanPresentToPresentImageSemaphore(mPresentToScreenSemaphore);
-			//Is Rendered to present image finished?
-			RenderSys->setSignalCanRenderToPresentImageSemaphore(mAccquireImgSemaphore);
 			mMainCamera = new Camera(Name("SceneMainCamera"));
 			mMainCamera->setCullMask(CullMask::MainCamera);
 			CameraManager::instance()->RegisterCamera(mMainCamera, 0);
@@ -119,8 +113,6 @@ namespace Render {
 			deinitMainCamPass();
 			deinitPostEffectPass();
 			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
-			RenderSystem::instance()->destroySemaphore(mAccquireImgSemaphore);
-			RenderSystem::instance()->destroySemaphore(mPresentToScreenSemaphore);
 			RenderSystem::instance()->destroyFence(mWaitForRenderEndFence);
 		}
 
@@ -132,50 +124,40 @@ namespace Render {
 			
 			auto RenderSys = RenderSystem::instance();
 			auto curScene = Scene::getCurrentScene();
+
 			auto cmdbufOffscreen = RenderSys->GetCommandBufferCurFrameCurThread();
+
 			if (curScene) {
 				curScene->getLightMgr().update();
 			}
-			//1. update camera data.
 			CameraManager::instance()->updateAllCamera(cmdbufOffscreen);
-
 			RenderSys->setCurrentCamera(mMainCamera);
-
 			curScene->collectVisibleObjects(mMainCamera);
 
 			RenderSys->cmdBegin(cmdbufOffscreen);
 			RenderSys->excutePendingBufferCopies(cmdbufOffscreen);
-			/////////////////////////////////////////////////////
-			//Transit common data
-			auto currentScene = Scene::getCurrentScene();
-			if (currentScene) {
-				currentScene->getLightMgr().calculateIBLData(cmdbufOffscreen);
-				currentScene->getShadowMgr().drawShadow(cmdbufOffscreen, mMainCamera,currentScene);
-				ConstShaderDataManager::instance()->updateShadowDrawData(currentScene);
+
+			if (curScene) {
+				curScene->getLightMgr().calculateIBLData(cmdbufOffscreen);
+				curScene->getShadowMgr().drawShadow(cmdbufOffscreen, mMainCamera, curScene);
+				ConstShaderDataManager::instance()->updateShadowDrawData(curScene);
 			}
 
 			DebugDrawManager::instance()->onRender(mMainCamera);
-			mMainCamPass->draw(cmdbufOffscreen,mMainCamera);
-			mBloom->draw(cmdbufOffscreen, mMainColorTex);
-			RenderSys->cmdEnd(cmdbufOffscreen);
-			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { mOffscreenFinishSemaphore }, nullptr);
+			mMainCamPass->draw(cmdbufOffscreen, mMainCamera);
 
-			auto cmdbufSwapchain = RenderSys->GetCommandBufferCurFrameCurThread();
-			RenderSys->setCurrentCamera(nullptr);
-			RenderSys->cmdBegin(cmdbufSwapchain);
+			mBloom->draw(cmdbufOffscreen, mMainColorTex);
 
 			mPostEffectPass->setBloomTex(mBloom->outBloomTex());
 			mPostEffectPass->setMainRTColorTex(mMainColorTex);
+			mPostEffectPass->draw(cmdbufOffscreen);
 
-			mPostEffectPass->draw(cmdbufSwapchain);
-			RenderSys->cmdEnd(cmdbufSwapchain);
-			RenderSys->submitCmdBuffer(cmdbufSwapchain, { mOffscreenFinishSemaphore ,mAccquireImgSemaphore}, { mPresentToScreenSemaphore }, mWaitForRenderEndFence);
-			
-			//Wait for last time frame Render finished
-			//Like frame 1 is wait for frame 0 to render finished
-			if(RenderSys->getNextRenderFrame() != 0)
-				RenderSys->waitForFence(mWaitForRenderEndFence,RenderSys->getCurRenderFif());
-			RenderSys->resetFence(mWaitForRenderEndFence, RenderSys->getCurRenderFif());
+			RenderSys->cmdEnd(cmdbufOffscreen);
+
+			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { RenderSys->getRenderFinishSemaphore() }, nullptr);
+
+			RenderSys->waitLastRenderEnd();
+			//Then into real render frame!
 		}
 	private:
 		MainCameraPass* mMainCamPass = 0;
@@ -185,8 +167,6 @@ namespace Render {
 		std::vector<RenderEntity*> mPostEffectEntities;
 		
 		rs_semaphore* mOffscreenFinishSemaphore;
-		rs_semaphore* mAccquireImgSemaphore;
-		rs_semaphore* mPresentToScreenSemaphore;
 		rs_fence* mWaitForRenderEndFence;
 		RenderEntity* BlitEntity;
 		MaterialTemplate* BlitMaterial;

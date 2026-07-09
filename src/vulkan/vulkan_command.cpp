@@ -54,6 +54,95 @@ namespace Render::Vulkan {
 		}
 	}
 
+
+	Render::Vulkan::rs_commandbuffer_vk* CommandBufferManager::getCmdBufferCurRenderThread(rs_context_vk* ctx, QueueType queueType, bool singleTime)
+	{
+		auto frameIdx = ctx->curRenderFrame;
+		auto curFif = frameIdx % m_maxFrameInFlight;
+		ThreadData* currentThreadData = nullptr;
+		{
+			//Find target queue lists in current thread
+			std::lock_guard<std::mutex> lock(mCmdBufferLock);
+			FrameData& frameData = m_frames[curFif];
+			auto thisThreadId = std::this_thread::get_id();
+
+			for (auto& tData : frameData.threads) {
+				if (tData.threadId == thisThreadId) {
+					currentThreadData = &tData;
+					break;
+				}
+			}
+			if (!currentThreadData) {
+				frameData.threads.emplace_back();
+				currentThreadData = &frameData.threads.back();
+				currentThreadData->threadId = thisThreadId;
+			}
+		}
+
+		CommandPoolBlock* targetBlock = nullptr;
+		//find target command list in target queue
+		for (auto& block : currentThreadData->poolBlocks) {
+			if (block.queueType & queueType) {
+				targetBlock = &block;
+				break;
+			}
+		}
+
+		if (!targetBlock) {
+			currentThreadData->poolBlocks.emplace_back();
+			targetBlock = &currentThreadData->poolBlocks.back();
+			targetBlock->queueType = queueType;
+
+			rs_commandpool_vk* pool = new rs_commandpool_vk;
+			rs_queue_vk* targetQueue = ctx->graphicQueue;
+			if (ctx->computeQueue && (ctx->computeQueue->queueType & queueType)) targetQueue = ctx->computeQueue;
+			if (ctx->transferQueue && (ctx->transferQueue->queueType & queueType)) targetQueue = ctx->transferQueue;
+
+			pool->queue = targetQueue;
+			VkCommandPoolCreateInfo ci{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+			ci.queueFamilyIndex = pool->queue->familyIndex;
+			ci.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+
+			VK_CHECK(vkCreateCommandPool(ctx->device, &ci, 0, (VkCommandPool*)&pool->native), { std::abort(); });
+			targetBlock->pool = pool;
+		}
+
+		rs_commandbuffer_vk* cmdBuffer = nullptr;
+
+		//Find a command buffer in free list
+		if (!targetBlock->freeList.empty()) {
+			auto it = std::prev(targetBlock->freeList.end());
+			cmdBuffer = *it;
+
+			targetBlock->usedList.splice(targetBlock->usedList.end(),
+				targetBlock->freeList,
+				it);
+		}
+		else {
+			//Create one if there are no vacant one
+			cmdBuffer = new rs_commandbuffer_vk;
+			VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+			allocInfo.commandPool = (VkCommandPool)targetBlock->pool->native;
+			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			allocInfo.commandBufferCount = 1;
+
+			vkAllocateCommandBuffers(ctx->device, &allocInfo, (VkCommandBuffer*)&cmdBuffer->native);
+
+			cmdBuffer->pool = targetBlock->pool;
+			cmdBuffer->queueType = targetBlock->pool->queue->queueType;
+
+			targetBlock->usedList.push_back(cmdBuffer);
+		}
+
+		cmdBuffer->isSecondary = false;
+		cmdBuffer->isTransitent = singleTime;
+		cmdBuffer->lastActiveFrames = frameIdx;
+
+		return cmdBuffer;
+	}
+
+
+
 	rs_commandbuffer_vk* CommandBufferManager::getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType, bool singleTime)
 	{
 		ThreadData* currentThreadData = nullptr;

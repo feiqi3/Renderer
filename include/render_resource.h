@@ -17,6 +17,7 @@ namespace Render {
 		uint64_t nextRenderFrame = -1;
 		uint64_t curRenderFrame = -1;
 		uint32_t maxFrameInFlight = 2;
+		uint32_t hardwareFrameInFlight = 3;
 		bool needWireFramePipeline = true;
 
 		uint32_t LogicFrameFif = 0;
@@ -133,7 +134,10 @@ namespace Render {
 
 	struct rs_fence : rs_base {};
 
-	struct rs_semaphore : rs_base {};
+	struct rs_semaphore : rs_base {
+		SemaphoreWait waitFlag = SemaphoreWait::CurRenderFrame;
+		ResourceState waitResourceState = ResourceState::RenderTarget;
+	};
 
 	struct rs_event : rs_base {};
 	struct rs_rendertarget;

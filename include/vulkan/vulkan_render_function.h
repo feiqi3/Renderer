@@ -152,7 +152,7 @@ namespace Render::Vulkan {
 	void cmdBeginRecord(rs_commandbuffer_vk* cb);
 	void cmdEndRecord(rs_commandbuffer_vk* cb);
 	void cmdSubmitOneShotAndWait(rs_context_vk* ctx, rs_commandbuffer_vk* cb);
-
+	void cmdBlitImage(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_image_vk* srcImage, rs_image_vk* dstImage, Filter filter);
 	bool cmdClearImage(rs_commandbuffer_vk* cb, rs_image_view* image, const vec4& color);
 	//-------------------------------------------------------------------------------------//     
 	
@@ -178,7 +178,7 @@ namespace Render::Vulkan {
 	uint64_t beginRsRenderFrameVk(rs_context_vk* ctx);
 	uint64_t endRsFrameVk(rs_context_vk* ctx);
 	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);
-	void submitToPresentImage(rs_context_vk* ctx,uint32_t presentImgIdx,std::vector<rs_semaphore_vk*> renderFinishWaitSemaphore);
+	void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> canPresentToScreen);
 	void WaitForDeviceIdel(rs_context_vk* ctx);
 	//-------------------------------------------------------------------------------------//     
 	bool isBindlessEnabled();

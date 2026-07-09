@@ -364,6 +364,12 @@ namespace Render {
         General = 1ULL << 19  
     };
 
+    enum class SemaphoreWait {
+        CurRenderFrame,
+        LastRenderFrame,
+		NextRenderFrame
+	};
+
     using rs_binding_pos = uint32_t;
 #define MAX_DRAWDATA_PER_DRAWCALL 6
 	using DrawDataArray = std::array<struct rs_drawdata*, MAX_DRAWDATA_PER_DRAWCALL>;

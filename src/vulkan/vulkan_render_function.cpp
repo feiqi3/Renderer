@@ -585,6 +585,9 @@ namespace Render::Vulkan {
         ctx->descriptorSetMgr = new DescriptorSetManager(ctx,maxFif);
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
+
+        ctx->semphoreToSignalPresent = createRsSemaphore(ctx);
+
         return ctx;
     }
 
@@ -653,6 +656,7 @@ namespace Render::Vulkan {
 
     void deinitVulkanBackEnd(rs_context_vk* ctx)
     {
+        destroyRsSemaphore(ctx, ctx->semphoreToSignalPresent);
         destroyDefaultResources(ctx);
 
         if (ctx->computeQueue)
@@ -1242,7 +1246,7 @@ namespace Render::Vulkan {
         sci.imageColorSpace = choosenFormat.colorSpace;
         sci.imageExtent = extent;
         sci.imageArrayLayers = 1;
-        sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         sci.preTransform = physicalCap.currentTransform;
         sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -1283,7 +1287,7 @@ namespace Render::Vulkan {
             rsImage->subresourcePendingStates.resize(1, ResourceState::Common);
 			swapchainImages.push_back(rsImage);
         }
-
+        context->hardwareFrameInFlight = swapchainImages.size();
         context->swapchain->native = swapchain;
         context->swapchain->swapchainImgs = swapchainImages;
         context->maxSwapChainImages = swapchainImages.size();
@@ -1808,6 +1812,45 @@ namespace Render::Vulkan {
         }
 
         return true;
+	}
+
+	void cmdBlitImage(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_image_vk* srcImage, rs_image_vk* dstImage, Filter filter)
+	{
+		VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+        if (srcImage->usage & ImageUsage_DepthStencilAttachment) {
+            aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+            if (srcImage->format == ImageFormat::D24_UNORM_S8_UINT || srcImage->format == ImageFormat::D32_SFLOAT_S8_UINT) {
+                aspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+            }
+        }
+
+		VkImageBlit blitRegion{};
+
+		blitRegion.srcSubresource.aspectMask = aspectFlags;
+		blitRegion.srcSubresource.mipLevel = 0;
+		blitRegion.srcSubresource.baseArrayLayer = 0;
+		blitRegion.srcSubresource.layerCount = 1;
+		blitRegion.srcOffsets[0] = { 0, 0, 0 };
+		blitRegion.srcOffsets[1] = { static_cast<int32_t>(srcImage->width), static_cast<int32_t>(srcImage->height), 1 };
+
+		blitRegion.dstSubresource.aspectMask = aspectFlags;
+		blitRegion.dstSubresource.mipLevel = 0;
+		blitRegion.dstSubresource.baseArrayLayer = 0;
+		blitRegion.dstSubresource.layerCount = 1;
+		blitRegion.dstOffsets[0] = { 0, 0, 0 };
+		blitRegion.dstOffsets[1] = { static_cast<int32_t>(dstImage->width), static_cast<int32_t>(dstImage->height), 1 };
+
+		vkCmdBlitImage(
+			(VkCommandBuffer)cb->native,
+			(VkImage)srcImage->native,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			(VkImage)dstImage->native,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&blitRegion,
+			toVkFilter(filter)
+		);
 	}
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
@@ -3297,35 +3340,63 @@ namespace Render::Vulkan {
     void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb, QueueType queue, std::vector<rs_semaphore*> imageAvailableWaitSemaphores, std::vector<rs_semaphore*> renderFinishSignalSemphores, rs_fence_vk* fence)
     {
 
+		VkPipelineStageFlags toWaitFlag;
+		switch (queue)
+		{
+		case Render::QueueType_Graphics:
+			toWaitFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			break;
+		case Render::QueueType_Compute:
+			toWaitFlag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			break;
+		case Render::QueueType_Transfer:
+			toWaitFlag = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		case Render::QueueType_Present:
+		default:
+			toWaitFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			break;
+		}
+
         auto curFif = ctx->RenderFrameFif;
-        std::vector<VkSemaphore> ntvwaitSemaphores,ntvsignalSemaphores;
+        auto lastFif = (curFif + ctx->maxFrameInFlight - 1) % ctx->maxFrameInFlight;
+		auto nextFif = (curFif + ctx->maxFrameInFlight + 1) % ctx->maxFrameInFlight;
+		std::vector<VkSemaphore> ntvwaitSemaphores, ntvsignalSemaphores;
+        std::vector< VkPipelineStageFlags> waitStageFlags;
+
         for (auto&& sem : imageAvailableWaitSemaphores) {
-            ntvwaitSemaphores.push_back( ((VkSemaphore*)sem->native)[curFif]);
+            auto mapping = getVulkanMapping(sem->waitResourceState);
+            auto waitFlag = sem->waitFlag;
+            uint32_t fif = curFif;
+            if (waitFlag == Render::SemaphoreWait::CurRenderFrame) {
+                fif = curFif;
+            }
+            else if (waitFlag == Render::SemaphoreWait::LastRenderFrame) {
+                fif = lastFif;
+            }
+            else if (waitFlag == Render::SemaphoreWait::NextRenderFrame) {
+                fif = nextFif;
+            }
+            ntvwaitSemaphores.push_back( ((VkSemaphore*)sem->native)[fif]);
+            waitStageFlags.push_back(mapping.stageMask | toWaitFlag);
         }
         for (auto&& sem : renderFinishSignalSemphores) {
-            ntvsignalSemaphores.push_back(((VkSemaphore*)sem->native)[curFif]);
+			auto waitFlag = sem->waitFlag;
+			uint32_t fif = curFif;
+			if (waitFlag == Render::SemaphoreWait::CurRenderFrame) {
+				fif = curFif;
+			}
+			else if (waitFlag == Render::SemaphoreWait::LastRenderFrame) {
+				fif = lastFif;
+			}
+			else if (waitFlag == Render::SemaphoreWait::NextRenderFrame) {
+				fif = nextFif;
+			}
+            ntvsignalSemaphores.push_back(((VkSemaphore*)sem->native)[fif]);
         }
 
-        VkPipelineStageFlags toWaitFlag;
 
-        switch (queue)
-        {
-        case Render::QueueType_Graphics:
-            toWaitFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            break;
-        case Render::QueueType_Compute:
-            toWaitFlag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-            break;
-        case Render::QueueType_Transfer:
-            toWaitFlag = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            break;
-        case Render::QueueType_Present:
-        default:
-            toWaitFlag = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-            break;
-        }
 
-        std::vector< VkPipelineStageFlags> waitStageFlags(imageAvailableWaitSemaphores.size(),toWaitFlag);
 
         VkSubmitInfo info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 
@@ -3633,18 +3704,23 @@ namespace Render::Vulkan {
     uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* imageAvailableSignalSemaphore, rs_fence_vk* fenceToSignal)
     {
         uint32_t swapImageIdx;
-        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[ctx->LogicFrameFif];
-        VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : ((VkFence*)fenceToSignal->native)[ctx->LogicFrameFif];
+        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[ctx->RenderFrameFif];
+        VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : ((VkFence*)fenceToSignal->native)[ctx->RenderFrameFif];
         vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , fence, &swapImageIdx);
         return swapImageIdx;
     }
 
-    void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> renderFinishWaitSemaphore)
+    void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> canPresentToScreen)
     {
+        //TODO: transit blitFrom -> transfer src
+        //and signal a semaphore to present?
         std::vector<VkSemaphore> semphoresToWait;
-        for (auto&& semRs : renderFinishWaitSemaphore) {
-            semphoresToWait.push_back( ((VkSemaphore*)semRs->native)[ctx->LogicFrameFif]);
+        for (auto&& semRs : canPresentToScreen) {
+            semphoresToWait.push_back( ((VkSemaphore*)semRs->native)[ctx->RenderFrameFif]);
         }
+
+
+
         VkPresentInfoKHR presentInfo{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         presentInfo.waitSemaphoreCount;
         presentInfo.pWaitSemaphores = semphoresToWait.data();

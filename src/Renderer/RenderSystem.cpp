@@ -68,6 +68,7 @@ namespace Render{
 		std::unique_ptr<RenderDataArena> mArena;
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
+		rs_commandbuffer* mSubmitToPresentCmdBuffer = nullptr;
 		std::vector<rs_rendertarget*> mSwapchainRT;
 		Blitor* mBlitor = nullptr;
 		TexturePtr mErrorRGBTexture = nullptr;
@@ -81,6 +82,15 @@ namespace Render{
 		float globalViewPortZNear = 0.;
 		float globalViewPortZFar =  1.;
 		std::unique_ptr< ComputeKernel> clearRTCompute;
+		rs_rendertarget* mPresentRT = nullptr;
+		rs_image* mPresentImage = nullptr;
+		rs_image* mRenderThreadPresentImage = nullptr;
+		rs_commandbuffer* mRenderThreadCmdBuffer = nullptr;
+		rs_semaphore* mRenderFinishSemaphore = nullptr;
+		rs_fence*	  mRenderEndFence = nullptr;
+		std::vector<std::pair<rs_image*, rs_commandbuffer*>> mFiFToBlitToSwapchain;
+		int mRenderResolutionX = 1000;
+		int mRenderResolutionY = 600;
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -100,9 +110,15 @@ namespace Render{
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>();
 		sRenderSystem->mDp->mArena->init(sRenderSystem->getRenderContext()->maxFrameInFlight, Render::STAGING_BLOCK_SIZE);
-
+		//In stage: cause we use blit function to fill the swapchain image
+		//So wait in stage Resource Transfer stage
+		sRenderSystem->mDp->mRenderFinishSemaphore = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame,ResourceState::TransferDst);
+		sRenderSystem->SemaphorePresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::TransferDst);
+		sRenderSystem->mDp->mRenderEndFence		   = sRenderSystem->createFence();
+		sRenderSystem->SemaphoreBlitToPresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::Common);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
+		sRenderSystem->createPresentRT();
 		new Platform::FileSystem;
 		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
@@ -126,7 +142,13 @@ namespace Render{
 		sRenderSystem->mDp->mPassManager = 0;
 		sRenderSystem->mDp->mArena->shutdown();
 		sRenderSystem->mDp->mArena = 0;
-		
+		sRenderSystem->destroyFence(sRenderSystem->mDp->mRenderEndFence);
+		sRenderSystem->destroySemaphore(sRenderSystem->mDp->mRenderFinishSemaphore);
+		sRenderSystem->destroySemaphore(sRenderSystem->SemaphorePresentImageReady);
+		sRenderSystem->destroySemaphore(sRenderSystem->SemaphoreBlitToPresentImageReady);
+
+		sRenderSystem->destroyPresentRT();
+		sRenderSystem->deinitSwapchainRT();
 
 		deinitVulkanBackEnd((rs_context_vk*)sRenderSystem->mBackEndContext);
 		sRenderSystem->mWindow = 0;
@@ -144,6 +166,7 @@ namespace Render{
 	void RenderSystem::EndLogicFrame()
 	{
 		ComponentSystem::instance()->doDestroyComponents();
+		mDp->mSubmitToPresentCmdBuffer = this->GetCommandBufferCurFrameCurThread();
 		Vulkan::endRsFrameVk(getRenderContext());
 
 		currentLogicFrame++;
@@ -155,32 +178,73 @@ namespace Render{
 		using namespace Vulkan;
 		auto ctx = getRenderContext();
 		if (mUseRenderThread) {
-			while (1) {
+			// while (1) {
 				//Wait For Logic Frame Ready
-				while (!getRenderContext()->canRenderNextFrame);
-				beginRsRenderFrameVk(ctx);
+			//	while (!getRenderContext()->canRenderNextFrame);
+			//	beginRsRenderFrameVk(ctx);
 
 
-				auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SignalCanRenderToPresentImageSemaphore, 0);
-				for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
-					Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait ,  cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence );
-				}
-				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
-				ctx->currentSwapchainImage = nxtImg;
-				if (mDp->mEngineEvent.EngineIdle) {
-					Vulkan::WaitForDeviceIdel(getRenderContext());
-					mDp->mEngineEvent.EngineIdle = false;
-				}
-				ctx->canRenderNextFrame = false;
-			}
+			//	auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SemaphorePresentImageReady, 0);
+			//	{
+			//		//Blit main rt things to swapchain
+			//		auto curRenderFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
+			//		auto& blitPair = mDp->mFiFToBlitToSwapchain[curRenderFif];
+			//		if (blitPair.first && blitPair.second) {
+			//			cmdBegin(blitPair.second);
+			//			Vulkan::transitionImageState((Vulkan::rs_commandbuffer_vk*)blitPair.second, (Vulkan::rs_image_vk*)blitPair.first, ResourceState::TransferSrc);
+			//			Vulkan::cmdBlitImage((Vulkan::rs_commandbuffer_vk*)blitPair.second, getRenderContext(), (Vulkan::rs_image_vk*)blitPair.first, getRenderContext()->swapchain->swapchainImgs[nxtImg], Filter::Linear);
+			//			cmdEnd(blitPair.second);
+			//			blitPair = {};
+			//		}
+			//	}
+
+			//	for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
+			//		Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait ,  cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence );
+			//	}
+			//	submitToPresentImage(ctx,, nxtImg, { (Vulkan::rs_semaphore_vk*)mDp->mRenderFinishSemaphore});
+			//	ctx->currentSwapchainImage = nxtImg;
+			//	if (mDp->mEngineEvent.EngineIdle) {
+			//		Vulkan::WaitForDeviceIdel(getRenderContext());
+			//		mDp->mEngineEvent.EngineIdle = false;
+			//	}
+			//	ctx->canRenderNextFrame = false;
+			//}
 		}
 		else {
+			mDp->mRenderThreadPresentImage = mDp->mPresentImage;
 			beginRsRenderFrameVk(ctx);
-			auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SignalCanRenderToPresentImageSemaphore, 0);
+
+			auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SemaphorePresentImageReady, 0);
+
 			for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait , cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence);
 			}
-			submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SignalCanPresentToPresentImageSemaphore });
+
+
+			{
+				mDp->mRenderThreadCmdBuffer = this->GetCommandBufferInCurRenderThread();
+				//Blit main rt things to swapchain
+				auto curRenderFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
+				cmdBegin(mDp->mRenderThreadCmdBuffer);
+				Vulkan::transitionImageState((Vulkan::rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, (Vulkan::rs_image_vk*)mDp->mRenderThreadPresentImage, ResourceState::TransferSrc);
+				auto imageSwapchain = getSwapchainImage(nxtImg);
+				Vulkan::transitionImageState((Vulkan::rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, (Vulkan::rs_image_vk*)imageSwapchain, ResourceState::TransferDst);
+				Vulkan::cmdBlitImage((Vulkan::rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, getRenderContext(), (Vulkan::rs_image_vk*)mDp->mRenderThreadPresentImage, getRenderContext()->swapchain->swapchainImgs[nxtImg], Filter::Linear);
+				Vulkan::transitionImageState((Vulkan::rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, (Vulkan::rs_image_vk*)imageSwapchain, ResourceState::Present);
+				cmdEnd(mDp->mRenderThreadCmdBuffer);
+				//--------//
+				//Wait RenderEnd/Image acquire
+				//and Signal CanDoPresent
+				std::vector<rs_semaphore*> semaphoreToWaitRenderEnd = { mDp->mRenderFinishSemaphore,SemaphorePresentImageReady };
+				std::vector<rs_semaphore*> semaphoreToSignalPresentToScreen = { SemaphoreBlitToPresentImageReady };
+				//Wait for RenderEnd, swapchain image ready, then semaphore can present to image/RenderEnd
+				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, QueueType_Graphics, semaphoreToWaitRenderEnd, semaphoreToSignalPresentToScreen, (Vulkan::rs_fence_vk*)mDp->mRenderEndFence);
+				mDp->mRenderThreadCmdBuffer = nullptr;
+				mDp->mRenderThreadPresentImage = nullptr;
+			}
+
+			submitToPresentImage(ctx,nxtImg,{ (Vulkan::rs_semaphore_vk*)SemaphoreBlitToPresentImageReady});
+			
 			ctx->currentSwapchainImage = nxtImg;
 			if (mDp->mEngineEvent.EngineIdle) {
 				Vulkan::WaitForDeviceIdel(getRenderContext());
@@ -224,6 +288,13 @@ namespace Render{
 		auto ctx = getRenderContext();
 		return ctx->cmdBufferMgr->getCmdBufferLocalThread(ctx, getNextRenderFrame(), QueueType_Graphics, false);
 	}
+
+	Render::rs_commandbuffer* RenderSystem::GetCommandBufferInCurRenderThread()
+	{
+		auto ctx = getRenderContext();
+		return ctx->cmdBufferMgr->getCmdBufferCurRenderThread(ctx,QueueType_Graphics, false);
+	}
+
 	rs_renderpass* RenderSystem::createRenderPass(const PassDesc& passDescription)
 	{
 		return Vulkan::createRsRenderPassVk(this->getRenderContext(), passDescription);
@@ -887,9 +958,12 @@ namespace Render{
 		Vulkan::cmdEndRecord((Vulkan::rs_commandbuffer_vk*)cmdBuffer);
 	}
 
-	rs_semaphore* RenderSystem::createSemaphore()
+	rs_semaphore* RenderSystem::createSemaphore(SemaphoreWait waitFlag, ResourceState waitResourceState)
 	{
-		return Vulkan::createRsSemaphore(getRenderContext());
+		auto semaphore = Vulkan::createRsSemaphore(getRenderContext());
+		semaphore->waitFlag = waitFlag;
+		semaphore->waitResourceState = ResourceState::RenderTarget;
+		return semaphore;
 	}
 
 	void RenderSystem::destroySemaphore(rs_semaphore* semphore)
@@ -1172,6 +1246,70 @@ namespace Render{
 	bool RenderSystem::isBindlessEnabled() const
 	{
 		return Vulkan::isBindlessEnabled();
+	}
+
+	void RenderSystem::createPresentRT()
+	{
+		if (mDp->mPresentRT == nullptr) {
+			//Create one 
+			ImageDesc desc{};
+			desc.format = ImageFormat::RGBA8_UNORM;
+			desc.width = mDp->mRenderResolutionX;
+			desc.height = mDp->mRenderResolutionY;
+			desc.type = ImageType::V2D;
+			desc.usage = ImageUsage_TransferSrc | ImageUsage_ColorAttachment;
+			mDp->mPresentImage = createRsImage(getRenderContext(), desc);
+			mDp->mPresentRT = createRendertarget({ mDp->mPresentImage }, nullptr);
+		}
+		else {
+			assert(false);
+		}
+
+	}
+
+	void RenderSystem::destroyPresentRT()
+	{
+		Vulkan::rs_image_vk* image = (Vulkan::rs_image_vk*)mDp->mPresentImage;
+		Vulkan::rs_rendertarget_vk* rt = (Vulkan::rs_rendertarget_vk*)mDp->mPresentRT;
+		Vulkan::destroyRsImage(getRenderContext(), image);
+		mDp->mPresentImage = nullptr;
+		Vulkan::destroyRsRenderTarget(getRenderContext(), rt);
+		mDp->mPresentRT = nullptr;
+	}
+
+	Render::rs_rendertarget* RenderSystem::getPresentRenderTarget()
+	{
+		return mDp->mPresentRT;
+	}
+
+	Render::rs_image* RenderSystem::getPresentImage()
+	{
+		return mDp->mPresentImage;
+	}
+
+	void RenderSystem::setMainRenderResolution(int x, int y)
+	{
+		mDp->mRenderResolutionX = x;
+		mDp->mRenderResolutionY = y;
+	}
+
+	void RenderSystem::blitToSwapchain(rs_image* fromImage)
+	{
+		assert(fromImage->usage & ImageUsage_TransferSrc);
+		mDp->mPresentImage = fromImage;
+	}
+
+	Render::rs_semaphore* RenderSystem::getRenderFinishSemaphore()
+	{
+		return mDp->mRenderFinishSemaphore;
+	}
+
+	void RenderSystem::waitLastRenderEnd()
+	{
+		if (getNextRenderFrame() != 0) {
+			waitForFence(mDp->mRenderEndFence, getCurRenderFif());
+		}
+		resetFence(mDp->mRenderEndFence, getCurRenderFif());
 	}
 
 	void RenderSystem::onWindowResize(int x, int y)
