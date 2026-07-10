@@ -209,11 +209,11 @@ namespace Render {
 		blendInfo.blendEnable = true;
 		blendInfo.colorBlendOp = BlendOp::Add;
 		
-		blendInfo.srcAlphaBlend = BlendFactor::SrcAlpha;
+		blendInfo.srcAlphaBlend = BlendFactor::One;
 		blendInfo.dstAlphaBlend = BlendFactor::OneMinusSrcAlpha;
 
-		blendInfo.srcColorBlend = BlendFactor::SrcColor;
-		blendInfo.dstColorBlend = BlendFactor::DstColor;
+		blendInfo.srcColorBlend = BlendFactor::SrcAlpha;
+		blendInfo.dstColorBlend = BlendFactor::OneMinusSrcAlpha;
 		
 		state.blendStates.push_back(blendInfo);
 		VertexInputDescription desc{};

@@ -1,0 +1,19 @@
+DECL_RBUFFER_STD430_BEG(VertexList)
+PerVtxData v[]
+DECL_RBUFFER_STD430_END
+
+DECL_RBUFFER_STD430_BEG(IndexList)
+INDEX_TYPE i[]
+DECL_RBUFFER_STD430_END
+
+DECL_RBUFFER_STD430_BEG(TextureList)
+int t[]
+DECL_RBUFFER_STD430_END
+
+
+RESOURCE_DECL_BEG(4)
+SLOT_BUFFER_STD430(4,  VertexList,      u_vertexList)
+SLOT_BUFFER_STD430(4,  IndexList,       u_indexList)
+SLOT_BUFFER_STD430(4,  TextureList,     u_textureList)
+SLOT_SAMPLER      (4,  Sampler,         u_sampler)
+RESOURCE_DECL_END

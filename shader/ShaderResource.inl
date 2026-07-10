@@ -40,6 +40,7 @@
 #define GetTexture(name)                     GlobalTextures[NAME_TEX(name)]
 #define GetSampler(name)                     GlobalSamplers[NAME_SAMP(name)]
 
+#define GetSampledTextureByIdx(idx, sampName) sampler2D(GlobalTextures[idx], GlobalSamplers[NAME_SAMP(sampName)])
 #define GetSampledTexture(texName, sampName) sampler2D(GlobalTextures[NAME_TEX(texName)], GlobalSamplers[NAME_SAMP(sampName)])
 #define SampleTexture(texName, sampName, uv) texture(sampler2D(GlobalTextures[NAME_TEX(texName)], GlobalSamplers[NAME_SAMP(sampName)]), uv)
 

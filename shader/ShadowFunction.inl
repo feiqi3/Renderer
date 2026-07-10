@@ -1,4 +1,4 @@
-#define SHADOW_BIAS 0.001f
+#define SHADOW_BIAS 0.0025f
 
 #if !defined(SHADOW_PASS)
 
@@ -30,7 +30,7 @@ float calculateShadowVisFactor(vec4 worldSpacePos)
         }
         else
         {
-            shadowVis = 0.1f;
+            shadowVis = 0.0f;
         }
         
         //Not in shadow map range

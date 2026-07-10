@@ -1,0 +1,19 @@
+#version 450
+#include "ShaderResource.inl"
+#include "BindlessSet.inl"
+#include "imgui.fwd"
+
+layout(location = 0) in vec2    i_pos;
+layout(location = 1) in vec2    i_uv;
+layout(location = 2) in vec4    i_color;
+layout(location = 3) in int     i_texId;
+
+layout(location = 0) out vec4 o_col;
+
+void main(){
+    vec4 texCol = texture(
+        GetSampledTextureByIdx(i_texId,u_sampler),
+        i_uv
+    );
+    vec4 finalOut = i_color * texCol;
+}

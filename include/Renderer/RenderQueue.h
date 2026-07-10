@@ -20,7 +20,8 @@ namespace Render {
 		ShadowCaster = 1,
 		Transparent = 16,
 		Skybox = 32,
-		DebugDraw = 50
+		DebugDraw = 50,
+		GUI2D = 51
 	};
 
 	namespace RenderMask {
@@ -29,6 +30,7 @@ namespace Render {
 		inline u64 Transparent = 1ull << (int)RenderMaskID::Transparent;
 		inline u64 SkyBox = 1ull << (int)RenderMaskID::Skybox;
 		inline u64 DebugDraw = 1ull << (int)RenderMaskID::DebugDraw;
+		inline u64 Gui2D = 1ull << (int)RenderMaskID::GUI2D;
 	};
 
 	class Pass;
