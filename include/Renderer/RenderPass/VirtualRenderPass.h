@@ -6,7 +6,7 @@ namespace Render {
 	public:
 		VirtualRenderPass();
 		~VirtualRenderPass();
-		void drawImpl(rs_commandbuffer*)override;
+		void drawImpl(rs_commandbuffer*,Camera* cam)override;
 	private:
 		rs_rendertarget* mVirtualRt = 0;
 		struct rs_image* mVirtualRtImage = 0;

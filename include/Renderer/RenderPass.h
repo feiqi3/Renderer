@@ -82,7 +82,7 @@ namespace Render {
 
 	protected:
 		friend class RenderPassManager;
-		virtual void drawImpl(rs_commandbuffer* cmdbuffer);
+		virtual void drawImpl(rs_commandbuffer* cmdbuffer, Camera* camera);
 		bool needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt);
 		bool isRTCompatible(rs_rendertarget* rtA, rs_rendertarget* rtB);
 

@@ -259,7 +259,7 @@ namespace Render {
 			}
 
 			mRenderPacks = std::move(batch.packs);
-			drawImpl(cmdbuffer);
+			drawImpl(cmdbuffer,cam);
 			mRenderPacks.clear();
 		}
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
@@ -283,10 +283,10 @@ namespace Render {
 		}
 	}
 
-	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer)
+	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer, Camera* camera)
 	{
 		for (auto& pack : mRenderPacks) {
-			RenderSystem::instance()->drawIndexed(cmdbuffer, pack.entity, pack.pass);
+			RenderSystem::instance()->drawIndexed(cmdbuffer, pack.entity, camera, pack.pass);
 		}
 	}
 

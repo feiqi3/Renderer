@@ -16,3 +16,6 @@
 [submodule "3rd/tinyGLTF"]
 	path = 3rd/tinyGLTF
 	url = https://github.com/syoyo/tinygltf.git
+[submodule "3rd/imgui"]
+	path = 3rd/imgui
+	url = https://github.com/ocornut/imgui.git

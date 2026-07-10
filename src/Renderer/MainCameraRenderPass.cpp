@@ -21,11 +21,11 @@ namespace Render {
 	MainCamPass::MainCamPass():RenderPass(Name("MainPass"), MainCamPassDesc)
 	{
 	}
-	void MainCamPass::drawImpl(rs_commandbuffer* cmdbuffer)
+	void MainCamPass::drawImpl(rs_commandbuffer* cmdbuffer,Camera* camera)
 	{
 		auto renderSys = RenderSystem::instance();
 		for (auto&& render : mSceneEntity) {
-			renderSys->drawIndexed(cmdbuffer, render, this->getPassName());
+			renderSys->drawIndexed(cmdbuffer, render,camera, this->getPassName());
 		}
 		mSceneEntity.clear();
 	}

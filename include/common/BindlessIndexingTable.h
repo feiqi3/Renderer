@@ -35,6 +35,7 @@ namespace Render {
 		uint32_t		DeRef(uint32_t handleIndex);
 		void			ResourceStateMark(uint32_t handleIndex);
 		void			ClearResourceStateMarked();
+		void			FreeAll();
 	};
 }
 

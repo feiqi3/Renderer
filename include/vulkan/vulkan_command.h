@@ -36,6 +36,7 @@ namespace Render::Vulkan {
 
 		void beginFrame(rs_context_vk* ctx, uint64_t frame);
 		rs_commandbuffer_vk* getCmdBufferLocalThread(rs_context_vk* ctx, uint64_t frame, QueueType queueType, bool singleTime);
+		rs_commandbuffer_vk* getCmdBufferCurRenderThread(rs_context_vk* ctx, QueueType queueType, bool singleTime);
 		void clearAll(rs_context_vk* ctx);
 
 	private:

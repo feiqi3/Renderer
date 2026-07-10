@@ -107,12 +107,12 @@ namespace Render{
 
 		void dispatchCompute(rs_commandbuffer* cmdBuffer, rs_compute_pipeline* pipeline, rs_drawdata* drawData, int groupX, int groupY, int groupZ);
 
-		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, const Name& passName);
-		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass);
+		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Camera* camera, const Name& passName);
+		void drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Camera* camera, Pass* pass);
 		
 		void drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas);
 		void transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type , rs_drawdata* drawdata);
-		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass);
+		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity,Camera* camera, Pass* pass);
 		void waitForFence(rs_fence* fence);
 		void waitForFence(rs_fence* fence, u32 frameInFlight);
 		void clearRenderEntity(RenderEntity* entity);

@@ -25,7 +25,7 @@ namespace Render
 		mVirtualRt = 0;
 	}
 
-	void VirtualRenderPass::drawImpl(rs_commandbuffer*)
+	void VirtualRenderPass::drawImpl(rs_commandbuffer*, Camera* )
 	{
 		assert(0);
 		throw std::runtime_error("Should not be here!");

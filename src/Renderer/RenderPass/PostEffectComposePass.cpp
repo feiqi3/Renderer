@@ -133,7 +133,7 @@ namespace Render {
 		RenderSys->cmdSetRendertarget(cmdbuffer, presentRT);
 		updateViewportAndScissor(cmdbuffer, presentRT);
 		drawImpl(cmdbuffer);
-		RenderSys->drawIndexed(cmdbuffer, entity, entity->getPostEffectPass());
+		RenderSys->drawIndexed(cmdbuffer, entity,cam, entity->getPostEffectPass());
 		RenderSys->cmdEndRenderPass(cmdbuffer);
 		RenderSys->blitToSwapchain(RenderSys->getPresentImage());
 	}

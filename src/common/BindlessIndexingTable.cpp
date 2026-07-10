@@ -146,4 +146,14 @@ namespace Render {
 		denseIndexToTransit.clear();
 	}
 
+	void BindlessIndexingTable::FreeAll()
+	{
+		auto vectorCopy = sparseIndices;
+		for (int i = 0;i < vectorCopy.size(); ++i) {
+			if (vectorCopy[i] != INVALID_BINDLESS_INDEX) {
+				Free(i);
+			}
+		}
+	}
+
 }

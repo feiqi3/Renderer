@@ -833,20 +833,20 @@ namespace Render{
 		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(),(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData,(Vulkan::rs_bindless_data_vk*)getGlobalBindlessData(), getCurFif(), groupX, groupY, groupZ);
 	}
 
-	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity,const Name& passName)
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Camera* camera,const Name& passName)
 	{
 		auto pass = entity->getPass(passName);
 		if (!pass)return;
-		drawIndexed(cmdBuffer, entity, pass);
+		drawIndexed(cmdBuffer, entity, camera, pass);
 	}
-	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Pass* pass)
+	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Camera* camera, Pass* pass)
 	{
 		cmdBuffer->hasCommands = true;
 		auto pipeline = (Vulkan::rs_graphic_pipeline_vk*)pass->mMaterialPass->getRsPipeline();
 		auto entityDrawData = (Vulkan::rs_drawdata_vk*)pass->mDrawData;
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};
-		fillDrawDataArray((DrawDataArray*)&drawDataArr, entity, pass);
+		fillDrawDataArray((DrawDataArray*)&drawDataArr, entity, camera, pass);
 	
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer,getRenderContext(), pipeline, entity->getRenderInfo(), drawDataArr, getCurFif(),true);
 	}
@@ -860,13 +860,13 @@ namespace Render{
 		//defered to begin render pass phase
 		Vulkan::cmdCollectDrawDataStateToTransit((Vulkan::rs_commandbuffer_vk*)cmdBuffer, (Vulkan::rs_drawdata_vk*)(drawdata), type, getCurFif());
 	}
-	void RenderSystem::fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Pass* pass)
+	void RenderSystem::fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity, Camera* camera, Pass* pass)
 	{
 		auto entityDrawData = pass->mDrawData;
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		(*arr)[0] = entityCommonDrawData;
 		(*arr)[1] = entityDrawData;
-		(*arr)[2] = mDp->mCurrentCameraData;
+		(*arr)[2] = camera!=nullptr ?  camera->getDrawData() : nullptr;
 		if (Scene::getCurrentScene()) {
 			(*arr)[3] = Scene::getCurrentScene()->getSceneDrawData();
 			(*arr)[4] = Scene::getCurrentScene()->getSceneShadowData();
@@ -1224,6 +1224,11 @@ namespace Render{
 
 	void RenderSystem::destroyBindlessData(rs_bindless_data* data)
 	{
+		//Clear all data ref of bindless
+		data->texturesBinding.FreeAll();
+		data->storageImagesBinding.FreeAll();
+		data->samplersBinding.FreeAll();
+
 		Vulkan::destroyBindlessData(getRenderContext(),(Vulkan::rs_bindless_data_vk*)data);
 	}
 
