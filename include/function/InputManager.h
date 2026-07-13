@@ -42,9 +42,12 @@ namespace Render {
 		void getCursorPos(double& x, double& y);
 		void getDeltaCursorPos(double& x, double& y);
 
+		void getMouseScroll(double& x, double& y);
+
 		void consumeKey(KeyCode key);
 		void consumeMouse(MouseButton btn);
-
+		void consumeMouseMove();
+		void consumeScroll();
 		uint32_t peekChar();
 		uint32_t consumeChar();
 
@@ -55,7 +58,7 @@ namespace Render {
 		void setKeyState(KeyCode code, bool pressed, KeyModifierFlags flag);
 		void setMouseButtonState(MouseButton button, bool pressed, KeyModifierFlags flag);
 		void setCursorPos(double x, double y);
-
+		void setMouseScroll(float x,float y);
 	private:
 
 		KeyState* mPrevKeyState = nullptr;
@@ -65,11 +68,13 @@ namespace Render {
 		u8*		  mIsKeyConsumed = nullptr;
 		u8*		  mIsMouseConsumed = nullptr;
 		std::queue<uint32_t> mCharQueueCurFrame;
-
+		double mScrollX = 0.;
+		double mScrollY = 0.;
 		double mCursorX = 0.0;
 		double mCursorY = 0.0;
 		double mPrevCursorX = 0.0;
 		double mPrevCursorY = 0.0;
+		bool mConsumeMouseMove = false;
 		bool isWindowFoused = true;
 		bool isCursorUpdated = false;
 		bool ignoreNextCursor = false;
@@ -79,6 +84,7 @@ namespace Render {
 		Window::CallbackID _callbackMousePosId	= Window::INVALID_CALLBACK_ID;
 		Window::CallbackID _callbackWindowFoucsId = Window::INVALID_CALLBACK_ID;
 		Window::CallbackID _callbackCharInputId	= Window::INVALID_CALLBACK_ID;
+		Window::CallbackID _callbackScrollId	= Window::INVALID_CALLBACK_ID;
 	};
 }
 

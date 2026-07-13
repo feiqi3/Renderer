@@ -77,6 +77,12 @@ namespace Render {
 			this->_callbackCharInputId = window_glfw->CharEvent += [this](uint32_t code) {
 				this->mCharQueueCurFrame.push(code);
 			};
+
+			this->_callbackScrollId = window_glfw->ScrollEvent += [this](double x, double y) {
+				this->mScrollX = x;
+				this->mScrollY = y;
+			};
+
 		}
 	}
 
@@ -89,6 +95,7 @@ namespace Render {
 			window_glfw->MouseBtnEvent	-= this->_callbackMouseBtnId;
 			window_glfw->CursorEvent	-= this->_callbackMousePosId;
 			window_glfw->CharEvent		-= this->_callbackCharInputId;
+			window_glfw->ScrollEvent	-= this->_callbackScrollId;
 		}
 	}
 
@@ -101,8 +108,12 @@ namespace Render {
 		std::memset(mIsMouseConsumed, 0, (int)MouseButton::Max * sizeof(u8));
 		std::queue<uint32_t> empty;
 		mCharQueueCurFrame.swap(empty);
+		mConsumeMouseMove = false;
 		mPrevCursorX = mCursorX;
 		mPrevCursorY = mCursorY;
+
+		mScrollX = 0.;
+		mScrollY = 0.;
 	}
 
 	void InputManager::postUpdate()
@@ -203,8 +214,19 @@ namespace Render {
 
 	void InputManager::getDeltaCursorPos(double& x, double& y)
 	{
+		if (mConsumeMouseMove) {
+			x = 0.;
+			y = 0.;
+			return;
+		}
 		x = mCursorX - mPrevCursorX;
 		y = mCursorY - mPrevCursorY;
+	}
+
+	void InputManager::getMouseScroll(double& x, double& y)
+	{
+		x = mScrollX;
+		y = mScrollY;
 	}
 
 	void InputManager::consumeKey(KeyCode key)
@@ -217,6 +239,17 @@ namespace Render {
 	{
 		mIsMouseConsumed[(int)btn] = 1;
 		mCurrMouseState[(int)btn] = packKeyState(0, false);
+	}
+
+	void InputManager::consumeMouseMove()
+	{
+		mConsumeMouseMove = true;
+	}
+
+	void InputManager::consumeScroll()
+	{
+		mScrollX = 0;
+		mScrollY = 0.;
 	}
 
 	uint32_t InputManager::peekChar()
@@ -283,6 +316,12 @@ namespace Render {
 		mPrevCursorY = mCursorY;
 		mCursorX = x;
 		mCursorY = y;
+	}
+
+	void InputManager::setMouseScroll(float x, float y)
+	{
+		mScrollX = x;
+		mScrollY = y;
 	}
 
 	Render::KeyAction InputManager::getMouseButtonState(MouseButton button)
