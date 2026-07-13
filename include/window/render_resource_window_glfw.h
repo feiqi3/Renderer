@@ -48,10 +48,8 @@ namespace Render::Window {
         EventDispatcher<FocusAction>                FocusEvent;
     private:
         void initCallback();
-		uint32_t toGlfwKeyCode(KeyCode code);
 		KeyCode toKeyCode(uint32_t glfwCode);
 
-        uint32_t toGlfwKeyMouse(MouseButton btn);
         MouseButton toMouseButton(uint32_t glfwMus);
 
     private:

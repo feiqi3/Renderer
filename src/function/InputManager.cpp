@@ -4,32 +4,41 @@
 #include "Renderer/RenderSystem.h" 
 #include "window/render_resource_window_glfw.h"
 namespace Render {
-	bool isKeyStatePressed(uint16_t keyState) {
-		return (keyState & 0x00FF) != 0;
+	bool isKeyStatePressed(InputManager::KeyState state) {
+		//Pressed and not marked as consumed
+		return state.isPressed > 0 ;
 	}
 
-	uint16_t packKeyState(KeyModifierFlags flag, bool pressed) {
-		return (static_cast<uint16_t>(flag) << 8) | static_cast<uint16_t>(pressed);
+	InputManager::KeyState packKeyState(KeyModifierFlags flag, bool pressed) {
+		InputManager::KeyState state{};
+		state.modifier = flag;
+		state.isPressed = pressed;
+		return state;
 	}
 
-	void unpackKeyState(uint16_t keyState, KeyModifierFlags& flag, bool& pressed) {
-		flag = static_cast<KeyModifierFlags>(keyState >> 8);
-		pressed = (keyState & 0xFF) != 0;
+	void unpackKeyState(InputManager::KeyState keyState, KeyModifierFlags& flag, bool& pressed) {
+
+		flag = keyState.modifier;
+		pressed = keyState.isPressed;
 	}
 
 	Render::InputManager::InputManager()
 	{
-		mPrevKeyState = new u16[MAX_KEY_CODE];
-		mCurrKeyState = new u16[MAX_KEY_CODE];
+		mPrevKeyState = new InputManager::KeyState[MAX_KEY_CODE];
+		mCurrKeyState = new InputManager::KeyState[MAX_KEY_CODE];
 
-		int mouseBtnCount = (int)MouseButton::Last + 1;
-		mPrevMouseState = new u16[mouseBtnCount];
-		mCurrMouseState = new u16[mouseBtnCount];
+		int mouseBtnCount = (int)MouseButton::Max;
+		mPrevMouseState = new InputManager::KeyState[mouseBtnCount];
+		mCurrMouseState = new InputManager::KeyState[mouseBtnCount];
+		mIsKeyConsumed = new u8[(int)MAX_KEY_CODE];
+		mIsMouseConsumed = new u8[(int)mouseBtnCount];
+		std::memset(mPrevKeyState, 0, MAX_KEY_CODE * sizeof(InputManager::KeyState));
+		std::memset(mCurrKeyState, 0, MAX_KEY_CODE * sizeof(InputManager::KeyState));
+		std::memset(mPrevMouseState, 0, mouseBtnCount * sizeof(InputManager::KeyState));
+		std::memset(mCurrMouseState, 0, mouseBtnCount * sizeof(InputManager::KeyState));
 
-		std::memset(mPrevKeyState, 0, MAX_KEY_CODE * sizeof(u16));
-		std::memset(mCurrKeyState, 0, MAX_KEY_CODE * sizeof(u16));
-		std::memset(mPrevMouseState, 0, mouseBtnCount * sizeof(u16));
-		std::memset(mCurrMouseState, 0, mouseBtnCount * sizeof(u16));
+		std::memset(mIsKeyConsumed, 0, MAX_KEY_CODE * sizeof(u8));
+		std::memset(mIsMouseConsumed, 0, mouseBtnCount * sizeof(u8));
 	}
 
 	InputManager::~InputManager()
@@ -38,6 +47,8 @@ namespace Render {
 		delete[] mCurrKeyState; mCurrKeyState = nullptr;
 		delete[] mPrevMouseState; mPrevMouseState = nullptr;
 		delete[] mCurrMouseState; mCurrMouseState = nullptr;
+		delete[] mIsKeyConsumed; mIsKeyConsumed = nullptr;
+		delete[] mIsMouseConsumed; mIsMouseConsumed = nullptr;
 	}
 
 	void InputManager::initByWindowSystem(Window::rs_window* window)
@@ -62,6 +73,10 @@ namespace Render {
 			this->_callbackWindowFoucsId = window_glfw->FocusEvent += [this](FocusAction action) {
 				isWindowFoused = (action == FocusAction::Gain);
 				};
+
+			this->_callbackCharInputId = window_glfw->CharEvent += [this](uint32_t code) {
+				this->mCharQueueCurFrame.push(code);
+			};
 		}
 	}
 
@@ -73,20 +88,26 @@ namespace Render {
 			window_glfw->KeyEvent		-= this->_callbackKeyId;
 			window_glfw->MouseBtnEvent	-= this->_callbackMouseBtnId;
 			window_glfw->CursorEvent	-= this->_callbackMousePosId;
+			window_glfw->CharEvent		-= this->_callbackCharInputId;
 		}
 	}
 
 	void InputManager::preUpdate()
 	{
-		memcpy(mPrevKeyState, mCurrKeyState, MAX_KEY_CODE * sizeof(u16));
+		memcpy(mPrevKeyState, mCurrKeyState, MAX_KEY_CODE * sizeof(InputManager::KeyState));
+		int mouseBtnCount = (int)MouseButton::Max;
+		memcpy(mPrevMouseState, mCurrMouseState, mouseBtnCount * sizeof(InputManager::KeyState));
+		std::memset(mIsKeyConsumed, 0, MAX_KEY_CODE * sizeof(u8));
+		std::memset(mIsMouseConsumed, 0, (int)MouseButton::Max * sizeof(u8));
+		std::queue<uint32_t> empty;
+		mCharQueueCurFrame.swap(empty);
 		mPrevCursorX = mCursorX;
 		mPrevCursorY = mCursorY;
 	}
 
 	void InputManager::postUpdate()
 	{
-		int mouseBtnCount = (int)MouseButton::Last + 1;
-		std::memcpy(mPrevMouseState, mCurrMouseState, mouseBtnCount * sizeof(u16));
+
 		if (this->isKeyReleased(KeyCode::RightAlt)) {
 			//GLFW will set cursor to a virtual position when 
 			//cursor is hidden, which will cause a large delta in cursor position when the window regain focus or cursor move. 
@@ -110,6 +131,7 @@ namespace Render {
 
 	Render::KeyModifierFlags InputManager::getKeyModifiers(KeyCode key)
 	{
+		if (mIsKeyConsumed[(int)key] > 0)return 0;
 		bool pressed = false;
 		KeyModifierFlags flags = 0;
 		unpackKeyState(mCurrKeyState[(int)key], flags, pressed);
@@ -118,16 +140,21 @@ namespace Render {
 
 	bool InputManager::isKeyDown(KeyCode key)
 	{
+		if (mIsKeyConsumed[(int)key] > 0)return false;
+
 		return isKeyStatePressed(mCurrKeyState[(int)key]);
 	}
 
 	bool InputManager::isKeyPressed(KeyCode key)
 	{
+		if (mIsKeyConsumed[(int)key] > 0)return false;
 		return !isKeyStatePressed(mPrevKeyState[(int)key]) && isKeyStatePressed(mCurrKeyState[(int)key]);
 	}
 
 	bool InputManager::isKeyReleased(KeyCode key)
 	{
+		if (mIsKeyConsumed[(int)key] > 0)return false;
+
 		bool lastFramePressed = isKeyStatePressed(mPrevKeyState[(int)key]);
 		if (lastFramePressed) {
 			bool thisFramePressed = isKeyStatePressed(mCurrKeyState[(int)key]);
@@ -140,27 +167,32 @@ namespace Render {
 
 	bool InputManager::isKeyHold(KeyCode key)
 	{
+		if (mIsKeyConsumed[(int)key] > 0)return false;
 		return isKeyStatePressed(mPrevKeyState[(int)key]) && isKeyStatePressed(mCurrKeyState[(int)key]);
 	}
 
 	bool InputManager::isMouseDown(MouseButton btn)
 	{
+		if (mIsMouseConsumed[(int)btn])return false;
 		return isKeyStatePressed(mCurrMouseState[(int)btn]);
 	}
 
 	bool InputManager::isMousePressed(MouseButton btn)
 	{
+		if (mIsMouseConsumed[(int)btn])return false;
 		return !isKeyStatePressed(mPrevMouseState[(int)btn]) && isKeyStatePressed(mCurrMouseState[(int)btn]);
 	}
 
 	bool InputManager::isMouseReleased(MouseButton btn)
 	{
-		return mPrevMouseState[(int)btn] != 0 && mCurrMouseState[(int)btn] == 0;
+		if (mIsMouseConsumed[(int)btn])return false;
+		return  isKeyStatePressed(mPrevMouseState[(int)btn]) && !isKeyStatePressed(mCurrMouseState[(int)btn]);
 	}
 
 	bool InputManager::isMouseHold(MouseButton btn)
 	{
-		return mPrevMouseState[(int)btn] != 0 && mCurrMouseState[(int)btn] != 0;
+		if (mIsMouseConsumed[(int)btn])return false;
+		return isKeyStatePressed(mPrevMouseState[(int)btn]) && isKeyStatePressed(mCurrMouseState[(int)btn]);
 	}
 
 	void InputManager::getCursorPos(double& x, double& y)
@@ -175,12 +207,51 @@ namespace Render {
 		y = mCursorY - mPrevCursorY;
 	}
 
+	void InputManager::consumeKey(KeyCode key)
+	{
+		mIsKeyConsumed[(int)key] = 1;
+		mCurrKeyState[(int)key] = packKeyState(0, false);
+	}
+
+	void InputManager::consumeMouse(MouseButton btn)
+	{
+		mIsMouseConsumed[(int)btn] = 1;
+		mCurrMouseState[(int)btn] = packKeyState(0, false);
+	}
+
+	uint32_t InputManager::peekChar()
+	{
+		if (mCharQueueCurFrame.empty())return 0;
+		return mCharQueueCurFrame.front();
+	}
+
+	uint32_t InputManager::consumeChar()
+	{
+		if (mCharQueueCurFrame.empty())return 0;
+
+		auto code = mCharQueueCurFrame.front();
+		mCharQueueCurFrame.pop();
+		return code;
+	}
+
 	Render::KeyModifierFlags InputManager::getMouseModifiers(MouseButton btn)
 	{
 		bool pressed = false;
 		KeyModifierFlags flags = 0;
 		unpackKeyState(mCurrMouseState[(int)btn], flags, pressed);
 		return pressed ? flags : 0;
+	}
+
+	bool InputManager::isBtnConsumed(MouseButton button) const
+	{
+		return mIsMouseConsumed[(int)button];
+	}
+
+
+
+	bool InputManager::isKeyConsumed(KeyCode key) const
+	{
+		return mIsKeyConsumed[(int)key];
 	}
 
 	void InputManager::setKeyState(KeyCode code, bool pressed, KeyModifierFlags flag)

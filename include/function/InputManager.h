@@ -1,5 +1,6 @@
 #ifndef INPUT_MANAGER_H_
 #define INPUT_MANAGER_H_
+#include <queue>
 #include "Common/Singleton.h"
 #include "Common/CoreDefs.h"
 #include "InputDef.h"
@@ -9,7 +10,14 @@ namespace Render {
 		class rs_window;
 	}
 
+
+
 	class InputManager : public Singleton< InputManager > {
+	public:
+		struct KeyState {
+			uint8_t			 isPressed = 0;
+			KeyModifierFlags modifier = 0;
+		};
 	public:
 		InputManager();
 		~InputManager();
@@ -34,22 +42,29 @@ namespace Render {
 		void getCursorPos(double& x, double& y);
 		void getDeltaCursorPos(double& x, double& y);
 
+		void consumeKey(KeyCode key);
+		void consumeMouse(MouseButton btn);
+
+		uint32_t peekChar();
+		uint32_t consumeChar();
 
 		KeyAction getMouseButtonState(MouseButton button);
 	private:
-
+		bool isBtnConsumed(MouseButton button)const;
+		bool isKeyConsumed(KeyCode button)const;
 		void setKeyState(KeyCode code, bool pressed, KeyModifierFlags flag);
 		void setMouseButtonState(MouseButton button, bool pressed, KeyModifierFlags flag);
 		void setCursorPos(double x, double y);
 
 	private:
-		//||---8 bit---||---8 bit---||\\
-        //|| Keystate  ||  Modifier ||\\
 
-		u16* mPrevKeyState = nullptr;
-		u16* mCurrKeyState = nullptr;
-		u16* mPrevMouseState = nullptr;
-		u16* mCurrMouseState = nullptr;
+		KeyState* mPrevKeyState = nullptr;
+		KeyState* mCurrKeyState = nullptr;
+		KeyState* mPrevMouseState = nullptr;
+		KeyState* mCurrMouseState = nullptr;
+		u8*		  mIsKeyConsumed = nullptr;
+		u8*		  mIsMouseConsumed = nullptr;
+		std::queue<uint32_t> mCharQueueCurFrame;
 
 		double mCursorX = 0.0;
 		double mCursorY = 0.0;
@@ -63,6 +78,7 @@ namespace Render {
 		Window::CallbackID _callbackMouseBtnId	= Window::INVALID_CALLBACK_ID;
 		Window::CallbackID _callbackMousePosId	= Window::INVALID_CALLBACK_ID;
 		Window::CallbackID _callbackWindowFoucsId = Window::INVALID_CALLBACK_ID;
+		Window::CallbackID _callbackCharInputId	= Window::INVALID_CALLBACK_ID;
 	};
 }
 
