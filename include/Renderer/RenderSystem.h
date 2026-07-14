@@ -67,7 +67,7 @@ namespace Render{
 		rs_drawdata* getCurCameraDrawData();
 
 		rs_image* createCubemap(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int arrayLayers, int mipmap);
-		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap);
+		rs_image* createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap,uint32_t usage = ImageUsage_Sampled);
 		void destroyImage(rs_image* image);
 		//It's quite hard to calculate Device size of a texture...   
 		size_t getImageSize(rs_image* img);
@@ -194,11 +194,6 @@ namespace Render{
 		void			  setGlobalBindlessData(rs_bindless_data * bindlessData);
 		rs_bindless_data* getGlobalBindlessData();
 		bool isBindlessEnabled()const;
-		void			 createPresentRT();
-		void			 destroyPresentRT();
-		rs_rendertarget* getPresentRenderTarget();
-		rs_image*		 getPresentImage();
-		void			 setMainRenderResolution(int x, int y);
 		//Actully we do a defer blit inside cause we can only get 
 		void			 blitToSwapchain(rs_image* fromImage);
 		rs_semaphore*    getRenderFinishSemaphore();

@@ -33,7 +33,7 @@ namespace Render {
 			irradianceMapKernel->setParameter("EnvCubeMapSampler", linearSamplerPtr);
 			brdfLUTKernel = new ComputeKernel("../shader/BRDFLut.cs", {});
 
-			auto brdfLutImg = RenderSystem::instance()->createImage2D(nullptr, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, 1);
+			auto brdfLutImg = RenderSystem::instance()->createImage2D(nullptr, 0, ImageFormat::RGBA16_SFLOAT, 1024, 1024, 1, 1, 1,ImageUsage_Storage);
 			mBRDFLut = TextureResourceManager::instance()->createFromRsImage(Name("LightManager::BRDFLUT"), brdfLutImg);
 
 		}

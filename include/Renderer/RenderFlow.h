@@ -17,6 +17,10 @@
 #include "Renderer/DebugDrawManager.h"
 #include "Renderer/RenderPass/ShadowPass.h"
 #include "Renderer/ConstShaderDataManager.h"
+
+#define MAIN_RT_SIZE_X 1024
+#define MAIN_RT_SIZE_Y 1024
+
 namespace Render {
 	class RenderFlowBase {
 	public:
@@ -76,11 +80,19 @@ namespace Render {
 		void initPostEffectPass() {
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mPostEffectPass);
+
+			//create post effect rt 
+			postEffectImage = rsys->createImage2D(0,0,ImageFormat::RGBA8_UNORM, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, 1, 1, 1, ImageUsage_TransferSrc | ImageUsage_ColorAttachment);
+			postEffectRenderTarget = rsys->createRendertarget({ postEffectImage }, nullptr);
+			mPostEffectPass->setRenderTarget(postEffectRenderTarget);
 			mPostEffectPass->init();
 		}
 
 		void deinitPostEffectPass() {
 			auto rsys = RenderSystem::instance();
+			rsys->destroyRenderTarget(postEffectRenderTarget);
+			rsys->destroyImage(postEffectImage);
+
 			rsys->getRenderPassManager()->unregisterRenderPass(mPostEffectPass);
 			delete mPostEffectPass;
 			mPostEffectPass = nullptr;
@@ -90,9 +102,9 @@ namespace Render {
 			mMainCamPass->init();
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mMainCamPass);
-			auto mainColorImg = rsys->createRTTexture(RenderTextureFormat::RGBA16F, 1024, 1024, 1, 1 ,1 , true);
+			auto mainColorImg = rsys->createRTTexture(RenderTextureFormat::RGBA16F, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, 1, 1 ,1 , true);
 			mMainColorTex = TextureResourceManager::instance()->createFromRsImage(Name("MainColorTexture"),mainColorImg);
-			auto mainDepthImg = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, 1024, 1024, false);
+			auto mainDepthImg = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, false);
 			mMainDepthTex = TextureResourceManager::instance()->createFromRsImage(Name("MainDepthTexture"), mainDepthImg);
 			mRenderTarget = rsys->createRendertarget({ mainColorImg }, mainDepthImg);
 			mMainCamPass->setRenderTarget(mRenderTarget);
@@ -155,7 +167,7 @@ namespace Render {
 			RenderSys->cmdEnd(cmdbufOffscreen);
 
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { RenderSys->getRenderFinishSemaphore() }, nullptr);
-
+			RenderSys->blitToSwapchain(postEffectImage);
 			RenderSys->waitLastRenderEnd();
 			//Then into real render frame!
 		}
@@ -173,6 +185,10 @@ namespace Render {
 
 		rs_image* mainDepthImg = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;
+		
+		rs_image* postEffectImage = nullptr;
+		rs_rendertarget* postEffectRenderTarget = nullptr;
+
 		CodBloom* mBloom = nullptr;
 		Camera* mMainCamera = nullptr;
 

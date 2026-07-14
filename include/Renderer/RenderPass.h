@@ -49,7 +49,7 @@ namespace Render {
 		rs_renderpass* getRaw() const { return mRenderPass; }
 		void setRenderTarget(rs_rendertarget* renderTarget);
 		virtual void draw(rs_commandbuffer* cmdbuffer,Camera* cam);
-
+		virtual void preDraw(rs_commandbuffer* cmdbuffer, Camera* cam);
 		inline void setClearData(const std::vector<ClearColor>& clrColor, ClearDepthStencil dsClear) {
 			mClrColor = clrColor;
 			mDsClear = dsClear;
@@ -73,7 +73,7 @@ namespace Render {
 		void setNextMarkColorAndName(const vec4& color, const std::string& name);
 		void setNextViewport(Rect2D rect2d);
 		void setEntityFilterFlag(u64 flags);
-
+		
 	protected:
 		std::vector<RenderPack> mRenderPacks;
 		std::vector<LogicalPass> mLogicalPasses;

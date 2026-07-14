@@ -113,6 +113,7 @@ namespace Render {
 
 	void Texture::setRsImage(rs_image* image, bool destroyOld /*= true*/)
 	{
+        assert(image != pImage);
         if (destroyOld && pImage) {
             RenderSystem::instance()->destroyImage(pImage);
         }

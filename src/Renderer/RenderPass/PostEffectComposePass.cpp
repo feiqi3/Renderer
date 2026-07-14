@@ -9,7 +9,6 @@ namespace Render {
 	static inline PassDesc getPassDesc() {
 		PassDesc desc{};
 		PassAttachment attCol{};
-		//!!! KEEP THE SAME AS PRESENT IMAGE/RT
 		attCol.fmt = RenderTextureFormat::RGBA8;
 		attCol.isHDR = false;
 		attCol.loadOp = StorageOp::Clear;
@@ -122,7 +121,6 @@ namespace Render {
 	{
 		auto RenderSys = RenderSystem::instance();
 		RenderSys->setCurrentCamera(nullptr);
-		auto presentRT = RenderSys->getPresentRenderTarget();
 
 		RenderSys->updateParameters(cmdbuffer, this->entity, entity->getPostEffectPass());
 
@@ -130,12 +128,11 @@ namespace Render {
 
 		RenderSys->cmdBeginRenderPass(cmdbuffer, mRenderPass, mClrColor, mDsClear);
 		Rect2D nextRenderArea{};
-		RenderSys->cmdSetRendertarget(cmdbuffer, presentRT);
-		updateViewportAndScissor(cmdbuffer, presentRT);
+		RenderSys->cmdSetRendertarget(cmdbuffer, mRendertarget);
+		updateViewportAndScissor(cmdbuffer, mRendertarget);
 		drawImpl(cmdbuffer);
 		RenderSys->drawIndexed(cmdbuffer, entity,cam, entity->getPostEffectPass());
 		RenderSys->cmdEndRenderPass(cmdbuffer);
-		RenderSys->blitToSwapchain(RenderSys->getPresentImage());
 	}
 
 	void PostEffectComposePass::init()

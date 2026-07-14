@@ -89,8 +89,7 @@ namespace Render{
 		rs_semaphore* mRenderFinishSemaphore = nullptr;
 		rs_fence*	  mRenderEndFence = nullptr;
 		std::vector<std::pair<rs_image*, rs_commandbuffer*>> mFiFToBlitToSwapchain;
-		int mRenderResolutionX = 1000;
-		int mRenderResolutionY = 600;
+
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -118,7 +117,7 @@ namespace Render{
 		sRenderSystem->SemaphoreBlitToPresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::Common);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
-		sRenderSystem->createPresentRT();
+		//sRenderSystem->createPresentRT();
 		new Platform::FileSystem;
 		sRenderSystem->mDp->mWinFileSystem = new Render::Platform::Win::WinFileSystem();
 		Platform::FileSystem::instance()->registerFileSystem(sRenderSystem->mDp->mWinFileSystem, 1);
@@ -147,7 +146,7 @@ namespace Render{
 		sRenderSystem->destroySemaphore(sRenderSystem->SemaphorePresentImageReady);
 		sRenderSystem->destroySemaphore(sRenderSystem->SemaphoreBlitToPresentImageReady);
 
-		sRenderSystem->destroyPresentRT();
+		//sRenderSystem->destroyPresentRT();
 		sRenderSystem->deinitSwapchainRT();
 
 		deinitVulkanBackEnd((rs_context_vk*)sRenderSystem->mBackEndContext);
@@ -212,6 +211,7 @@ namespace Render{
 		}
 		else {
 			mDp->mRenderThreadPresentImage = mDp->mPresentImage;
+			mDp->mPresentImage = nullptr;
 			beginRsRenderFrameVk(ctx);
 
 			auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SemaphorePresentImageReady, 0);
@@ -477,7 +477,7 @@ namespace Render{
 		}
 		return ret;
 	}
-	rs_image* RenderSystem::createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap)
+	rs_image* RenderSystem::createImage2D(void* data, size_t byteSize, ImageFormat format, int x, int y, int z, int layer, int mipmap, uint32_t usage)
 	{
 		ImageDesc desc{};
 		desc.width = x;
@@ -496,7 +496,7 @@ namespace Render{
 
 		desc.type = type;
 		desc.format = format;
-		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst | ImageUsage_Storage;
+		desc.usage = ImageUsage::ImageUsage_Sampled | ImageUsage_TransferDst | usage;
 
 		auto ret = Vulkan::createRsImage(getRenderContext(), desc);
 
@@ -623,6 +623,10 @@ namespace Render{
 		//Before frame event
 		if (mDp->mEngineEvent.WindowResize) {
 			getRenderContext()->currentSwapchainImage = 0;
+			//Recreate present image
+			//destroyPresentRT();
+			//createPresentRT();
+
 			Vulkan::createSwapchain(getRenderContext(), this->mWindow, getRenderContext()->swapchain);
 			mDp->mEngineEvent.WindowResize = false;
 			deinitSwapchainRT();
@@ -1251,51 +1255,6 @@ namespace Render{
 	bool RenderSystem::isBindlessEnabled() const
 	{
 		return Vulkan::isBindlessEnabled();
-	}
-
-	void RenderSystem::createPresentRT()
-	{
-		if (mDp->mPresentRT == nullptr) {
-			//Create one 
-			ImageDesc desc{};
-			desc.format = ImageFormat::RGBA8_UNORM;
-			desc.width = mDp->mRenderResolutionX;
-			desc.height = mDp->mRenderResolutionY;
-			desc.type = ImageType::V2D;
-			desc.usage = ImageUsage_TransferSrc | ImageUsage_ColorAttachment;
-			mDp->mPresentImage = createRsImage(getRenderContext(), desc);
-			mDp->mPresentRT = createRendertarget({ mDp->mPresentImage }, nullptr);
-		}
-		else {
-			assert(false);
-		}
-
-	}
-
-	void RenderSystem::destroyPresentRT()
-	{
-		Vulkan::rs_image_vk* image = (Vulkan::rs_image_vk*)mDp->mPresentImage;
-		Vulkan::rs_rendertarget_vk* rt = (Vulkan::rs_rendertarget_vk*)mDp->mPresentRT;
-		Vulkan::destroyRsImage(getRenderContext(), image);
-		mDp->mPresentImage = nullptr;
-		Vulkan::destroyRsRenderTarget(getRenderContext(), rt);
-		mDp->mPresentRT = nullptr;
-	}
-
-	Render::rs_rendertarget* RenderSystem::getPresentRenderTarget()
-	{
-		return mDp->mPresentRT;
-	}
-
-	Render::rs_image* RenderSystem::getPresentImage()
-	{
-		return mDp->mPresentImage;
-	}
-
-	void RenderSystem::setMainRenderResolution(int x, int y)
-	{
-		mDp->mRenderResolutionX = x;
-		mDp->mRenderResolutionY = y;
 	}
 
 	void RenderSystem::blitToSwapchain(rs_image* fromImage)

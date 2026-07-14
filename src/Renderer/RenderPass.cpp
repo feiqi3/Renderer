@@ -146,6 +146,7 @@ namespace Render {
 
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer, Camera* cam)
 	{
+		preDraw(cmdbuffer, cam);
 		if (mLogicalPasses.empty()) return;
 		if (!mRendertarget) {
 			return;
@@ -264,6 +265,11 @@ namespace Render {
 		}
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
 
+	}
+
+	void RenderPass::preDraw(rs_commandbuffer* cmdbuffer, Camera* cam)
+	{
+		return;
 	}
 
 	void RenderPass::collectRenderEntitiesForName(RenderQueue* renderQueue, const LogicalPass& logicPass, std::vector<RenderPack>& packs)
