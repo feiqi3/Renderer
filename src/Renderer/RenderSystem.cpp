@@ -111,10 +111,11 @@ namespace Render{
 		sRenderSystem->mDp->mPassManager = std::make_unique<RenderPassManager>();
 		sRenderSystem->mDp->mArena = std::make_unique<RenderDataArena>();
 		sRenderSystem->mDp->mArena->init(sRenderSystem->getRenderContext()->maxFrameInFlight, Render::STAGING_BLOCK_SIZE);
-		//In stage: cause we use blit function to fill the swapchain image
-		//So wait in stage Resource Transfer stage
-		sRenderSystem->mDp->mRenderFinishSemaphore = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame,ResourceState::TransferDst);
-		sRenderSystem->SemaphorePresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::TransferDst);
+		//Use a seperate command buffer to blit image
+		//And this cmd buffer only works when these  two semaphore ready
+		//So wait in top of the pipeline(start of the pipeline?)
+		sRenderSystem->mDp->mRenderFinishSemaphore = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame,ResourceState::Common);
+		sRenderSystem->SemaphorePresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::Common);
 		sRenderSystem->mDp->mRenderEndFence		   = sRenderSystem->createFence(FenceWait::CurRenderFrame);
 		sRenderSystem->SemaphoreBlitToPresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::Common);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
@@ -978,7 +979,7 @@ namespace Render{
 	{
 		auto semaphore = Vulkan::createRsSemaphore(getRenderContext());
 		semaphore->waitFlag = waitFlag;
-		semaphore->waitResourceState = ResourceState::RenderTarget;
+		semaphore->waitResourceState = waitResourceState;
 		return semaphore;
 	}
 
