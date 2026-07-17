@@ -114,7 +114,7 @@ namespace Render{
 		void transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type , rs_drawdata* drawdata);
 		void fillDrawDataArray(DrawDataArray* arr, RenderEntity* entity,Camera* camera, Pass* pass);
 		void waitForFence(rs_fence* fence);
-		void waitForFence(rs_fence* fence, u32 frameInFlight);
+		void waitForFence(rs_fence* fence, int frameInFlight);
 		void clearRenderEntity(RenderEntity* entity);
 
 		ShaderIncFindFunc getShaderIncludeSearchFunc()const;
@@ -138,10 +138,10 @@ namespace Render{
 		void destroySemaphore(rs_semaphore* semphore);
 
 		//Not signaled state.
-		rs_fence* createFence();
+		rs_fence* createFence(FenceWait wait = FenceWait::NextRenderFrame);
 		void destroyFence(rs_fence* fence);
 		void resetFence(rs_fence* fence);
-		void resetFence(rs_fence* fence,uint32_t FiF);
+		void resetFence(rs_fence* fence,int FiF);
 
 		void setCurrentCamera(Camera* camera);
 		Camera* getCurrentCamera();
@@ -159,7 +159,7 @@ namespace Render{
 		bool isRenderTargetCompatibleToRenderPass(rs_renderpass* rp, rs_rendertarget* rt);
 
 		void excutePendingBufferCopies(rs_commandbuffer* cmdbuf);
-		void cmdBlit(rs_commandbuffer* cmd, TexturePtr from, ImageViewKey fromKey, TexturePtr to, ImageViewKey toKey, Filter filter);
+		void cmdBlitCompute(rs_commandbuffer* cmd, TexturePtr from, ImageViewKey fromKey, TexturePtr to, ImageViewKey toKey, Filter filter);
 		void cmdBufferStateTransfer(rs_commandbuffer* cmdbuf,rs_buffer* resource, ResourceState toState);
 		void cmdImageStateTransfer(rs_commandbuffer* cmdbuf,rs_image* resource,
 			ResourceState newState,

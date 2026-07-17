@@ -1186,8 +1186,9 @@ namespace Render::Vulkan {
 
     void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence,int frameInFlight)
     {
-        auto fenceNative = (VkFence*)fence->native;
-        vkResetFences(ctx->device, 1, &(fenceNative[frameInFlight]));
+        int fif = frameInFlight < 0 ? getWaitFif(ctx, fence->waitFlag) : frameInFlight;
+        auto fenceNative = ((VkFence*)fence->native)[fif];
+        vkResetFences(ctx->device, 1, &fenceNative);
     }
 
     void resetRsFence(rs_context_vk* ctx, rs_fence_vk* fence)
@@ -1198,7 +1199,8 @@ namespace Render::Vulkan {
 
     void waitForRsFence(rs_context_vk* ctx, rs_fence_vk* fence, uint64_t timeout, int frameInFlight)
     {
-        auto fenceNative = ((VkFence*)fence->native)[frameInFlight];
+        int fif = frameInFlight < 0 ? getWaitFif(ctx, fence->waitFlag) : frameInFlight;
+        auto fenceNative = ((VkFence*)fence->native)[fif];
         vkWaitForFences(ctx->device, 1, &fenceNative, VK_TRUE, timeout);
     }
 
@@ -1665,9 +1667,10 @@ namespace Render::Vulkan {
         if (!isBindlessEnabled())return;
 		std::vector<VkWriteDescriptorSet> writes{};
         std::vector<VkDescriptorImageInfo> imgInfos;
-        imgInfos.reserve(bindlessData->pendingUnbindSampler.size());
+        auto fif = ctx->LogicFrameFif;
+        imgInfos.reserve(bindlessData->pendingUnbindSampler[fif].size());
 		VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-		for (auto idx : bindlessData->pendingUnbindSampler) {
+		for (auto idx : bindlessData->pendingUnbindSampler[fif]) {
 			bindlessData->samplersBinding.Free(idx);
 			auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
 			write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
@@ -1685,10 +1688,10 @@ namespace Render::Vulkan {
 		vkUpdateDescriptorSets(ctx->device, writes.size(), writes.data(), 0, 0);
         writes.clear();
         imgInfos.clear();
-        bindlessData->pendingUnbindSampler.clear();
+        bindlessData->pendingUnbindSampler[fif].clear();
 
-        imgInfos.reserve(bindlessData->pendingUnbindStorage.size());
-		for (auto idx : bindlessData->pendingUnbindStorage) {
+        imgInfos.reserve(bindlessData->pendingUnbindStorage[fif].size());
+		for (auto idx : bindlessData->pendingUnbindStorage[fif]) {
             bindlessData->storageImagesBinding.Free(idx);
 			auto bindingPos = bindlessData->storageBindlessPos ;
 			auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
@@ -1709,10 +1712,10 @@ namespace Render::Vulkan {
 		vkUpdateDescriptorSets(ctx->device, writes.size(), writes.data(), 0, 0);
 		writes.clear();
 		imgInfos.clear();
-        bindlessData->pendingUnbindStorage.clear();
+        bindlessData->pendingUnbindStorage[fif].clear();
 
-		imgInfos.reserve(bindlessData->pendingUnbindTexture.size());
-		for (auto idx : bindlessData->pendingUnbindTexture) {
+		imgInfos.reserve(bindlessData->pendingUnbindTexture[fif].size());
+		for (auto idx : bindlessData->pendingUnbindTexture[fif]) {
 			bindlessData->texturesBinding.Free(idx);
 			auto bindingPos = bindlessData->textureBindlessPos;
 			auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
@@ -1733,7 +1736,7 @@ namespace Render::Vulkan {
 		vkUpdateDescriptorSets(ctx->device, writes.size(), writes.data(), 0, 0);
 		writes.clear();
 		imgInfos.clear();
-		bindlessData->pendingUnbindTexture.clear();
+		bindlessData->pendingUnbindTexture[fif].clear();
 	}
 
 	void bindlessDataMarkResource(rs_bindless_data_vk* bindlessData, rs_image_view* view, bool isUAV)
@@ -3359,39 +3362,19 @@ namespace Render::Vulkan {
 		}
 
         auto curFif = ctx->RenderFrameFif;
-        auto lastFif = (curFif + ctx->maxFrameInFlight - 1) % ctx->maxFrameInFlight;
-		auto nextFif = (curFif + ctx->maxFrameInFlight + 1) % ctx->maxFrameInFlight;
 		std::vector<VkSemaphore> ntvwaitSemaphores, ntvsignalSemaphores;
         std::vector< VkPipelineStageFlags> waitStageFlags;
 
         for (auto&& sem : imageAvailableWaitSemaphores) {
             auto mapping = getVulkanMapping(sem->waitResourceState);
             auto waitFlag = sem->waitFlag;
-            uint32_t fif = curFif;
-            if (waitFlag == Render::SemaphoreWait::CurRenderFrame) {
-                fif = curFif;
-            }
-            else if (waitFlag == Render::SemaphoreWait::LastRenderFrame) {
-                fif = lastFif;
-            }
-            else if (waitFlag == Render::SemaphoreWait::NextRenderFrame) {
-                fif = nextFif;
-            }
+            uint32_t fif = getWaitFif(ctx,waitFlag);
             ntvwaitSemaphores.push_back( ((VkSemaphore*)sem->native)[fif]);
             waitStageFlags.push_back(mapping.stageMask | toWaitFlag);
         }
         for (auto&& sem : renderFinishSignalSemphores) {
 			auto waitFlag = sem->waitFlag;
-			uint32_t fif = curFif;
-			if (waitFlag == Render::SemaphoreWait::CurRenderFrame) {
-				fif = curFif;
-			}
-			else if (waitFlag == Render::SemaphoreWait::LastRenderFrame) {
-				fif = lastFif;
-			}
-			else if (waitFlag == Render::SemaphoreWait::NextRenderFrame) {
-				fif = nextFif;
-			}
+			uint32_t fif = getWaitFif(ctx, waitFlag);
             ntvsignalSemaphores.push_back(((VkSemaphore*)sem->native)[fif]);
         }
 
@@ -3429,7 +3412,8 @@ namespace Render::Vulkan {
         }
         VkFence fencevk = VK_NULL_HANDLE;
         if (fence) {
-            fencevk = ((VkFence*)fence->native)[curFif];
+            auto fif = getWaitFif(ctx, fence->waitFlag);
+            fencevk = ((VkFence*)fence->native)[fif];
         }
         vkQueueSubmit(rsQueue->queue, 1, &info, fencevk);
     }
@@ -3477,6 +3461,7 @@ namespace Render::Vulkan {
     {
         auto fence = createRsFence(ctx);
         cmdSubmitCmdBuffer(ctx, cb, QueueType_Graphics, {}, {}, fence);
+        waitForRsFence(ctx, fence,-1,ctx->RenderFrameFif);
         destroyRsFence(ctx,fence);
     }
 //TODO: configable set size? this can be done by compile shader with given macro.....
@@ -3484,6 +3469,9 @@ namespace Render::Vulkan {
     rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx, rs_pipeline* pipeline, int setIdx)
     {
         rs_bindless_data_vk* bindlessData = new rs_bindless_data_vk(MAX_TEXTURE_BINDLESS, MAX_SAMPLER_BINDLESS, MAX_STORAGEIMAGE_BINDLESS);
+        bindlessData->pendingUnbindSampler.resize(ctx->maxFrameInFlight);
+        bindlessData->pendingUnbindStorage.resize(ctx->maxFrameInFlight);
+        bindlessData->pendingUnbindTexture.resize(ctx->maxFrameInFlight);
         auto descriptorManager = ctx->descriptorSetMgr;
         bindlessData->descriptorSet = descriptorManager->AllocateDescriptorSetFromDedicatePool(ctx->nextRenderFrame, ctx, pipeline, setIdx);
         return bindlessData;
@@ -3574,28 +3562,8 @@ namespace Render::Vulkan {
 
         resource->bindlessIndex = INVALID_BINDLESS_INDEX;
         auto& pendingRemoveTable = uav ? bindlessData->pendingUnbindStorage : bindlessData->pendingUnbindTexture;
-        pendingRemoveTable.push_back(index);
+        pendingRemoveTable[ctx->LogicFrameFif].push_back(index);
 		return default_unbind_index;
-
-		bindingTable->Free(index);
-
-        auto bindingPos = uav ? bindlessData->storageBindlessPos : bindlessData->textureBindlessPos;
-        auto bindingIdx = toVkBindingPos(bindingPos).bindingIdx;
-        auto bindResource = (type == UniformType::StorageImage) ? defalut_no_texture_UAV->defaultView : defalut_no_texture->defaultView;
-        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        write.descriptorCount = 1;
-        write.descriptorType = toVkDescriptorType(type);
-        write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
-        write.dstBinding = bindingIdx;
-        write.dstArrayElement = index;
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageView = (VkImageView)bindResource->native;
-        imageInfo.imageLayout = (type == UniformType::StorageImage)
-            ? VK_IMAGE_LAYOUT_GENERAL
-            : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        write.pImageInfo = &imageInfo;
-        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
-        return default_unbind_index;
     }
 
     uint64_t unbindBindlessBuffer(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint64_t index, bool uav)
@@ -3650,26 +3618,11 @@ namespace Render::Vulkan {
 			return defalut_no_sampler->bindlessIndex;
         }
         assert(refAfterDec >= 1);
-        bindlessData->pendingUnbindSampler.push_back(index);
+        bindlessData->pendingUnbindSampler[ctx->LogicFrameFif].push_back(index);
 		return defalut_no_sampler->bindlessIndex;
-
-        auto bindingIdx = toVkBindingPos(bindlessData->samplerBindlessPos).bindingIdx;
-        bindingTable.Free(index);
-        VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-        write.dstSet = (VkDescriptorSet)bindlessData->descriptorSet->native;
-        write.descriptorCount = 1;
-        write.dstBinding = bindingIdx;
-        write.dstArrayElement = index;
-        write.descriptorCount = 1;
-        write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-        VkDescriptorImageInfo imgInfo{};
-        imgInfo.sampler = (VkSampler)defalut_no_sampler->native;
-        write.pImageInfo = &imgInfo;
-        vkUpdateDescriptorSets(ctx->device, 1, &write, 0, 0);
-        return defalut_no_sampler->bindlessIndex;
     }
 
-    uint64_t beginRsFrameVk(rs_context_vk* ctx)
+    uint64_t beginRsFrameVk(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData)
     {
         ctx->nextRenderFrame++;
         uint64_t maxFif = ctx->maxFrameInFlight;
@@ -3679,6 +3632,9 @@ namespace Render::Vulkan {
         uint64_t toWaitFrame = ctx->nextRenderFrame % maxFif;
         ctx->LogicFrameFif = toWaitFrame;
         ctx->canRenderNextFrame = true;
+        if (bindlessData) {
+            beginFrameUnbindBindlessResource(ctx, bindlessData);
+        }
         ctx->destroyer->endFrameDestroy(ctx, ctx->curRenderFrame);
         cmdbufMgr->beginFrame(ctx, ctx->nextRenderFrame);
         descriptorSetMgr->beginFrame(ctx, ctx->nextRenderFrame);
@@ -3704,9 +3660,8 @@ namespace Render::Vulkan {
     uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* imageAvailableSignalSemaphore, rs_fence_vk* fenceToSignal)
     {
         uint32_t swapImageIdx;
-        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[ctx->RenderFrameFif];
-        VkFence fence = fenceToSignal == 0 ? VK_NULL_HANDLE : ((VkFence*)fenceToSignal->native)[ctx->RenderFrameFif];
-        vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , fence, &swapImageIdx);
+        VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[getWaitFif(ctx, imageAvailableSignalSemaphore->waitFlag)];
+        vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , VK_NULL_HANDLE, &swapImageIdx);
         return swapImageIdx;
     }
 
@@ -3716,7 +3671,7 @@ namespace Render::Vulkan {
         //and signal a semaphore to present?
         std::vector<VkSemaphore> semphoresToWait;
         for (auto&& semRs : canPresentToScreen) {
-            semphoresToWait.push_back( ((VkSemaphore*)semRs->native)[ctx->RenderFrameFif]);
+            semphoresToWait.push_back( ((VkSemaphore*)semRs->native)[getWaitFif(ctx,semRs->waitFlag)]);
         }
 
 

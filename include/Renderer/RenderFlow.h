@@ -10,6 +10,7 @@
 #include "Renderer/CameraManager.h"
 #include "Renderer/LightManager.h"
 #include "Renderer/RenderPass/PostEffectComposePass.h"
+#include "Renderer/RenderPass/DebugOverlayPass.h"
 #include "Renderer/PostEffect/CODBloom.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/Blit.h"
@@ -17,7 +18,7 @@
 #include "Renderer/DebugDrawManager.h"
 #include "Renderer/RenderPass/ShadowPass.h"
 #include "Renderer/ConstShaderDataManager.h"
-
+#include "Renderer/UI/ImGuiManager.h"
 #define MAIN_RT_SIZE_X 1024
 #define MAIN_RT_SIZE_Y 1024
 
@@ -48,7 +49,7 @@ namespace Render {
 			initDirectionalLightShadowPass();
 			initMainCamPass();
 			initPostEffectPass();
-
+			initDebugOverlayPass();
 			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemaphore();
 			mWaitForRenderEndFence = RenderSystem::instance()->createFence();
 			auto RenderSys = RenderSystem::instance();
@@ -80,9 +81,10 @@ namespace Render {
 		void initPostEffectPass() {
 			auto rsys = RenderSystem::instance();
 			rsys->getRenderPassManager()->registerRenderPass(mPostEffectPass);
-
 			//create post effect rt 
-			postEffectImage = rsys->createImage2D(0,0,ImageFormat::RGBA8_UNORM, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, 1, 1, 1, ImageUsage_TransferSrc | ImageUsage_ColorAttachment);
+			auto postEffectImage = rsys->createImage2D(0,0,ImageFormat::RGBA8_UNORM, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, 1, 1, 1, ImageUsage_TransferSrc | ImageUsage_ColorAttachment | ImageUsage_Storage);
+			postEffectTexture = TextureResourceManager::instance()->createEmpty();
+			postEffectTexture->setRsImage(postEffectImage);
 			postEffectRenderTarget = rsys->createRendertarget({ postEffectImage }, nullptr);
 			mPostEffectPass->setRenderTarget(postEffectRenderTarget);
 			mPostEffectPass->init();
@@ -90,8 +92,8 @@ namespace Render {
 
 		void deinitPostEffectPass() {
 			auto rsys = RenderSystem::instance();
+			postEffectTexture = nullptr;
 			rsys->destroyRenderTarget(postEffectRenderTarget);
-			rsys->destroyImage(postEffectImage);
 
 			rsys->getRenderPassManager()->unregisterRenderPass(mPostEffectPass);
 			delete mPostEffectPass;
@@ -117,6 +119,20 @@ namespace Render {
 			mMainCamPass = 0;
 		}
 
+		void initDebugOverlayPass() {
+			RenderSystem* renderSys = RenderSystem::instance();
+			mOverlayRenderPass = new DebugOverlayPass;
+			renderSys->getRenderPassManager()->registerRenderPass(mOverlayRenderPass);
+			mOverlayRenderPass->init();
+		}
+
+		void deinitDebugOverlayPass() {
+			RenderSystem* renderSys = RenderSystem::instance();
+			renderSys->getRenderPassManager()->unregisterRenderPass(mOverlayRenderPass);
+			mOverlayRenderPass->deinit();
+			delete mOverlayRenderPass;
+		}
+
 		void deinit() {
 			CameraManager::instance()->UnregisterCamera(mMainCamera);
 			delete mMainCamera;
@@ -124,6 +140,7 @@ namespace Render {
 			initDirectionalLightShadowPass();
 			deinitMainCamPass();
 			deinitPostEffectPass();
+			deinitDebugOverlayPass();
 			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
 			RenderSystem::instance()->destroyFence(mWaitForRenderEndFence);
 		}
@@ -164,14 +181,19 @@ namespace Render {
 			mPostEffectPass->setMainRTColorTex(mMainColorTex);
 			mPostEffectPass->draw(cmdbufOffscreen);
 
+			IMGUIManager::instance()->draw();
+			mOverlayRenderPass->setGameView(postEffectTexture);
+			mOverlayRenderPass->draw(cmdbufOffscreen,nullptr);
+
 			RenderSys->cmdEnd(cmdbufOffscreen);
 
 			RenderSys->submitCmdBuffer(cmdbufOffscreen, {}, { RenderSys->getRenderFinishSemaphore() }, nullptr);
-			RenderSys->blitToSwapchain(postEffectImage);
-			RenderSys->waitLastRenderEnd();
+			RenderSys->blitToSwapchain(mOverlayRenderPass->getOverlayTexture()->getRsImage());
+			//RenderSys->waitLastRenderEnd();
 			//Then into real render frame!
 		}
 	private:
+		DebugOverlayPass* mOverlayRenderPass = 0;
 		MainCameraPass* mMainCamPass = 0;
 		PostEffectComposePass* mPostEffectPass = 0;
 		RenderPass* mDirectionalLightRenderPass = nullptr;
@@ -186,7 +208,7 @@ namespace Render {
 		rs_image* mainDepthImg = nullptr;
 		rs_rendertarget* mRenderTarget = nullptr;
 		
-		rs_image* postEffectImage = nullptr;
+		TexturePtr postEffectTexture = nullptr;
 		rs_rendertarget* postEffectRenderTarget = nullptr;
 
 		CodBloom* mBloom = nullptr;

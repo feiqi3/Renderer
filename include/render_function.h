@@ -83,7 +83,19 @@ namespace Render {
 		}
 		return result;
 	}
-
+	inline uint32_t getWaitFif(rs_context* ctx, SemaphoreWait wait) {
+		uint64_t curRenderFrame = ctx->curRenderFrame;
+		switch (wait)
+		{
+		case SemaphoreWait::CurRenderFrame:
+			return (ctx->maxFrameInFlight + curRenderFrame) % ctx->maxFrameInFlight;
+		case SemaphoreWait::LastRenderFrame:
+			return (ctx->maxFrameInFlight + curRenderFrame - 1) % ctx->maxFrameInFlight;
+		case SemaphoreWait::NextRenderFrame:
+			return (ctx->maxFrameInFlight + curRenderFrame + 1) % ctx->maxFrameInFlight;
+		}
+		return 0;
+	}
 	ImageViewKey genViewKey(ImageType viewType, ViewAspect aspect, uint16_t baseMip, uint16_t mipCnt, uint16_t baseLayer, uint16_t layerCnt, UAVAccess uav);
 };
 

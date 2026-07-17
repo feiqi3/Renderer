@@ -174,7 +174,7 @@ namespace Render::Vulkan {
 	uint32_t				unbindBindlessSampler(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData, uint32_t index);
 	void					beginFrameUnbindBindlessResource(rs_context_vk* ctx, rs_bindless_data_vk* bindlessData);
 	//-------------------------------------------------------------------------------------//     
-	uint64_t beginRsFrameVk(rs_context_vk* ctx);
+	uint64_t beginRsFrameVk(rs_context_vk* ctx,rs_bindless_data_vk* bindlessData);
 	uint64_t beginRsRenderFrameVk(rs_context_vk* ctx);
 	uint64_t endRsFrameVk(rs_context_vk* ctx);
 	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);

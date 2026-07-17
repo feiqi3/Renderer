@@ -68,7 +68,6 @@ namespace Render{
 		std::unique_ptr<RenderDataArena> mArena;
 		std::vector<CommandPair> mRenderThreadCommandBuffers;
 		std::vector<CommandPair> mLogicThreadCommandBuffers;
-		rs_commandbuffer* mSubmitToPresentCmdBuffer = nullptr;
 		std::vector<rs_rendertarget*> mSwapchainRT;
 		Blitor* mBlitor = nullptr;
 		TexturePtr mErrorRGBTexture = nullptr;
@@ -113,7 +112,7 @@ namespace Render{
 		//So wait in stage Resource Transfer stage
 		sRenderSystem->mDp->mRenderFinishSemaphore = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame,ResourceState::TransferDst);
 		sRenderSystem->SemaphorePresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::TransferDst);
-		sRenderSystem->mDp->mRenderEndFence		   = sRenderSystem->createFence();
+		sRenderSystem->mDp->mRenderEndFence		   = sRenderSystem->createFence(FenceWait::CurRenderFrame);
 		sRenderSystem->SemaphoreBlitToPresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::Common);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
 		sRenderSystem->initSwapchainRT();
@@ -165,7 +164,6 @@ namespace Render{
 	void RenderSystem::EndLogicFrame()
 	{
 		ComponentSystem::instance()->doDestroyComponents();
-		mDp->mSubmitToPresentCmdBuffer = this->GetCommandBufferCurFrameCurThread();
 		Vulkan::endRsFrameVk(getRenderContext());
 
 		currentLogicFrame++;
@@ -617,6 +615,7 @@ namespace Render{
 	}
 	void RenderSystem::beginFrame()
 	{
+		waitLastRenderEnd();
 		if (mUseRenderThread) {
 			while (mDp->mEngineEvent.EngineIdle);
 		}
@@ -632,8 +631,11 @@ namespace Render{
 			deinitSwapchainRT();
 			initSwapchainRT();
 		}
-
-		Vulkan::beginRsFrameVk(getRenderContext());
+		Vulkan::rs_bindless_data_vk* bindlessData = nullptr;
+		if (isBindlessEnabled()) {
+			bindlessData = (Vulkan::rs_bindless_data_vk*)getGlobalBindlessData();
+		}
+		Vulkan::beginRsFrameVk(getRenderContext(), bindlessData);
 		mDp->mLogicThreadCommandBuffers.clear();
 		mCurLogicFrameInFlight = currentLogicFrame % getRenderContext()->maxFrameInFlight;
 		mDp->cleanUpFramesPendingData(currentLogicFrame % mBackEndContext->maxFrameInFlight, currentLogicFrame);
@@ -645,9 +647,7 @@ namespace Render{
 				bindDefaultResourceToBindless();
 			}
 		}
-		if (isBindlessEnabled()) {
-			Vulkan::beginFrameUnbindBindlessResource(getRenderContext(), (Vulkan::rs_bindless_data_vk*)getGlobalBindlessData());
-		}
+
 	}
 
 	rs_binding_pos RenderSystem::getBindingPos(const std::string& bindingName, MaterialPass* material)
@@ -784,10 +784,10 @@ namespace Render{
 		if (buffer->mappedPtr) {
 			if (buffer->byteSize - dstOffset < byteSize) {
 				assert(0 && "Buffer overflow in updateBufferData! Please check the dstOffset and byteSize!");
-				memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, buffer->byteSize - dstOffset);
+				memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, byteSize);
 			}
 			else {
-				memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, buffer->byteSize);
+				memcpy((uint8_t*)buffer->mappedPtr + dstOffset, data, byteSize);
 			}
 		}
 		else {
@@ -881,14 +881,14 @@ namespace Render{
 		}
 	}
 
-	void RenderSystem::waitForFence(rs_fence* fence,u32 fif)
+	void RenderSystem::waitForFence(rs_fence* fence,int fif)
 	{
 		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, -1, fif);
 	}
 
 	void RenderSystem::waitForFence(rs_fence* fence)
 	{
-		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,-1,getCurFif());
+		Vulkan::waitForRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence,-1,-1);
 	}
 	void RenderSystem::clearRenderEntity(RenderEntity* entity)
 	{
@@ -976,9 +976,10 @@ namespace Render{
 		Vulkan::destroyRsSemaphore(getRenderContext(), vkSem);
 	}
 
-	rs_fence* RenderSystem::createFence()
+	rs_fence* RenderSystem::createFence(FenceWait wait)
 	{
 		auto ret = Vulkan::createRsFence(this->getRenderContext());
+		ret->waitFlag = wait;
 		return ret;
 	}
 
@@ -990,10 +991,10 @@ namespace Render{
 
 	void RenderSystem::resetFence(rs_fence* fence)
 	{
-		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, getRenderContext()->curRenderFrame % getRenderContext()->maxFrameInFlight);
+		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, -1);
 	}
 
-	void RenderSystem::resetFence(rs_fence* fence, uint32_t FiF)
+	void RenderSystem::resetFence(rs_fence* fence, int FiF)
 	{
 		Vulkan::resetRsFence(getRenderContext(), (Vulkan::rs_fence_vk*)fence, FiF);
 	}
@@ -1039,7 +1040,7 @@ namespace Render{
 		mDp->mArena->executePendingCopies((Vulkan::rs_commandbuffer_vk*)cmdbuf);
 	}
 
-	void RenderSystem::cmdBlit(rs_commandbuffer* cmd, TexturePtr from, ImageViewKey fromKey, TexturePtr to, ImageViewKey toKey, Filter filter)
+	void RenderSystem::cmdBlitCompute(rs_commandbuffer* cmd, TexturePtr from, ImageViewKey fromKey, TexturePtr to, ImageViewKey toKey, Filter filter)
 	{
 		mDp->mBlitor->cmdBlit(cmd, from, fromKey, to, toKey, filter);
 	}
@@ -1271,9 +1272,9 @@ namespace Render{
 	void RenderSystem::waitLastRenderEnd()
 	{
 		if (getNextRenderFrame() != 0) {
-			waitForFence(mDp->mRenderEndFence, getCurRenderFif());
+			waitForFence(mDp->mRenderEndFence);
+			resetFence(mDp->mRenderEndFence, -1);
 		}
-		resetFence(mDp->mRenderEndFence, getCurRenderFif());
 	}
 
 	void RenderSystem::onWindowResize(int x, int y)

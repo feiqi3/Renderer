@@ -132,7 +132,9 @@ namespace Render {
 		bool writeDepth = false;
 	};
 
-	struct rs_fence : rs_base {};
+	struct rs_fence : rs_base {
+		FenceWait waitFlag = SemaphoreWait::NextRenderFrame;
+	};
 
 	struct rs_semaphore : rs_base {
 		SemaphoreWait waitFlag = SemaphoreWait::CurRenderFrame;
@@ -195,15 +197,15 @@ namespace Render {
 		{
 		
 		}
-		std::vector<uint32_t> pendingUnbindTexture;
+		std::vector<std::vector<uint32_t>> pendingUnbindTexture;
 		rs_binding_pos textureBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable texturesBinding;
 		uint32_t maxTexturesBinding = 0;
-		std::vector<uint32_t> pendingUnbindSampler;
+		std::vector<std::vector<uint32_t>> pendingUnbindSampler;
 		rs_binding_pos samplerBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable samplersBinding;
 		uint32_t maxSamplersBinding = 0;
-		std::vector<uint32_t> pendingUnbindStorage;
+		std::vector<std::vector<uint32_t>> pendingUnbindStorage;
 		rs_binding_pos storageBindlessPos = INVALID_BINDING_POS;
 		BindlessIndexingTable storageImagesBinding;
 		uint32_t maxStorageImagesBinding = 0;
