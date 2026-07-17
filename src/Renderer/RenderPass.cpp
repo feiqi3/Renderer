@@ -121,6 +121,17 @@ namespace Render {
 		}
 	}
 
+	float RenderPass::getLogicPassTimes(const Name& name) const
+	{
+		std::vector<std::pair<Render::Name, float>> times;
+		for (const auto& logicPass : mLogicalPasses) {
+			if (logicPass.name == name) {
+				return logicPass.lastLogicPassTime;
+			}
+		}
+		return -1;
+	}
+
 	void RenderPass::setRenderTarget(rs_rendertarget* renderTarget)
 	{
 		using namespace Vulkan;
@@ -146,6 +157,7 @@ namespace Render {
 
 	void RenderPass::draw(rs_commandbuffer* cmdbuffer, Camera* cam)
 	{
+		this->passBegin();
 		preDraw(cmdbuffer, cam);
 		if (mLogicalPasses.empty()) return;
 		if (!mRendertarget) {
@@ -173,6 +185,7 @@ namespace Render {
 		std::vector<RenderBatch> batches;
 		batches.reserve(mLogicalPasses.size());
 		for (const auto& logicalPass : mLogicalPasses) {
+			logicPassBegin(logicalPass.name);
 			RenderBatch batch{
 				.passName = logicalPass.name,
 				.hasCustomViewport = logicalPass.hasCustomViewport,
@@ -231,6 +244,7 @@ namespace Render {
 				}
 			}
 			batches.emplace_back(std::move(batch));
+			logicPassEnd(logicalPass.name);
 		}
 
 		RenderSystem::instance()->excutePendingBufferCopies(cmdbuffer);
@@ -264,7 +278,7 @@ namespace Render {
 			mRenderPacks.clear();
 		}
 		RenderSystem::instance()->cmdEndRenderPass(cmdbuffer);
-
+		this->passEnd();
 	}
 
 	void RenderPass::preDraw(rs_commandbuffer* cmdbuffer, Camera* cam)
@@ -287,6 +301,11 @@ namespace Render {
 			};
 			packs.push_back(pack);
 		}
+	}
+
+	float RenderPass::getPassTime()
+	{
+		return mRenderPassLogicTime;
 	}
 
 	void RenderPass::drawImpl(rs_commandbuffer* cmdbuffer, Camera* camera)
@@ -378,6 +397,37 @@ namespace Render {
 		}
 
 		return true;
+	}
+
+	void RenderPass::logicPassBegin(const Name& name)
+	{
+		for (auto& logicPass : mLogicalPasses) {
+			if (logicPass.name == name) {
+				logicPass.passBeginTime = std::chrono::steady_clock::now();
+			}
+		}
+	}
+
+	void RenderPass::logicPassEnd(const Name& name)
+	{
+		for (auto& logicPass : mLogicalPasses) {
+			if (logicPass.name == name) {
+				auto dur = std::chrono::steady_clock::now() - logicPass.passBeginTime;
+				logicPass.lastLogicPassTime = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
+			}
+		}
+	}
+
+	void RenderPass::passBegin()
+	{
+		mRenderPassBeginTimePoint = std::chrono::steady_clock::now();
+	}
+
+	void RenderPass::passEnd()
+	{
+		auto dur = std::chrono::steady_clock::now() - mRenderPassBeginTimePoint;
+
+		mRenderPassLogicTime = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
 	}
 
 	RenderPass::~RenderPass()

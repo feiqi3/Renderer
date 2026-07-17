@@ -106,7 +106,7 @@ namespace Render {
 			rsys->getRenderPassManager()->registerRenderPass(mMainCamPass);
 			auto mainColorImg = rsys->createRTTexture(RenderTextureFormat::RGBA16F, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, 1, 1 ,1 , true);
 			mMainColorTex = TextureResourceManager::instance()->createFromRsImage(Name("MainColorTexture"),mainColorImg);
-			auto mainDepthImg = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, false);
+			auto mainDepthImg = rsys->createDepthStencilTexture(RenderTextureFormat::D24S8, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y, true);
 			mMainDepthTex = TextureResourceManager::instance()->createFromRsImage(Name("MainDepthTexture"), mainDepthImg);
 			mRenderTarget = rsys->createRendertarget({ mainColorImg }, mainDepthImg);
 			mMainCamPass->setRenderTarget(mRenderTarget);
@@ -181,9 +181,8 @@ namespace Render {
 			mPostEffectPass->setMainRTColorTex(mMainColorTex);
 			mPostEffectPass->draw(cmdbufOffscreen);
 
-			IMGUIManager::instance()->draw();
 			mOverlayRenderPass->setGameView(postEffectTexture);
-			mOverlayRenderPass->draw(cmdbufOffscreen,nullptr);
+			mOverlayRenderPass->draw(cmdbufOffscreen, nullptr);
 
 			RenderSys->cmdEnd(cmdbufOffscreen);
 

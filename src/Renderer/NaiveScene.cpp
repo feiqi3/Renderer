@@ -22,6 +22,7 @@
 #include "Renderer/GPUShared/PBREntity.h"
 #include "Renderer/EnginePass.h"
 
+#include "Components/RenderDebugUIComponent.h"
 namespace Render {
 	class MoveComponent : public Component {
 	public:
@@ -85,7 +86,8 @@ namespace Render {
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
 		delete model;
-
+		auto debugNode = naiveScene->createObject("DebugObject");
+		debugNode->addComponent<RenderDebugUIComponent>();
 		auto cameraNode = naiveScene->createObject("Camera");
 		auto cameraComponent = cameraNode->addComponent<FPSControllerComponent>();
 		auto camera = CameraManager::instance()->getCamera(Name("SceneMainCamera"));

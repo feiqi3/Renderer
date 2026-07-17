@@ -12,7 +12,7 @@ namespace Render {
 		
 		void registerRenderPass(RenderPass* pass);
 		void unregisterRenderPass(RenderPass* pass);
-
+		void traversalAllPasses(std::function<void(const Name& name, RenderPass* pass)> func);
 	private:
 		friend class RenderPass;
 		void addRenderPass(const Name& passName, RenderPass* pass);

@@ -21,6 +21,7 @@
 #include "vulkan/vulkan_resource_state.h"
 #include "function/EngineResourceManager.h"
 #include "function/ComponentSystem.h"
+#include "function/TimeSystem.h"
 #include "render_resource_global.h"
 #include "Renderer/ComputeKernel.h"
 #include <memory>
@@ -89,6 +90,8 @@ namespace Render{
 		rs_fence*	  mRenderEndFence = nullptr;
 		std::vector<std::pair<rs_image*, rs_commandbuffer*>> mFiFToBlitToSwapchain;
 
+		std::vector<std::chrono::steady_clock::time_point> mFiFRenderFrameBegin;
+		std::vector<float> mFiFRenderFrameTime;
 	public:
 		void cleanUpFramesPendingData(uint32_t fif, uint64_t frame);
 	};
@@ -115,6 +118,8 @@ namespace Render{
 		sRenderSystem->mDp->mRenderEndFence		   = sRenderSystem->createFence(FenceWait::CurRenderFrame);
 		sRenderSystem->SemaphoreBlitToPresentImageReady = sRenderSystem->createSemaphore(SemaphoreWait::CurRenderFrame, ResourceState::Common);
 		sRenderSystem->mCurLogicFrameInFlight = 0;
+		sRenderSystem->mDp->mFiFRenderFrameBegin.resize(sRenderSystem->getRenderContext()->maxFrameInFlight);
+		sRenderSystem->mDp->mFiFRenderFrameTime	.resize(sRenderSystem->getRenderContext()->maxFrameInFlight,0);
 		sRenderSystem->initSwapchainRT();
 		//sRenderSystem->createPresentRT();
 		new Platform::FileSystem;
@@ -166,6 +171,7 @@ namespace Render{
 		ComponentSystem::instance()->doDestroyComponents();
 		Vulkan::endRsFrameVk(getRenderContext());
 
+		TimeSystem::instance()->logicFrameEnd();
 		currentLogicFrame++;
 		std::swap(mDp->mRenderThreadCommandBuffers, mDp->mLogicThreadCommandBuffers);
 		getRenderContext()->canRenderNextFrame = true;
@@ -208,10 +214,11 @@ namespace Render{
 			//}
 		}
 		else {
+			TimeSystem::instance()->renderFrameBegin();
 			mDp->mRenderThreadPresentImage = mDp->mPresentImage;
 			mDp->mPresentImage = nullptr;
 			beginRsRenderFrameVk(ctx);
-
+			mDp->mFiFRenderFrameBegin[ctx->RenderFrameFif];
 			auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SemaphorePresentImageReady, 0);
 
 			for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
@@ -615,10 +622,15 @@ namespace Render{
 	}
 	void RenderSystem::beginFrame()
 	{
+		TimeSystem::instance()->renderFrameEnd();
 		waitLastRenderEnd();
+		auto dur = std::chrono::steady_clock::now() - mDp->mFiFRenderFrameBegin[getRenderContext()->RenderFrameFif];
+		mDp->mFiFRenderFrameTime[getRenderContext()->RenderFrameFif] = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
+
 		if (mUseRenderThread) {
 			while (mDp->mEngineEvent.EngineIdle);
 		}
+		TimeSystem::instance()->logicFrameBegin();
 		//Before frame event
 		if (mDp->mEngineEvent.WindowResize) {
 			getRenderContext()->currentSwapchainImage = 0;
@@ -1275,6 +1287,11 @@ namespace Render{
 			waitForFence(mDp->mRenderEndFence);
 			resetFence(mDp->mRenderEndFence, -1);
 		}
+	}
+
+	float RenderSystem::getLastRenderFrameTime()
+	{
+		return mDp->mFiFRenderFrameTime[getRenderContext()->LogicFrameFif];
 	}
 
 	void RenderSystem::onWindowResize(int x, int y)

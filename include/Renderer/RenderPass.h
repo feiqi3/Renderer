@@ -7,6 +7,7 @@
 #include "render_resource_createinfo.h"  
 #include <string>
 #include <vector>
+#include <chrono>
 
 namespace Render {
 	struct rs_renderpass;
@@ -26,6 +27,8 @@ namespace Render {
 		Rect2D viewportRect{};
 		StageMacroPairs passMacros;
 		PassDrawOrder drawOrder = PassDrawOrder::None;
+		std::chrono::steady_clock::time_point passBeginTime;
+		float lastLogicPassTime = 0;
 	};
 
 	struct LogicPassDesc {
@@ -74,18 +77,25 @@ namespace Render {
 		void setNextViewport(Rect2D rect2d);
 		void setEntityFilterFlag(u64 flags);
 		
+		float getLogicPassTimes(const Name& name)const;
+		float getPassTime();
+
 	protected:
 		std::vector<RenderPack> mRenderPacks;
 		std::vector<LogicalPass> mLogicalPasses;
 
 		void collectRenderEntitiesForName(RenderQueue* renderQueue,const LogicalPass& logicPass, std::vector<RenderPack>& packs);
 
+
 	protected:
 		friend class RenderPassManager;
 		virtual void drawImpl(rs_commandbuffer* cmdbuffer, Camera* camera);
 		bool needRebuildPipeline(rs_rendertarget* oldrt, rs_rendertarget* newrt);
 		bool isRTCompatible(rs_rendertarget* rtA, rs_rendertarget* rtB);
-
+		void logicPassBegin(const Name& name);
+		void logicPassEnd(const Name& name);
+		void passBegin();
+		void passEnd();
 	protected:
 		rs_rendertarget* mRendertarget = nullptr;
 		rs_renderpass* mRenderPass;
@@ -100,6 +110,9 @@ namespace Render {
 		vec4 mNextMarkColor;
 		std::string mNextMarkName;
 		bool mNextColorMarked = false;
+
+		float mRenderPassLogicTime = -1;
+		std::chrono::steady_clock::time_point mRenderPassBeginTimePoint;
 	};
 }
 

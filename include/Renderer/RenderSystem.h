@@ -198,6 +198,8 @@ namespace Render{
 		void			 blitToSwapchain(rs_image* fromImage);
 		rs_semaphore*    getRenderFinishSemaphore();
 		void			 waitLastRenderEnd();
+
+		float			 getLastRenderFrameTime();
 	public:
 		void onWindowResize(int x,int y);
 	private:

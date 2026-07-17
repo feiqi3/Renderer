@@ -83,6 +83,7 @@ namespace Render {
 
 		}
 
+		IMGUIManager::instance()->draw();
 
 		for (auto& entity : mEntities) {
 			RenderSys->updateParameters(cmdbuffer, entity, entity->getPass(this->getPassName()));

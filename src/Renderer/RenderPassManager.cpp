@@ -70,6 +70,13 @@ namespace Render {
 		}
 	}
 
+	void RenderPassManager::traversalAllPasses(std::function<void(const Name& name, RenderPass* pass)> func)
+	{
+		for (auto& [name, pass] : mRenderPasses) {
+			func(name, pass);
+		}
+	}
+
 	void RenderPassManager::addRenderPass(const Name& passName, RenderPass* pass)
 	{
 		auto itor = mRenderPasses.find(passName);

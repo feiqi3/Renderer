@@ -582,6 +582,12 @@ namespace Render {
 				auto triangleBegin = curTriPos;
 				auto triangleCount = u32(idxSize / 3);
 				rs_image_view* view = (rs_image_view*)imCmd.GetTexID();
+
+				auto texIdx = RenderSystem::instance()->updateGlobalBindlessDataTexture(
+					globalBindless, view
+				);
+				RenderSys->markGlobalBindlessDataTexture(globalBindless, view);
+				viewBindlessIndexPairs.push_back({ view,texIdx });
 				uint32_t drawcallIdToFill = perDrawCallAttributes.size();
 				uint32_t texidToFill = view->bindlessIndex;
 				assert(view != nullptr && view->viewKey.getUAVAccess() == UAVAccess::ReadOnly && view->bindlessIndex != INVALID_BINDLESS_INDEX);
@@ -736,8 +742,6 @@ namespace Render {
 		mDP->mLastFrameTime = curClock;
 
 		io.DeltaTime = dt;
-
-		ImGui::ShowDemoWindow();
 	}
 
 	void IMGUIManager::setImGuiScrollSensitivity(float x)

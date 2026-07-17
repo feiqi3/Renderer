@@ -16,10 +16,12 @@
 #include "function/InputManager.h"
 #include "Renderer/DebugDrawManager.h"
 #include "Renderer/UI/ImGuiManager.h"
+#include "function/TimeSystem.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
 	using namespace Render;
+	new TimeSystem;
 	Render::BackEndInitDesc backEndInit{};
 	backEndInit.appName = "Test";
 	backEndInit.engineName = "Feigen";
@@ -42,11 +44,11 @@ int main() {
 	float TargetFps = 60.;
 	float TargetFrameTime = 1000. / TargetFps;
 	auto* naiveScene = createSceneByCode();
-
+	TimeSystem::instance()->init();
 	while (!glfwWindow->shouldClose()) {
 		auto frameBegin = std::chrono::steady_clock::now();
 		Render::RenderSystem::instance()->beginFrame();
-
+		TimeSystem::instance()->update();
 		//scene->updateScene(0.01666);
 		InputManager::instance()->preUpdate();
 		glfwWindow->pollEvents();
@@ -76,6 +78,7 @@ int main() {
 	delete InputManager::instance();
 	delete glfwWindow;
 	glfwWindow = 0;
+	delete TimeSystem::instance();
 }
 
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window)
