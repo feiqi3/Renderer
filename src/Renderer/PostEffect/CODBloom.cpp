@@ -3,7 +3,7 @@
 #include "Renderer/Texture.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/SamplerResourceManager.h"
-
+#include "Renderer/RenderDebuger.h"
 namespace Render {
 	//Next-Generation-Post-Processing-in-Call-of-Duty-Advanced-Warfare
 
@@ -63,13 +63,14 @@ namespace Render {
 			prepareMipmapChain();
 		}
 		//Build Mip chain downsample
-		
+		RenderMarker bloom(cmd, "Bloom", 0.3, 0.5, 0.2, 1.);
+
 
 		const static Name& paramMipN1Name = Name("MipN_1");
 		const static Name& paramMipNName = Name("MipN");
 
 		ImageViewKey Mip0ViewKey;
-		RenderSystem::instance()->cmdBlit(cmd, mainRT, Mip0ViewKey, mDp->mTempMipChain, Mip0ViewKey, Filter::Nearest);
+		RenderSystem::instance()->cmdBlitCompute(cmd, mainRT, Mip0ViewKey, mDp->mTempMipChain, Mip0ViewKey, Filter::Nearest);
 
 		//Down sample
 		for (int i = 1;i < this->mDp->mTempMipChain->getMips();++i) {

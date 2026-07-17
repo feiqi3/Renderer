@@ -1,5 +1,6 @@
-#version 450
+#version 460
 #extension GL_EXT_shader_image_load_formatted : require
+#extension GL_EXT_samplerless_texture_functions : require
 #include "BindlessSet.inl"
 #include "ShaderResource.inl"
 
@@ -11,7 +12,6 @@ DECL_BUFFER_STD430_BEG(BloomConfig)
     float Radius;               //Up sample parameter, controls the uv step. 
     float Karis;                //Do Karis? alway in downsample mip0 -> mip1
 DECL_BUFFER_STD430_END
-
 RESOURCE_DECL_BEG(1)
 #ifdef DOWN_SAMPLE
     //mip x
@@ -134,7 +134,7 @@ void DownSampleMain(){
         return;
     }
     ivec2 curPixel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 sampledImgSize = textureSize(GetSampledTexture(MipN_1,BilinearSampler),0);
+    ivec2 sampledImgSize = imgSize * 2;
     vec2 uvStep = vec2(1.) / sampledImgSize;
     vec2 curUV  = ((vec2(0.5) + vec2(curPixel) )/ vec2(imgSize));
     vec3 tap13SampledOutcome = Tap13Sample(curUV , uvStep, GetTexture(MipN_1), GetSampler(BilinearSampler));
@@ -149,7 +149,7 @@ void UpSampleMain(){
     if(gl_GlobalInvocationID.x >= imgSize.x || gl_GlobalInvocationID.y >= imgSize.y){
         return;
     }
-    ivec2 mipnSize = textureSize(GetSampledTexture(MipN,BilinearSampler),0);
+    ivec2 mipnSize = max(ivec2(1), imgSize / 2);
     ivec2 curPixel = ivec2(gl_GlobalInvocationID.xy);
     vec3 curPixCol = imageLoad(GetRWTexture(MipN_1), curPixel).rgb;
     vec2 curUV = (vec2(0.5) + vec2(curPixel)) / vec2(imgSize);
