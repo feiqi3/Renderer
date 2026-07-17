@@ -15,6 +15,7 @@
 #include "Renderer/NaiveScene.h"
 #include "function/InputManager.h"
 #include "Renderer/DebugDrawManager.h"
+#include "Renderer/UI/ImGuiManager.h"
 void setWindowEventsCallbacks(Render::Window::rs_window_glfw* window);
 
 int main() {
@@ -34,6 +35,7 @@ int main() {
 	auto renderSystem = Render::RenderSystem::instance();
 	CreateAllPersistentResource();
 	new DebugDrawManager;
+	new IMGUIManager;
 	renderFlow->init();
 	float FrameTime = 0.f;
 	int CurrentFPS = 0;
@@ -49,6 +51,7 @@ int main() {
 		InputManager::instance()->preUpdate();
 		glfwWindow->pollEvents();
 		InputManager::instance()->postUpdate();
+		IMGUIManager::instance()->update();
 		naiveScene->update(0.166666);
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();
@@ -67,6 +70,7 @@ int main() {
 	delete naiveScene;
 	delete DebugDrawManager::instance();
 	renderFlow->deinit();
+	delete IMGUIManager::instance();
 	Render::RenderSystem::destroyRenderSystem();
 	InputManager::instance()->deinitByWindowSystem(glfwWindow);
 	delete InputManager::instance();

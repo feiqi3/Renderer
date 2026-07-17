@@ -40,12 +40,16 @@ namespace Render {
 		bool isD = inputMgr->isKeyDown(KeyCode::D);
 		bool isW = inputMgr->isKeyDown(KeyCode::W);
 		bool isS = inputMgr->isKeyDown(KeyCode::S);
-		bool isSpace = inputMgr->isKeyDown		(KeyCode::Space);
+		bool isSpace	= inputMgr->isKeyDown	(KeyCode::Space);
 		bool isCtrlLeft = inputMgr->isKeyDown	(KeyCode::LeftControl);
-
+		bool isOffMouse = inputMgr->isKeyDown	(KeyCode::LeftAlt);
 		double dx, dy;
 		inputMgr->getDeltaCursorPos(dx, dy);
 
+		if (isOffMouse) {
+			dx = 0;
+			dy = 0;
+		}
 		mControl.setCursorDelta(dx, -dy);
 		mControl.update(dt);
 

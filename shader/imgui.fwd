@@ -1,19 +1,56 @@
+#extension GL_EXT_shader_8bit_storage : require
+#include "ShaderResource.inl"
+
+#if !defined(BINDLESS_ENABLE)
+
+ERROR: ONLY WORKING UNDER BINDLESS MODE
+
+#endif
+
+struct PerVtxData{
+    float i_posx;
+    float i_posy;
+    float i_uvx;
+    float i_uvy;
+    uint i_color;
+};
+
+struct Attribute{
+    float displayScaleX;
+    float displayScaleY;
+    float displayOffsetX;
+    float displayOffsetY;
+    uint    texIdx;
+    float   scissorXMin;
+    float   scissorYMin;
+    float   scissorXMax;
+    float   scissorYMax;
+};
+
 DECL_RBUFFER_STD430_BEG(VertexList)
-PerVtxData v[]
+PerVtxData v[];
 DECL_RBUFFER_STD430_END
 
 DECL_RBUFFER_STD430_BEG(IndexList)
-INDEX_TYPE i[]
+int i[];
 DECL_RBUFFER_STD430_END
 
-DECL_RBUFFER_STD430_BEG(TextureList)
-int t[]
+DECL_RBUFFER_STD430_BEG(AttributeList)
+Attribute attr[];
 DECL_RBUFFER_STD430_END
 
+DECL_RBUFFER_STD430_BEG(TriangleAttributeIndexList)
+int t[];
+DECL_RBUFFER_STD430_END
 
+DECL_RBUFFER_STD430_BEG(ViewportInfo)
+    vec2 displayScale;
+    vec2 displayOffset;
+DECL_RBUFFER_STD430_END
 RESOURCE_DECL_BEG(4)
-SLOT_BUFFER_STD430(4,  VertexList,      u_vertexList)
-SLOT_BUFFER_STD430(4,  IndexList,       u_indexList)
-SLOT_BUFFER_STD430(4,  TextureList,     u_textureList)
-SLOT_SAMPLER      (4,  Sampler,         u_sampler)
+SLOT_BUFFER_STD430(4,  VertexList,                  u_vertexList)
+SLOT_BUFFER_STD430(4,  IndexList,                   u_indexList)
+SLOT_BUFFER_STD430(4,  TriangleAttributeIndexList,  u_triAttIdxList)
+SLOT_BUFFER_STD430(4,  AttributeList,               u_attrList)
+SLOT_SAMPLER      (4,  Sampler,                     u_sampler)
 RESOURCE_DECL_END

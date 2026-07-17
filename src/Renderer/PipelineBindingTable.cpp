@@ -345,7 +345,7 @@ namespace Render {
 			auto& bItem = mBindlessItems[bIt->second];
 			auto& type = bItem.type;
 
-            if (view && view->viewKey.getUAVAccess() == UAVAccess::ReadOnly && type == UniformType::StorageBuffer) {
+            if (view && view->viewKey.getUAVAccess() == UAVAccess::ReadOnly && type == UniformType::StorageImage) {
                 assert(false && "Cannot bind a srv to uav");
             }
 

@@ -232,13 +232,13 @@ namespace Render {
 	void InputManager::consumeKey(KeyCode key)
 	{
 		mIsKeyConsumed[(int)key] = 1;
-		mCurrKeyState[(int)key] = packKeyState(0, false);
+		//mCurrKeyState[(int)key] = packKeyState(0, false);
 	}
 
 	void InputManager::consumeMouse(MouseButton btn)
 	{
 		mIsMouseConsumed[(int)btn] = 1;
-		mCurrMouseState[(int)btn] = packKeyState(0, false);
+		//mCurrMouseState[(int)btn] = packKeyState(0, false);
 	}
 
 	void InputManager::consumeMouseMove()
