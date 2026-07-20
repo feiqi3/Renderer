@@ -25,6 +25,7 @@ struct Attribute{
     float   scissorYMin;
     float   scissorXMax;
     float   scissorYMax;
+    uint    isDepth;
 };
 
 DECL_RBUFFER_STD430_BEG(VertexList)

@@ -6,7 +6,7 @@
 layout(location = 0) out vec2   o_pos;
 layout(location = 1) out vec2   o_uv;
 layout(location = 2) out vec4   o_color;
-layout(location = 3) flat out int o_texId;
+layout(location = 3) flat out ivec2 o_texInfo;
 layout(location = 4) flat out vec4 o_scissor;
 
 void main(){
@@ -32,7 +32,7 @@ void main(){
     Attribute att = GetBuffer(u_attrList).attr[attrIdx];
     vec2 displayScale = vec2(att.displayScaleX, att.displayScaleY);
     vec2 displayOffset = vec2(att.displayOffsetX, att.displayOffsetY);
-    o_texId = int(att.texIdx);
+    o_texInfo = ivec2(int(att.texIdx), int(att.isDepth));
     vec2 pos = vec2(curVtxData.i_posx, curVtxData.i_posy);
     pos = pos * displayScale + displayOffset;
     o_pos = pos;

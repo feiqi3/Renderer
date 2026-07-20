@@ -183,6 +183,7 @@ namespace Render {
 			uint32_t texIdx;
 			vec2 scissorMin;
 			vec2 scissorMax;
+			uint32_t isDepth;
 		};
 
 		MaterialPtr material = nullptr;
@@ -458,7 +459,9 @@ namespace Render {
 		//Update textures
 		std::vector<std::pair<rs_image_view*, uint32_t>> viewBindlessIndexPairs{};
 		for (ImTextureData* tex : *imDrawData->Textures) {
+			bool needUpdateToBindless = false;
 			if (tex->Status == ImTextureStatus_WantCreate) {
+				needUpdateToBindless = true;
 				mDP->createImTexture(tex);
 			}
 			if (tex->Status == ImTextureStatus_WantDestroy && tex->UnusedFrames >= 5) {
@@ -484,12 +487,14 @@ namespace Render {
 					continue;
 				}
 
-				auto texIdx = RenderSystem::instance()->updateGlobalBindlessDataTexture(
-					globalBindless, view
-				);
+				if (needUpdateToBindless) {
+					auto texIdx = RenderSystem::instance()->updateGlobalBindlessDataTexture(
+						globalBindless, view
+					);
+					viewBindlessIndexPairs.push_back({ view,texIdx });
+				}
 				RenderSys->markGlobalBindlessDataTexture(globalBindless, view);
 
-				viewBindlessIndexPairs.push_back({ view,texIdx });
 			}
 		}
 
@@ -586,8 +591,11 @@ namespace Render {
 				auto texIdx = RenderSystem::instance()->updateGlobalBindlessDataTexture(
 					globalBindless, view
 				);
+				//This function will try translate view to shader read type
+				//And must be called each frame.
 				RenderSys->markGlobalBindlessDataTexture(globalBindless, view);
 				viewBindlessIndexPairs.push_back({ view,texIdx });
+				uint32_t isDepth = view->viewKey.getAspect() == ViewAspect::Depth ? 1 : 0;
 				uint32_t drawcallIdToFill = perDrawCallAttributes.size();
 				uint32_t texidToFill = view->bindlessIndex;
 				assert(view != nullptr && view->viewKey.getUAVAccess() == UAVAccess::ReadOnly && view->bindlessIndex != INVALID_BINDLESS_INDEX);
@@ -611,7 +619,7 @@ namespace Render {
 				vec2 clipMax = (vec2(imCmd.ClipRect.z - clipOff.x, imCmd.ClipRect.w - clipOff.y) * vec2(clipScale.x, clipScale.y) / displaySize ) * 2 - vec2(1);
 				attr.scissorMin = clipMin;
 				attr.scissorMax = clipMax;
-
+				attr.isDepth = isDepth;
 				perDrawCallAttributes.push_back(attr);
 			}
 			curVtxPos += vtxToCpy.size();
