@@ -7,11 +7,11 @@ GPU_SHARED_NAMESPACE_BEGIN
 	GPU_STRUCT_BEGIN(GPUDirLightShadowData)
 		mat4 ViewMat;
 		mat4 ProjMat;
-		vec4 AtlasInfo;     //x,y :uv offset x,y; z,w :uv extent x,y
+		vec4 AtlasInfo;     //x,y -> Resolution
 	GPU_STRUCT_END
 
     GPU_STRUCT_BEGIN(GPUSceneShadowData)
-		vec4 ShadowInfo;
+		vec4 ShadowInfo;	//x: ShadowEnable, y: ShadowTechnique
 		GPUDirLightShadowData DirLightShadowInfo;
 	GPU_STRUCT_END
 GPU_SHARED_NAMESPACE_END

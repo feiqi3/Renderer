@@ -55,15 +55,17 @@ namespace Render {
 
 	void ShadowManager::setShadowTexSize(uint32_t size)
 	{
-		isDirShadowConfigDirty		= false;
-		isPointShadowConfigDirty	= false;
+		isDirShadowRTDirty			= true;
+		isDirShadowConfigDirty		= true;
+		isPointShadowConfigDirty	= true;
 		ShadowConfig.shadowRTSize = size;
 	}
 
 	void ShadowManager::setShadowTexFormat(RenderTextureFormat fmt)
 	{
-		isDirShadowConfigDirty = false;
-		isPointShadowConfigDirty = false;
+		isDirShadowRTDirty			= true;
+		isDirShadowConfigDirty		= true;
+		isPointShadowConfigDirty	= true;
 		ShadowConfig.shadowRTFormat = fmt;
 	}
 
@@ -77,13 +79,43 @@ namespace Render {
 		ShadowConfig.dirLightShadowFarZ = f;
 	}
 
+	bool ShadowManager::getShadowEnable() const
+	{
+		return isShadowEnable;
+	}
+
+	void ShadowManager::setShadowEnable(bool isEnable)
+	{
+		if (isShadowEnable != isEnable)isDirShadowConfigDirty = true;
+		isShadowEnable = isEnable;
+	}
+
+	Render::ShadowManager::ShadowTechnique ShadowManager::getShadowTechnique() const
+	{
+		return mTechnique;
+	}
+
+	void ShadowManager::setShadowTechnique(ShadowTechnique tech)
+	{
+		if (tech != getShadowTechnique()) {
+			isDirShadowConfigDirty = true;
+		}
+		mTechnique = tech;
+	}
+
 	void ShadowManager::drawShadow(rs_commandbuffer* cmdBuffer, Camera* currentCamera, Scene* scene)
 	{
-		RenderMarker shadowDrawMarker(cmdBuffer, "Shadow Passes", 0.3, 0.5, 0.2, 1.);
 		if (isDirShadowConfigDirty) {
 			prepareDirShadowResource();
+
+			if ( !isShadowEnable ) {
+				RenderSystem::instance()->cmdClearRT(cmdBuffer, mDirLightShadowMap, mDirLightShadowMap->getRsImage()->defaultView->viewKey, vec4(1.0, 1.0, 1.0, 1.0));
+			}
+
 			isDirShadowConfigDirty = false;
 		}
+		if (!getShadowEnable())return;
+		RenderMarker shadowDrawMarker(cmdBuffer, "Shadow Passes", 0.3, 0.5, 0.2, 1.);
 		//Begin shadowPass
 		auto dirLight = scene->getLightMgr().getMainDirLight();
 		bool cleanDirShadowTexture = false;
@@ -127,6 +159,20 @@ namespace Render {
 		GPUShared::GPUSceneShadowData shadowData{};
 		shadowData.DirLightShadowInfo.ViewMat = mDp->mDirLightCamera->getViewMatrix();
 		shadowData.DirLightShadowInfo.ProjMat = mDp->mDirLightCamera->getProjectionMatrix();
+		shadowData.DirLightShadowInfo.AtlasInfo.x = ShadowConfig.shadowRTSize;
+		shadowData.DirLightShadowInfo.AtlasInfo.y = ShadowConfig.shadowRTSize;
+		shadowData.ShadowInfo.x = getShadowEnable() ? 1 : -1;
+		switch (mTechnique)
+		{
+		case Render::ShadowManager::ShadowTechnique::Normal:
+			shadowData.ShadowInfo.y = 0.;
+			break;
+		case Render::ShadowManager::ShadowTechnique::PCF:
+			shadowData.ShadowInfo.y = 1.;
+			break;
+		default:
+			break;
+		}
 		return shadowData;
 	}
 
@@ -183,22 +229,32 @@ namespace Render {
 			worldPoint = worldPoint / worldPoint.w;
 			worldSpacePoints[i] = worldPoint;
 			aabbOfWorldFrustum.expand(worldPoint);
-		}
-		for (int i = 0;i < 8;++i) {
 			vec4 mainCamSpacePoint = currentCamera->getViewMatrix() * worldSpacePoints[i];
 			aabbOfFrustum.expand(mainCamSpacePoint);
 		}
-		float radius = length(aabbOfFrustum.getSize()) / 2.;
-		vec4 worldCenterOfBox = inverse(currentCamera->getViewMatrix()) * vec4(aabbOfFrustum.getCenter(), 1.);
-		vec3 worldPosOfShadowCamera = vec3(worldCenterOfBox) + light->getDirection() * ShadowConfig.dirLightCameraHeight;
-		vec3 camPos = worldPosOfShadowCamera;
-		//DebugDrawManager::instance()->drawAABB(aabbOfFrustum,vec4(1,.0,0,0.3));
+
+		vec3 centerOfAABBInWorld = aabbOfWorldFrustum.getCenter();
+		auto sizeOfFrustum = aabbOfFrustum.getSize();
+		float radiusOfFrustum = std::max(sizeOfFrustum.x, sizeOfFrustum.z);
+		auto positionOfLightSourceInWorld = light->getDirection() * ShadowConfig.dirLightCameraHeight + centerOfAABBInWorld;
 		float nearPlane = 0.01f;
-		float farPlane = radius * 2.0f + ShadowConfig.dirLightCameraHeight;
-		mDp->mDirLightCamera->setPosition(camPos);
-		mDp->mDirLightCamera->setTarget(worldCenterOfBox);
-		mDp->mDirLightCamera->setOrthoSize(radius);
-		mDp->mDirLightCamera->setOrthographic(radius, 1., nearPlane, farPlane);
+		float farPlane = ShadowConfig.dirLightCameraHeight;
+		mDp->mDirLightCamera->setPosition(positionOfLightSourceInWorld);
+		mDp->mDirLightCamera->setTarget(centerOfAABBInWorld);
+		mDp->mDirLightCamera->setOrthoSize(radiusOfFrustum);
+		mDp->mDirLightCamera->setOrthographic(radiusOfFrustum, 1., nearPlane, farPlane);
+
+		//float radius = length(aabbOfFrustum.getSize()) / 2.;
+		//vec4 worldCenterOfBox = inverse(currentCamera->getViewMatrix()) * vec4(aabbOfFrustum.getCenter(), 1.);
+		//vec3 worldPosOfShadowCamera = vec3(worldCenterOfBox) + light->getDirection() * ShadowConfig.dirLightCameraHeight;
+		//vec3 camPos = worldPosOfShadowCamera;
+		////DebugDrawManager::instance()->drawAABB(aabbOfFrustum,vec4(1,.0,0,0.3));
+		//float nearPlane = 0.01f;
+		//float farPlane = radius * 2.0f + ShadowConfig.dirLightCameraHeight;
+		//mDp->mDirLightCamera->setPosition(camPos);
+		//mDp->mDirLightCamera->setTarget(worldCenterOfBox);
+		//mDp->mDirLightCamera->setOrthoSize(radius);
+		//mDp->mDirLightCamera->setOrthographic(radius, 1., nearPlane, farPlane);
 
 		RenderSystem::instance()->setCurrentCamera(mDp->mDirLightCamera.get());
 	}
@@ -233,16 +289,26 @@ namespace Render {
 
 	void ShadowManager::prepareDirShadowResource()
 	{
-		this->mDirLightShadowMap = TextureResourceManager::instance()->createRenderTexture(ShadowConfig.shadowRTFormat, ShadowConfig.shadowRTSize, ShadowConfig.shadowRTSize, 1, 1, 1, true);
-		if (mDp->m_dirlightShadowRT) {
-			RenderSystem::instance()->destroyRenderTarget(mDp->m_dirlightShadowRT);
-		}
-		this->mDp->m_dirlightShadowRT = RenderSystem::instance()->createRendertarget(
-			{}, mDirLightShadowMap->getRsImage()
-		);
+		if (isDirShadowRTDirty) {
+			if (getShadowEnable()) {
+				this->mDirLightShadowMap = TextureResourceManager::instance()->createRenderTexture(ShadowConfig.shadowRTFormat, ShadowConfig.shadowRTSize, ShadowConfig.shadowRTSize, 1, 1, 1, true);
+			}
+			else {
+				//Fake image
+				this->mDirLightShadowMap = TextureResourceManager::instance()->createRenderTexture(ShadowConfig.shadowRTFormat, 4, 4, 1, 1, 1, true);
+			}
 
-		//Construct shadow info data
-		RenderSystem::instance()->getRenderPass(PassName::DirectionalShadowPass)->setRenderTarget(mDp->m_dirlightShadowRT);
+			if (mDp->m_dirlightShadowRT) {
+				RenderSystem::instance()->destroyRenderTarget(mDp->m_dirlightShadowRT);
+			}
+			this->mDp->m_dirlightShadowRT = RenderSystem::instance()->createRendertarget(
+				{}, mDirLightShadowMap->getRsImage()
+			);
+
+			//Construct shadow info data
+			RenderSystem::instance()->getRenderPass(PassName::DirectionalShadowPass)->setRenderTarget(mDp->m_dirlightShadowRT);
+			isDirShadowRTDirty = false;
+		}
 	}
 
 }

@@ -250,7 +250,7 @@ namespace Render {
 		comp->setSceneIndex(static_cast<size_t>(-1));
 	}
 
-	void Scene::collectVisibleObjects(Camera* camera)
+	void Scene::collectVisibleObjects(Camera* camera, CustomCullFunction cull)
 	{
         if (!camera) return;
         m_entities.clear();
@@ -291,8 +291,13 @@ namespace Render {
 			if (entity && entity->getMaterial())
 			{
                 auto aabb = entity->getWorldBounding();
-				bool isVisible = camFrustum.isVisible(aabb);
-
+                bool isVisible = false;
+                if (cull != nullptr) {
+                    isVisible = cull(aabb);
+                }
+                else {
+                    isVisible = camFrustum.isVisible(aabb);
+                }
 				if (!isVisible)continue;
 				u64 renderMask = entity->getMaterial()->getRenderMask();
 				renderQueue->submit(entity, renderMask);

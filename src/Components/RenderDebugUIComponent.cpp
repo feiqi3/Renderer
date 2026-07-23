@@ -8,7 +8,8 @@
 #include "function/Scene.h"
 #include "Renderer/ShadowManager.h"
 #include "common/ResourceSystem.h"
-
+#include "function/Object.h"
+#include "function/Scene.h"
 namespace Render {
 	void Render::RenderDebugUIComponent::onUpdate(float dt)
 	{
@@ -31,6 +32,31 @@ namespace Render {
 				auto imgSizeToShow = ImGui::GetContentRegionAvail();
 				ImGui::Image(toImTex(texView), imgSizeToShow);
 			}
+			ImGui::EndChild();
+
+			ImGui::BeginChild("RenderDebugShadow##UIDEBUG", ImVec2(0, 0));
+			ImGui::BulletText("Shadow Settings");
+			auto& shadowMgr = owner()->scene()->getShadowMgr();
+			static float shadowDist = 10.;
+			bool shadowDistChanged = ImGui::SliderFloat("Directional light shadow distance##DEBUGUI", &shadowDist, 0.5, 100, "%.1f");
+			if (shadowDistChanged) {
+				shadowMgr.setDirLightShadowFarZ(shadowDist);
+			}
+			static int shadowMapResolution = 1024;
+			bool shadowMapResChanged = ImGui::InputInt("Directional light shadow texture resolution##DEBUGUI", &shadowMapResolution);
+			if (shadowMapResChanged) {
+				shadowMgr.setShadowTexSize(shadowMapResolution);
+			}
+
+			static const char* ShadowTechniques[] = {
+				"Normal",
+				"PCF",
+			};
+
+			auto techniques = sizeof(ShadowTechniques) / sizeof(const char*);
+			static int selectedTechnique = 0; //Normal
+			ImGui::Combo("Shadow techniques", &selectedTechnique, ShadowTechniques, sizeof(ShadowTechniques) / sizeof(const char*));
+			shadowMgr.setShadowTechnique((ShadowManager::ShadowTechnique)selectedTechnique);
 			ImGui::EndChild();
 		}
 		ImGui::End();

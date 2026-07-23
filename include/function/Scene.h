@@ -47,8 +47,8 @@ namespace Render {
 
         void registerRenderComponent(RenderComponent* comp);
 		void unregisterRenderComponent(RenderComponent* comp);
-
-        void collectVisibleObjects(Camera* camera);
+        using CustomCullFunction = std::function<bool(const AxisAlignedBoundingBox&)>;
+        void collectVisibleObjects(Camera* camera, CustomCullFunction cull = nullptr);
         const std::vector<class RenderEntity*>& getCollectedEntites()const;
 	private:
         void updateObjectsTransform();

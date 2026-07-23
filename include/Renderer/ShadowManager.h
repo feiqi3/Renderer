@@ -11,6 +11,11 @@ namespace Render {
 	struct rs_commandbuffer;
 	class ShadowManager {
 	public:
+		enum class ShadowTechnique {
+			Normal,
+			PCF,
+		};
+	public:
 		ShadowManager ();
 		~ShadowManager();
 		void setPointLightMaxCount(uint32_t count);
@@ -18,6 +23,13 @@ namespace Render {
 		void setShadowTexFormat(RenderTextureFormat fmt);
 		void setShadowCameraHeight(float h);
 		void setDirLightShadowFarZ(float f);
+
+		bool getShadowEnable	()const;
+		void setShadowEnable	(bool isEnable);
+
+		ShadowTechnique getShadowTechnique()const;
+		void			setShadowTechnique(ShadowTechnique tech);
+
 		//Update some nessary data light camera or render texture
 		//Before cameramanager update and before scene update.
 		//void update(Scene* scene);
@@ -38,8 +50,12 @@ namespace Render {
 			float dirLightCameraHeight = 100.f;
 			float dirLightShadowFarZ = 20.f;
 		}ShadowConfig;
+		bool isDirShadowRTDirty = true;
 		bool isDirShadowConfigDirty = true;
 		bool isPointShadowConfigDirty = true;
+
+		bool isShadowEnable = true;
+		ShadowTechnique mTechnique;
 
 		class ShadowManagerPrivate* mDp;;
 
