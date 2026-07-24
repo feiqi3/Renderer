@@ -92,4 +92,29 @@ namespace Render {
 		return AxisAlignedBoundingBox(minPoint - pos, maxPoint - pos);
 	}
 
+	Render::vec3 AxisAlignedBoundingBox::getLongestEdge() const
+	{
+		auto size = getSize();
+		if (size.x > size.y) {
+			if (size.x > size.z) {
+				//x max
+				return vec3(1, 0, 0);
+			}
+			else {
+				//z max
+				return vec3(0, 0, 1);
+			}
+		}
+		else {
+			if (size.y > size.z) {
+				//y max
+				return vec3(0, 1, 0);
+			}
+			else {
+				//z max
+				return vec3(0, 0, 1);
+			}
+		}
+	}
+
 }

@@ -110,7 +110,7 @@ vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const f
             //Dir
             float vis = 1.0f;
             #if !defined(SHADOW_PASS)
-            vis = calculateShadowVisFactor(vec4(i_worldPos,1.0));
+            vis = calculateShadowVisFactor(vec4(i_worldPos,1.0),vec4(N,1.));
             #endif //!SHADOW_PASS
             vec3 L = light.directionRange.xyz;
             col += PBR_DirectLight(V,L,N,albedo,metallic,roughness,F0,radiance) * vis;

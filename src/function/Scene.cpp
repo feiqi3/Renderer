@@ -293,7 +293,7 @@ namespace Render {
                 auto aabb = entity->getWorldBounding();
                 bool isVisible = false;
                 if (cull != nullptr) {
-                    isVisible = cull(aabb);
+                    isVisible = cull(camFrustum,aabb);
                 }
                 else {
                     isVisible = camFrustum.isVisible(aabb);

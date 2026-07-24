@@ -26,6 +26,8 @@ namespace Render {
         void expand(const vec3& point);          
         void expand(const AxisAlignedBoundingBox& other);
         AxisAlignedBoundingBox offset(const vec3& pos);
+
+        vec3 getLongestEdge()const;
     };
 }
 #endif // AABB_H

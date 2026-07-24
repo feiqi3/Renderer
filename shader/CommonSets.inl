@@ -29,7 +29,7 @@ layout(set = 3, binding = 0) uniform UniformBufferObject {
 layout(set = 5, binding = 0) uniform UniformBufferShadow {
     GPUSceneShadowData ShadowData;
 } ShadowData;
-layout(set = 5, binding = 1 ) uniform texture2D 		DirShadowMap;
+layout(set = 5, binding = 1 ) uniform texture2DArray    DirShadowMap;
 layout(set = 5, binding = 2 ) uniform sampler			ShadowSampler; 
 #endif//NO_SHADOW
 

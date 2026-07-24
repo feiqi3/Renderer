@@ -27,7 +27,7 @@ namespace Render {
 		const Light* getLight(int idx) const;
 		void update();
 		void setShadowLightNum(uint32_t lightNum);
-		inline const std::vector<Light*>lightsToCastShadow()const {
+		inline const std::vector<Light*>& lightsToCastShadow()const {
 			return mShadowLights;
 		}
 

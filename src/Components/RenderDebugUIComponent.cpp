@@ -40,7 +40,7 @@ namespace Render {
 			static float shadowDist = 10.;
 			bool shadowDistChanged = ImGui::SliderFloat("Directional light shadow distance##DEBUGUI", &shadowDist, 0.5, 100, "%.1f");
 			if (shadowDistChanged) {
-				shadowMgr.setDirLightShadowFarZ(shadowDist);
+				//shadowMgr.setDirLightShadowFarZ(shadowDist);
 			}
 			static int shadowMapResolution = 1024;
 			bool shadowMapResChanged = ImGui::InputInt("Directional light shadow texture resolution##DEBUGUI", &shadowMapResolution);

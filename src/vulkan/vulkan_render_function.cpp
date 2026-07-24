@@ -780,8 +780,9 @@ namespace Render::Vulkan {
 				Log::error("Mip count should be set to 1 in render target.");
 				return nullptr;
 			}
-            uint32_t iw_new = std::max(1, int(std::round_toward_zero(images[i]->width  / (2 << viewkey.getBaseMip()))));
-			uint32_t ih_new = std::max(1, int(std::round_toward_zero(images[i]->height / (2 << viewkey.getBaseMip()))));
+            int baseMip = (1 << viewkey.getBaseMip());
+            uint32_t iw_new = std::max(1, int(images[i]->width  / baseMip));
+			uint32_t ih_new = std::max(1, int(images[i]->height / baseMip));
             uint32_t il_new = viewkey.getLayerCount();
             if (iw == -1 || ih == -1 || il == -1) {
                 iw = iw_new;
@@ -801,12 +802,13 @@ namespace Render::Vulkan {
 		int depthAttPos = -1;
         rs_image_view* dsView = nullptr;
         for (int i = 0; i < imageNum; ++i) {
+            bool isDepth = (havedepthLast && i == imageNum - 1);
             auto& img = *(images[i]);
-            if (!(img.usage & ImageUsage_ColorAttachment)) {
+            if (!isDepth && !(img.usage & ImageUsage_ColorAttachment)) {
                 assert(0 && "Image usage not match");
                 return nullptr;
             }
-            if (img.width != iw || img.height != ih || img.arrayLayers != il) {
+            if (img.width != iw || img.height != ih || imageViewKeys->getLayerCount() != il) {
                 assert(0 && "Attachment size not match");
                 return nullptr;
             }

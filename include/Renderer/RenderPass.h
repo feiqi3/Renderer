@@ -111,6 +111,7 @@ namespace Render {
 		std::string mNextMarkName;
 		bool mNextColorMarked = false;
 
+		u64 mLastFrameCalcTime = -1;
 		float mRenderPassLogicTime = -1;
 		std::chrono::steady_clock::time_point mRenderPassBeginTimePoint;
 	};

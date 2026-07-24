@@ -413,7 +413,15 @@ namespace Render {
 		for (auto& logicPass : mLogicalPasses) {
 			if (logicPass.name == name) {
 				auto dur = std::chrono::steady_clock::now() - logicPass.passBeginTime;
-				logicPass.lastLogicPassTime = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
+				auto durTimeCount = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
+				if (mLastFrameCalcTime != RenderSystem::instance()->getNextRenderFrame()) {
+					logicPass.lastLogicPassTime = durTimeCount;
+				}
+				else {
+					//Stack them all 
+					logicPass.lastLogicPassTime += durTimeCount;
+				}
+
 			}
 		}
 	}
@@ -426,8 +434,15 @@ namespace Render {
 	void RenderPass::passEnd()
 	{
 		auto dur = std::chrono::steady_clock::now() - mRenderPassBeginTimePoint;
+		auto durTimeCount = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
+		if (mLastFrameCalcTime != RenderSystem::instance()->getNextRenderFrame()) {
+			mRenderPassLogicTime = durTimeCount;
+		}
+		else {
+			mRenderPassLogicTime += durTimeCount;
+		}
+		mLastFrameCalcTime = RenderSystem::instance()->getNextRenderFrame();
 
-		mRenderPassLogicTime = std::chrono::duration_cast<std::chrono::microseconds>(dur).count() / 1000.f;
 	}
 
 	RenderPass::~RenderPass()

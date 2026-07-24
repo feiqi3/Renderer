@@ -41,19 +41,19 @@ namespace Render {
 			return size;
 		}
 
-		const rs_image* targetImage = nullptr;
+		const rs_image_view* targetImageView = nullptr;
 
-		if (!rt->m_attachments.empty() && rt->m_attachments[0] != nullptr) {
-			targetImage = rt->m_attachments[0];
+		if (!rt->m_attachments.empty() && rt->m_views[0] != nullptr) {
+			targetImageView = rt->m_views[0];
 		}
-		else if (rt->m_depthStencilAttachment != nullptr) {
-			targetImage = rt->m_depthStencilAttachment;
+		else if (rt->m_dsView != nullptr) {
+			targetImageView = rt->m_dsView;
 		}
 
-		if (targetImage) {
-			size.width = targetImage->width;
-			size.height = targetImage->height;
-			size.arrayLayers = targetImage->arrayLayers; 
+		if (targetImageView) {
+			size.width = targetImageView->image->width;
+			size.height = targetImageView->image->height;
+			size.arrayLayers = targetImageView->viewKey.getLayerCount();
 		}
 
 		return size;
