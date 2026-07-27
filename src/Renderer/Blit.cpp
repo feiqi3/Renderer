@@ -43,8 +43,8 @@ namespace Render {
 		mBlitKernel->setParameter(paramTo, BlitTo, viewKeyTo);
 
 		mBlitKernel->dispatch(cmd, 
-			(viewKeyTo.getMipCount() > 1 ? BlitTo->getWidth() >> viewKeyTo.getBaseMip() : BlitTo->getWidth()) + 7 / 8,
-			(viewKeyTo.getMipCount() > 1 ? BlitTo->getHeight() >> viewKeyTo.getBaseMip() : BlitTo->getHeight()) + 7 / 8,
+			((viewKeyTo.getMipCount() > 1 ? BlitTo->getWidth() >> viewKeyTo.getBaseMip() : BlitTo->getWidth()) + 7) / 8,
+			((viewKeyTo.getMipCount() > 1 ? BlitTo->getHeight() >> viewKeyTo.getBaseMip() : BlitTo->getHeight()) + 7) / 8,
 			1);
 
 	}

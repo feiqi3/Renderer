@@ -117,7 +117,7 @@ namespace Render::Vulkan {
             vkAllocateDescriptorSets(ctx->device, &allci, &desSet);
         }
         else {
-            assert(vkAllocateDescriptorSets(ctx->device, &allci, &desSet) == VK_SUCCESS);
+            VK_CHECK(vkAllocateDescriptorSets(ctx->device, &allci, &desSet), { return nullptr; });
         }
         block->mInUseNum++;
         block->lastActiveFrame = frame;
