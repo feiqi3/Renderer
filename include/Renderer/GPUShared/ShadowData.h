@@ -7,6 +7,7 @@ GPU_SHARED_NAMESPACE_BEGIN
 	GPU_STRUCT_BEGIN(GPUDirLightShadowCascadedData)
 		mat4 ViewMat;
 		mat4 ProjMat;
+		vec4 OrthoSize;		//x,y ortho size(light camera projection plane size)
 		vec4 Info;	//x: z depth end in main cam space
 		GPU_STRUCT_END
 

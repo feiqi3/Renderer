@@ -234,6 +234,8 @@ namespace Render {
 			dirCascadeData.ViewMat = cam->getViewMatrix();
 			dirCascadeData.ProjMat = cam->getProjectionMatrix();
 			dirCascadeData.Info.x = getCascadedLayerDistance(i);
+			dirCascadeData.OrthoSize.x = cam->getOrthoSize();
+			dirCascadeData.OrthoSize.y = cam->getOrthoSize() / cam->getAspectRatio();
 		}
 	
 		mShadowData.AtlasInfo.x = getTextureSize();

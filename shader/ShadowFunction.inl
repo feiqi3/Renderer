@@ -45,129 +45,144 @@ float sampleDirectionLightPCFArrayLayer(texture2DArray tex, sampler samp, vec2 u
     return totalVis;
 }
 
-float calculateShadowCSM(vec4 worldSpacePos,vec4 worldNormal){
+float calculateShadowCSM(vec4 worldSpacePos, vec4 worldNormal)
+{
     GPUDirLightShadowData dirShadowData = SHADOWDATA.DirLightShadowInfo;
     vec3 lightDir = normalize(dirShadowData.LightDir.xyz);
 
-    float cosNL = dot(lightDir.xyz,worldNormal.xyz);
-    if(cosNL < 0.f)return 0.;
+    // 1. Calculate lighting angles
+    float cosNL = dot(lightDir, worldNormal.xyz);
+    if (cosNL < 0.0) return 0.0; // Early exit for back-facing surfaces
 
-    //Calc bias
-    float sinNL = abs(sqrt(1.f - cosNL * cosNL));
-    cosNL = clamp(cosNL,0.01,1.);
-    float tanNL = sinNL / cosNL;
-    float bias  = 0.01 * tanNL;
+    float sinNL = sqrt(max(0.0, 1.0 - cosNL * cosNL));
+    float safeCosNL = max(cosNL, 0.001);
+    float tanNL = sinNL / safeCosNL;
 
+    vec2 shadowMapSize = dirShadowData.AtlasInfo.xy;
     int shadowTechnique = int(SHADOWDATA.ShadowInfo.y);
-
     int cascadedLayers = int(dirShadowData.AtlasInfo.z);
     float interpolateFactor = dirShadowData.AtlasInfo.w;
-    vec2 shadowMapSize = dirShadowData.AtlasInfo.xy;
-    
-    float shadowVis = 1.0f;
-    float depthInMainCamSpace = abs(CAMDATA.MatView * worldSpacePos).z;
-    bool  hasSmoothTransition = false;
-    float interpolationFactor = 1.;
-    float smoothInterplationDist = dirShadowData.AtlasInfo.w;
-    //Find which cascaded layer the world space pos is in
+
+    // 2. Find which cascade layer the world position belongs to
+    float depthInMainCamSpace = abs((CAMDATA.MatView * worldSpacePos).z);
     int layerIdx = -1;
-    float smoothTransitionFactor = 0.;
-    for(int i = cascadedLayers - 1; i >= 0; --i)
+    for (int i = cascadedLayers - 1; i >= 0; --i)
     {
         float zEnd = dirShadowData.cascadedShadowData[i].Info.x;
-        if(depthInMainCamSpace < zEnd)
+        if (depthInMainCamSpace < zEnd)
         {
             layerIdx = i;
-        }else{
+        }
+        else
+        {
             break;            
         }
     }
 
-    //Out of shadow range
-    if(layerIdx == -1)
+    // Out of shadow range
+    if (layerIdx == -1)
     {
-        return 1.0f;
+        return 1.0;
     }
 
-    if(layerIdx <= cascadedLayers - 1){
+    // 3. Compute smooth transition factor between cascades
+    bool hasSmoothTransition = false;
+    float interpolationFactor = 1.0;
+    if (layerIdx < cascadedLayers)
+    {
         float zEnd = dirShadowData.cascadedShadowData[layerIdx].Info.x;
-        float zLastLayerEnd = 0.;
-        if(layerIdx > 0)
+        float zLastLayerEnd = 0.0;
+        if (layerIdx > 0)
         {
             zLastLayerEnd = dirShadowData.cascadedShadowData[layerIdx - 1].Info.x;
         }
         float zArea = zEnd - zLastLayerEnd;
+        
+        // Compute linear interpolation ratio across the overlap margin
         interpolationFactor = (zEnd - depthInMainCamSpace) / (zArea * interpolateFactor);
-        if(interpolationFactor > 1 || interpolationFactor < 0){
-            hasSmoothTransition = false;
-        }else{
+        if (interpolationFactor >= 0.0 && interpolationFactor <= 1.0)
+        {
             hasSmoothTransition = true;
         }
-        interpolationFactor = clamp(interpolationFactor,0.,1.);
+        interpolationFactor = clamp(interpolationFactor, 0.0, 1.0);
     }
 
-    //Get the shadow view proj mat for this layer
-    mat4 shadowViewProjMat = dirShadowData.cascadedShadowData[layerIdx].ProjMat * dirShadowData.cascadedShadowData[layerIdx].ViewMat;
-    vec4 shadowNDC = shadowViewProjMat * worldSpacePos;
-    shadowNDC = shadowNDC / shadowNDC.w;
-    vec2 shadowUV = mapShadowUV(shadowNDC.xy);
+    // 4. Calculate Normal Offset Bias using OrthoSize (Prevents acne when light is vertical)
+    float orthoWidthCur = dirShadowData.cascadedShadowData[layerIdx].OrthoSize.x;
+    float texelSizeWorldCur = orthoWidthCur / shadowMapSize.x;
+    float normalOffsetScale = 0.5; // Scaled offset magnitude
+    vec3 offsetWorldPosCur = worldSpacePos.xyz + worldNormal.xyz * (sinNL * normalOffsetScale * texelSizeWorldCur);
 
-    //Get ShadowUV in next layer
-    vec4 nextShadowNDC = vec4(0);
-    vec2 nextShadowUV  = vec2(0);
+    // Depth Bias: Base bias + slope-scaled bias clamped to prevent Peter Panning
+    float baseBias = 0.00025;
+    float maxBias = 0.0005;
+    float bias = clamp(baseBias + 0.001 * tanNL, baseBias, maxBias);
+
+    // 5. Transform offset position to Current Layer Shadow Space
+    mat4 shadowViewProjMat = dirShadowData.cascadedShadowData[layerIdx].ProjMat * dirShadowData.cascadedShadowData[layerIdx].ViewMat;
+    vec4 shadowNDC = shadowViewProjMat * vec4(offsetWorldPosCur, 1.0);
+    shadowNDC /= shadowNDC.w;
+    vec2 shadowUV = mapShadowUV(shadowNDC.xy);
+    float depthInLightSpaceCurLayer = shadowNDC.z;
+
+    // 6. Transform offset position to Next Layer Shadow Space (for smooth blending)
+    vec2 nextShadowUV = vec2(0.0);
+    float depthInLightSpaceNextLayer = 1.0;
     bool hasNextLayer = false;
 
-    
-    float depthInLightSpaceNextLayer  = 1.0; 
-    if(layerIdx < cascadedLayers - 1)
+    if (layerIdx < cascadedLayers - 1)
     {
+        float orthoWidthNext = dirShadowData.cascadedShadowData[layerIdx + 1].OrthoSize.x;
+        float texelSizeWorldNext = orthoWidthNext / shadowMapSize.x;
+        vec3 offsetWorldPosNext = worldSpacePos.xyz + worldNormal.xyz * (sinNL * normalOffsetScale * texelSizeWorldNext);
+
         mat4 nextShadowViewProjMat = dirShadowData.cascadedShadowData[layerIdx + 1].ProjMat * dirShadowData.cascadedShadowData[layerIdx + 1].ViewMat;
-        nextShadowNDC = nextShadowViewProjMat * worldSpacePos;
-        nextShadowNDC = nextShadowNDC / nextShadowNDC.w;
+        vec4 nextShadowNDC = nextShadowViewProjMat * vec4(offsetWorldPosNext, 1.0);
+        nextShadowNDC /= nextShadowNDC.w;
         nextShadowUV = mapShadowUV(nextShadowNDC.xy);
-        hasNextLayer = isShadowUVInRange(nextShadowUV.xy);
-        
+        hasNextLayer = isShadowUVInRange(nextShadowUV);
         depthInLightSpaceNextLayer = nextShadowNDC.z;
     }
 
-    vec4 posInLightSpaceCurLayer = (dirShadowData.cascadedShadowData[layerIdx].ProjMat * 
-        dirShadowData.cascadedShadowData[layerIdx].ViewMat * worldSpacePos);
-    float depthInLightSpaceCurLayer = posInLightSpaceCurLayer.z / posInLightSpaceCurLayer.w;
+    // 7. Calculate Shadow Visibility based on technique
+    float shadowVis = 1.0;
+    float nextShadowVis = 1.0;
 
+    if (shadowTechnique == 0) // Hard Shadow
+    {
+        float sampledDepthInCurLayer = texture(sampler2DArray(DirShadowMap, ShadowSampler), vec3(shadowUV, layerIdx)).r;
+        shadowVis = (depthInLightSpaceCurLayer - bias > sampledDepthInCurLayer) ? 0.0 : 1.0;
 
-    float nextShadowVis = 1.;
-    if(shadowTechnique == 0){
-        float sampledDepthInCurLayer = texture(sampler2DArray(DirShadowMap, ShadowSampler), vec3(shadowUV.xy, layerIdx)).r;
-        //Smooth transition
-        if(hasSmoothTransition && hasNextLayer){
-            float sampledDepthInNextLayer = texture(sampler2DArray(DirShadowMap, ShadowSampler), vec3(nextShadowUV.xy, layerIdx + 1)).r;
-            if(depthInLightSpaceNextLayer - bias > sampledDepthInNextLayer){
-                nextShadowVis = 0.0;
-            }
-        }else{
-            interpolationFactor = 1.;
+        if (hasSmoothTransition && hasNextLayer)
+        {
+            float sampledDepthInNextLayer = texture(sampler2DArray(DirShadowMap, ShadowSampler), vec3(nextShadowUV, layerIdx + 1)).r;
+            nextShadowVis = (depthInLightSpaceNextLayer - bias > sampledDepthInNextLayer) ? 0.0 : 1.0;
         }
-        
-        if(depthInLightSpaceCurLayer - bias > sampledDepthInCurLayer){
-            shadowVis = 0.;
-        }else{
-            shadowVis = 1.;
-        }
-
-    }else if(shadowTechnique == 1){
-        shadowVis = sampleDirectionLightPCFArrayLayer(
-            DirShadowMap, ShadowSampler, shadowUV.xy,float(layerIdx), shadowMapSize, depthInLightSpaceCurLayer,bias
-        );
-        if(hasSmoothTransition){
-            nextShadowVis = sampleDirectionLightPCFArrayLayer(
-            DirShadowMap, ShadowSampler, nextShadowUV.xy,float(layerIdx + 1), shadowMapSize, depthInLightSpaceNextLayer,bias
-            );          
-        }else{
-            interpolationFactor = 1.;
+        else
+        {
+            interpolationFactor = 1.0;
         }
     }
-    //Blend
-    return shadowVis * (interpolationFactor) + nextShadowVis * (1. - interpolationFactor);
+    else if (shadowTechnique == 1) // PCF Filtered Shadow
+    {
+        shadowVis = sampleDirectionLightPCFArrayLayer(
+            DirShadowMap, ShadowSampler, shadowUV, float(layerIdx), shadowMapSize, depthInLightSpaceCurLayer, bias
+        );
+
+        if (hasSmoothTransition && hasNextLayer)
+        {
+            nextShadowVis = sampleDirectionLightPCFArrayLayer(
+                DirShadowMap, ShadowSampler, nextShadowUV, float(layerIdx + 1), shadowMapSize, depthInLightSpaceNextLayer, bias
+            );
+        }
+        else
+        {
+            interpolationFactor = 1.0;
+        }
+    }
+
+    // 8. Interpolate between current layer and next layer
+    return shadowVis * interpolationFactor + nextShadowVis * (1.0 - interpolationFactor);
 }
 
 float calculateShadowVisFactor(vec4 worldSpacePos,vec4 worldNormal)

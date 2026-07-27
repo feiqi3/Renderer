@@ -8,11 +8,17 @@ namespace Render {
 		enum class DebugView {
 			Depth,
 			DirShadow,
+			DirShadow_CSM_1,
+			DirShadow_CSM_2,
+			DirShadow_CSM_3,
 			Max
 		};
 		inline static const char* DebugViewName[] = {
 			"Depth",
 			"DirShadow",
+			"DirShadow_CSM_1",
+			"DirShadow_CSM_2",
+			"DirShadow_CSM_3",
 			"None"
 		};
 		virtual void onUpdate(float dt)override;
