@@ -61,5 +61,33 @@ NDC空间的范围是 -1，1 但是z不一定是，ndc的z是可以通过viewpor
 
 ### 问题：   
 1. 阴影抖动？    ---- 在viewSpace计算shadowCamera的boundingSphere大小
-2. 阴影RT分辨率不足，导致阴影太颗粒了....  ----现在是2048*2048画sponza，如果不行只能继续做csm咯？
+2. 阴影RT分辨率不足，导致阴影太颗粒了....  ----现在是2048*2048画sponza，如果不行只能继续做csm咯？     
+
+
+### 2. CSM   
+用一个TextureArrayLayer拼接所有的ShadowMap    
+texture2dArray[0]负责相机空间中深度为0-5，texture2dArray[1]负责相机空间中深度为5-30，texture2dArray[2]负责相机空间中深度为30-150，    
+
+在CPP中，创建数个阴影相机，创建一个Texture2DArray，array的每个layer作为RT的depthAttachment，用这几个阴影相机做剔除，复用一个RenderPass，只是绑定不同的RT，就可以完成绘制了    
+
+shader中，每次计算出当前所属于的layer，然后采样，得到shadowVisible就可以了    
+csm过渡：用一个Factor控制过渡范围   
+当factor=0.1，上一级CascadedLayer的范围是0-10的时候，这个过渡范围就是CameraDepthZ从9-10的时候    
+然后做一次采样下一级阴影图，做一个平滑过渡就可以了      
+
+
+## 2. Filter     
+PCF，采样数个点，对每个点计算ShadowVis，对ShadowVis做平均   
+PCSS，没看到什么必要      
+
+## 3. 点光源阴影    
+TODO:        
+### 1. 正方形   
+用一个TextureCube的每个面作为RT渲染   
+
+### 2. 四面体    
+map到一个四面体的四个面上进行渲染     
+
+### 3. 双曲   
+map到两个鱼眼镜头上进行渲染   
 
