@@ -220,7 +220,7 @@ namespace Render {
 					std::sort(batch.packs.begin(), batch.packs.end(), [&camPos]( RenderPack& a, RenderPack& b) {
 						float distToCamA = getEntityDistToCam(camPos, a.entity);
 						float distToCamB = getEntityDistToCam(camPos, b.entity);
-						return distToCamA >= distToCamB;
+						return distToCamA > distToCamB;
 						});
 					break;
 				}

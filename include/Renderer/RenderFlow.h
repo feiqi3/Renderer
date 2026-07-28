@@ -48,6 +48,7 @@ namespace Render {
 			mPostEffectPass = new PostEffectComposePass();
 			initDirectionalLightShadowPass();
 			initMainCamPass();
+			initPreZPass();
 			initPostEffectPass();
 			initDebugOverlayPass();
 			this->mOffscreenFinishSemaphore = RenderSystem::instance()->createSemaphore();
@@ -64,7 +65,7 @@ namespace Render {
 
 		void deinitDirectionalLightShadowPass() {
 			auto rsys = RenderSystem::instance();
-			rsys->getRenderPassManager()->registerRenderPass(mDirectionalLightRenderPass);
+			rsys->getRenderPassManager()->unregisterRenderPass(mDirectionalLightRenderPass);
 			delete mDirectionalLightRenderPass;
 		}
 
@@ -137,12 +138,68 @@ namespace Render {
 			CameraManager::instance()->UnregisterCamera(mMainCamera);
 			delete mMainCamera;
 			mMainCamera = nullptr;
-			initDirectionalLightShadowPass();
+			deinitPreZ();
+			deinitDirectionalLightShadowPass();
 			deinitMainCamPass();
 			deinitPostEffectPass();
 			deinitDebugOverlayPass();
 			RenderSystem::instance()->destroySemaphore(mOffscreenFinishSemaphore);
 			RenderSystem::instance()->destroyFence(mWaitForRenderEndFence);
+		}
+
+		void initPreZPass() {
+
+			//***************************************************************//
+			
+			//			CHECK OUT MAIN CAM PASS TO ENABLE PREZ				 // 
+			
+			//***************************************************************//
+			//Render Motion vector during prez pass
+			LogicPassDesc logicPass{};
+			logicPass.drawOrder = PassDrawOrder::FromFarToNear;
+			logicPass.filterMask = RenderMask::Normal;
+			logicPass.logicPassName = PassName::PreZPass;
+			StageMacroPairs pairs{};
+			pairs.push_back(
+				{ ShaderStage::Fragment,{{"PREZ","1"}} }
+			);
+			logicPass.passMacros = pairs;
+			PassDesc prezDesc{};
+			prezDesc.lastDepth = true;
+			PassAttachment attachmentMotionVec{};
+
+			attachmentMotionVec.fmt = RenderTextureFormat::RG16F;
+			attachmentMotionVec.loadOp = StorageOp::Clear;
+			attachmentMotionVec.storeOp = StorageOp::Cached;
+			prezDesc.attachments.push_back(attachmentMotionVec);
+
+			PassAttachment attachmentDepth{};
+			attachmentDepth.fmt = RenderTextureFormat::D24S8;
+			attachmentDepth.loadOp = StorageOp::Clear;
+			attachmentDepth.storeOp = StorageOp::Cached;
+
+			prezDesc.attachments.push_back(attachmentDepth);
+
+			mPrezRenderPass = new RenderPass(
+				{ logicPass }, prezDesc
+			);
+			RenderSystem::instance()->getRenderPassManager()->registerRenderPass(mPrezRenderPass);
+			mMotionVector = TextureResourceManager::instance()->createRenderTexture(RenderTextureFormat::RG16F, MAIN_RT_SIZE_X, MAIN_RT_SIZE_Y,1,1,1,true);
+			mPrePassRt = RenderSystem::instance()->createRendertarget({ mMotionVector->getRsImage() }, mMainDepthTex->getRsImage());
+			mPrezRenderPass->setRenderTarget(mPrePassRt);
+			ClearColor motionVecClear{};
+			ClearDepthStencil depthClean{};
+			depthClean.depth	= 1.;
+			depthClean.stencil	= 0.;
+			mPrezRenderPass->setClearData({ motionVecClear }, depthClean);
+		}
+
+		void deinitPreZ() {
+			RenderSystem::instance()->getRenderPassManager()->unregisterRenderPass(mPrezRenderPass);
+			RenderSystem::instance()->destroyRenderTarget(mPrePassRt);
+			mPrePassRt = nullptr;
+			mPrezRenderPass = nullptr;
+			delete mPrezRenderPass;
 		}
 
 		void AddEntity(RenderEntity* entity) {
@@ -171,6 +228,8 @@ namespace Render {
 				curScene->getShadowMgr().drawShadow(cmdbufOffscreen, mMainCamera, curScene);
 				ConstShaderDataManager::instance()->updateShadowDrawData(curScene);
 			}
+			
+			mPrezRenderPass->draw(cmdbufOffscreen, mMainCamera);
 
 			DebugDrawManager::instance()->onRender(mMainCamera);
 			mMainCamPass->draw(cmdbufOffscreen, mMainCamera);
@@ -196,6 +255,7 @@ namespace Render {
 		MainCameraPass* mMainCamPass = 0;
 		PostEffectComposePass* mPostEffectPass = 0;
 		RenderPass* mDirectionalLightRenderPass = nullptr;
+		RenderPass* mPrezRenderPass = nullptr;
 		std::vector<RenderEntity*> mRenderEntities;
 		std::vector<RenderEntity*> mPostEffectEntities;
 		
@@ -215,6 +275,8 @@ namespace Render {
 
 		TexturePtr mMainColorTex = nullptr;
 		TexturePtr mMainDepthTex = nullptr;
+		TexturePtr mMotionVector = nullptr;
+		rs_rendertarget* mPrePassRt = nullptr;
 	};
 }
 

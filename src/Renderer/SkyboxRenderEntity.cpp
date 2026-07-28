@@ -26,7 +26,7 @@ namespace Render {
 		MaterialTemplatePtr matTplt = MaterialTemplateManager::instance()->getMaterialTemplate(Name("SkyBox"));
 		if (matTplt == nullptr) {
 			RenderState skyBoxRenderState{};
-			skyBoxRenderState.depthWriteEnable = true;
+			skyBoxRenderState.depthWriteEnable = false;
 			skyBoxRenderState.depthTestEnable = true;
 			skyBoxRenderState.depthCompareOp = CompareOp::LessOrEqual;
 			VertexInputDescription iaDesc{};

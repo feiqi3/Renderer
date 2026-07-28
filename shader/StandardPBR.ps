@@ -36,9 +36,9 @@ layout(location = 4) in vec2 i_texcoord0;
 layout(location = 5) in vec3 i_color;
 layout(location = 6) in vec3 i_viewDir;
 
-#if !defined(SHADOW_PASS)
+#if !defined(SHADOW_PASS) && !defined(PREZ)
 layout(location = 0) out vec4 outColor;
-#endif//!SHADOW_PASS
+#endif//!SHADOW_PASS && !defined(PREZ)
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -175,7 +175,7 @@ void main()
         texColor.xyz = pow(texColor.xyz,vec3(2.2));
         baseColor *= texColor;
     }
-#ifndef SHADOW_PASS
+#if !defined(SHADOW_PASS) && !defined(PREZ)
     vec3 albedo = baseColor.rgb;
 
     // --------------------------------------------------
@@ -254,6 +254,6 @@ void main()
 
 
     outColor = vec4(color, baseColor.a);
-#endif//!SHADOW_PASS
+#endif//!SHADOW_PASS && !PREZ
 }
 

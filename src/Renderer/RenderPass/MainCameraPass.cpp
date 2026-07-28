@@ -5,13 +5,25 @@
 namespace Render{
 	static PassDesc getMainCamPassDesc() {
 		PassDesc desc{};
+		//No PreZ
+		//PassAttachment attachmentMain{ 
+		//	.fmt = RenderTextureFormat::RGBA16F, .loadOp = StorageOp::Clear, .storeOp = StorageOp::Cached, .isHDR = true, };
+		//PassAttachment attachmentDepth{
+		//	.fmt = RenderTextureFormat::D24S8, .loadOp = StorageOp::Clear, .storeOp = StorageOp::Cached, .isHDR = false, };
+		//desc.attachments = { attachmentMain,attachmentDepth };
+		//desc.lastDepth  = true;
+		//desc.writeDepth = true;
+
+		//PreZ   
 		PassAttachment attachmentMain{ 
 			.fmt = RenderTextureFormat::RGBA16F, .loadOp = StorageOp::Clear, .storeOp = StorageOp::Cached, .isHDR = true, };
 		PassAttachment attachmentDepth{
-			.fmt = RenderTextureFormat::D24S8, .loadOp = StorageOp::Clear, .storeOp = StorageOp::Cached, .isHDR = false, };
+			.fmt = RenderTextureFormat::D24S8, .loadOp = StorageOp::Cached, .storeOp = StorageOp::Cached, .isHDR = false, };
 		desc.attachments = { attachmentMain,attachmentDepth };
 		desc.lastDepth  = true;
-		desc.writeDepth = true;
+		//Dont write depth
+		desc.writeDepth = false;
+
 		return desc;
 	}
 

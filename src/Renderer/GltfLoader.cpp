@@ -261,8 +261,10 @@ namespace {
         if (!pbrTplt) {
             //Try create one
             RenderState state{};
+            //PREZ
+			state.depthWriteEnable = false;
+			state.depthCompareOp = Render::CompareOp::LessOrEqual;
             if (material->alphaMode == GLTFAlphaMode::Blend) {
-                state.depthWriteEnable = false;
                 BlendState glassBlendForMainRT;
 
                 glassBlendForMainRT.blendEnable = true;
@@ -322,12 +324,25 @@ namespace {
 					});
 
             }else{
+                state.depthCompareOp = Render::CompareOp::Equal;
+
 				tplt->createMaterialPass(PassName::MainCameraPass, {
-	            {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
-					});
+                    {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+					},state);
+
+				state.depthWriteEnable = true;
+
+				state.depthCompareOp = Render::CompareOp::LessOrEqual;
+
 				tplt->createMaterialPass(PassName::DirectionalShadowPass, {
 					{ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
-					});
+					}, state);
+
+				tplt->createMaterialPass(PassName::PreZPass, {
+					{ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
+					}, state);
+
+
             }
             
 
