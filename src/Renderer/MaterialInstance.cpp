@@ -51,6 +51,7 @@ namespace Render {
     void Material::bindParameter(const std::string& paramName, TexturePtr tex, ImageViewKey key, int element)
     {
 		auto name = Name(paramName);
+        auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), key);
 		mBindingTable.broadcastParameter(name, tex, key, element);
     }
 

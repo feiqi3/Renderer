@@ -434,7 +434,11 @@ namespace Render{
 	rs_sampler* RenderSystem::createSampler(const SamplerDesc& desc)
 	{
 		auto ctx = getRenderContext();
-		return Vulkan::createRsSampler(ctx, desc);
+		auto sampler = Vulkan::createRsSampler(ctx, desc);
+		if (isBindlessEnabled()) {
+			this->updateGlobalBindlessDataSampler(getGlobalBindlessData(), sampler);
+		}
+		return sampler;
 	}
 	void RenderSystem::destroyRsSampler(rs_sampler* sampler)
 	{
@@ -516,7 +520,23 @@ namespace Render{
 	void RenderSystem::destroyImage(rs_image* image)
 	{
 		auto imageVk = (Vulkan::rs_image_vk*)image;
+
+		//Unbind bindless data
+		for (auto& view : image->imageViews) {
+			if (view->bindlessIndex != INVALID_BINDLESS_INDEX) {
+				//unbind!   
+				if (view->viewKey.getUAVAccess() == UAVAccess::ReadOnly) {
+					unbindGlobalBindlessDataTexture(getGlobalBindlessData(), view->bindlessIndex);
+				}
+				else {
+					unbindGlobalBindlessDataRWTexture(getGlobalBindlessData(), view->bindlessIndex);
+				}
+
+			}
+		}
+
 		Vulkan::destroyRsImage(getRenderContext(), imageVk, false);
+
 	}
 
 	size_t RenderSystem::getImageSize(rs_image* img)
@@ -601,7 +621,22 @@ namespace Render{
 
 	rs_image_view* RenderSystem::getViewFromImage(rs_image* image, const ImageViewKey& viewKey)
 	{
-		return Vulkan::getRsImageView( this->getRenderContext(), image, viewKey);
+		auto view = Vulkan::getRsImageView( this->getRenderContext(), image, viewKey);
+		if (isBindlessEnabled() && view->bindlessIndex == INVALID_BINDLESS_INDEX) {
+			//Upload to bindless set once it was created
+			if ( (image->usage & ImageUsage_Sampled) && viewKey.getUAVAccess() == UAVAccess::ReadOnly) {
+				this->updateGlobalBindlessDataTexture(
+					getGlobalBindlessData(), view
+				);
+			}
+			else if ((image->usage & ImageUsage_Storage) && viewKey.getUAVAccess() != UAVAccess::ReadOnly) {
+				this->updateGlobalBindlessDataRWTexture(
+					getGlobalBindlessData(), view
+				);
+			}
+
+		}
+		return view;
 	}
 
 	Render::rs_rendertarget* RenderSystem::createRendertargetDetailed(std::vector<rs_image*>& images, std::vector<ImageViewKey>& viewKeys, bool lastDepth)

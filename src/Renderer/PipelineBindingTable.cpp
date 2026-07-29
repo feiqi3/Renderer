@@ -88,33 +88,6 @@ namespace Render {
     }
 
     PipelineBindingTable::~PipelineBindingTable() {
-        for (auto& bItem : mBindlessItems) {
-            for (int i = 0; i < bItem.keepAliveRefs.size(); ++i) {
-                auto& var = bItem.keepAliveRefs[i];
-
-                if (var.getBufferPair()) {
-                    EngineBindlessAPI::GetBlockBufferBindingData(nullptr, 0);
-                    //Get old binding pos.
-                    if (i < bItem.bindlessData.size()) {
-                        uint64_t oldData = 0;
-                        oldData = bItem.bindlessData[i];
-                        if (oldData != 0XFFFFFFFFFFFFFFFF) EngineBindlessAPI::UnbindGlobalBuffer(oldData);
-                    }
-                }
-                else if (var.getTexture()) {
-                    if (i < bItem.bindlessData.size()) {
-                        uint32_t oldData = bItem.bindlessData[i];
-                        if (oldData != INVALID_BINDLESS_INDEX) EngineBindlessAPI::UnbindGlobalTexture(oldData);
-                    }
-                }
-                else if (var.getSampler()) {
-                    if (i < bItem.bindlessData.size()) {
-                        uint32_t oldData = bItem.bindlessData[i];
-                        if (oldData != INVALID_BINDLESS_INDEX) EngineBindlessAPI::UnbindGlobalSampler(oldData);
-                    }
-                }
-            }
-        }
     }
 
     bool PipelineBindingTable::commit(rs_pipeline* pipeline, rs_drawdata* drawdata,bool allowMultiCommit)
@@ -327,7 +300,7 @@ namespace Render {
         else {
             return updateParameter(paramName, tex);
         }
-        return updateParameter(paramName, tex, RenderSystem::instance()->getViewFromImage(tex->getRsImage(),key));
+        return updateParameter(paramName, tex, view);
     }
 
 	bool PipelineBindingTable::updateParameter(const Name& paramName, TexturePtr tex, rs_image_view* view, int element /*= 0*/)
@@ -369,16 +342,6 @@ namespace Render {
 
 			if (bItem.bindlessData.size() <= element) {
 				bItem.bindlessData.resize(bItem.location.bindlessInfo.count, INVALID_BINDLESS_INDEX);
-			}
-
-			if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
-				if (type == UniformType::StorageImage) {
-                    EngineBindlessAPI::UnbindGlobalRWTexture(bItem.bindlessData[element]);
-				}
-				else {
-                    EngineBindlessAPI::UnbindGlobalTexture(bItem.bindlessData[element]);
-				}
-
 			}
 
             if (tex && view) {
@@ -449,11 +412,6 @@ namespace Render {
 
             uint64_t oldData = 0;
             oldData = bItem.bindlessData[dataIndex];
-            //In bindless mode or BDA mode
-            if ( (oldData != INVALID_BINDLESS_INDEX && oldData!= 0xFFFFFFFFFFFFFFFF ) && oldData != bindingData) {
-                EngineBindlessAPI::UnbindGlobalBuffer(oldData);
-            }
-
             bItem.bindlessData[dataIndex] = static_cast<uint32_t>(bindingData);
 
             auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
@@ -502,9 +460,6 @@ namespace Render {
                 bItem.bindlessData.resize(bItem.location.bindlessInfo.count, INVALID_BINDLESS_INDEX);
             }
 
-            if (bItem.bindlessData[element] != INVALID_BINDLESS_INDEX && bItem.bindlessData[element] != globalIndex) {
-                EngineBindlessAPI::UnbindGlobalSampler(bItem.bindlessData[element]);
-            }
             bItem.bindlessData[element] = globalIndex;
 
             auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
