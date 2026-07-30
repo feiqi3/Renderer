@@ -19,6 +19,7 @@
 #include "Renderer/RenderPass/ShadowPass.h"
 #include "Renderer/ConstShaderDataManager.h"
 #include "Renderer/UI/ImGuiManager.h"
+#include "Renderer/HiZ.h"
 #define MAIN_RT_SIZE_X 1024
 #define MAIN_RT_SIZE_Y 1024
 
@@ -60,6 +61,8 @@ namespace Render {
 			DebugDrawManager::instance()->init();
 			mBloom = new CodBloom();
 			mBloom->setBloomRadius(1.5);
+
+			mHiZ = new HiZ;
 
 ;		}
 
@@ -135,6 +138,7 @@ namespace Render {
 		}
 
 		void deinit() {
+			delete mHiZ;
 			CameraManager::instance()->UnregisterCamera(mMainCamera);
 			delete mMainCamera;
 			mMainCamera = nullptr;
@@ -230,6 +234,8 @@ namespace Render {
 			}
 			
 			mPrezRenderPass->draw(cmdbufOffscreen, mMainCamera);
+			mHiZ->setDepth(mMainDepthTex);
+			mHiZ->execute(cmdbufOffscreen);
 
 			DebugDrawManager::instance()->onRender(mMainCamera);
 			mMainCamPass->draw(cmdbufOffscreen, mMainCamera);
@@ -271,6 +277,7 @@ namespace Render {
 		rs_rendertarget* postEffectRenderTarget = nullptr;
 
 		CodBloom* mBloom = nullptr;
+		HiZ* mHiZ = nullptr;
 		Camera* mMainCamera = nullptr;
 
 		TexturePtr mMainColorTex = nullptr;
