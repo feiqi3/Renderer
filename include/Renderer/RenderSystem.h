@@ -200,6 +200,8 @@ namespace Render{
 		void			 waitLastRenderEnd();
 
 		float			 getLastRenderFrameTime();
+
+		bool			 enableClusterLights();
 	public:
 		void onWindowResize(int x,int y);
 	private:

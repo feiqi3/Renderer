@@ -6,7 +6,7 @@
 #include "render_resource_createinfo.h"
 #include "Renderer/RenderPassManager.h"
 #include "Renderer/Camera.h"
-
+#include "Renderer/ClusteredLights.h"
 #include "Renderer/GPUShared/SceneData.h"
 #include "Renderer/GPUShared/CameraData.h"
 
@@ -20,7 +20,12 @@ namespace Render {
 		rs_binding_pos CameraCommonDataBindingPos;
 		rs_binding_pos SceneCommonDataBindingPos;
 		rs_binding_pos ObjectCommonBindingPos;
-		
+
+		//Lights
+		rs_binding_pos SceneLightDataBindingPos;
+		rs_binding_pos SceneClusteredLightsBindingPos;
+		rs_binding_pos ClusterInfoBindingPos;
+
 		//IBL
 		rs_binding_pos PrefilterEnvMapBindingPos;
 		rs_binding_pos BRDFLutBindingPos;
@@ -37,6 +42,11 @@ namespace Render {
 		rs_binding_pos GlobalBindlessSamplersBindingPos;
 		rs_binding_pos GlobalBindlessTexturesBindingPos;
 		rs_bindless_data* mGlobalBindlessDrawData = nullptr;
+
+		//Light buffer
+		//TODO: move to light manager.
+		rs_buffer* mLightListBuffer = nullptr;
+		uint32_t   mCurLightSize    = 0;
 	};
 
 	ConstShaderDataManager::ConstShaderDataManager()
@@ -46,6 +56,11 @@ namespace Render {
 	}
 	ConstShaderDataManager::~ConstShaderDataManager()
 	{
+		if (mDp->mLightListBuffer) {
+			RenderSystem::instance()->destroyBuffer(mDp->mLightListBuffer);
+			mDp->mLightListBuffer = nullptr;
+		}
+
 		if (RenderSystem::instance()->isBindlessEnabled()) {
 			RenderSystem::instance()->setGlobalBindlessData(nullptr);
 			RenderSystem::instance()->destroyBindlessData(mDp->mGlobalBindlessDrawData);
@@ -53,6 +68,48 @@ namespace Render {
 		delete mDp;
 		mDp = nullptr;
 	}
+
+	void ConstShaderDataManager::setClusterLightsData(HizClusteredLight* clusterLight,Scene* scene)
+	{
+		Pass tempPass{};
+		tempPass.mDrawData = scene->getSceneDrawData();
+		tempPass.mMaterialPass = mDp->MainPassVirtualMaterial;
+
+		const auto& clusterInfo = clusterLight->getClusterInfo();
+		auto clusterLightBuffer = clusterLight->getFroxelLightDataBuffer();
+
+		RenderSystem::instance()->updateUniformBufferData(mDp->ClusterInfoBindingPos, (void*) & clusterInfo, sizeof(clusterInfo), &tempPass);
+		RenderSystem::instance()->updateUniform(mDp->SceneClusteredLightsBindingPos, 0, clusterLightBuffer, 0, clusterLightBuffer->byteSize, &tempPass);
+
+	}
+
+	void ConstShaderDataManager::updateLightsData(Scene* scene)
+	{
+		const auto& lights = scene->getLightMgr().getLightData();
+		if (!mDp->mLightListBuffer || mDp->mCurLightSize < lights.size()) {
+			if (mDp->mLightListBuffer) {
+				RenderSystem::instance()->destroyBuffer(
+					mDp->mLightListBuffer
+				);
+				mDp->mLightListBuffer = nullptr;
+			}
+
+			mDp->mCurLightSize = lights.size();
+			BufferDesc desc{};
+			desc.bufUsage = BufferType_Storage;
+			desc.byteSize = sizeof(GPUShared::GPULightData) * mDp->mCurLightSize;
+			mDp->mLightListBuffer = RenderSystem::instance()->createBuffer(0, 0, desc);
+		}
+		auto curSize = lights.size() * sizeof(GPUShared::GPULightData);
+		//Update per frame
+		RenderSystem::instance()->updateBufferData(mDp->mLightListBuffer, (void*)lights.data(), lights.size() * sizeof(GPUShared::GPULightData), 0);
+
+		Pass tempPass{};
+		tempPass.mDrawData = scene->getSceneDrawData();
+		tempPass.mMaterialPass = mDp->MainPassVirtualMaterial;
+		RenderSystem::instance()->updateUniform(mDp->SceneLightDataBindingPos, 0, mDp->mLightListBuffer, 0, curSize, &tempPass);
+	}
+
 	void ConstShaderDataManager::createVirtualRenderPass()
 	{
 		static const char* PathToVirtualPipelineVs = "../shader/VirtualPipeline.vs";
@@ -78,10 +135,12 @@ namespace Render {
 		assert(mDp->SceneCommonDataBindingPos	!= INVALID_BINDING_POS);
 		assert(mDp->ObjectCommonBindingPos		!= INVALID_BINDING_POS);
 
-		mDp->PrefilterEnvMapBindingPos  = pSys->getBindingPos("PreFilterEnvMap", mDp->MainPassVirtualMaterial);
-		mDp->BRDFLutBindingPos			= pSys->getBindingPos("BRDFLut", mDp->MainPassVirtualMaterial);
-		mDp->EnvMapSamplerBIndingPos	= pSys->getBindingPos("SceneTextureSampler", mDp->MainPassVirtualMaterial);
-		
+		mDp->PrefilterEnvMapBindingPos  = pSys->getBindingPos("PreFilterEnvMap"		, mDp->MainPassVirtualMaterial);
+		mDp->BRDFLutBindingPos			= pSys->getBindingPos("BRDFLut"				, mDp->MainPassVirtualMaterial);
+		mDp->EnvMapSamplerBIndingPos	= pSys->getBindingPos("SceneTextureSampler" , mDp->MainPassVirtualMaterial);
+		mDp->SceneLightDataBindingPos   = pSys->getBindingPos("SceneLightsList"		, mDp->MainPassVirtualMaterial);
+		mDp->SceneClusteredLightsBindingPos = pSys->getBindingPos("ClusteredLights" , mDp->MainPassVirtualMaterial);
+		mDp->ClusterInfoBindingPos		= pSys->getBindingPos("ClusterInfoData"		, mDp->MainPassVirtualMaterial);
 		//Shadow related
 		mDp->DirLightShadowPos	= pSys->getBindingPos("DirShadowMap"	, mDp->MainPassVirtualMaterial);
 		mDp->ShadowSamplerPos	= pSys->getBindingPos("ShadowSampler"	, mDp->MainPassVirtualMaterial);
@@ -200,6 +259,11 @@ namespace Render {
 	Render::rs_binding_pos ConstShaderDataManager::getGlobalBindlessTexturesBindingPos()
 	{
 		return mDp->GlobalBindlessTexturesBindingPos;
+	}
+
+	Render::rs_buffer* ConstShaderDataManager::getLightDataBuffer()
+	{
+		return mDp->mLightListBuffer;
 	}
 
 }

@@ -4,6 +4,7 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0)
 }
 
 
+#if !defined(NO_LIGHTS)
 vec3 PrefilterEnvMap(vec3 R,float roughness){
     roughness = clamp(roughness,0,1);
     int mipCtrl = int(LIGHTDATA.IBLControl.x);
@@ -29,3 +30,4 @@ vec3 IBLCalculate(vec3 V, vec3 N, vec3 F0, float roughness){
     vec3 specular = PrefilteredColor * (F0 * BRDF.r + BRDF.g);
     return specular;
 }
+#endif//!NO_LIGHTS

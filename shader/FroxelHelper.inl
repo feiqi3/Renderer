@@ -14,11 +14,11 @@ int linearZToZBin(float zLinear, float spN, float near, float far, float binCoun
 vec2 binToZLinear(int bin, float spN, float near, float far, float binCount){
     
     float scale = (binCount - 1) / (- log2(spN/far));
-    float maxBinZ = exp2((bin - binCount + 1) / scale);
-    float minBinZ = bin == 0 ? 0 : exp2((bin - binCount) / scale);
+    float maxBinZ = exp2((float(bin) - binCount + 1) / scale);
+    float minBinZ = (bin == 0) ? 0 : exp2((float(bin) - binCount) / scale);
     return vec2(minBinZ,maxBinZ) * (far);
 }
 
-int getBinIndex(ivec3 froxelPos, int maxTileX,int MaxTileY,int maxTileZ){
-    return froxelPos.z * (maxTileX * MaxTileY) + froxelPos.y * MaxTileX + froxelPos.x;
+int getBinIndex(ivec3 froxelPos, int maxTileX,int maxTileY,int maxTileZ){
+    return froxelPos.z * (maxTileX * maxTileY) + froxelPos.y * maxTileX + froxelPos.x;
 }

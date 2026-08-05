@@ -20,6 +20,7 @@
 #include "Renderer/ConstShaderDataManager.h"
 #include "Renderer/UI/ImGuiManager.h"
 #include "Renderer/HiZ.h"
+#include "Renderer/ClusteredLights.h"
 #define MAIN_RT_SIZE_X 1024
 #define MAIN_RT_SIZE_Y 1024
 
@@ -61,7 +62,7 @@ namespace Render {
 			DebugDrawManager::instance()->init();
 			mBloom = new CodBloom();
 			mBloom->setBloomRadius(1.5);
-
+			mHizClusterLights = new HizClusteredLight();
 			mHiZ = new HiZ;
 
 ;		}
@@ -220,6 +221,11 @@ namespace Render {
 			if (curScene) {
 				curScene->getLightMgr().update();
 			}
+
+			if (curScene) {
+				//Bind Lights
+				ConstShaderDataManager::instance()->updateLightsData(curScene);
+			}
 			CameraManager::instance()->updateAllCamera(cmdbufOffscreen);
 			RenderSys->setCurrentCamera(mMainCamera);
 			curScene->collectVisibleObjects(mMainCamera);
@@ -236,6 +242,14 @@ namespace Render {
 			mPrezRenderPass->draw(cmdbufOffscreen, mMainCamera);
 			mHiZ->setDepth(mMainDepthTex);
 			mHiZ->execute(cmdbufOffscreen);
+
+			if (curScene)
+			{
+				mHizClusterLights->setHiZTexture(mHiZ->getHiZPyramid());
+				mHizClusterLights->setLightListBuffer(ConstShaderDataManager::instance()->getLightDataBuffer(), curScene->getLightMgr().getLightData().size());
+				mHizClusterLights->draw(cmdbufOffscreen, mMainCamera, curScene);
+				ConstShaderDataManager::instance()->setClusterLightsData(mHizClusterLights, curScene);
+			}
 
 			DebugDrawManager::instance()->onRender(mMainCamera);
 			mMainCamPass->draw(cmdbufOffscreen, mMainCamera);
@@ -278,6 +292,7 @@ namespace Render {
 
 		CodBloom* mBloom = nullptr;
 		HiZ* mHiZ = nullptr;
+		HizClusteredLight* mHizClusterLights = nullptr;
 		Camera* mMainCamera = nullptr;
 
 		TexturePtr mMainColorTex = nullptr;

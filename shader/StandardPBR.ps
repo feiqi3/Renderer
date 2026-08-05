@@ -7,8 +7,8 @@
 #include "ShadowFunction.inl"
 #include "CommonMath.inl"
 #include "CommonLight.inl"
-
-
+#include "FroxelHelper.inl"
+#include "SceneLightsCullData.h"
 
 DECL_RBUFFER_STD430_BEG(PBRDataAlias)
     PBRData pbrData;
@@ -97,11 +97,43 @@ vec3 PBR_DirectLight(vec3 V, vec3 L, vec3 N, vec3 albedo, float metallic, float 
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
+#if !defined(SHADOW_PASS) && !defined(PREZ)
+
+#if defined(CLUSTER_LIGHT)
+ivec3 GetClusterPos(vec3 pos){
+    mat4 viewMat = CAMDATA.MatView;
+    vec4 posInCam = viewMat * vec4(pos,1.0);
+    vec2 uv = gl_FragCoord.xy / vec2(CLUSTERDATA.screenXY.x, CLUSTERDATA.screenXY.y);
+    int bin = linearZToZBin(posInCam.z,CLUSTERDATA.specialNear,CLUSTERDATA.near,CLUSTERDATA.far,CLUSTERDATA.MaxTileZ);
+    int tileX = int(clamp(floor(uv.x * float(CLUSTERDATA.MaxTileX)), 0.0, float(CLUSTERDATA.MaxTileX - 1)));
+    int tileY = int(clamp(floor(uv.y * float(CLUSTERDATA.MaxTileY)), 0.0, float(CLUSTERDATA.MaxTileY - 1)));
+    return ivec3(tileX,tileY,bin);
+}
+
+int GetLightCount(ivec3 clusterPos){
+    int binIdx = getBinIndex(clusterPos,CLUSTERDATA.MaxTileX,CLUSTERDATA.MaxTileY,CLUSTERDATA.MaxTileZ);
+    return ClusteredLights.lights.lightLists[binIdx].lightCount;
+}
+
+GPULightData GetLight(ivec3 clusterPos, int idx){
+    int binIdx = getBinIndex(clusterPos,CLUSTERDATA.MaxTileX,CLUSTERDATA.MaxTileY,CLUSTERDATA.MaxTileZ);
+    int lightIdx = ClusteredLights.lights.lightLists[binIdx].lightIndex[idx];
+    return  SceneLightsList.lightList.list[lightIdx];
+}
+#endif //CLUSTER_LIGHT
+
 vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const float metallic){
     vec3 col = vec3(0.f,0.f,0.f);
     vec3 F0 = CalcF0(albedo, metallic);
+#if defined(CLUSTER_LIGHT)    
+    ivec3 clusterIdx = GetClusterPos(pos);
+    int lightCount = GetLightCount(clusterIdx);
+    for( int i = 0;i < lightCount;++i ){
+        GPULightData light = GetLight(clusterIdx,i);
+#else
     for( int i = 0;i < int(LIGHTDATA.sceneLightInfo.x);++i ){
-        GPULightData light = LIGHTDATA.lights[i];
+        GPULightData light = SceneLightsList.lightList.list[i];
+#endif //CLUSTER_LIGHT
         vec3 lightPos = vec3(light.positionType.xyz);
         int lightType = int(light.positionType.w);
         vec3 lightColor = pow(light.colorIntensity.xyz,vec3(2.2));
@@ -132,6 +164,7 @@ vec3 PBR_LightCalc(vec3 pos,vec3 albedo,vec3 V, vec3 N, float roughness, const f
     vec3 specularLightIBL = IBLCalculate(V,N,F0,roughness);
     return col + specularLightIBL;
 }
+#endif//!SHADOW_PASS && !PREZ
 
 vec3 ApplyNormalMap(vec3 N, vec3 normalSample, float normalScale)
 {

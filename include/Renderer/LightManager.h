@@ -41,6 +41,7 @@ namespace Render {
 		void calculateIBLData(rs_commandbuffer* cmdbuf);
 		const GPUShared::GPUSceneLightData& updateLightData();
 		const std::map<int, LightData>& getLightMap();
+		const std::vector<GPUShared::GPULightData>& getLightData()const;
 	public:
 		void setSkybox(TexturePtr skybox);
 		//void setSkyboxRotation(quat rotation);
@@ -61,6 +62,8 @@ namespace Render {
 
 		Light* mMainDirLight = nullptr;
 		std::vector<Light*> mShadowLights;
+		
+		std::vector<GPUShared::GPULightData> mLightDataList;
 		int		mShadowLightNum = -1;
 
 		bool lightDataDirty = true;

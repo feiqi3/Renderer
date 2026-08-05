@@ -43,6 +43,11 @@ namespace Render {
 		getLight()->setColor(color);
 	}
 
+	void LightComponent::setEnableLightDelegate(bool d)
+	{
+		mLightDelegate = d;
+	}
+
 	void LightComponent::setIntensity(float i)
 	{
 		getLight()->setIntensity(i);

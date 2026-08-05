@@ -82,7 +82,7 @@ namespace Render {
 		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 		nodeLight->setLocalPosition(vec3(0, 10, -35));
 		nodeLight->addComponent<MoveComponent>();
-		pointLightcomponent->setRange(150);
+		pointLightcomponent->setRange(15);
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
 		delete model;

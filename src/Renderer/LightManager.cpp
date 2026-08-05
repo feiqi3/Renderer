@@ -51,9 +51,9 @@ namespace Render {
 	{
 		static int LightIDX = 0;
 		auto size = this->mLightMap.size();
-		if (size > RENDER_MAX_LIGHT_PER_SCENE) {
-			return -1;
-		}
+		//if (size > RENDER_MAX_LIGHT_PER_SCENE) {
+		//	return -1;
+		//}
 		lightDataDirty = true;
 		int idxCur = LightIDX++;
 		mLightMap.insert({ idxCur,LightData{.light = light} });
@@ -221,7 +221,9 @@ namespace Render {
 	const GPUShared::GPUSceneLightData& LightManager::updateLightData()
 	{
 		int idx = 0;
-		vec4 sceneLightData;
+		vec4 sceneLightData = {};
+		mLightDataList.clear();
+		mLightDataList.reserve(mLightMap.size());
 		if (this->mPrefilterSkymap) {
 			sceneLightData.x = mPrefilterSkymap->getRsImage()->mipLevels;
 		}
@@ -233,11 +235,12 @@ namespace Render {
 				needUpdate = true;
 			}
 			if (needUpdate) {
-				mLightData.lights[idx] = lightData.data;
 				light->setDirty(false);
 			}
 			idx = idx + 1;
+			mLightDataList.push_back(lightData.data);
 		}
+
 		if (this->mPrefilterSkymap) {
 			mLightData.IBLControl.x = mPrefilterSkymap->getRsImage()->mipLevels;
 		}
@@ -249,6 +252,11 @@ namespace Render {
 	const std::map<int, Render::LightManager::LightData>& LightManager::getLightMap()
 	{
 		return mLightMap;
+	}
+
+	const std::vector<Render::GPUShared::GPULightData>& LightManager::getLightData()const
+	{
+		return mLightDataList;
 	}
 
 	void LightManager::calcMipMap(TexturePtr tex)

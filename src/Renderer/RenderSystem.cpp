@@ -1330,6 +1330,11 @@ namespace Render{
 		return mDp->mFiFRenderFrameTime[getRenderContext()->LogicFrameFif];
 	}
 
+	bool RenderSystem::enableClusterLights()
+	{
+		return true;
+	}
+
 	void RenderSystem::onWindowResize(int x, int y)
 	{
 		setEngineIdle();

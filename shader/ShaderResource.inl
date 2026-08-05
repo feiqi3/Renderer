@@ -26,6 +26,7 @@
 #define RESOURCE_DECL_BEG(s) layout(set = s) uniform BINDLESS_SET_NAME(s) {
 #define RESOURCE_DECL_END };
 
+#define SLOT_CONST_BUFFER_STD430(s, type, name)  type NAME_BUF(name);
 #define SLOT_BUFFER_STD140(s, type, name) type NAME_BUF(name);
 #define SLOT_BUFFER_STD430(s, type, name) type NAME_BUF(name);
 #define SLOT_CONST_BUFFER(s, type, name) type NAME_BUF(name);
@@ -68,6 +69,7 @@
 #define _BUFFER_BLOCK_NAME(name) CONCAT(_, name)
 
 #define SLOT_CONST_BUFFER(s, type, name)  layout(set = s, std140) uniform block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
+#define SLOT_CONST_BUFFER_STD430(s, type, name)  layout(set = s, std430) uniform block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
 #define SLOT_BUFFER_STD140(s, type, name) layout(set = s, std140) buffer block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
 #define SLOT_BUFFER_STD430(s, type, name) layout(set = s, std430) buffer block_##name { type _BUFFER_BLOCK_NAME(name); } NAME_BUF(name);
 

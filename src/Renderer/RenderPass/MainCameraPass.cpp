@@ -31,6 +31,11 @@ namespace Render{
 		LogicPassDesc logicPassDesc{};
 		std::vector<LogicPassDesc> descs{};
 		
+		auto clusterLight = RenderSystem::instance()->enableClusterLights();
+		if (clusterLight) {
+			logicPassDesc.passMacros = { {ShaderStage::Fragment, { {"CLUSTER_LIGHT",""} }} };
+		}
+
 		//1. Main cam opaque pass 
 		logicPassDesc.filterMask = RenderMask::Normal;
 		logicPassDesc.priority = 5;

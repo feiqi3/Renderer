@@ -5,6 +5,8 @@
 #include "common/CommonMath.h"
 #endif
 
+#define VAR_ARR_SIZE  1
+
 #ifdef __cplusplus
 #define GPU_SHARED_NAMESPACE_BEGIN namespace Render::GPUShared {
 #define GPU_SHARED_NAMESPACE_END }
