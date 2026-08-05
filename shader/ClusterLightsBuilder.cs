@@ -76,10 +76,10 @@ bool IsAABBOutsidePlane(vec3 N, AABB aabb) {
 
 bool FroxelTestFast(in LightCullData cullData, in FroxelInfo froxelInfo) {
     //Cause z is neg.
-    float distFar  = -(cullData.aabbInViewMin.z); 
-    float distNear = -(cullData.aabbInViewMax.z); 
-    if (distNear > froxelInfo.zFar || 
-        distFar < froxelInfo.zNear) {
+    float distFar  = (cullData.aabbInViewMin.z); 
+    float distNear = (cullData.aabbInViewMax.z); 
+    if (distNear < froxelInfo.zFar || 
+        distFar > froxelInfo.zNear) {
         return false;
     }
 
@@ -118,12 +118,12 @@ void main() {
     for (int i = 0; i < culledLightCount; ++i) {
         LightCullData cullData = GetBuffer(SSBO_passHiZlightDataList).lightList[i];
 
-        if (FroxelTestFast(cullData, curFroxelInfo)) {
+        //When is dir light ,set index < 0
+        if (cullData.aabbInViewMax.w < 0 || FroxelTestFast(cullData, curFroxelInfo)) {
             uint curLightCount = GetBuffer(SSBO_froxelLightData).froxelLightList[binIndex].lightCount;
             if (curLightCount < LIGHT_PER_FROXEL) {
                 //Get Original light index
-                int originalLightIndex = int(cullData.aabbInViewMax.w);
-                
+                int originalLightIndex = abs(int(cullData.aabbInViewMax.w));
                 GetBuffer(SSBO_froxelLightData).froxelLightList[binIndex].lightIndex[curLightCount] = originalLightIndex;
                 GetBuffer(SSBO_froxelLightData).froxelLightList[binIndex].lightCount++;
             }

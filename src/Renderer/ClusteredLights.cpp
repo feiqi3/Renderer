@@ -175,14 +175,14 @@ namespace Render {
 
 		// =====================================================================
 		// =====================================================================
-		if (mDp->mFroxelGridDirty) {
+		//if (mDp->mFroxelGridDirty) {
 			mDp->mFroxelBuilderKernel->setParameter("SSBO_froxelConfig", mDp->mFroxelConfigBuffer);
 			mDp->mFroxelBuilderKernel->setParameter("SSBO_froxelList", mDp->mFroxelListBuffer);
 
-			mDp->mFroxelBuilderKernel->dispatch(cmdBuffer, (totalFroxels + 63) / 64, 1, 1);
+			mDp->mFroxelBuilderKernel->dispatch(cmdBuffer, (mDp->mTileXMax + 7) / 8, (mDp->mTileYMax + 7) / 8, mDp->mTileZMax);
 			mDp->mFroxelGridDirty = false;
-		}
-
+			RenderSystem::instance()->cmdFlushUAVBuffer(cmdBuffer, mDp->mFroxelListBuffer);
+		//}
 
 
 		// =====================================================================
@@ -229,12 +229,15 @@ namespace Render {
 		mDp->mClusterBuilderKernel->setParameter("SSBO_froxelList", mDp->mFroxelListBuffer);
 		mDp->mClusterBuilderKernel->setParameter("SSBO_froxelConfig", mDp->mFroxelConfigBuffer);
 
+		RenderSystem::instance()->cmdFlushUAVBuffer(cmdBuffer, mDp->mPassHiZLightDataBuffer);
+
 		mDp->mClusterBuilderKernel->dispatch(
 			cmdBuffer,
 			(mDp->mTileXMax + 7) / 8,
 			(mDp->mTileYMax + 7) / 8,
 			mDp->mTileZMax
 		);
+		RenderSystem::instance()->cmdFlushUAVBuffer(cmdBuffer, mDp->mFroxelLightDataBuffer);
 	}
 
 } // namespace Render

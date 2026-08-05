@@ -138,7 +138,8 @@ namespace Render::Vulkan {
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx,rs_graphic_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif,QueueType bindPoint = QueueType::QueueType_Graphics);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
-	
+	void cmdFlushBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc);
+
 	void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_bindless_data_vk* drawData, PipelineType pipelineType, uint32_t curFif);
 	void cmdCollectDrawDataStateToTransit(rs_commandbuffer_vk* cb, rs_drawdata_vk* drawData, PipelineType pipelineType, uint32_t curFif);
 	void cmdTransitPendingResource(rs_commandbuffer_vk* cb,bool compute);

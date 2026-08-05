@@ -115,6 +115,7 @@ void main(){
     
     int lightType = int(light.positionType.w);
     if (lightType == 0) {
+        cullData.aabbInViewMax.w = -cullData.aabbInViewMax.w ;
         WriteLightCullData(cullData);
         return;
     }

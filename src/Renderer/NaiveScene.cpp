@@ -81,10 +81,23 @@ namespace Render {
 		auto nodeLight = naiveScene->createObject("Lights");
 		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 		nodeLight->setLocalPosition(vec3(0, 10, -35));
-		nodeLight->addComponent<MoveComponent>();
+		//nodeLight->addComponent<MoveComponent>();
 		pointLightcomponent->setRange(15);
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
+
+		for (int i =0;i <5;++i) {
+			for (int j = 0; j < 5;++j) {
+				auto nodeLight = naiveScene->createObject("Lights");
+				auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
+				nodeLight->setLocalPosition(vec3((- 5 + i) *15 + 10, 10, (- 5 + j)* 15));
+				pointLightcomponent->setRange(15);
+				pointLightcomponent->setIntensity(50.f);
+				pointLightcomponent->setColor(vec3(1. / ((i % 3) + 1),1./ (1 + (i * j)%3),1./( 1 + j % 3) ));
+			}
+		}
+
+
 		delete model;
 		auto debugNode = naiveScene->createObject("DebugObject");
 		debugNode->addComponent<RenderDebugUIComponent>();

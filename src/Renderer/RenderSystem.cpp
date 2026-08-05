@@ -360,6 +360,13 @@ namespace Render{
 		Vulkan::cmdSetViewport((Vulkan::rs_commandbuffer_vk*)cmdbuf, rect,minDepth,maxDepth,framebufferIdx);
 	}
 
+	void RenderSystem::cmdFlushUAVBuffer(rs_commandbuffer* cmdbuf, rs_buffer* buffer)
+	{
+		Vulkan::cmdFlushBuffer(
+			(Vulkan::rs_commandbuffer_vk*)cmdbuf,getRenderContext(),
+			(Vulkan::rs_buffer_vk*)buffer);
+	}
+
 	void RenderSystem::getGlobalViewportZRange(float& nearZ, float& farZ)
 	{
 		nearZ	= mDp->globalViewPortZNear;

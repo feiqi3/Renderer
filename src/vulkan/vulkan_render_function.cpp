@@ -1601,10 +1601,12 @@ namespace Render::Vulkan {
         if (size <= buffer->byteSize) {
             flushSize = size;
         }
+        if (buffer->mappedPtr) {
+            vmaFlushAllocation(
+                context->allocator, buffer->allocation, 0, flushSize
+            );
+        }
 
-        vmaFlushAllocation(
-            context->allocator, buffer->allocation, 0, flushSize
-        );
 
 	}
 
@@ -1857,6 +1859,28 @@ namespace Render::Vulkan {
 			toVkFilter(filter)
 		);
 	}
+
+	void cmdFlushBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc)
+	{
+		VkBufferMemoryBarrier bufferBarrier{};
+		bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; 
+		bufferBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT; 
+		bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.buffer = (VkBuffer)bufferSrc->native;
+		bufferBarrier.offset = 0;
+		bufferBarrier.size = VK_WHOLE_SIZE;
+		vkCmdPipelineBarrier(
+			(VkCommandBuffer)cb->native,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+			0,
+			0, nullptr,
+			1, &bufferBarrier,                 
+			0, nullptr
+		);
+    }
 
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
