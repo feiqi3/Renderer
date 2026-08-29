@@ -3683,11 +3683,14 @@ namespace Render::Vulkan {
         return ctx->nextRenderFrame;
     }
 
-    uint64_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* imageAvailableSignalSemaphore, rs_fence_vk* fenceToSignal)
+    uint32_t waitForNextPresentImage(rs_context_vk* ctx, rs_semaphore_vk* imageAvailableSignalSemaphore, rs_fence_vk* fenceToSignal)
     {
-        uint32_t swapImageIdx;
+        uint32_t swapImageIdx = UINT32_MAX;
         VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[getWaitFif(ctx, imageAvailableSignalSemaphore->waitFlag)];
-        vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, 100000000,sem , VK_NULL_HANDLE, &swapImageIdx);
+        auto code = vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, UINT64_MAX, sem, VK_NULL_HANDLE, &swapImageIdx);
+        if (code != VK_SUCCESS && code != VK_NOT_READY && code != VK_TIMEOUT) {
+            assert(false && "Fail to get!");
+        }
         return swapImageIdx;
     }
 

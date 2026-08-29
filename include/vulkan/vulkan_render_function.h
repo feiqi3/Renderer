@@ -178,7 +178,8 @@ namespace Render::Vulkan {
 	uint64_t beginRsFrameVk(rs_context_vk* ctx,rs_bindless_data_vk* bindlessData);
 	uint64_t beginRsRenderFrameVk(rs_context_vk* ctx);
 	uint64_t endRsFrameVk(rs_context_vk* ctx);
-	uint64_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);
+	//return UINT32_MAX if failed
+	uint32_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);
 	void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> canPresentToScreen);
 	void WaitForDeviceIdel(rs_context_vk* ctx);
 	//-------------------------------------------------------------------------------------//     

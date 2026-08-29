@@ -220,8 +220,29 @@ namespace Render{
 			mDp->mPresentImage = nullptr;
 			beginRsRenderFrameVk(ctx);
 			mDp->mFiFRenderFrameBegin[ctx->RenderFrameFif];
-			auto nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SemaphorePresentImageReady, 0);
-
+			int swapchainRetryNum = 0;
+			bool swapchainSucceedGetImage = true;
+			uint32_t nxtImg;
+			while ( (nxtImg = waitForNextPresentImage(ctx, (Vulkan::rs_semaphore_vk*)SemaphorePresentImageReady, 0)) == UINT32_MAX
+				) {
+				
+				if (swapchainRetryNum < 2)
+				{
+					swapchainRetryNum++;
+				}
+				else {
+					swapchainSucceedGetImage = false;
+					break;
+				}
+				
+			}
+			if (!swapchainSucceedGetImage) {
+				nxtImg = UINT32_MAX;
+				Log::error(
+					"Cannot get swapchain image."
+				);
+			}
+		
 			for (auto&& cmd : mDp->mRenderThreadCommandBuffers) {
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)cmd.commandBuffer, QueueType_Graphics,  cmd.wait , cmd.singal , (Vulkan::rs_fence_vk*)cmd.fence);
 			}
@@ -248,9 +269,9 @@ namespace Render{
 				mDp->mRenderThreadCmdBuffer = nullptr;
 				mDp->mRenderThreadPresentImage = nullptr;
 			}
-
-			submitToPresentImage(ctx,nxtImg,{ (Vulkan::rs_semaphore_vk*)SemaphoreBlitToPresentImageReady});
-			
+			if (swapchainSucceedGetImage) {
+				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SemaphoreBlitToPresentImageReady });
+			}
 			ctx->currentSwapchainImage = nxtImg;
 			if (mDp->mEngineEvent.EngineIdle) {
 				Vulkan::WaitForDeviceIdel(getRenderContext());
@@ -677,14 +698,8 @@ namespace Render{
 		//Before frame event
 		if (mDp->mEngineEvent.WindowResize) {
 			getRenderContext()->currentSwapchainImage = 0;
-			//Recreate present image
-			//destroyPresentRT();
-			//createPresentRT();
-
-			Vulkan::createSwapchain(getRenderContext(), this->mWindow, getRenderContext()->swapchain);
+			recreateSwapchain();
 			mDp->mEngineEvent.WindowResize = false;
-			deinitSwapchainRT();
-			initSwapchainRT();
 		}
 		Vulkan::rs_bindless_data_vk* bindlessData = nullptr;
 		if (isBindlessEnabled()) {
@@ -1340,6 +1355,18 @@ namespace Render{
 	bool RenderSystem::enableClusterLights()
 	{
 		return true;
+	}
+
+	void RenderSystem::recreateSwapchain()
+	{
+		getRenderContext()->currentSwapchainImage = 0;
+		//Recreate present image
+		//destroyPresentRT();
+		//createPresentRT();
+
+		Vulkan::createSwapchain(getRenderContext(), this->mWindow, getRenderContext()->swapchain);
+		deinitSwapchainRT();
+		initSwapchainRT();
 	}
 
 	void RenderSystem::onWindowResize(int x, int y)

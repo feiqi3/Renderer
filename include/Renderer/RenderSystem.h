@@ -202,7 +202,10 @@ namespace Render{
 		float			 getLastRenderFrameTime();
 
 		bool			 enableClusterLights();
-	public:
+		
+		void			 recreateSwapchain();
+
+public:
 		void onWindowResize(int x,int y);
 	private:
 		RenderSystem();
