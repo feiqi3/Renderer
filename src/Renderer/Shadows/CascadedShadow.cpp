@@ -162,64 +162,63 @@ namespace Render {
 		RenderSystem::instance()->getGlobalViewportZRange(zDepthMin, zDepthMax);
 		vec3 lightDir = normalize(mainDirLight->getDirection());
 
+		vec3 upHint = (std::abs(dot(lightDir, vec3(0.0f, 1.0f, 0.0f))) > 0.999f)
+			? vec3(0.0f, 0.0f, 1.0f) : vec3(0.0f, 1.0f, 0.0f);
+		vec3 zAxis = lightDir;                          
+		vec3 xAxis = normalize(cross(upHint, zAxis));   
+		vec3 yAxis = normalize(cross(zAxis, xAxis));
+
+		const auto& proj = mainCamera->getProjectionMatrix();
+		const auto& view = mainCamera->getViewMatrix();
+		auto invViewProj = inverse(proj * view);
 		for (int i = 0; i < mCascadedLayers; ++i) {
 			float nearZ = (i == 0) ? mainCamera->getNear() : mCascadedDistance[i - 1];
 			float farZ = mCascadedDistance[i];
 
-			vec4 viewPointNear(0.0f, 0.0f, -nearZ, 1.0f);
-			vec4 viewPointFar(0.0f, 0.0f, -farZ, 1.0f);
-
-			float ndcNearZ = (mainCamera->getProjectionMatrix() * viewPointNear).z / (mainCamera->getProjectionMatrix() * viewPointNear).w;
-			float ndcFarZ = (mainCamera->getProjectionMatrix() * viewPointFar).z / (mainCamera->getProjectionMatrix() * viewPointFar).w;
+			vec4 vn = proj * vec4(0.0f, 0.0f, -nearZ, 1.0f);
+			vec4 vf = proj * vec4(0.0f, 0.0f, -farZ, 1.0f);
+			float ndcNearZ = vn.z / vn.w;
+			float ndcFarZ = vf.z / vf.w;
 
 			const vec4 NDCCoord[8] = {
 				vec4(-1.0f, -1.0f, ndcNearZ, 1.0f), vec4(1.0f, -1.0f, ndcNearZ, 1.0f),
 				vec4(1.0f,  1.0f, ndcNearZ, 1.0f), vec4(-1.0f,  1.0f, ndcNearZ, 1.0f),
-				vec4(-1.0f, -1.0f, ndcFarZ,  1.0f), vec4(1.0f, -1.0f, ndcFarZ,  1.0f),
-				vec4(1.0f,  1.0f, ndcFarZ,  1.0f), vec4(-1.0f,  1.0f, ndcFarZ,  1.0f)
+				vec4(-1.0f, -1.0f, ndcFarZ , 1.0f), vec4(1.0f, -1.0f, ndcFarZ , 1.0f),
+				vec4(1.0f,  1.0f, ndcFarZ , 1.0f), vec4(-1.0f,  1.0f, ndcFarZ , 1.0f)
 			};
 
-			auto invViewProj = inverse(mainCamera->getProjectionMatrix() * mainCamera->getViewMatrix());
-			AxisAlignedBoundingBox sliceAABBInMainCamSpace;
-
+			vec3 vMin(std::numeric_limits<float>::max());
+			vec3 vMax(-std::numeric_limits<float>::max());
 			for (int j = 0; j < 8; ++j) {
-				vec4 worldPoint = invViewProj * NDCCoord[j];
-				worldPoint /= worldPoint.w;
-				vec4 camPoint = mainCamera->getViewMatrix() * worldPoint;
-				sliceAABBInMainCamSpace.expand(camPoint);
+				vec4 wp = invViewProj * NDCCoord[j];
+				wp /= wp.w;
+				vec3 lp = vec3(
+					dot(vec3(wp), xAxis),
+					dot(vec3(wp), yAxis),
+					dot(vec3(wp), zAxis)
+				);
+				vMin = min(vMin, lp);
+				vMax = max(vMax, lp);
 			}
 
-			vec3 size = sliceAABBInMainCamSpace.getSize();
-			float radius = std::max({ size.x, size.y, size.z }) * 0.5f;
+			float halfExtent = std::max(vMax.x - vMin.x, vMax.y - vMin.y) * 0.5f;
 
-			vec3 centerCamSpace = sliceAABBInMainCamSpace.getCenter();
-			vec4 centerWorldSpace = inverse(mainCamera->getViewMatrix()) * vec4(centerCamSpace, 1.0f);
+			float cx = (vMin.x + vMax.x) * 0.5f;
+			float cy = (vMin.y + vMax.y) * 0.5f;
+			float cz = (vMin.z + vMax.z) * 0.5f;
+			float worldUnitsPerTexel = (halfExtent * 2.0f) / static_cast<float>(mTextureSize);
+			cx = std::floor(cx / worldUnitsPerTexel) * worldUnitsPerTexel;
+			cy = std::floor(cy / worldUnitsPerTexel) * worldUnitsPerTexel;
 
+			vec3 target = xAxis * cx + yAxis * cy + zAxis * cz;
+			vec3 lightPos = target + lightDir * mDp->dirLightCameraHeight;
 
-			vec3 lightPos = vec3(centerWorldSpace) + lightDir * mDp->dirLightCameraHeight;
 			Camera* cascadeCam = mDp->mCascadeCameras[i].get();
-
 			cascadeCam->setPosition(lightPos);
-			cascadeCam->setTarget(vec3(centerWorldSpace));
-			cascadeCam->setOrthoSize(radius);
-			cascadeCam->setOrthographic(radius, 1.0f, 0.01f, mDp->dirLightCameraHeight * 2.0f);
-			auto lightCam = cascadeCam;
-			const auto& lightCamView = cascadeCam->getViewMatrix();
-			const auto& invLightCamView = inverse(lightCamView);
-			float worldUnitsPerTexel = (radius * 2.0f) / static_cast<float>(mTextureSize);
-			//snap camPos, camTarget to texel in light space
-			// To reduce jitter
-			auto targetInLightSpace = vec3(lightCamView * centerWorldSpace);
-			//Z dont need snap here, but whatever
-			auto targetPosSnapped = invLightCamView *
-				vec4( 
-				floor(targetInLightSpace / worldUnitsPerTexel) * worldUnitsPerTexel
-				,1.0)
-				;
-			auto camPosSnapped = vec3(targetPosSnapped) + lightDir * mDp->dirLightCameraHeight;
-			cascadeCam->setPosition(camPosSnapped);
-			cascadeCam->setTarget(targetPosSnapped);
-
+			cascadeCam->setTarget(target);
+			cascadeCam->setOrthoSize(halfExtent);
+			cascadeCam->setOrthographic(halfExtent, 1.0f,
+				0.01f, mDp->dirLightCameraHeight * 2.0f);
 		}
 
 		updateDirlightShaderData(mainDirLight);

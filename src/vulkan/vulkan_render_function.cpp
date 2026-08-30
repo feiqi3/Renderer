@@ -1459,7 +1459,7 @@ namespace Render::Vulkan {
 	{
         auto view = createRsImageViewInner(ctx, image, viewType, fromEngineAspecttoVkAspect(aspect), baseMip, mipCnt, baseLayer, layerCnt);
         view->image = image;
-        view->viewKey = genViewKey(image->type, aspect, baseMip, mipCnt, baseLayer, layerCnt, uav);
+        view->viewKey = genViewKey(viewType, aspect, baseMip, mipCnt, baseLayer, layerCnt, uav);
 		image->imageViews.emplace_back(view);
         return view;
     }
