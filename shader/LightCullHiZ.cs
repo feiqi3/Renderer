@@ -180,12 +180,14 @@ void main(){
         vec2(maxp.x, maxp.y),
         vec2(minp.x, maxp.y)
     };
-    bool isOccluded = false;
+    bool isOccluded = true;
     for(int k = 0;k < 4 && !isForceNotCulled; ++k){
         float hizDepth = textureLod(sampler2D(GetTexture(HizTex),GetSampler(PointSampler)), uv[k], float(hizLevel)).x;
         //MinZ is the nearest point of the light aabb
-        if(hizDepth < minZ){
-            isOccluded = true;
+        if(minZ <= hizDepth){
+            //If any corner is closer than hiz
+            //then do not cull
+            isOccluded = false;
             break;
         }
     }

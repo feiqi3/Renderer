@@ -31,7 +31,7 @@ namespace Render {
 		uint32_t mTileXMax = 16;
 		uint32_t mTileYMax = 9;
 		uint32_t mTileZMax = 24;
-		float    mSpecialNear = 1.0f;
+		float    mSpecialNear = 4.0f;
 
 		bool mFroxelGridDirty = true;
 	};
@@ -199,7 +199,7 @@ namespace Render {
 		froxelConfig.viewMat = cam->getViewMatrix();
 		froxelConfig.screenSizeX = mHizTex->getWidth() * 2;
 		froxelConfig.screenSizeY = mHizTex->getHeight() * 2;
-		froxelConfig.specialNear = 4; // This is a magic
+		froxelConfig.specialNear = mDp->mSpecialNear;
 		froxelConfig.tileXMax = mDp->mTileXMax;
 		froxelConfig.tileYMax = mDp->mTileYMax;
 		froxelConfig.tileZMax = mDp->mTileZMax;
