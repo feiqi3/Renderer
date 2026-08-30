@@ -1,5 +1,6 @@
 #include "Renderer/RenderSystem.h"
 #include "render_function.h"
+#include "renderdoc/renderdoc_inject.h"
 #include "vulkan/vulkan_render_function.h"
 #include "window/render_resource_window_glfw.h"
 #include "Renderer/RenderDataAreana.h"
@@ -104,6 +105,7 @@ namespace Render{
 		if (sRenderSystem) {
 			return;
 		}
+		TryInjectRenderdocDylib();
 		sRenderSystem = new RenderSystem;
 		sRenderSystem->mWindow = window;
 		sRenderSystem->mBackEndContext = initVulkanBackEnd(backEndDesc, window);
