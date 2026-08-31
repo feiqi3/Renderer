@@ -22,7 +22,7 @@ namespace Render {
     }
 
     void Light::setColor(const vec3& col) {
-        m_color = col;
+        m_color = max(col, vec3(0.0f));
         setDirty();
     }
 
