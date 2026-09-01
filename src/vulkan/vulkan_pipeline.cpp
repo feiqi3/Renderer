@@ -662,19 +662,6 @@ namespace Render::Vulkan {
 		//Assemble ResourceLocation;
         assemblePipelineResource(ret, pipelineShaderInfo);
 
-        //Extra bonus:
-        //For wireFrame   
-        if (ctx->needWireFramePipeline) {
-            if (!ctx->dynamicWireFrameStateSupported) {
-                //If VK_EXT_extended_dynamic_state3 not supported   
-                //Create a dedicated pipeline for wireframe
-                rsCi.polygonMode = toVkFillMode(FillMode::Line);
-                VkPipeline wireFramePipeline;
-                vkCreateGraphicsPipelines(ctx->device, VK_NULL_HANDLE, 1, &ci, 0, &wireFramePipeline);
-                ret->wireFramePipeline = wireFramePipeline;
-            }
-        }
-
         return ret;
     }
 

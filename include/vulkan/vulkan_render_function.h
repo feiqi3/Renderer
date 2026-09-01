@@ -134,8 +134,8 @@ namespace Render::Vulkan {
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
 
 	void cmdDispatch(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData, rs_bindless_data_vk* bindless, uint32_t curFIF,int x,int y,int z);
-	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false,bool wireFrame = false);
-	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx,rs_graphic_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false, bool wireFrame = false);
+	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false);
+	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx,rs_graphic_pipeline_vk* pipeline,const RenderInfo& info,rs_drawdata_vk* drawData,uint32_t curFif,bool isInstanced = false);
 	void cmdBindDrawData(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_pipeline_layout_vk* layout, rs_drawdata_vk* drawData, uint32_t curFif,QueueType bindPoint = QueueType::QueueType_Graphics);
 	void cmdCopyBufferToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc,rs_buffer_vk* bufferdst,uint64_t size,uint64_t srcOffset, uint64_t dstOffset);
 	void cmdFlushBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc);
@@ -159,7 +159,7 @@ namespace Render::Vulkan {
 	
 	//Bindless related. 
 	// **Still need to init it's binding pos inside when call it.**
-	void				 cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd,rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData);
+	void				 cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData, QueueType bindPoint = QueueType::QueueType_Graphics );
 
 	rs_bindless_data_vk* createBindlessData(rs_context_vk* ctx,rs_pipeline* pipeline,int setIdx);
 	void				 destroyBindlessData(rs_context_vk* ctx, rs_bindless_data_vk* data);

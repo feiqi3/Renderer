@@ -18,6 +18,8 @@
 namespace Render::Vulkan {
 	inline uint32_t VulkanVersion = VK_API_VERSION_1_3;
 	using DrawDataArray = std::array<struct rs_drawdata_vk*, MAX_DRAWDATA_PER_DRAWCALL>;//!!! last slot is for bindless drawdata!!!
+	using DyOffsetArray = std::array<uint32_t, 8>;
+
 	struct rs_queue_vk;
 	struct rs_swapchain_vk;
 	using VkObjHandle = void*;
@@ -116,6 +118,14 @@ namespace Render::Vulkan {
 
 	struct	rs_commandbuffer_vk : rs_commandbuffer {
 		rs_commandpool_vk* pool;
+
+		struct DescriptorBindingCache {
+			VkDescriptorSet set = VK_NULL_HANDLE;
+			DyOffsetArray offsetArray{};
+		};
+		std::array<DescriptorBindingCache, 8> bindedDescriptorSets = {};
+		VkPipeline	bindedPipeline = VK_NULL_HANDLE;
+		rs_pipeline_layout* bindedPipelineLayout = nullptr;
 	};
 
 	struct	rs_swapchain_vk : rs_swapchain {

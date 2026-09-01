@@ -25,8 +25,6 @@
 #include "Renderer/GPUShared/BindlessGlobalDefShared.h"
 #include <common/BindlessIndexingTable.h>
 #include "render_resource_global.h"
-using DyOffsetArray = std::array<uint32_t, 32>;
-
 
 
 
@@ -1203,7 +1201,10 @@ namespace Render::Vulkan {
     {
         int fif = frameInFlight < 0 ? getWaitFif(ctx, fence->waitFlag) : frameInFlight;
         auto fenceNative = ((VkFence*)fence->native)[fif];
-        vkWaitForFences(ctx->device, 1, &fenceNative, VK_TRUE, timeout);
+        auto res = vkWaitForFences(ctx->device, 1, &fenceNative, VK_TRUE, timeout);
+        if (res != VK_SUCCESS) {
+            Log::warn("wait for fence failed: " + std::to_string(res));
+        }
     }
 
     rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
@@ -1615,7 +1616,7 @@ namespace Render::Vulkan {
         return BindlessAvailable;
 	}
 
-	void cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData)
+	void cmdBindBindlessData(rs_context_vk* ctx, rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* pipelineLayout, rs_bindless_data_vk* bindlessData, QueueType bindPoint)
 	{
         if (!isBindlessEnabled()) {
             return;
@@ -1636,6 +1637,16 @@ namespace Render::Vulkan {
             return;
         }
 
+        bool noCacheState = (bindPoint & QueueType_Compute);
+
+        if (!noCacheState) {
+            if (cmd->bindedDescriptorSets[setIdx].set == bindlessData->descriptorSet->native) {
+                return;
+            }
+            else {
+                cmd->bindedDescriptorSets[setIdx].set = (VkDescriptorSet)bindlessData->descriptorSet->native;
+            }
+        }
 #if 0
         //This somehow will lead to crash when renderdoc is open
         VkBindDescriptorSetsInfoKHR bindingInfo{VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO_KHR};
@@ -2748,6 +2759,33 @@ namespace Render::Vulkan {
 
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
+    static void invalidCmdDescriptorCacheWhenChangePipelineLyout(rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* newLayout, VkPipelineBindPoint bindPoint) {
+        //https://docs.vulkan.org/spec/latest/chapters/descriptorsets.html
+        //SHIT RULE, SHIT API
+        //If, additionally, the previously bound descriptor set for set N was bound using a pipeline layout not compatible for set N, then all bindings in sets numbered greater than N are disturbed.
+        
+        rs_pipeline_layout_vk* oldLayout = (rs_pipeline_layout_vk*)cmd->bindedPipelineLayout;
+        if (!oldLayout) {
+            cmd->bindedDescriptorSets = {};
+            return;
+        }
+
+        uint32_t firstInvalidSet = std::min(newLayout->setLayouts.size(), oldLayout->setLayouts.size());
+        bool foundDisturb = false;
+        for (auto i = 0;i < std::min(newLayout->setLayouts.size(), oldLayout->setLayouts.size());++i) {
+        
+            if (newLayout->setLayouts[i].second != oldLayout->setLayouts[i].second) {
+                firstInvalidSet = i;
+            }
+        
+        }
+
+        //Invalid cache from the first not match setlayout
+        for (int i = firstInvalidSet;i < cmd->bindedDescriptorSets.size();++i) {
+            cmd->bindedDescriptorSets[i] = {};
+        }
+
+    }
 
     void cmdDispatch(rs_commandbuffer_vk* cb,rs_context_vk* ctx, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData, rs_bindless_data_vk* bindless, uint32_t curFIF, int x, int y, int z)
     {
@@ -2755,10 +2793,16 @@ namespace Render::Vulkan {
             assert(0);
             return;
         }
+
+
+
         auto cmd = (VkCommandBuffer)cb->native;
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, (VkPipeline)pipeline->native);
+        if (cb->bindedPipeline != pipeline->native) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, (VkPipeline)pipeline->native);
+            cb->bindedPipeline = (VkPipeline)pipeline->native;
+        }
         if (bindless) {
-			cmdBindBindlessData(ctx, cb, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, bindless);
+			cmdBindBindlessData(ctx, cb, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, bindless,QueueType_Compute);
         }
 
 		cmdBindDrawData(cb,ctx, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawData, curFIF,QueueType_Compute);
@@ -2766,13 +2810,13 @@ namespace Render::Vulkan {
 		vkCmdDispatch(cmd, x, y, z);
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced, bool wireFrame)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced)
     {
         if (pipeline == 0) {
             assert(0);
             return;
         }
-        
+
         auto cmd = (VkCommandBuffer)cb->native;
 
         auto& bufferBinding = pipeline->vtxInput.bindings;
@@ -2780,11 +2824,19 @@ namespace Render::Vulkan {
             assert(0);
             return;
         }
-        VkPipeline piplineVk = (VkPipeline)pipeline->native;
-        if (wireFrame && pipeline->wireFramePipeline != nullptr) {
-            piplineVk = (VkPipeline)pipeline->wireFramePipeline;
+
+        rs_pipeline_layout_vk* pipelineLayout = (rs_pipeline_layout_vk*)pipeline->pipelineLayout;
+        if (pipeline->pipelineLayout != cb->bindedPipelineLayout) {
+            invalidCmdDescriptorCacheWhenChangePipelineLyout(cb, pipelineLayout, VK_PIPELINE_BIND_POINT_GRAPHICS);
+            cb->bindedPipelineLayout = pipelineLayout;
         }
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
+
+
+        VkPipeline piplineVk = (VkPipeline)pipeline->native;
+        if (cb->bindedPipeline != pipeline->native) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
+            cb->bindedPipeline = piplineVk;
+        }
         //It's ok to draw with out index buffer
         bool donotuseidxdraw = false;
         if (info.indexBuffer) {
@@ -2823,7 +2875,7 @@ namespace Render::Vulkan {
         }
     }
 
-    void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced, bool wireFrame)
+    void cmdDrawIndexed(rs_commandbuffer_vk* cb,rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, rs_drawdata_vk* drawData, uint32_t curFif, bool isInstanced)
     {
         if (pipeline == 0) {
             assert(0);
@@ -2834,13 +2886,19 @@ namespace Render::Vulkan {
             assert(0);
             return;
         }
+
+        rs_pipeline_layout_vk* pipelineLayout = (rs_pipeline_layout_vk*)pipeline->pipelineLayout;
+        if (pipeline->pipelineLayout != cb->bindedPipelineLayout) {
+            invalidCmdDescriptorCacheWhenChangePipelineLyout(cb, pipelineLayout, VK_PIPELINE_BIND_POINT_GRAPHICS);
+            cb->bindedPipelineLayout = pipelineLayout;
+        }
+
         auto cmd = (VkCommandBuffer)cb->native;
         VkPipeline piplineVk = (VkPipeline)pipeline->native;
-        if (wireFrame && pipeline->wireFramePipeline != nullptr) {
-            piplineVk = (VkPipeline)pipeline->wireFramePipeline;
+        if (cb->bindedPipeline != pipeline->native) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
+            cb->bindedPipeline = piplineVk;
         }
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
-
 
         bool donotuseidxdraw = false;
         if (info.indexBuffer) {
@@ -2982,6 +3040,10 @@ namespace Render::Vulkan {
     }
     inline void collectDyoffset(rs_binding_slot& slot, DyOffsetArray& dynamicOffset, int& offsetCnt) {
     
+        if (offsetCnt >= dynamicOffset.size()) {
+            Log::warn("Binding too much dyoffsets on descriptor! Clamped");
+            return;
+        }
         if (slot.type == UniformType::UniformBuffer) {
 			dynamicOffset[offsetCnt++] = slot.uboDyOffset;
         }
@@ -3104,10 +3166,9 @@ namespace Render::Vulkan {
     {
         auto& descriptorPacks = ((rs_drawdata_vk*)drawData)->DescriptorSets;
 
-
         //Do real write in here
         for (auto& descriptorPack : descriptorPacks) {
-            DyOffsetArray dynamics;
+            DyOffsetArray dynamics{};
             int dyNum = 0;
 
             auto setLayout = descriptorPack.setlayout;
@@ -3163,6 +3224,7 @@ namespace Render::Vulkan {
                     }
                     else {
                         collectDyoffset(bindingSlot, dynamics, dyNum);
+                        
                     }
                 }
             }
@@ -3171,6 +3233,36 @@ namespace Render::Vulkan {
 					collectDyoffset(bindingSlot, dynamics, dyNum);
                 }
             }
+
+
+            if (setIdx >= cb->bindedDescriptorSets.max_size()) {
+                Log::warn("Binding too much descriptors cannot be cached");
+            }
+            else {
+                bool noCacheState = (bindPoint & QueueType_Compute) ? true : false;
+                //For binding point compute, 
+                //We need to cache another states
+                if (!noCacheState) {
+                    if (cb->bindedDescriptorSets[setIdx].set == set) {
+                        bool canSkipThisBinding = true;
+                        for (int i = 0;i < dyNum;++i) {
+                            if (cb->bindedDescriptorSets[setIdx].offsetArray[i] != dynamics[i]) {
+                                canSkipThisBinding = false;
+                                break;
+                            }
+                        }
+                        if (canSkipThisBinding) {
+                            continue;
+                        }
+                    }
+                }
+
+            }
+
+            //Cache
+            cb->bindedDescriptorSets[setIdx].set            = set;
+            cb->bindedDescriptorSets[setIdx].offsetArray    = dynamics;
+
             VkPipelineBindPoint point = (bindPoint & QueueType_Graphics ? VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS : VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE);
             vkCmdBindDescriptorSets((VkCommandBuffer)cb->native, point, (VkPipelineLayout)layout->native, setIdx, 1, &set, dyNum, dynamics.data());
 
@@ -3475,6 +3567,10 @@ namespace Render::Vulkan {
     {
         VkCommandBufferBeginInfo beginCi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         beginCi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        //Reset binded descriptors
+        cb->bindedDescriptorSets = {};
+        cb->bindedPipeline = VK_NULL_HANDLE;
+        cb->bindedPipelineLayout = VK_NULL_HANDLE;
         vkBeginCommandBuffer((VkCommandBuffer)cb->native, &beginCi);
     }
 

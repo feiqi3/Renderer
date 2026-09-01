@@ -18,7 +18,6 @@ namespace Render {
 		uint64_t curRenderFrame = -1;
 		uint32_t maxFrameInFlight = 2;
 		uint32_t hardwareFrameInFlight = 3;
-		bool needWireFramePipeline = true;
 
 		uint32_t LogicFrameFif = 0;
 		uint32_t RenderFrameFif = 0;
