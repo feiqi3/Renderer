@@ -3808,7 +3808,16 @@ namespace Render::Vulkan {
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = (VkSwapchainKHR*)&ctx->swapchain->native;
         presentInfo.pImageIndices = &presentImgIdx;
-        vkQueuePresentKHR(ctx->presentQueue->queue, &presentInfo);
+        auto presentRes = (vkQueuePresentKHR(ctx->presentQueue->queue, &presentInfo));
+        if (presentRes != VK_SUCCESS) {
+            if (presentRes == VK_ERROR_OUT_OF_DATE_KHR) {
+                //NEED TO REBUILD SWAP CHAIN
+            }
+            else {
+                assert(false);
+                Log::error("Present error");
+            }
+        }
     }
 
     void WaitForDeviceIdel(rs_context_vk* ctx)

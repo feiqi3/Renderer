@@ -42,12 +42,17 @@ namespace Render {
 		if (mRenderEntities.size() < mMaterials.size()) {
 			mRenderEntities.resize(mMaterials.size());
 		}
-
+		bool firstInit = false;
 		for (int i = 0; i < mMaterials.size(); ++i) {
 			if (mRenderEntities[i] == nullptr) {
+				firstInit = true;
 				mRenderEntities[i] = createRenderEntity(i, mMaterials[i]);
 			}
 			mRenderEntities[i]->setModelMatrix(owner()->worldMatrix());
+		}
+
+		if (firstInit) {
+			onShadowSettingChanged();
 		}
 
 		for (RenderEntity* entity : mRenderEntities) {
@@ -70,16 +75,19 @@ namespace Render {
 
 	void PBRRenderComponent::onShadowSettingChanged()
 	{
-		if (mCastShadow) {
+		if (!mCastShadow) {
 			for (auto& entity : mRenderEntities) {
 				auto curRenderMask = entity->getRenderMask();
-				curRenderMask &= curRenderMask ^ RenderMask::ShadowCaster;
+				auto noShadowCasterMask = curRenderMask ^ RenderMask::ShadowCaster;
+				curRenderMask &= noShadowCasterMask;
+				entity->setRenderMask(curRenderMask);
 			}
 		}
 		else {
 			for (auto& entity : mRenderEntities) {
 				auto curRenderMask = entity->getRenderMask();
 				curRenderMask |= RenderMask::ShadowCaster;
+				entity->setRenderMask(curRenderMask);
 			}
 		}
 			
