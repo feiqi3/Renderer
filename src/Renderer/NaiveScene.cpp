@@ -86,14 +86,22 @@ namespace Render {
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
 
-		for (int i =-5;i <10;++i) {
-			for (int j = -5; j < 10;++j) {
+		vec3 lightColor[] = {
+			vec3(1,0,0),
+			vec3(0,1,0),
+			vec3(0,0,1),
+			vec3(1,1,1),
+		};
+
+		for (int i =-5;i < 5;++i) {
+			for (int j = -5; j < 5;++j) {
 				auto nodeLight = naiveScene->createObject("Lights");
 				auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 				nodeLight->setLocalPosition(vec3((- 1 + i) *10 + 10, 10, (- 1 + j)* 10));
-				pointLightcomponent->setRange(15);
-				pointLightcomponent->setIntensity(15.f);
-				pointLightcomponent->setColor( abs(vec3(1. / ((i % 3) + 1),1./ (1 + (i * j)%3),1./( 1 + j % 3) )));
+				pointLightcomponent->setRange(20);
+				pointLightcomponent->setIntensity(40.f);
+				pointLightcomponent->setColor(
+					lightColor[abs(i + j) % 3]);
 			}
 		}
 
