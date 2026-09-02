@@ -33,6 +33,10 @@ namespace Render {
 		uint32_t mTileZMax = 24;
 		float    mSpecialNear = 4.0f;
 
+		mat4  mLastProjMat{ 1.0f };
+		float mLastCamFar = -1.0f;
+		float mLastSpecialNear = -1.0f;
+
 		bool mFroxelGridDirty = true;
 	};
 
@@ -139,6 +143,7 @@ namespace Render {
 			desc.bufUsage = BufferType_Storage;
 			desc.byteSize = totalFroxels * sizeof(GPUShared::FroxelInfo);
 			mDp->mFroxelListBuffer = RenderSystem::instance()->createBuffer(nullptr, desc.byteSize, desc);
+			mDp->mFroxelGridDirty = true;
 		}
 
 		if (!mDp->mPassHiZLightDataBuffer || mDp->mPassHiZCapacity < totalLightCount) {
@@ -175,20 +180,6 @@ namespace Render {
 
 		// =====================================================================
 		// =====================================================================
-		//if (mDp->mFroxelGridDirty) {
-			mDp->mFroxelBuilderKernel->setParameter("SSBO_froxelConfig", mDp->mFroxelConfigBuffer);
-			mDp->mFroxelBuilderKernel->setParameter("SSBO_froxelList", mDp->mFroxelListBuffer);
-
-			mDp->mFroxelBuilderKernel->dispatch(cmdBuffer, (mDp->mTileXMax + 7) / 8, (mDp->mTileYMax + 7) / 8, mDp->mTileZMax);
-			mDp->mFroxelGridDirty = false;
-			RenderSystem::instance()->cmdFlushUAVBuffer(cmdBuffer, mDp->mFroxelListBuffer);
-		//}
-
-
-		// =====================================================================
-		// =====================================================================
-
-
 		FroxelConfigData froxelConfig{};
 		froxelConfig.camNear = cam->getNear();
 		froxelConfig.camZFar = cam->getFar();
@@ -203,10 +194,35 @@ namespace Render {
 		froxelConfig.tileXMax = mDp->mTileXMax;
 		froxelConfig.tileYMax = mDp->mTileYMax;
 		froxelConfig.tileZMax = mDp->mTileZMax;
+		//Must be staged before Pass 0 dispatch: the copy is executed by the
+		//dispatch's executePendingCopies, otherwise Pass 0 reads stale/uninitialized config.
 		RenderSystem::instance()->updateBufferData(mDp->mFroxelConfigBuffer, &froxelConfig, sizeof(froxelConfig), 0);
 
 		// =====================================================================
 		// =====================================================================
+		//Froxel grid is static in view space: it only depends on the projection,
+		//specialNear and tile config. Rebuild only when any of them changed.
+		const bool froxelGridDirty =
+			mDp->mFroxelGridDirty ||
+			mDp->mLastProjMat != froxelConfig.ProjMat ||
+			mDp->mLastCamFar != froxelConfig.camZFar ||
+			mDp->mLastSpecialNear != froxelConfig.specialNear;
+		if (froxelGridDirty) {
+			mDp->mFroxelBuilderKernel->setParameter("SSBO_froxelConfig", mDp->mFroxelConfigBuffer);
+			mDp->mFroxelBuilderKernel->setParameter("SSBO_froxelList", mDp->mFroxelListBuffer);
+
+			mDp->mFroxelBuilderKernel->dispatch(cmdBuffer, (mDp->mTileXMax + 7) / 8, (mDp->mTileYMax + 7) / 8, mDp->mTileZMax);
+			mDp->mFroxelGridDirty = false;
+			mDp->mLastProjMat = froxelConfig.ProjMat;
+			mDp->mLastCamFar = froxelConfig.camZFar;
+			mDp->mLastSpecialNear = froxelConfig.specialNear;
+			RenderSystem::instance()->cmdFlushUAVBuffer(cmdBuffer, mDp->mFroxelListBuffer);
+		}
+
+
+		// =====================================================================
+		// =====================================================================
+
 		mDp->mLightCullHiZKernel->setParameter("HizTex", mHizTex);
 		struct {
 			int lightCount;

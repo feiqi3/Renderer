@@ -7,7 +7,7 @@ int linearZToZBin(float zLinear, float spN, float near, float far, float binCoun
     //From neg linear z to normalize z.
     float log2z = log2(-zLinear / far);
     int possibleBin = int(floor(max(log2z * scale + binCount, 0)));
-    return possibleBin;
+    return min(possibleBin, int(binCount) - 1);
 }
 
 //Return z range is positive

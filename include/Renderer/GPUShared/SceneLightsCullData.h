@@ -34,6 +34,13 @@ GPU_SHARED_NAMESPACE_BEGIN
 
     GPU_STRUCT_BEGIN(FroxelLightDataList)
         int lightCount;
+        //This struct contains scalars only, so its GLSL std430 array stride is the
+        //raw member size (148B) while the C++ sizeof is rounded up to 16B multiples
+        //by GPU_SHARED_ALIGN(alignas(16)) -> 160B. The explicit padding below makes
+        //both sides agree on 160B. See the note in GPUSharedDef.h for when padding is needed.
+        int padding0;
+        int padding1;
+        int padding2;
         int lightIndex[LIGHT_PER_FROXEL];
     GPU_STRUCT_END
 
