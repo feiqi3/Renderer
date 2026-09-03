@@ -256,7 +256,7 @@ namespace Render {
 			vec4 clearCol(1.0f, 0.0f, 0.0f, 0.0f);
 			auto layers = this->mShadowMap->getRsImage()->arrayLayers;
 			auto viewKey = ImageViewKey();
-			viewKey.setBaseLayer(0).setLayerCount(1);
+			viewKey.setBaseLayer(0).setLayerCount(1).setAspect(ViewAspect::Depth);
 			RenderSystem::instance()->cmdClearRT(cmdBuffer, getShadowTexture(), viewKey, clearCol);
 			return;
 		}
