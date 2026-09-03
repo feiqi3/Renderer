@@ -47,8 +47,8 @@ namespace Render {
 		inline const float getNear() const { return m_near; }
 		inline const Name& getName() const { return mCamName; }
 
-		inline CameraType		 getType() const { return m_camType; }
-		inline CameraProjectType getProjType() const { return m_type; }
+		inline CameraType		 getCamType() const { return m_camType; }
+		inline CameraProjectType getProjType() const { return m_projType; }
 		inline float getOrthoSize() const { return m_orthoSize; }
 		inline float getAspectRatio() const { return m_aspect; }
 		inline float getFov() const { return m_fov; }
@@ -64,7 +64,8 @@ namespace Render {
 
 		void setOrthographicBounds(float left, float right, float bottom, float top);
 
-		void setType(CameraProjectType type);
+		void setProjType(CameraProjectType type);
+		void setCamType(CameraType camType);
 		void setCullMask(u32 cullMask);
 		u32  getCullMask();
 		void setOrthoSize(float size);
@@ -95,7 +96,7 @@ namespace Render {
 		vec3 m_direction;
 		vec3 m_up;
 
-		CameraProjectType m_type;
+		CameraProjectType m_projType;
 		float m_fov;         // Perspective
 		float m_orthoSize;   // Orthographic
 		float m_aspect;      

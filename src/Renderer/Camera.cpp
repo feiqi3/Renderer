@@ -18,7 +18,7 @@ namespace Render {
 		, m_position(position)
 		, m_direction(target - position)
 		, m_up(up)
-		, m_type(CameraProjectType::Perspective)
+		, m_projType(CameraProjectType::Perspective)
 		, m_fov(45.0f) 
 		, m_orthoSize(orthoSize)
 		, m_aspect(aspectRatio)
@@ -44,7 +44,7 @@ namespace Render {
 
 	void Camera::updateProjection()
 	{
-		if (m_type == CameraProjectType::Perspective)
+		if (m_projType == CameraProjectType::Perspective)
 		{
 			m_projection = perspective(radians(m_fov), m_aspect, m_near, m_far);
 		}
@@ -90,7 +90,7 @@ namespace Render {
 
 	void Camera::setPerspective(float fovDegrees, float aspect, float nearPlane, float farPlane)
 	{
-		m_type = CameraProjectType::Perspective;
+		m_projType = CameraProjectType::Perspective;
 		m_fov = fovDegrees;
 		m_aspect = aspect;
 		m_near = nearPlane;
@@ -100,7 +100,7 @@ namespace Render {
 
 	void Camera::setOrthographic(float orthoSize, float aspect, float nearPlane, float farPlane)
 	{
-		m_type = CameraProjectType::Orthographic;
+		m_projType = CameraProjectType::Orthographic;
 		m_orthoSize = orthoSize;
 		m_aspect = aspect;
 		m_near = nearPlane;
@@ -111,7 +111,7 @@ namespace Render {
 
 	void Camera::setOrthographicBounds(float left, float right, float bottom, float top)
 	{
-		m_type = CameraProjectType::Orthographic;
+		m_projType = CameraProjectType::Orthographic;
 
 		float width = right - left;
 		float height = top - bottom;
@@ -126,12 +126,17 @@ namespace Render {
 		updateProjection();
 	}
 
-	void Camera::setType(CameraProjectType type)
+	void Camera::setProjType(CameraProjectType type)
 	{
-		if (m_type != type) {
-			m_type = type;
+		if (m_projType != type) {
+			m_projType = type;
 			updateProjection();
 		}
+	}
+
+	void Camera::setCamType(CameraType camType)
+	{
+		m_camType = camType;
 	}
 
 	void Camera::setCullMask(u32 cullMask)
@@ -147,7 +152,7 @@ namespace Render {
 	void Camera::setOrthoSize(float size)
 	{
 		m_orthoSize = size;
-		if (m_type == CameraProjectType::Orthographic) {
+		if (m_projType == CameraProjectType::Orthographic) {
 			updateProjection();
 		}
 	}

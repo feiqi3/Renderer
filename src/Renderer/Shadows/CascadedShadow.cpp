@@ -29,6 +29,7 @@ namespace Render {
 
 		for (int i = 0; i < MAX_CASCADE_LAYERS; ++i) {
 			auto cam = std::make_unique<Camera>(Name("CSM_LightCamera_" + std::to_string(i)));
+			cam->setCamType(CameraType::Shadow);
 			CameraManager::instance()->RegisterCamera(cam.get(), 1);
 			mDp->mCascadeCameras.push_back(std::move(cam));
 		}
