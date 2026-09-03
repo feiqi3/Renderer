@@ -250,7 +250,7 @@ namespace Render{
 			}
 
 
-			{
+			if (swapchainSucceedGetImage) {
 				mDp->mRenderThreadCmdBuffer = this->GetCommandBufferInCurRenderThread();
 				//Blit main rt things to swapchain
 				auto curRenderFif = ctx->curRenderFrame % ctx->maxFrameInFlight;
@@ -270,9 +270,22 @@ namespace Render{
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, QueueType_Graphics, semaphoreToWaitRenderEnd, semaphoreToSignalPresentToScreen, (Vulkan::rs_fence_vk*)mDp->mRenderEndFence);
 				mDp->mRenderThreadCmdBuffer = nullptr;
 				mDp->mRenderThreadPresentImage = nullptr;
-			}
-			if (swapchainSucceedGetImage) {
+
 				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SemaphoreBlitToPresentImageReady });
+			}
+			else {
+				//Acquire failed (out-of-date / device lost / ...): skip blit&present for
+				//this frame and force a swapchain rebuild at next frame begin.
+				//The render submissions above still signaled mRenderFinishSemaphore:
+				//submit an empty queue submit to consume that pending signal and to
+				//signal mRenderEndFence, otherwise the semaphore stays pending (next
+				//frame's signal becomes invalid) and waitLastRenderEnd() would block
+				//forever on the never-signaled fence.
+				Vulkan::submitSemaphoreWait(getRenderContext(),
+					(Vulkan::rs_semaphore_vk*)mDp->mRenderFinishSemaphore,
+					(Vulkan::rs_fence_vk*)mDp->mRenderEndFence);
+				mDp->mEngineEvent.WindowResize = true;
+				mDp->mRenderThreadPresentImage = nullptr;
 			}
 			ctx->currentSwapchainImage = nxtImg;
 			if (mDp->mEngineEvent.EngineIdle) {
@@ -609,6 +622,8 @@ namespace Render{
 
 		if (isDepthFMT || isStencilFMT) {
 			desc.usage = ImageUsage_DepthStencilAttachment;
+			//required by vkCmdClearDepthStencilImage (hardware clear path of cmdClearRT)
+			desc.usage |= ImageUsage_TransferDst;
 		}
 		else {
 			desc.usage = ImageUsage::ImageUsage_ColorAttachment;
@@ -1145,10 +1160,37 @@ namespace Render{
 
 	void RenderSystem::cmdClearRT(rs_commandbuffer* cmdbuf, const TexturePtr& tex, ImageViewKey viewKey, const vec4& color)
 	{
+		auto image = tex->getRsImage();
+		//depth/stencil formats can never be bound as storage images
+		//(storage views require COLOR aspect, depth views require DEPTH aspect),
+		//so always route them to the hardware clear (vkCmdClearDepthStencilImage)
+		if (image->usage & ImageUsage::ImageUsage_DepthStencilAttachment) {
+			//make sure the view carries a depth(-stencil) aspect even if the
+			//caller passed a default-constructed (COLOR) view key
+			if (image->format == ImageFormat::D16_UNORM || image->format == ImageFormat::D32_SFLOAT) {
+				viewKey.setAspect(ViewAspect::Depth);
+			}
+			else {
+				viewKey.setAspect(ViewAspect::DepthAndStencil);
+			}
+			auto view = getViewFromImage(image, viewKey);
+			if (!Vulkan::cmdClearImage((Vulkan::rs_commandbuffer_vk*)cmdbuf, view, color)) {
+				assert(false && "Clear depth requires image with ImageUsage_TransferDst");
+				return;
+			}
+			//the clear leaves the image in TransferDst; restored depth textures are
+			//typically sampled afterwards (e.g. shadow map), so return to a
+			//sampler-friendly state to match the normal resting state
+			cmdImageStateTransfer(cmdbuf, image, ResourceState::ShaderResource,
+				viewKey.getBaseMip(), viewKey.getMipCount(),
+				viewKey.getBaseLayer(), viewKey.getLayerCount());
+			return;
+		}
+
 		if (mDp->clearRTCompute == nullptr) {
 			mDp->clearRTCompute = std::make_unique<ComputeKernel>("../shader/ClearRTCompute.cs", MacroPairs());
 		}
-		auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), viewKey);
+		auto view = RenderSystem::instance()->getViewFromImage(image, viewKey);
 		//is texture a UAV?
 		if (view->image->usage & ImageUsage::ImageUsage_Storage)
 		{
