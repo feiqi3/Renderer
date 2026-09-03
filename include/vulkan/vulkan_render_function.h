@@ -147,6 +147,7 @@ namespace Render::Vulkan {
 	void cmdCopyBufferToImage(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* buffer, uint32_t srcOffset, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdCopyImageToBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_image_vk* image, rs_buffer_vk* buffer, uint32_t bufferOffset, int x, int y, int z, int width, int height, int depth, uint32_t mip, int layeroff, int layerSize);
 	void cmdSubmitCmdBuffer(rs_context_vk* ctx, rs_commandbuffer_vk* cb,QueueType queue,std::vector<rs_semaphore*> imageAvailableWaitSemaphores,std::vector<rs_semaphore*> renderFinishSignalSemphores,rs_fence_vk* fence);
+	void submitSemaphoreWait(rs_context_vk* ctx, rs_semaphore_vk* waitSem, rs_fence_vk* fence);
 	void cmdBeginMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a);
 	void cmdEndMark(rs_commandbuffer_vk* cb);
 	void cmdInsertMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a);

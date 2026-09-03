@@ -3564,6 +3564,29 @@ namespace Render::Vulkan {
         vkQueueSubmit(rsQueue->queue, 1, &info, fencevk);
     }
 
+    void submitSemaphoreWait(rs_context_vk* ctx, rs_semaphore_vk* waitSem, rs_fence_vk* fence)
+    {
+        //empty queue submit (no command buffers) that only consumes a pending
+        //binary semaphore signal and optionally signals a fence. Used when a frame
+        //is skipped (e.g. swapchain out-of-date): the render submissions already
+        //signaled waitSem and something must wait it, or the semaphore stays
+        //pending and the next signal becomes invalid.
+        if (!waitSem) return;
+        VkSemaphore vsem = ((VkSemaphore*)waitSem->native)[getWaitFif(ctx, waitSem->waitFlag)];
+        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        VkSubmitInfo info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        info.waitSemaphoreCount = 1;
+        info.pWaitSemaphores = &vsem;
+        info.pWaitDstStageMask = &waitStage;
+        VkFence vfence = VK_NULL_HANDLE;
+        if (fence) {
+            uint32_t ffif = getWaitFif(ctx, (SemaphoreWait)fence->waitFlag);
+            vfence = ((VkFence*)fence->native)[ffif];
+        }
+        //same queue as the signaler so the wait is queued after the signal submit
+        vkQueueSubmit(ctx->graphicQueue->queue, 1, &info, vfence);
+    }
+
     void cmdBeginMark(rs_commandbuffer_vk* cb, const char* mark, float r, float g, float b, float a)
     {
         VkDebugUtilsLabelEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
@@ -3813,7 +3836,11 @@ namespace Render::Vulkan {
         VkSemaphore sem = imageAvailableSignalSemaphore == 0 ? VK_NULL_HANDLE : ((VkSemaphore*)imageAvailableSignalSemaphore->native)[getWaitFif(ctx, imageAvailableSignalSemaphore->waitFlag)];
         auto code = vkAcquireNextImageKHR(ctx->device, (VkSwapchainKHR)ctx->swapchain->native, UINT64_MAX, sem, VK_NULL_HANDLE, &swapImageIdx);
         if (code != VK_SUCCESS && code != VK_NOT_READY && code != VK_TIMEOUT) {
+            //assert is compiled out in release: log so failures (out-of-date/lost)
+            //are visible, and return UINT32_MAX so callers can detect the failure
+            Log::error("vkAcquireNextImageKHR failed, cannot present this frame");
             assert(false && "Fail to get!");
+            return UINT32_MAX;
         }
         return swapImageIdx;
     }
