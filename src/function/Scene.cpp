@@ -217,8 +217,10 @@ namespace Render {
 
 	void Scene::update(float deltaTime) {
         _doDelayDestroy();
-        for (auto& obj : m_objects) {
-            Object* o = obj.get();
+        //index-based loops: components may create objects inside onUpdate/onLateUpdate,
+        //which can reallocate m_objects and would invalidate range-for iterators
+        for (size_t i = 0; i < m_objects.size(); ++i) {
+            Object* o = m_objects[i].get();
             if (!o) continue;
 
             o->onUpdate(deltaTime);
@@ -226,8 +228,8 @@ namespace Render {
 
 		updateObjectsTransform();
 
-		for (auto& obj : m_objects) {
-            Object* o = obj.get();
+        for (size_t i = 0; i < m_objects.size(); ++i) {
+            Object* o = m_objects[i].get();
             if (!o) continue;
 
             o->onLateUpdate(deltaTime);
@@ -327,8 +329,10 @@ namespace Render {
 
 	void Scene::updateObjectsTransform()
     {
-        for (auto& obj : m_objects) {
-            if (obj->isRoot()) {
+        //index-based loop for the same reason as Scene::update
+        for (size_t i = 0; i < m_objects.size(); ++i) {
+            auto& obj = m_objects[i];
+            if (obj && obj->isRoot()) {
                 obj->updateTransformRecursive(false);
             }
         }
