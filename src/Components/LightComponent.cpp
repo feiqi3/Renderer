@@ -46,10 +46,16 @@ namespace Render {
 	void PointLightComponent::onLightDelegateEnableChanged()
 	{
 		if (!mLightDelegate && delegateLightRender) {
-			this->owner()->scene()->destroyObject(delegateLightRender);
+			auto scene = this->owner()->scene();
+			if (scene) {
+				scene->destroyObject(delegateLightRender);
+			}
+			//deferred destroy keeps the object alive until next update,
+			//but from now on this pointer must not be touched anymore
+			delegateLightRender = nullptr;
 		}
 
-		if (mLightDelegate) {
+		if (mLightDelegate && !delegateLightRender) {
 			delegateLightRender = this->owner()->scene()->createObject("LightDelegatePoint");
 			delegateLightRender->setParent(this->owner());
 			auto comp = delegateLightRender->addComponent<PBRRenderComponent>();
@@ -66,13 +72,23 @@ namespace Render {
 	void PointLightComponent::onDisable()
 	{
 		LightComponent::onDisable();
-		delegateLightRender->getComponent<PBRRenderComponent>()->setEnabled(false);
+		if (delegateLightRender) {
+			auto comp = delegateLightRender->getComponent<PBRRenderComponent>();
+			if (comp) {
+				comp->setEnabled(false);
+			}
+		}
 	}
 
 	void PointLightComponent::onEnable()
 	{
 		LightComponent::onEnable();
-		delegateLightRender->getComponent<PBRRenderComponent>()->setEnabled(true);
+		if (delegateLightRender) {
+			auto comp = delegateLightRender->getComponent<PBRRenderComponent>();
+			if (comp) {
+				comp->setEnabled(true);
+			}
+		}
 	}
 
 	void LightComponent::onEnable()

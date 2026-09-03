@@ -109,18 +109,14 @@ namespace Render {
         if (!object) return;
         assert(object->scene() == this && "Object does not belong to this Scene");
 
-        std::vector<Object* >objectChildren = {};
-        auto children = object->children();
-        for (auto child : children) {
+        //snapshot children before any mutation: destroying a child erases it
+        //from object->m_children, which would invalidate the span while iterating
+        std::vector<Object*> objectChildren = {};
+        for (auto child : object->children()) {
             objectChildren.push_back(child);
         }
-        for (auto object : children) {
-            this->_destroyObject(object);
-        }
-
 
         std::unique_ptr<Object> toDestroy = nullptr;
-        ObjectID toDestroyId = INVALID_ID;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             auto itor = m_objectIdx.find(object->id());
@@ -130,13 +126,25 @@ namespace Render {
             size_t posToDestroy = itor->second;
 
             toDestroy = std::move(m_objects[posToDestroy]);
-            toDestroyId = toDestroy->id();
-            toDestroy->setParent(nullptr);
-			object->setScene(nullptr);
-			object->onExitScene(this);
-            eraseAndChangeObjIndex(toDestroyId, posToDestroy);
+            eraseAndChangeObjIndex(toDestroy->id(), posToDestroy);
         }
-        postDestroyObject(toDestroy.get());
+
+        //lifecycle OUTSIDE the lock (user callbacks may call back into scene),
+        //and in an order that keeps invariants for callbacks:
+        // 1. onDeactivate while scene() is still valid (components talk to scene managers, e.g. removeLight)
+        // 2. setScene(nullptr) unregisters render components
+        // 3. onExitScene / onDestroy teardown
+        object->setParent(nullptr);
+        object->onDeactivate();
+        object->setScene(nullptr);
+        object->onExitScene(this);
+        object->onDestroy();
+
+        //children are destroyed AFTER the parent finished its lifecycle,
+        //so parent callbacks (e.g. light delegate toggle) still see alive children
+        for (auto child : objectChildren) {
+            this->_destroyObject(child);
+        }
     }
 
     void Scene::eraseAndChangeObjIndex(ObjectID id, size_t objIdxInVec)
@@ -170,24 +178,11 @@ namespace Render {
 
     void Scene::_destroyObjectByID(ObjectID id)
     {
-        std::unique_ptr<Object> toDestroy = nullptr;
-        ObjectID toDestroyId = INVALID_ID;
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            
-            auto itor = m_objectIdx.find(id);
-            if (itor == m_objectIdx.end()) {
-                return;
-            }
-            size_t posToDestroy = itor->second;
-
-            toDestroy = std::move(m_objects[posToDestroy]);
-            toDestroyId = toDestroy->id();
-
-            eraseAndChangeObjIndex(toDestroyId, posToDestroy);
-        }
-        postDestroyObject(toDestroy.get());
-
+        //resolve id -> object first, then reuse _destroyObject so children
+        //are destroyed recursively (a plain erase would leave dangling parent pointers)
+        Object* target = getObjectById(id);
+        if (!target) return;
+        _destroyObject(target);
     }
 
     LightManager& Scene::getLightMgr()
