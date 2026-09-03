@@ -141,6 +141,9 @@ namespace Render::Vulkan {
         }
 
         auto descriptorSetList = assembleDescriptorSetInfo(info);
+        std::sort(descriptorSetList.begin(), descriptorSetList.end(), [](const DescritporSetInfo& A,const DescritporSetInfo& B) {
+            return A.setIdx < B.setIdx;
+        });
         ret.bindlessInfo = std::move(outBindlessInfo);
         ret.setInfo = std::move(descriptorSetList);
         return ret;

@@ -54,7 +54,7 @@ namespace Render::Vulkan {
         std::vector< rs_descriptor> mDescriptors;
         uint64_t layoutHash = 0;
         uint16_t maxBinding = 0;
-        inline bool checkValid() {
+        inline bool checkValid() const{
             std::set<uint16_t> bindings;
             for (auto&& i : mDescriptors) {
                 auto vk_binding_pos = toVkBindingPos(i.bindingPos);
@@ -108,7 +108,7 @@ namespace Render::Vulkan {
                 uint16_t size = 0;
                 UniformType type = UniformType::Count;
             }descripor;
-
+            memset(&descripor, 0, sizeof(descripor));
             const static uint64_t FNV_offset = 0xcbf29ce484222325ULL;
             const static uint64_t FNV_prime = 0x100000001b3ULL;
 

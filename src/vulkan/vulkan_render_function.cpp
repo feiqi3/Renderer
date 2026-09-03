@@ -36,7 +36,8 @@ namespace {
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData) {
         switch (messageTypes)
-        {case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT :
+        {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT :
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT :
             Render::Log::info(pCallbackData->pMessage);
             break;
@@ -2304,12 +2305,14 @@ namespace Render::Vulkan {
         debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         debugCreateInfo.messageSeverity =
             VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         debugCreateInfo.messageType =
             VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
         debugCreateInfo.pfnUserCallback = debugCallback;
         debugCreateInfo.pUserData = nullptr;
 
@@ -2769,15 +2772,40 @@ namespace Render::Vulkan {
             cmd->bindedDescriptorSets = {};
             return;
         }
+        uint32_t setSizeMax = std::min(newLayout->setLayouts.size(), oldLayout->setLayouts.size());
 
-        uint32_t firstInvalidSet = std::min(newLayout->setLayouts.size(), oldLayout->setLayouts.size());
-        bool foundDisturb = false;
-        for (auto i = 0;i < std::min(newLayout->setLayouts.size(), oldLayout->setLayouts.size());++i) {
-        
-            if (newLayout->setLayouts[i].second != oldLayout->setLayouts[i].second) {
-                firstInvalidSet = i;
+        uint32_t firstInvalidSet = cmd->bindedDescriptorSets.size();
+        if (oldLayout->setLayouts.empty() && !newLayout->setLayouts.empty()) {
+            firstInvalidSet = newLayout->setLayouts[0].first;
+        }
+        else if (!oldLayout->setLayouts.empty() && newLayout->setLayouts.empty()) {
+            firstInvalidSet = oldLayout->setLayouts[0].first;
+        }
+
+        for (int i = 0;i < setSizeMax; ++i) {
+            const auto& osl = oldLayout->setLayouts[i];
+            const auto& nsl = newLayout->setLayouts[i];
+            //Set Index not match or Set layout not match
+            if (osl.first != nsl.first) {
+                //Set Index not match
+                firstInvalidSet = std::min(osl.first, nsl.first);
+                break;
             }
-        
+            else if (osl.second != nsl.second) {
+                //Set layout not match
+                firstInvalidSet = osl.first;
+                break;
+            }
+        }
+
+        //Mark first not match set when all common layout are the same
+        if (firstInvalidSet == cmd->bindedDescriptorSets.size()) {
+            if (oldLayout->setLayouts.size() > newLayout->setLayouts.size()) {
+                firstInvalidSet = oldLayout->setLayouts[setSizeMax].first;
+            }
+            else if (newLayout->setLayouts.size() > oldLayout->setLayouts.size()) {
+                firstInvalidSet = newLayout->setLayouts[setSizeMax].first;
+            }
         }
 
         //Invalid cache from the first not match setlayout
