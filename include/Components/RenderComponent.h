@@ -11,7 +11,7 @@ namespace Render {
 	class RenderComponent : public Component {
 	public:
 		RenderComponent();
-		virtual ~RenderComponent() = default;
+		virtual ~RenderComponent();
 
 		virtual void collectRenderEntities(std::vector<RenderEntity*>& outEntities) = 0;
 
