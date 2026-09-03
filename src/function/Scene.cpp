@@ -32,22 +32,27 @@ namespace Render {
     }
 
     Scene::~Scene() {
+        std::vector<Object*> copy;
         for (auto& obj : m_objects) {
             Object* o = obj.get();
             if (!o) continue;
-
-            o->onDeactivate();
-            o->onExitScene(this);
-            o->onDestroy();
+            copy.push_back(o);
         }
+
+        for (auto o : copy) {
+            o->setParent(nullptr);
+            o->onExitScene(this);
+            postDestroyObject(o);
+        }
+
         m_objects.clear();
         RenderSystem::instance()->destroyDrawData(m_drawData);
     }
 
     void Scene::postDestroyObject(Object* object)
     {
+        object->setParent(nullptr);
         object->onDeactivate();
-        object->onExitScene(this);
         object->onDestroy();
     }
 
@@ -104,6 +109,16 @@ namespace Render {
         if (!object) return;
         assert(object->scene() == this && "Object does not belong to this Scene");
 
+        std::vector<Object* >objectChildren = {};
+        auto children = object->children();
+        for (auto child : children) {
+            objectChildren.push_back(child);
+        }
+        for (auto object : children) {
+            this->_destroyObject(object);
+        }
+
+
         std::unique_ptr<Object> toDestroy = nullptr;
         ObjectID toDestroyId = INVALID_ID;
         {
@@ -116,6 +131,9 @@ namespace Render {
 
             toDestroy = std::move(m_objects[posToDestroy]);
             toDestroyId = toDestroy->id();
+            toDestroy->setParent(nullptr);
+			object->setScene(nullptr);
+			object->onExitScene(this);
             eraseAndChangeObjIndex(toDestroyId, posToDestroy);
         }
         postDestroyObject(toDestroy.get());
@@ -138,6 +156,8 @@ namespace Render {
 
     void Scene::_doDelayDestroy()
     {
+        
+
         for (auto&& obj : m_pendingDestroyObjects) {
             _destroyObject(obj);
         }
@@ -268,7 +288,7 @@ namespace Render {
 
         auto renderQueue = camera->getRenderQueue();
         renderQueue->clear();
-        auto camType = camera->getType();
+        auto camType = camera->getCamType();
         bool isShadowCam = camType == CameraType::Shadow;
         uint32_t cullMask = camera->getCullMask();
        

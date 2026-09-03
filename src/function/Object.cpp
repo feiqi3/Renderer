@@ -1,4 +1,5 @@
 #include "function/Object.h"
+#include "function/Scene.h"
 #include "function/Component.h"
 #include "function/ComponentSystem.h"
 #include "common/CommonMath.h"
@@ -16,12 +17,6 @@ namespace Render {
     }
 
     Object::~Object() {
-        setParent(nullptr);
-        for (auto* child : m_children) {
-            if (child) child->m_parent = nullptr;
-        }
-        m_children.clear();
-        
         for (auto&& comp : m_components) {
             if (!comp) continue;
             ComponentSystem::instance()->delegateDestroyComponent(comp);
