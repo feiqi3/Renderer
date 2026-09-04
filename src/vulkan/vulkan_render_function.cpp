@@ -26,7 +26,7 @@
 #include <common/BindlessIndexingTable.h>
 #include "render_resource_global.h"
 
-
+#include <sstream>
 
 namespace {
     //validation callback
@@ -1206,6 +1206,9 @@ namespace Render::Vulkan {
         if (res != VK_SUCCESS) {
             Log::warn("wait for fence failed: " + std::to_string(res));
         }
+        if (res == VK_ERROR_DEVICE_LOST) {
+            GPUPostMortem(ctx);
+        }
     }
 
     rs_commandbuffer_vk* createRsCommand(rs_context_vk* ctx, const CommandBufferDesc& desc)
@@ -1894,6 +1897,67 @@ namespace Render::Vulkan {
 		);
     }
 
+	void GPUPostMortem(rs_context_vk* ctx)
+	{
+        if (!DeviceFault) {
+            return;
+        }
+        VkDeviceFaultCountsEXT deviceFaultCnts = {VK_STRUCTURE_TYPE_DEVICE_FAULT_COUNTS_EXT};
+        vkGetDeviceFaultInfoEXT(ctx->device, &deviceFaultCnts, nullptr);
+        VkDeviceFaultInfoEXT deviceFaultInfo = { VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_EXT };
+        
+        std::vector<VkDeviceFaultAddressInfoEXT> deviceFaultAddrInfo{};
+        deviceFaultAddrInfo.resize(deviceFaultCnts.addressInfoCount);
+		deviceFaultInfo.pAddressInfos = deviceFaultAddrInfo.data();
+
+		std::vector<VkDeviceFaultVendorInfoEXT> deviceFaultVendorInfo{};
+        deviceFaultVendorInfo.resize(deviceFaultCnts.vendorInfoCount);
+		deviceFaultInfo.pVendorInfos = deviceFaultVendorInfo.data();
+
+		char* vendorData = new char[deviceFaultCnts.vendorBinarySize + 1];
+        deviceFaultInfo.pVendorBinaryData = vendorData;
+        vkGetDeviceFaultInfoEXT(ctx->device, &deviceFaultCnts, &deviceFaultInfo);
+        std::stringstream ss;
+        ss << "=================== GPU PostMortem Begin ===================\n"
+            << "Backend: Vulkan\n"
+            << "Device: " << ctx->choosenPhysicalDeviceInfo                         << "\n"
+            << (BindlessAvailable ? std::string("Bindless Mode") : "No Bindless")   << "\n"
+            << (BufferDeviceAddressEnable ? "BDA Enabled" : "No BDA")               << "\n"
+            << "Description: " << deviceFaultInfo.description                       << "\n\n";
+        ss << "================== Address fault Begin ==================\n";
+		
+        for (int i = 0; i < deviceFaultCnts.addressInfoCount;++i) {
+            auto addressInfo = deviceFaultInfo.pAddressInfos[i];
+            ss << "Fault - " << i << "/" << deviceFaultCnts.addressInfoCount                    << "\n";
+            ss << "Address Type: "   << (int)(addressInfo.addressType)                          << "\n";
+            ss << "Buffer Address: " << std::hex << addressInfo.reportedAddress << std::dec     << "\n";
+            ss << "Buffer Address Precision: " << std::hex << addressInfo.addressPrecision << std::dec << "\n\n";
+		}
+
+		ss << "================== Address fault End ==================\n\n";
+
+		ss << "================== Vendor info Begin ==================\n";
+
+		for (int i = 0; i < deviceFaultCnts.vendorInfoCount;++i) {
+			auto vendorInfo = deviceFaultInfo.pVendorInfos[i];
+			ss << "Vendor Fault - " << i << "/" << deviceFaultCnts.vendorInfoCount     << "\n";
+			ss << "Description: " << (int)(vendorInfo.description)                     << "\n";
+			ss << "Fault Code: " << std::hex << vendorInfo.vendorFaultCode << std::dec << "\n";
+			ss << "Fault Data: " << std::hex << vendorInfo.vendorFaultData << std::dec << "\n\n";
+		}
+
+		ss << "================== Vendor info End ==================\n\n";
+		ss << "================== GPU PostMortem End ==================\n";
+
+
+		//Print all log info
+        Log::error(
+            ss.str()
+        );
+
+        delete[] vendorData;
+    }
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
@@ -2000,7 +2064,8 @@ namespace Render::Vulkan {
                 ++it;
             }
             context->physicalDevice = physicalDevices[suitableDevice];
-            context->physicalDevices = std::move(deviceInfos);
+			context->choosenPhysicalDeviceInfo = deviceInfos[suitableDevice];
+			context->physicalDevicesInfo = std::move(deviceInfos);
             vkGetPhysicalDeviceProperties(context->physicalDevice, &context->physicalDeviceProperties);
 
         }
@@ -2188,7 +2253,7 @@ namespace Render::Vulkan {
         auto vk13PhysicalDeviceFeature = getExtensionEnablePhysicalDeviceVk13(context);
         auto indexingFeature = getExtensionEnablePhysicalDeviceDescriptorIndexingFeatures(context);
         auto bufferDeviceAddressFeature = getExtensionEnablePhysicalDeviceBufferAddressFeatures(context);
-
+        auto faultFeature    = getExtensionEnableFaultDump(context);
 		deviceFeatureEnable2.pNext = &indexingFeature;
         indexingFeature.pNext = &vk13PhysicalDeviceFeature;
         if (vk13PhysicalDeviceFeature.synchronization2 == true) {
@@ -2203,6 +2268,9 @@ namespace Render::Vulkan {
             auto itor = extensionRequired.find(std::string(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME));
 			BufferDeviceAddressEnable = (itor != extensionRequired.end()) && (bufferDeviceAddressFeature.bufferDeviceAddress == VK_TRUE); //!!! >= VK_13 this is a guaranteed support 
         }
+
+
+
         vk13PhysicalDeviceFeature.pNext = &bufferDeviceAddressFeature;
 
         {
@@ -2221,6 +2289,11 @@ namespace Render::Vulkan {
                 BufferDeviceAddressEnable
                 );
         }
+
+        bufferDeviceAddressFeature.pNext = &faultFeature;
+		{
+			DeviceFault = (faultFeature.deviceFault == true);
+		}
 
         VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
         createInfo.pNext = &deviceFeatureEnable2;
@@ -2311,8 +2384,8 @@ namespace Render::Vulkan {
         debugCreateInfo.messageType =
             VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
-            | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            //| VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
         debugCreateInfo.pfnUserCallback = debugCallback;
         debugCreateInfo.pUserData = nullptr;
 
@@ -2346,6 +2419,9 @@ namespace Render::Vulkan {
             
         //swapchain extension
         requiredExtensionNames.insert(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+        //Post mortem things
+        requiredExtensionNames.insert(VK_EXT_DEVICE_FAULT_EXTENSION_NAME);
 
         //For vkCmdBindDescriptorSets2KHR ---> promoted in vk14
         requiredExtensionNames.insert(VK_KHR_MAINTENANCE_6_EXTENSION_NAME);
@@ -2418,6 +2494,18 @@ namespace Render::Vulkan {
         vkGetPhysicalDeviceFeatures2(context->physicalDevice, &deviceFeatures2);
         return BDAFeatures;
     }
+
+
+	VkPhysicalDeviceFaultFeaturesEXT getExtensionEnableFaultDump(rs_context_vk* context)
+	{
+		VkPhysicalDeviceFaultFeaturesEXT faultFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT };
+		VkPhysicalDeviceFeatures2 deviceFeatures2{};
+		deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		deviceFeatures2.pNext = &faultFeatures;
+		vkGetPhysicalDeviceFeatures2(context->physicalDevice, &deviceFeatures2);
+		return faultFeatures;
+	}
+
 
     std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context)
     {

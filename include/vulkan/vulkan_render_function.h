@@ -110,6 +110,7 @@ namespace Render::Vulkan {
 	VkPhysicalDeviceFeatures2 getExtensionEnablePhysicalDevice2(rs_context_vk* context);
 	VkPhysicalDeviceVulkan13Features getExtensionEnablePhysicalDeviceVk13(rs_context_vk* context);
 	VkPhysicalDeviceVulkan12Features getExtensionEnablePhysicalDeviceVk12(rs_context_vk* context);
+	VkPhysicalDeviceFaultFeaturesEXT getExtensionEnableFaultDump(rs_context_vk* context);
 	VkPhysicalDeviceDescriptorIndexingFeatures getExtensionEnablePhysicalDeviceDescriptorIndexingFeatures(rs_context_vk* context);
 	VkPhysicalDeviceBufferDeviceAddressFeatures getExtensionEnablePhysicalDeviceBufferAddressFeatures(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
@@ -185,6 +186,8 @@ namespace Render::Vulkan {
 	void WaitForDeviceIdel(rs_context_vk* ctx);
 	//-------------------------------------------------------------------------------------//     
 	bool isBindlessEnabled();
+
+	void GPUPostMortem(rs_context_vk* ctx);
 
 
 }

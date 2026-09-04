@@ -13,7 +13,8 @@ namespace Render {
 
 	struct rs_context{
 		BackEndInitDesc initDesc;
-		std::vector<std::string> physicalDevices;
+		std::vector<std::string> physicalDevicesInfo;
+		std::string choosenPhysicalDeviceInfo;
 		uint64_t nextRenderFrame = -1;
 		uint64_t curRenderFrame = -1;
 		uint32_t maxFrameInFlight = 2;
