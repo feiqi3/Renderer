@@ -1208,6 +1208,8 @@ namespace Render::Vulkan {
         }
         if (res == VK_ERROR_DEVICE_LOST) {
             GPUPostMortem(ctx);
+            //Disable the following output.
+            DeviceFault = false;
         }
     }
 
@@ -1928,7 +1930,7 @@ namespace Render::Vulkan {
 		
         for (int i = 0; i < deviceFaultCnts.addressInfoCount;++i) {
             auto addressInfo = deviceFaultInfo.pAddressInfos[i];
-            ss << "Fault - " << i << "/" << deviceFaultCnts.addressInfoCount                    << "\n";
+            ss << "Fault - " << i + 1 << "/" << deviceFaultCnts.addressInfoCount                    << "\n";
             ss << "Address Type: "   << (int)(addressInfo.addressType)                          << "\n";
             ss << "Buffer Address: " << std::hex << addressInfo.reportedAddress << std::dec     << "\n";
             ss << "Buffer Address Precision: " << std::hex << addressInfo.addressPrecision << std::dec << "\n\n";
@@ -1940,7 +1942,7 @@ namespace Render::Vulkan {
 
 		for (int i = 0; i < deviceFaultCnts.vendorInfoCount;++i) {
 			auto vendorInfo = deviceFaultInfo.pVendorInfos[i];
-			ss << "Vendor Fault - " << i << "/" << deviceFaultCnts.vendorInfoCount     << "\n";
+			ss << "Vendor Fault - " << i + 1 << "/" << deviceFaultCnts.vendorInfoCount     << "\n";
 			ss << "Description: " << (int)(vendorInfo.description)                     << "\n";
 			ss << "Fault Code: " << std::hex << vendorInfo.vendorFaultCode << std::dec << "\n";
 			ss << "Fault Data: " << std::hex << vendorInfo.vendorFaultData << std::dec << "\n\n";
