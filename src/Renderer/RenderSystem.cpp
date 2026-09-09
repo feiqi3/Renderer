@@ -264,14 +264,18 @@ namespace Render{
 				//--------//
 				//Wait RenderEnd/Image acquire
 				//and Signal CanDoPresent
+				auto signalPresentImgSemaphore = Vulkan::getSignalPresentToScreenSemaphore(getRenderContext(), nxtImg);
+				signalPresentImgSemaphore->waitResourceState = ResourceState::Common;
+				//Set sem wait resource state to 
+
 				std::vector<rs_semaphore*> semaphoreToWaitRenderEnd = { mDp->mRenderFinishSemaphore,SemaphorePresentImageReady };
-				std::vector<rs_semaphore*> semaphoreToSignalPresentToScreen = { SemaphoreBlitToPresentImageReady };
+				std::vector<rs_semaphore*> semaphoreToSignalPresentToScreen = { signalPresentImgSemaphore };
 				//Wait for RenderEnd, swapchain image ready, then semaphore can present to image/RenderEnd
 				Vulkan::cmdSubmitCmdBuffer(getRenderContext(), (rs_commandbuffer_vk*)mDp->mRenderThreadCmdBuffer, QueueType_Graphics, semaphoreToWaitRenderEnd, semaphoreToSignalPresentToScreen, (Vulkan::rs_fence_vk*)mDp->mRenderEndFence);
 				mDp->mRenderThreadCmdBuffer = nullptr;
 				mDp->mRenderThreadPresentImage = nullptr;
 
-				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)SemaphoreBlitToPresentImageReady });
+				submitToPresentImage(ctx, nxtImg, { (Vulkan::rs_semaphore_vk*)signalPresentImgSemaphore });
 			}
 			else {
 				//Acquire failed (out-of-date / device lost / ...): skip blit&present for

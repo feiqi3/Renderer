@@ -182,7 +182,9 @@ namespace Render::Vulkan {
 	uint64_t endRsFrameVk(rs_context_vk* ctx);
 	//return UINT32_MAX if failed
 	uint32_t waitForNextPresentImage(rs_context_vk* ctx,rs_semaphore_vk* imageAvailableSignalSemaphore,rs_fence_vk* fenceToSignal);
+	rs_semaphore_vk* getSignalPresentToScreenSemaphore(rs_context_vk* ctx, int imgIdx);
 	void submitToPresentImage(rs_context_vk* ctx, uint32_t presentImgIdx, std::vector<rs_semaphore_vk*> canPresentToScreen);
+	void destroySignalPresentToScreenSemaphore(rs_context_vk* ctx);
 	void WaitForDeviceIdel(rs_context_vk* ctx);
 	//-------------------------------------------------------------------------------------//     
 	bool isBindlessEnabled();

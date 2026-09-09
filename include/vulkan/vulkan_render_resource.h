@@ -35,13 +35,13 @@ namespace Render::Vulkan {
 		rs_queue_vk* transferQueue;
 		VmaAllocator allocator;
 		
-		struct rs_semaphore_vk* semphoreToSignalPresent = nullptr;
 		rs_swapchain_vk* swapchain = nullptr;
 		uint32_t maxSwapChainImages;
 		uint32_t currentSwapchainImage = 0;
 		VkDebugUtilsMessengerEXT validationObject;
 
 		bool mIsValidationLayerEnabled = false;
+		std::vector<struct rs_semaphore_vk*> signalPresentToScreen;
 
 		//For Pipeline 
 		uint32_t viewportCount = 1;

@@ -585,8 +585,6 @@ namespace Render::Vulkan {
         ctx->cmdBufferMgr = new CommandBufferManager(maxFif);
         ctx->destroyer = new DeferredDestroyer(maxFif);
 
-        ctx->semphoreToSignalPresent = createRsSemaphore(ctx);
-
         return ctx;
     }
 
@@ -655,7 +653,7 @@ namespace Render::Vulkan {
 
     void deinitVulkanBackEnd(rs_context_vk* ctx)
     {
-        destroyRsSemaphore(ctx, ctx->semphoreToSignalPresent);
+        destroySignalPresentToScreenSemaphore(ctx);
         destroyDefaultResources(ctx);
 
         if (ctx->computeQueue)
@@ -1960,6 +1958,29 @@ namespace Render::Vulkan {
         delete[] vendorData;
     }
 
+	Render::Vulkan::rs_semaphore_vk* getSignalPresentToScreenSemaphore(rs_context_vk* ctx, int imgIdx)
+	{
+        if (ctx->signalPresentToScreen.size() < ctx->swapchain->swapchainImgs.size()) {
+            //init semaphores   
+            for (int i = 0;i < ctx->swapchain->swapchainImgs.size();++i) {
+                auto sem = createRsSemaphore(ctx);
+                sem->waitFlag = SemaphoreWait::CurRenderFrame;
+                ctx->signalPresentToScreen.push_back(sem);
+            }
+        }
+
+        return ctx->signalPresentToScreen[imgIdx];
+
+	}
+
+	void destroySignalPresentToScreenSemaphore(rs_context_vk* ctx)
+	{
+        for (auto&& sem : ctx->signalPresentToScreen) {
+            destroyRsSemaphore(ctx, sem);
+        }
+        ctx->signalPresentToScreen.clear();
+	}
+
     void createSurface(rs_context_vk* context, ::Render::Window::rs_window* window)
     {
         if (!context->swapchain) {
@@ -2505,6 +2526,12 @@ namespace Render::Vulkan {
 		deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 		deviceFeatures2.pNext = &faultFeatures;
 		vkGetPhysicalDeviceFeatures2(context->physicalDevice, &deviceFeatures2);
+
+        if (!context->PostMortemEnabled) {
+            faultFeatures.deviceFault = false;
+            faultFeatures.deviceFaultVendorBinary = false;
+        }
+
 		return faultFeatures;
 	}
 
