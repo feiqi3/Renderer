@@ -6,9 +6,9 @@ namespace Render {
 	class Material;
 	class RenderPass;
 	class RenderEntity;
-
+	class SkeletonResource;
 	using TexturePtr	= ResourceHandle<Texture>;
 	using MaterialPtr	= ResourceHandle<Material>;
-
+	using SkeletonPtr   = ResourceHandle<SkeletonResource>;
 }
 #endif
