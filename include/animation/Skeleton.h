@@ -3,24 +3,36 @@
 
 #include "common/CommonMath.h"
 #include "common/Name.h"
+#include "animation/animation.h"
 #include <vector>
 namespace Render::Anm {
 
-	struct Joint {
+	struct Transform {
 		quat		rotation;
 		vec3		translation;
 		vec3		scale;
-		int32_t		parent;
+		
+		inline mat4 toMatrix() const ;
 	};
 
+	using Joint = Transform;
+	
 	class Skeleton {
-		std::vector<Name>  mJointsName;
-		std::vector<Joint> mJoints;
-		std::vector<mat4>  mJointsLocalTRS;
-		std::vector<mat4>  mInverseBindingMats;
+	public:
+		std::vector<Name>		mJointsName;
+		std::vector<Joint>		mJoints;
+		std::vector<mat4>		mJointsLocalTRS;
+		std::vector<mat4>		mInverseBindingMats;
+		std::vector<int32_t>	mParents;
 	};
 
+	class SkeletonState {
+	public:
+		void resize(size_t jointCount);
 
+		std::vector<Transform> mJointTransforms;
+		std::vector<mat4>	   mLocalMatrices;
+	};
 
 }
 #endif//!SKELETON_H_

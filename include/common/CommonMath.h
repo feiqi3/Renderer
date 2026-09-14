@@ -101,7 +101,16 @@ namespace Render {
 		return glm::angleAxis(angle,axis);
 	}
 
-	static inline double PI = 3.141592653589793238462643383279502884197;
-	static inline double PI2 = 2 * PI;
+	inline auto angleFromAxisToAxis(const vec3& axisA, const vec3 axisB) {
+		return quat(axisA, axisB);
+	}
+
+	inline auto slerp(const quat& a, const quat& b, float t) {
+		return glm::slerp(a, b, t);
+	}
+
+	const static inline double PI = 3.141592653589793238462643383279502884197;
+	const static inline double PI2 = 2 * PI;
+	const static inline mat4   MAT4IDENTITY = mat4(1.0);
 }
 #endif
