@@ -1,5 +1,6 @@
 #include "Renderer/PipelineBindingTable.h"
 #include "Renderer/RenderSystem.h"
+#include "render_log.h"
 #include <cstring> 
 
 namespace Render {
@@ -58,8 +59,9 @@ namespace Render {
             }
 
             if (pair.location.descriptorInfo.type != UniformType::UniformBuffer)return;
+            static const char nulldataCache[4096] = {};
 
-            pair.varArr[0].setUniformBuffer(nullptr, pair.location.descriptorInfo.size);
+            pair.varArr[0].setUniformBuffer(nulldataCache,std::min(u16(4096), pair.location.descriptorInfo.size));
         }
     }
 }
@@ -133,6 +135,7 @@ namespace Render {
                         bufferPtr.setDirty(false);
                         sys->updateUniformBufferData(pp.location.bindingPos, dataptr, size, pipeline,drawdata);
                     }
+
                     break;
                 }
 
@@ -173,7 +176,10 @@ namespace Render {
                 for (int i = 0;i < pp.bindlessData.size();++i) {
 					if (!pp.keepAliveRefs[i].isValid())continue;
 					const auto& data = pp.keepAliveRefs[i].getBufferPair();
-                    if (!data)continue;
+                    if (!data) {
+                        Log::error("No buffer was bind! This could cause device lost!!!");
+                        continue;
+                    };
                     EngineBindlessAPI::markResourceSRV(data->buffer);
                 }
                 break;
@@ -183,7 +189,10 @@ namespace Render {
 				for (int i = 0;i < pp.bindlessData.size();++i) {
 					if (!pp.keepAliveRefs[i].isValid())continue;
 					const auto& data = pp.keepAliveRefs[i].getBufferPair();
-					if (!data)continue;
+					if (!data) {
+						Log::error("No buffer was bind! This could cause device lost!!!");
+						continue;
+					};
 					EngineBindlessAPI::markResourceUAV(data->buffer);
 				}
 				break;
@@ -412,7 +421,7 @@ namespace Render {
 
             uint64_t oldData = 0;
             oldData = bItem.bindlessData[dataIndex];
-            bItem.bindlessData[dataIndex] = static_cast<uint32_t>(bindingData);
+            bItem.bindlessData[dataIndex] = bindingData;
 
             auto fatherIt = mBindingPos2BindingSlot.find(bItem.location.bindingPos);
             if (fatherIt != mBindingPos2BindingSlot.end()) {
