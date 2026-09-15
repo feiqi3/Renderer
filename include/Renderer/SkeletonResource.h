@@ -6,7 +6,7 @@ namespace Render {
 
 	class SkeletonResource : public IResource {
 	public:
-		Anm::Skeleton* getSkeleton() const;
+		const Anm::Skeleton* getSkeleton() const;
 		static const Name& typeName();
 		virtual const Name& getTypeName() const override;
 		virtual ResourceMemory getMemory() const override;

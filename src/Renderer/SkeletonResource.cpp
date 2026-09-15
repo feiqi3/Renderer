@@ -1,7 +1,6 @@
-#include "SkeletonResource.h"
 #include "renderer/SkeletonResource.h"
 namespace Render {
-	Anm::Skeleton* SkeletonResource::getSkeleton() const
+	const Anm::Skeleton* SkeletonResource::getSkeleton() const
 	{
 		return &mSkeleton;
 	}
@@ -18,8 +17,8 @@ namespace Render {
 		
 		uint32_t cpuMem = 0;
 		cpuMem += sizeof(Anm::Skeleton);
+		cpuMem += sizeof(Anm::Joint) * mSkeleton.mJoints.size();
 		cpuMem += sizeof(Name) * mSkeleton.mJointsName.size();
-		cpuMem += sizeof(Joint) * mSkeleton.mJoints.size();
 		cpuMem += sizeof(mat4) * mSkeleton.mJointsLocalTRS.size();
 		cpuMem += sizeof(mat4) * mSkeleton.mInverseBindingMats.size();
 

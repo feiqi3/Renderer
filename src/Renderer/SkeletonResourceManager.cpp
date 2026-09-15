@@ -9,10 +9,6 @@ namespace Render {
 
 	Render::SkeletonPtr SkeletonResourceManager::createSkeletonResource(Anm::Skeleton&& inSkeleton)
 	{
-	}
-
-	Render::SkeletonPtr SkeletonResourceManager::createSkeletonResource(Anm::Skeleton&& inSkeleton)
-	{
 		auto skeletonRes = new SkeletonResource;
 		skeletonRes->setSkeleton(std::move(inSkeleton));
 		auto entry = this->registerAnonymousResource(skeletonRes, ResourceLifetime::Transient, nullptr);

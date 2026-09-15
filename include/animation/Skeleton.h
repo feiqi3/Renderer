@@ -1,5 +1,6 @@
 #if !defined(SKELETON_H_)
 #define SKELETON_H_
+#pragma once
 
 #include "common/CommonMath.h"
 #include "common/Name.h"
@@ -7,13 +8,6 @@
 #include <vector>
 namespace Render::Anm {
 
-	struct Transform {
-		quat		rotation;
-		vec3		translation;
-		vec3		scale;
-		
-		inline mat4 toMatrix() const ;
-	};
 
 	using Joint = Transform;
 	

@@ -1,5 +1,6 @@
 #ifndef ANIMATION_H_
 #define ANIMATION_H_
+#pragma once
 #include "common/CommonMath.h"
 #include "common/name.h"
 #include <vector>
@@ -32,7 +33,7 @@ namespace Render::Anm {
 	};
 
 	struct Track {
-		Name			mTargetName;			//which target this track will be imposing on
+		Name			mTargetName;			//which target this track will be imposed on
 		Interpolation	mInterpolation;			//interpolation function
 	};
 
@@ -87,7 +88,7 @@ namespace Render::Anm {
 	{
 		switch (type) {
 		case Interpolation::Nearest: {
-			float tN = clamp(t, 0., 1.);
+			float tN = clamp(t, 0.f, 1.f);
 			if (tN < 0.5)
 				return a;
 			return b;
@@ -103,7 +104,7 @@ namespace Render::Anm {
 
 
 		}
-		return NAN;
+		return T();
 	}
 
 	class JointAnimation {

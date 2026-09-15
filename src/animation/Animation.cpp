@@ -12,7 +12,7 @@ namespace Render::Anm {
 	{
 		switch (type) {
 		case Interpolation::Nearest: {
-			float tN = clamp(t, 0., 1.);
+			float tN = clamp(t, 0.f, 1.f);
 			if (tN < 0.5)
 				return a;
 			return b;
