@@ -20,6 +20,7 @@ namespace Render::Anm {
 		std::vector<int32_t>	mParents;
 	};
 
+	//Class restore
 	class SkeletonState {
 	public:
 		void resize(size_t jointCount);

@@ -8,7 +8,7 @@ namespace Render::Anm {
 			* ::Render::scale(MAT4IDENTITY, scale);
 	}
 
-	quat _interpolate(quat a, quat b, float t, Interpolation type)
+	quat _interpolate(const quat& a, const quat& b, float t, Interpolation type)
 	{
 		switch (type) {
 		case Interpolation::Nearest: {
@@ -19,12 +19,15 @@ namespace Render::Anm {
 		}break;
 		case Interpolation::Linear:
 		{
-			//Not right, but available
+			auto quatB = b;
+			if (dot(a, b) < 0) {
+				quatB = -b;
+			}
 			vec4 aa(a.x, a.y, a.z, a.w);
-			vec4 bb(b.x, b.y, b.z, b.w);
+			vec4 bb(quatB.x, quatB.y, quatB.z, quatB.w);
 			auto ret = _interpolate(aa, bb, t, Interpolation::Linear);
 			quat quatRet(ret.w, ret.x, ret.y, ret.z);
-			return quatRet;
+			return normalize(quatRet);
 		}break;
 
 		case Interpolation::SphericalLinear:
@@ -35,15 +38,5 @@ namespace Render::Anm {
 
 		}
 		return quat();
-	}
-
-	Transform JointAnimation::sample(float t)
-	{
-		//sample three track    
-		Transform ret{};
-		ret.translation = mTransTrack.sample(t);
-		ret.scale		= mScaleTrack.sample(t);
-		ret.rotation	= mRotTrack.sample(t);
-		return ret;
 	}
 }
