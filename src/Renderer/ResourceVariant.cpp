@@ -5,6 +5,7 @@ namespace Render {
 	ShaderScopeDataPtr::ShaderScopeDataPtr(u32 size) : _size(size) {
 		if (size > 0) {
 			_data = new unsigned char[size];
+			memset(_data, 0, size);
 		}
 	}
 

@@ -491,6 +491,10 @@ namespace Render{
 	{
 		auto ctx = getRenderContext();
 		auto vkSampler = (Vulkan::rs_sampler_vk*)sampler;
+		if (sampler->bindlessIndex != INVALID_BINDLESS_INDEX)
+		{
+			unbindGlobalBindlessDataSampler(getGlobalBindlessData(), sampler->bindlessIndex);
+		}
 		Vulkan::destroyRsSampler(ctx, vkSampler);
 	}
 	void RenderSystem::clearDrawData(rs_drawdata* drawdata)
@@ -1451,7 +1455,7 @@ namespace Render{
 	{
 		if(dp->mErrorRGBTexture == nullptr)
 			dp->mErrorRGBTexture = ResourceSystem::instance()->getResource<Texture>(ResourceName::Texture, Name("Builtin::ErrorRGB"));
-		return nullptr;
+		return dp->mErrorRGBTexture;
 	}
 
 }
