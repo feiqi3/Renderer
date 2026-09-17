@@ -115,6 +115,7 @@ namespace Render::Vulkan {
 	VkPhysicalDeviceBufferDeviceAddressFeatures getExtensionEnablePhysicalDeviceBufferAddressFeatures(rs_context_vk* context);
 	std::vector<const char*> getExtensionEnableInstance(rs_context_vk* context);
 	std::vector<const char*> getLayerEnableInstance(rs_context_vk* context);
+	std::vector<VkValidationFeatureEnableEXT> getValidationLayerFeaturesEnabled();
 	rs_drawdata_vk* createDrawData(rs_context_vk* context);
 	void clearDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
 	void destroyDrawData(rs_context_vk* context, rs_drawdata_vk* drawdata);
@@ -133,6 +134,8 @@ namespace Render::Vulkan {
 	void cmdEndRenderPass(rs_commandbuffer_vk* cb);
 	void cmdSetViewport(rs_commandbuffer_vk* cb,const Rect2D& rect,float minDepth,float maxDepth,uint32_t idx);
 	void cmdSetScissor(rs_commandbuffer_vk* cb,const Rect2D& rect, uint32_t idx);
+
+	void cmdPushConstant(rs_commandbuffer_vk* cb,void* data,uint32_t size,uint32_t offset, PipelineType type);
 
 	void cmdDispatch(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_compute_pipeline_vk* pipeline, rs_drawdata_vk* drawData, rs_bindless_data_vk* bindless, uint32_t curFIF,int x,int y,int z);
 	void cmdDrawIndexed(rs_commandbuffer_vk* cb, rs_context_vk* ctx, rs_graphic_pipeline_vk* pipeline, const RenderInfo& info, DrawDataArray drawDatas, uint32_t curFif, bool isInstanced = false);

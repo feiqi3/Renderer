@@ -76,6 +76,7 @@ namespace Render::Vulkan {
 
 	struct rs_pipeline_layout_vk : rs_pipeline_layout {
 		std::vector<std::pair<uint16_t,struct rs_descriptorset_layout_vk*>> setLayouts;
+		std::vector<BindingInfo> extraInfo;
 	};
 
 	struct frame_buffer_cache {
@@ -126,6 +127,7 @@ namespace Render::Vulkan {
 		std::array<DescriptorBindingCache, 8> bindedDescriptorSets = {};
 		VkPipeline	bindedPipeline = VK_NULL_HANDLE;
 		rs_pipeline_layout* bindedPipelineLayout = nullptr;
+		rs_pipeline_layout* bindedComputePipelineLayout = nullptr;
 	};
 
 	struct	rs_swapchain_vk : rs_swapchain {

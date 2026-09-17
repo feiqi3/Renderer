@@ -158,7 +158,8 @@ namespace Render {
                     if (!var.getSampler())break;
                     sys->updateUniform(pp.location.bindingPos, i, var.getSampler()->getRsSampler(), pipeline, drawdata);
                     break;
-
+                //Ignore
+                case UniformType::PushConstant_VK:
                 default:
                     break;
                 }

@@ -25,6 +25,7 @@
 #include "Renderer/GPUShared/BindlessGlobalDefShared.h"
 #include <common/BindlessIndexingTable.h>
 #include "render_resource_global.h"
+#include "renderer/GPUShared/DrawMeta.h"
 
 #include <sstream>
 
@@ -146,6 +147,56 @@ namespace {
 }
 
 namespace Render::Vulkan {
+    static inline Render::GPUShared::ComputeMeta
+        genMetaDataOfThisCompute(rs_commandbuffer_vk* cb, DrawDataArray* dataArr,uint32_t x,uint32_t y,uint32_t z) {
+        Render::GPUShared::ComputeMeta meta{};
+        meta.dispatchIndex = cb->curDrawcallIndex;
+        meta.pipelineIndex = cb->curPipelineIndex;
+        meta.dispatchX = x;
+        meta.dispatchY = y;
+        meta.dispatchZ = z;
+        return meta;
+    }
+
+    static inline Render::GPUShared::DrawMeta
+        genMetaDataOfThisDraw(rs_commandbuffer_vk* cb,DrawDataArray* dataArr, int drawIndexNum,int instanceNum, int baseIndex, int baseVertex) {
+        Render::GPUShared::DrawMeta meta{};
+        meta.pipelineIndex = cb->curPipelineIndex;
+        meta.drawcallIndex = cb->curDrawcallIndex;
+        meta.indexNum = drawIndexNum;
+        meta.instanceNum = instanceNum;
+        meta.indexBaseOffset = baseIndex;
+        meta.vertexBaseOffset = baseVertex;
+        //Find The bindless set and get the address
+        if (isBindlessEnabled()) {
+            if (dataArr && (*dataArr)[1] != nullptr) {
+                //Store per pass draw data in dataArr[1]
+                const auto& drawdata = (rs_drawdata_vk*)(*dataArr)[1];
+                for(int i = 0;i < drawdata->DescriptorSets.size(); ++i){
+                    const auto& set = drawdata->DescriptorSets[i];
+                    for (const auto& slot : set.bindingTracker) {
+                        if (slot.type == UniformType::UniformBuffer) {
+                            //May be this one is the ubo stores bindless data....
+                            auto ubo = ((UniformBufferObject*)slot.rsData[0]);
+                            meta.bindlessAddress = ubo->mBuffer->gpuAddress + (uint64_t)slot.uboDyOffset;
+                        }
+                    }
+                }
+            }
+        }
+        return meta;
+    }
+
+    inline static bool pipelineHasMetaDataPushConstant(rs_pipeline_layout_vk* pipelineLayout) {
+        const auto& extraInfo = pipelineLayout->extraInfo;
+        for (const auto& bindingInfo : extraInfo) {
+            if (bindingInfo.type == UniformType::PushConstant_VK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     std::pair<rs_descriptorSet_vk*,descriptor_set_pack*> _findOrCreateDescripotrSet(rs_context_vk* context, uint64_t frame, uint32_t fif, rs_graphic_pipeline_vk* pipeline, rs_drawdata_vk* drawdata, uint32_t vkSet);
 
     ImageFormat ToImageFormat(VkFormat format) {
@@ -924,6 +975,9 @@ namespace Render::Vulkan {
         ret->byteSize = desc.byteSize;
         ret->native = buffer;
         ret->queueType = context->graphicQueue->queueType;
+        if (BufferDeviceAddressEnable) {
+            ret->gpuAddress = getRsBufferDeviceAddress(context,ret);
+        }
         return ret;
     }
 
@@ -2023,6 +2077,13 @@ namespace Render::Vulkan {
         auto extension = getExtensionEnableInstance(context);
         auto layers = getLayerEnableInstance(context);
 
+        std::vector<VkValidationFeatureEnableEXT>  validation_feature_enables = { VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT };
+
+        VkValidationFeaturesEXT validation_features{ VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
+        auto enabledValidationFeatures = getValidationLayerFeaturesEnabled();
+        validation_features.enabledValidationFeatureCount = enabledValidationFeatures.size();
+        validation_features.pEnabledValidationFeatures = enabledValidationFeatures.data();
+
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
@@ -2030,6 +2091,7 @@ namespace Render::Vulkan {
         createInfo.ppEnabledLayerNames = layers.data();
         createInfo.                    enabledExtensionCount = extension.size();
         createInfo.ppEnabledExtensionNames = extension.data();
+        createInfo.pNext               = &validation_features;
         VK_CHECK(vkCreateInstance(&createInfo, 0, &context->instance), { std::abort(); });
         volkLoadInstance(context->instance);
         if (context->initDesc.enableValidation) {
@@ -2598,6 +2660,11 @@ namespace Render::Vulkan {
         return requiredLayerNames;
     }
 
+    std::vector<VkValidationFeatureEnableEXT> getValidationLayerFeaturesEnabled()
+    {                           
+        return { VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT };
+    }
+
     rs_drawdata_vk* createDrawData(rs_context_vk* context)
     {
         auto drawData = new rs_drawdata_vk;
@@ -2879,6 +2946,26 @@ namespace Render::Vulkan {
 
         vkCmdSetScissor((VkCommandBuffer)cb->native, idx, 1, &scissor);
     }
+
+    void cmdPushConstant(rs_commandbuffer_vk* cb, void* data, uint32_t size, uint32_t offset,PipelineType type)
+    {
+        //Minimal guarantee...Or bad thing happen
+        assert(size < 128 && "To large push constant size.");
+        //How to do?
+        auto cmd = (VkCommandBuffer)cb->native;
+        auto layout = type == PipelineType::Graphics ? cb->bindedPipelineLayout
+            : cb->bindedComputePipelineLayout;
+
+        vkCmdPushConstants(
+            cmd,
+            (VkPipelineLayout)layout->native,
+            toVkShaderStageFlags(layout->shaderStagesFlags),
+            offset,
+            size,
+            data
+        );
+    }
+
     static void invalidCmdDescriptorCacheWhenChangePipelineLyout(rs_commandbuffer_vk* cmd, rs_pipeline_layout_vk* newLayout, VkPipelineBindPoint bindPoint) {
         //https://docs.vulkan.org/spec/latest/chapters/descriptorsets.html
         //SHIT RULE, SHIT API
@@ -2945,13 +3032,25 @@ namespace Render::Vulkan {
         if (cb->bindedPipeline != pipeline->native) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, (VkPipeline)pipeline->native);
             cb->bindedPipeline = (VkPipeline)pipeline->native;
+            cb->curPipelineIndex = pipeline->pipelineIndex;
+            cb->bindedComputePipelineLayout = pipeline->pipelineLayout;
         }
+
+
         if (bindless) {
 			cmdBindBindlessData(ctx, cb, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, bindless,QueueType_Compute);
         }
 
 		cmdBindDrawData(cb,ctx, (rs_pipeline_layout_vk*)pipeline->pipelineLayout, drawData, curFIF,QueueType_Compute);
         cmdTransitPendingResource(cb, true);
+
+        if (ShaderDrawMeta && pipelineHasMetaDataPushConstant((rs_pipeline_layout_vk*)pipeline->pipelineLayout)) {
+            DrawDataArray arr{};
+            arr[0] = drawData;
+            auto meta = genMetaDataOfThisCompute(cb, &arr, x, y, z);
+            cmdPushConstant(cb, &meta, sizeof(meta), 0,PipelineType::Compute);
+        }
+
 		vkCmdDispatch(cmd, x, y, z);
     }
 
@@ -2981,6 +3080,7 @@ namespace Render::Vulkan {
         if (cb->bindedPipeline != pipeline->native) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, piplineVk);
             cb->bindedPipeline = piplineVk;
+            cb->curPipelineIndex = pipeline->pipelineIndex;
         }
         //It's ok to draw with out index buffer
         bool donotuseidxdraw = false;
@@ -3012,6 +3112,12 @@ namespace Render::Vulkan {
         }
 
         uint32_t instanceCnt = isInstanced ? info.instanceCount : 1;
+        if (ShaderDrawMeta && pipelineHasMetaDataPushConstant((rs_pipeline_layout_vk*)pipeline->pipelineLayout))
+        {
+            uint32_t indexOffset = info.idxOffset / (info.indexType == IndexType::Uint16 ? 2 : 4);
+            auto metaData = genMetaDataOfThisDraw(cb, &drawDatas, info.idxCount, info.instanceCount, indexOffset,info.vtxoffset);
+            cmdPushConstant(cb, &metaData, sizeof(metaData), 0, PipelineType::Graphics);
+        }
         if (donotuseidxdraw) {
             vkCmdDraw(cmd, info.idxCount, instanceCnt, info.vtxoffset, 0);
         }
@@ -3177,6 +3283,7 @@ namespace Render::Vulkan {
             vkUpdateDescriptorSets(context->device, 1, &writeSet, 0, nullptr);
             break;
         }
+        case UniformType::PushConstant_VK:
         default:
             assert(false && "Unsupported UniformType in Array Write");
             return;
@@ -3213,6 +3320,8 @@ namespace Render::Vulkan {
         {
             VkDescriptorBufferInfo bufferInfo{};
             if (isNull) {
+                Log::error("Null UBO!!!!!Crash");
+                assert(false);
                 slot.fifDirtyFlag = 0xFFFF; //Set to dirty all;
                 auto curFrameDyBufferDefault = context->descriptorSetMgr->getCurFrameDefaultUBO();
                 bufferInfo.buffer = (VkBuffer)curFrameDyBufferDefault.first->mBuffer->native;

@@ -1,6 +1,7 @@
 #version 450
 #include "CommonSets.inl"
 #include "PBREntity.h"
+#include "ShaderExtensions.inl"
 
 #define CAMDATA         CameraCommon.camera
 #define LIGHTDATA       SceneCommon.sceneLights
@@ -18,7 +19,6 @@ layout(location = 3) out vec3 o_bitangent;
 layout(location = 4) out vec2 o_texcoord0;
 layout(location = 5) out vec3 o_color;
 layout(location = 6) out vec3 o_viewDir;
-
 
 
 void main(){

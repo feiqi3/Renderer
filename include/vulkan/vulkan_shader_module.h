@@ -13,11 +13,12 @@ namespace Render::Vulkan {
 	struct PipelineLayoutInfo {
 		std::vector<DescritporSetInfo> setInfo;
 		std::vector<BindlessInfo> bindlessInfo;
+		std::vector<BindingInfo>  extraInfo;
 		uint32_t shaderStages = 0;
 	};
 	bool assembleBindlessInfo(const std::vector<BindlessInfo>& info, std::vector<BindlessInfo>& out);
 	std::vector< DescritporSetInfo> assembleDescriptorSetInfo(const std::vector<rs_descriptor>& descritpors);
-
+	bool	getPushConstantInfo(rs_shader_module_vk** shaders, size_t num,BindingInfo& outInfo, bool& hasPushConstant);
 	PipelineLayoutInfo getPipelineShaderInfo(rs_shader_module_vk** shaders, size_t num);
 
 }

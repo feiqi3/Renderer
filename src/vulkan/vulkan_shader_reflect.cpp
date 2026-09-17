@@ -3,6 +3,7 @@
 #include "common/Name.h"
 #include "vulkan/vulkan_shader_reflect.h"
 #include "vulkan/vulkan_render_function.h"
+#include "vulkan/vulkan_global_def.h"
 #include "../3rd/spirv-reflect/spirv_reflect.h"
 #include "shaderc/shaderc.hpp"
 #include <fstream>
@@ -137,7 +138,7 @@ namespace {
                 result->content = "File Not Found";
                 result->source_name_length = 0;
                 result->content_length = strlen(result->content);
-                return nullptr;
+                return result;
             }
 
             // 复制 source_name
@@ -162,8 +163,13 @@ namespace {
 
         void ReleaseInclude(shaderc_include_result* data) override {
             if (!data) return;
-            std::free(const_cast<char*>(data->source_name));
-            std::free(const_cast<char*>(data->content));
+            if (data->source_name_length > 0) {
+                std::free(const_cast<char*>(data->source_name));
+                std::free(const_cast<char*>(data->content));
+            }
+            else {
+                //fail case
+            }
             delete data;
         }
 
@@ -212,7 +218,30 @@ namespace {
 }
 
 namespace Render::Vulkan {
-	rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc,const char* entryPoint)
+    static std::vector<std::pair<std::string, std::string>>& getShaderGlobalMacro()
+    {
+        static bool isFirstInit = true;
+        static std::vector<std::pair<std::string, std::string>> shaderMacros;
+        if (isFirstInit) {
+            isFirstInit = false;
+
+            if (ShaderDebugPrint) {
+                shaderMacros.push_back({ "SHADER_DEBUG_PRINT","" });
+            }
+
+
+            if (BufferDeviceAddressEnable) {
+                shaderMacros.push_back({ "BUFFER_DEVICE_ADDRESS","" });
+            }
+
+            if (ShaderDrawMeta) {
+                shaderMacros.push_back({ "DRAW_META_DATA","" });
+            }
+        }
+        return shaderMacros;
+    }
+
+    rs_shader_module_vk* compileShader(rs_context_vk* ctx, const ShaderCompileDesc& desc,const char* entryPoint)
 	{
 		shaderc::CompileOptions options;
 		shaderc::Compiler compiler;
@@ -221,7 +250,6 @@ namespace Render::Vulkan {
         shaderc_optimization_level lvl = desc.enableOptimize ? shaderc_optimization_level_performance : shaderc_optimization_level_zero;
         options.SetAutoBindUniforms(true);
         options.SetOptimizationLevel(lvl);
-
         if (desc.generateDebugInfo) {
             options.SetGenerateDebugInfo();
         }
@@ -267,7 +295,27 @@ namespace Render::Vulkan {
         options.SetSourceLanguage(lang);
 
         //Set macros:
-        
+        //1. global macros
+        auto globalMarcos = getShaderGlobalMacro();
+        for (const auto& [name, val] : globalMarcos) {
+            if (name.length() == 0) {
+                continue;
+            }
+            if (val.empty()) {
+                options.AddMacroDefinition(name);
+            }
+            else {
+                options.AddMacroDefinition(name, val);
+            }
+        }
+        //2. Shader Stage macros
+        if (desc.stage == (ShaderStage)ShaderStage::Compute) {
+            options.AddMacroDefinition("COMPUTE");
+        }
+        //TODO
+
+        //3. user set macros
+
         for (const auto& [name, val] : desc.macros) {
             if (name.length() == 0) {
                 continue;
@@ -487,7 +535,7 @@ namespace Render::Vulkan {
                 }
             }
 
-            if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_UAV) {
+            if (binding->resource_type & SPV_REFLECT_RESOURCE_FLAG_UAV) {
                 if (binding->decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE) {
                     bindingInfo.access = UAVAccess::ReadOnly;
                 }
@@ -501,11 +549,34 @@ namespace Render::Vulkan {
             bindingInfo.shaderVisibleStage = (uint16_t)stage;
             bindings.emplace_back(std::move(bindingInfo));
         }
-        rflInfo.bindingInfo     = std::move(bindings);
+
+        uint32_t push_constant_count = 0;
+        spvReflectEnumeratePushConstantBlocks(&shaderModule, &push_constant_count, nullptr);
+        std::vector<SpvReflectBlockVariable*> rflConstBlocks(push_constant_count);
+        if (push_constant_count > 1) {
+            Log::error("Only accept 1 push constant block! Check shader ");
+            assert(false);
+        }
+
+
+        rflInfo.bindingInfo = std::move(bindings);
         rflInfo.inputAttributes = std::move(attributes);
         if (isBindlessEnabled()) {
             rflInfo.bindlessInfo = std::move(bindlessInfos);
         }
+
+        spvReflectEnumeratePushConstantBlocks(&shaderModule, &push_constant_count, rflConstBlocks.data());
+        for (auto&& i : rflConstBlocks) {
+            assert(i->offset == 0);
+            BindingInfo bindingInfo{};
+            bindingInfo.bindingItemName = Name(i->name);
+            bindingInfo.bindingPos = INVALID_BINDING_POS;
+            bindingInfo.size = i->size;
+            bindingInfo.type = UniformType::PushConstant_VK;
+            bindingInfo.shaderVisibleStage = (uint16_t)stage;
+            rflInfo.extraInfo.push_back(bindingInfo);
+        }
+
         return rflInfo;
     }
 }

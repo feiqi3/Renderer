@@ -35,6 +35,8 @@ namespace Render::Vulkan {
             return VK_DESCRIPTOR_TYPE_SAMPLER;
         //case UniformType::AccelerationStructure:
         //    return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        //This is not a Descriptor!
+        case UniformType::PushConstant_VK:
         default:
             return VK_DESCRIPTOR_TYPE_MAX_ENUM; // or handle error
         }
@@ -46,35 +48,42 @@ namespace Render::Vulkan {
         m_maxFrame = maxFrame;
         this->m_pools.resize(maxFrame);
         VkDescriptorPoolSize poolFactor{};
+        this->m_defaultSize.resize((int)(UniformType::Count), {});
+
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolFactor.descriptorCount = 24;
-        this->m_defaultSize.push_back(poolFactor);
+        this->m_defaultSize[(int)UniformType::ConstantBuffer] = (poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         poolFactor.descriptorCount = 60;
-        this->m_defaultSize.push_back(poolFactor);
+        this->m_defaultSize[(int)UniformType::UniformBuffer] = (poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolFactor.descriptorCount = 60;
-        this->m_defaultSize.push_back(poolFactor);
+        this->m_defaultSize[(int)UniformType::StorageBuffer] = (poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         poolFactor.descriptorCount = 60;
-        this->m_defaultSize.push_back(poolFactor);
+        this->m_defaultSize[(int)UniformType::StorageImage] = (poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         poolFactor.descriptorCount = 60;
-        this->m_defaultSize.push_back(poolFactor);
+        this->m_defaultSize[(int)UniformType::Texture] = (poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
         poolFactor.descriptorCount = 60;
-        this->m_defaultSize.push_back(poolFactor);
+        this->m_defaultSize[(int)UniformType::InputAttachment] = (poolFactor);
 
         poolFactor.type = VK_DESCRIPTOR_TYPE_SAMPLER;
         poolFactor.descriptorCount = 60;
-        this->m_defaultSize.push_back(poolFactor);
-
+        this->m_defaultSize[(int)UniformType::Sampler] = (poolFactor);
+        m_defaultSize.erase(std::remove_if(
+            m_defaultSize.begin(), m_defaultSize.end(),
+            [](const auto& ele) {
+                return ele.descriptorCount == 0;
+            }
+        ), m_defaultSize.end());
         //poolFactor.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         //poolFactor.descriptorCount = 10;
         //this->m_defaultSize.push_back(poolFactor);
@@ -87,14 +96,21 @@ namespace Render::Vulkan {
         if (block->maxSets == 0)
             return VK_NULL_HANDLE;
 
-        for (auto i = 0; i < (int)UniformType::Count; ++i) {
+        static auto ignoreUTypes = [](int typeIndex) {
+            auto uType = (UniformType)(typeIndex);
+            if (uType == UniformType::PushConstant_VK)return true;
+            return false;
+        };
 
+        for (auto i = 0; i < (int)UniformType::Count; ++i) {
+            if (ignoreUTypes(i))continue;
             if (block->sizes[i].descriptorCount < layout->bindingHash.mAllocaHint.hint[i]) {
                 return VK_NULL_HANDLE;
             }
         }
 
         for (auto i = 0; i < (int)UniformType::Count; ++i) {
+            if (ignoreUTypes(i))continue;
             block->sizes[i].descriptorCount -= layout->bindingHash.mAllocaHint.hint[i];
         }
         block->maxSets--;
@@ -241,7 +257,11 @@ namespace Render::Vulkan {
         PoolSizeInfo poolSizes((int)UniformType::Count);
 
         for (const auto& descriptor : layoutHash.mDescriptors) {
-            if (descriptor.type == UniformType::Count)continue;
+
+            if (descriptor.type == UniformType::Count
+                //PushConstant is not a descriptor, so donot engage in the descriptor allocation
+                || descriptor.type == UniformType::PushConstant_VK
+                )continue;
             VkDescriptorPoolSize size{};
             size.type = toVkDescriptorType(descriptor.type);
             size.descriptorCount = descriptor.count;
@@ -322,7 +342,7 @@ namespace Render::Vulkan {
             mUniformBufferLists.push_back(choosenUBO);
             if (!choosenUBO->allocateInFrame(data, size, fif, frame, offsetPos)) {
                 assert("ERROR");
-                return { choosenUBO  , 0};
+                return { nullptr  , 0};
             }
             else {
                 choosenUBO->mInUsedNum.fetch_add(1);

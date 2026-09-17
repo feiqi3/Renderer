@@ -5,7 +5,6 @@
 namespace Render::Vulkan {
     bool assembleBindlessInfo(const std::vector<BindlessInfo>& bindlessInfoList, std::vector<BindlessInfo>& out)
     {
-
         std::map<rs_binding_pos,
             std::map<uint32_t, Name>
         > bindlessInfoMap;
@@ -120,6 +119,48 @@ namespace Render::Vulkan {
 
         return retVal;
     }
+    bool getPushConstantInfo(rs_shader_module_vk** shaders, size_t num, BindingInfo& outInfo,bool& hasPushConstant)
+    {
+        bool firstInit = true;
+        int size = -1;
+        for (auto i = 0;i < num;++i) {
+            auto shaderModule = shaders[i];
+            int constantSize = 0;
+            bool find = false;
+            auto& extraInfo = shaders[i]->rflInfo.extraInfo;
+            for (const auto& descriptor : extraInfo) {
+                if (descriptor.type == UniformType::PushConstant_VK) {
+                    outInfo.type = UniformType::PushConstant_VK;
+                    outInfo.shaderVisibleStage |= descriptor.shaderVisibleStage;
+                    constantSize = descriptor.size;
+                    find = true;
+                    break;
+                }
+            }
+            if (find) {
+                if (firstInit) {
+                    hasPushConstant = true;
+                    firstInit = false;
+                    //First init 
+                    //Set initial size
+                    //Used for the following 
+                    outInfo.size = constantSize;
+                    size = constantSize;
+                }
+                else {
+                    //Mismatch happened
+                    if (size != constantSize)
+                        return false;
+                }
+            }
+        }
+
+        if (!hasPushConstant)
+        {//Push constant not found
+            return false;
+        }
+        return true;
+    }
     PipelineLayoutInfo getPipelineShaderInfo(rs_shader_module_vk** shaders, size_t num)
     {
         //Descriptor set is defined cross shaders
@@ -146,6 +187,20 @@ namespace Render::Vulkan {
         });
         ret.bindlessInfo = std::move(outBindlessInfo);
         ret.setInfo = std::move(descriptorSetList);
+
+        BindingInfo pushConstantInfo{};
+        bool hasPushConstant = false;
+        bool pushConstantReadSucceed = getPushConstantInfo(shaders, num, pushConstantInfo, hasPushConstant);
+        if (hasPushConstant) {
+            if (pushConstantReadSucceed == false) {
+                assert(false);
+                Log::error("PushConstant info mismatch ---> use one Push constant block, with no offset.");
+
+            }
+            else {
+                ret.extraInfo.push_back(pushConstantInfo);
+            }
+       }
         return ret;
     }
 }

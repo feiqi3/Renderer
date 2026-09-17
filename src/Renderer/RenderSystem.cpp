@@ -466,7 +466,9 @@ namespace Render{
 
 	rs_compute_pipeline* RenderSystem::createComputePipeline(rs_shader_module* module)
 	{
-		return Vulkan::createRsComputePipeline(getRenderContext(), (Vulkan::rs_shader_module_vk*)module);
+		auto ret = Vulkan::createRsComputePipeline(getRenderContext(), (Vulkan::rs_shader_module_vk*)module);
+		ret->pipelineIndex = getRenderContext()->pipelineIndex.fetch_add(1);
+		return ret;
 	}
 
 	rs_graphic_pipeline* RenderSystem::createGraphicPipeline(rs_renderpass* renderpass, PipelineDesc& pipelineDescription)
@@ -896,7 +898,7 @@ namespace Render{
 			//return;
 		}
 		cmdBuffer->hasCommands = false;
-		
+		cmdBuffer->curDrawcallIndex = 0;
 		CommandPair pair{
 			.commandBuffer = cmdBuffer,
 			.wait = wait,
@@ -930,6 +932,7 @@ namespace Render{
 		}
 		transitDrawdataResourceState(cmdBuffer, PipelineType::Compute, drawData);
 		Vulkan::cmdDispatch((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(),(Vulkan::rs_compute_pipeline_vk*) pipeline, (Vulkan::rs_drawdata_vk*)drawData,(Vulkan::rs_bindless_data_vk*)getGlobalBindlessData(), getCurFif(), groupX, groupY, groupZ);
+		cmdBuffer->curComputeIndex++;
 	}
 
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, RenderEntity* entity, Camera* camera,const Name& passName)
@@ -946,13 +949,14 @@ namespace Render{
 		auto entityCommonDrawData = entity->getEntityCommonDrawData();
 		Vulkan::DrawDataArray drawDataArr{};
 		fillDrawDataArray((DrawDataArray*)&drawDataArr, entity, camera, pass);
-	
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer,getRenderContext(), pipeline, entity->getRenderInfo(), drawDataArr, getCurFif(),true);
+		cmdBuffer->curDrawcallIndex++;
 	}
 	void RenderSystem::drawIndexed(rs_commandbuffer* cmdBuffer, rs_graphic_pipeline* pipeline, RenderInfo& info, const DrawDataArray& drawDatas)
 	{
 		cmdBuffer->hasCommands = true;
 		Vulkan::cmdDrawIndexed((Vulkan::rs_commandbuffer_vk*)cmdBuffer, getRenderContext(), (Vulkan::rs_graphic_pipeline_vk*)pipeline, info,(const Vulkan::DrawDataArray&)drawDatas, getCurFif(), true);
+		cmdBuffer->curDrawcallIndex++;
 	}
 	void RenderSystem::transitDrawdataResourceState(rs_commandbuffer* cmdBuffer, PipelineType type, rs_drawdata* drawdata)
 	{

@@ -20,6 +20,7 @@ namespace Render {
 		uint32_t maxFrameInFlight = 2;
 		uint32_t hardwareFrameInFlight = 3;
 		bool PostMortemEnabled = true;
+		std::atomic_int pipelineIndex = 0;
 
 		uint32_t LogicFrameFif = 0;
 		uint32_t RenderFrameFif = 0;
@@ -54,6 +55,7 @@ namespace Render {
 	struct rs_shader_reflect_info {
 		std::vector<BindlessInfo>	bindlessInfo;
 		std::vector<BindingInfo>	bindingInfo;
+		std::vector<BindingInfo>	extraInfo;
 		std::vector<InputAttribute> inputAttributes;
 	};
 
@@ -116,6 +118,7 @@ namespace Render {
 		std::vector<ResourceLocation> resources;
 		rs_pipeline_layout* pipelineLayout;
 		PipelineType type{};
+		int32_t pipelineIndex = -1;
 	};
 
 	struct rs_graphic_pipeline : rs_pipeline {
@@ -156,6 +159,9 @@ namespace Render {
 		uint32_t lastActiveFrames = 0;
 		bool hasCommands = false;
 		std::vector<std::vector<void*>> resourceToBeTransit;
+		uint32_t curDrawcallIndex = 0;
+		uint32_t curComputeIndex  = 0;
+		uint32_t curPipelineIndex = 0;
 	};
 
 	struct rs_binding_slot{

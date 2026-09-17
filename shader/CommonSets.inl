@@ -69,3 +69,4 @@ layout(set = 5, binding = 2 ) uniform sampler			ShadowSampler;
 #define CLUSTERDATA     ClusterInfoData.Cluster
 #include "ShaderResource.inl"
 #include "BindlessSet.inl"
+#include "ShaderDrawMetaData.inl"

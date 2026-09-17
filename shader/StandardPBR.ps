@@ -1,6 +1,8 @@
 #version 450
 //https://www.shadertoy.com/view/ld3SRr 
 
+#include "ShaderExtensions.inl"
+
 #include "CommonSets.inl"
 #include "PBREntity.h"
 
@@ -180,8 +182,18 @@ vec3 fromTangentSpaceToWorld(vec3 vector) {
     mat3 TBN = mat3(T, B, N);
     return normalize(TBN * vector);
 }
+
+
+void debugPrintInfo() {
+    if(gl_PrimitiveID == 0 && subgroupElect()){
+        DEBUG_PRINT(("Draw: %d, using pipeline: %d, BindlessUBO Address: %ul",GET_DRAW_CALL_INDEX(),GET_PIPELINE_INDEX(),GET_BINDLESS_ADDRESS()));
+    }
+}
+
+
 void main()
 {
+    debugPrintInfo();
     vec2 uvBase = i_texcoord0;
     vec2 uvMR   = i_texcoord0;
     vec2 uvN    = i_texcoord0;

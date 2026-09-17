@@ -156,6 +156,10 @@ namespace Render::Vulkan {
         VkPipelineLayoutCreateInfo plcInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         plcInfo.setLayoutCount = setlayout_vks.size();
         plcInfo.pSetLayouts = setlayout_vks.data();
+
+        assert(pushConstants.size() <= 1);
+        plcInfo.pPushConstantRanges = pushConstants.data();
+        plcInfo.pushConstantRangeCount = pushConstants.size();
         VkPipelineLayout res;
         VK_CHECK(vkCreatePipelineLayout(context->device, &plcInfo, 0, &res), {
             return nullptr;
@@ -662,6 +666,7 @@ namespace Render::Vulkan {
 		//Assemble ResourceLocation;
         assemblePipelineResource(ret, pipelineShaderInfo);
 
+        ret->pipelineIndex = ctx->pipelineIndex.fetch_add(1);
         return ret;
     }
 
@@ -755,8 +760,22 @@ namespace Render::Vulkan {
             p.first = setInfo.setIdx;
             setlayouts.push_back(p);
         }
-        auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, {});
+        std::vector<VkPushConstantRange> pushConstantRanges;
+        //Filter out push constant;
+        for (const auto& descriptorInfo : descriptorInfos.extraInfo) {
+            if (descriptorInfo.type == UniformType::PushConstant_VK) {
+                VkPushConstantRange range{};
+                range.offset = 0;
+                range.size = descriptorInfo.size;
+                range.stageFlags = toVkShaderStageFlags(descriptorInfo.shaderVisibleStage);
+                pushConstantRanges.push_back(range);
+                break;
+            }
+        }
+
+        auto pipelineLayout = createRsPipelineLayout(ctx, setlayouts, pushConstantRanges);
         pipelineLayout->shaderStagesFlags = descriptorInfos.shaderStages;
+        pipelineLayout->extraInfo = descriptorInfos.extraInfo;
         return pipelineLayout;
     }
 

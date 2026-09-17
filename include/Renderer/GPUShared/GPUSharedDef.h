@@ -11,7 +11,11 @@
 #define GPU_SHARED_NAMESPACE_BEGIN namespace Render::GPUShared {
 #define GPU_SHARED_NAMESPACE_END }
 #define GPU_SHARED_ALIGN alignas(16)
-using   uint = uint32_t;
+using   uint	= uint32_t;
+
+//Some shader extension support this kind of datatype
+using	int64	= int64_t;
+using	uint64	= uint64_t;
 #else
 #define GPU_SHARED_NAMESPACE_BEGIN
 #define GPU_SHARED_NAMESPACE_END

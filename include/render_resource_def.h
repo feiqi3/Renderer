@@ -275,6 +275,7 @@ namespace Render {
         Texture,
         InputAttachment,
         Sampler,
+        PushConstant_VK,
 //        AccelerationStructure,
         Count
     };
