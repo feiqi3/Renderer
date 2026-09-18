@@ -16,7 +16,42 @@ namespace Render {
 			vec4 color;
 			float useBillboard = -1.;
 		};
+
+		struct alignas(4) LineInfo {
+			vec3	begin;	//12
+			u32		color;	//4
+			vec3	end;	//12
+			float	width;	//4
+		};
 	}
+	class LineDrawEntity : public RenderEntity {
+	public:
+		MaterialPtr material;
+		
+		LineDrawEntity() {
+			this->getRenderInfo().bindingBuffers.resize(0);
+
+			auto& renderInfo = this->getRenderInfo();
+			renderInfo.bindingBuffers.resize(1, {});
+			renderInfo.idxCount = 6;
+		}
+
+		void setInstanceCount(int i) {
+			this->getRenderInfo().instanceCount = i;
+		}
+
+		virtual AxisAlignedBoundingBox getWorldBounding() override {
+			return AxisAlignedBoundingBox();
+		}
+
+		void setPerInstanceBuffer(rs_buffer* buffer) {
+			this->getRenderInfo().bindingBuffers[0].buffer = buffer;
+		}
+
+		virtual Material* getMaterial() override {
+			return material.get();
+		}
+	};
 
 	class DebugDrawEntity : public RenderEntity {
 	public:
@@ -56,6 +91,10 @@ namespace Render {
 	public:
 		MaterialTemplatePtr debugDrawTemp;
 		MaterialPtr			debugDrawMat;
+
+		MaterialTemplatePtr debugDrawLineTemp;
+		MaterialPtr			debugDrawLineMat;
+
 		bool init = false;
 
 		std::unique_ptr<DebugDrawEntity> mCubeEntity;
@@ -67,6 +106,11 @@ namespace Render {
 		rs_buffer* mQuadPerInstanceBuffer = nullptr;
 		int quadInsBufferNumber = 0;
 		std::vector<PerObjectInfo> mQuadInfo;
+
+		std::unique_ptr<LineDrawEntity> mLineEntity;
+		rs_buffer* mLinePerInstanceBuffer = nullptr;
+		int lineInsBufferNumber = 0;
+		std::vector<LineInfo> mLineInfo;
 	};
 
 	DebugDrawManager::DebugDrawManager()
@@ -85,11 +129,22 @@ namespace Render {
 		mDp = nullptr;
 	}
 
-	void DebugDrawManager::drawPoint(const vec3& pos, const vec4& color)
+	void DebugDrawManager::drawCube(const vec3& pos, const quat& rotation, const vec4& color, float size)
+	{
+		PerObjectInfo info{};
+		mat4 id = mat4(1.0f);
+		info.color = color;
+		info.world = getTRS(pos, rotation, vec3(size));
+		info.color = color;
+		info.useBillboard = 0.;
+		mDp->mCubeInfo.push_back(info);
+	}
+
+	void DebugDrawManager::drawPoint(const vec3& pos, const vec4& color, float size)
 	{
 		PerObjectInfo info;
 		mat4 id = mat4(1.0f);
-		info.world = glm::translate(id, pos) * glm::scale(id, vec3(0.03f));
+		info.world = glm::translate(id, pos) * glm::scale(id, vec3(0.03f) * size);
 		info.color = color;
 		info.useBillboard = 1.;
 		mDp->mQuadInfo.push_back(info);
@@ -147,6 +202,30 @@ namespace Render {
 		mDp->mCubeInfo.push_back(info);
 	}
 
+	void DebugDrawManager::drawLine(const vec3& beg, const vec3& end, const vec4& color, float width)
+	{
+		union {
+			struct {
+				u8 r;
+				u8 g;
+				u8 b;
+				u8 a;
+			};
+			uint32_t c;
+		};
+		r = u8( color.r * 255.f );
+		g = u8( color.g * 255.f );
+		b = u8( color.b * 255.f );
+		a = u8( color.a * 255.f );
+		
+		LineInfo line{};
+		line.begin = beg;
+		line.end = end;
+		line.width = width;
+		line.color = c;
+		mDp->mLineInfo.push_back(line);
+	}
+
 	void DebugDrawManager::onRender(Camera* cam)
 	{
 		if (!mDp->mCubeInfo.empty()) {
@@ -194,6 +273,32 @@ namespace Render {
 			mDp->mQuadEntity->setPerInstanceBuffer(mDp->mQuadPerInstanceBuffer);
 			mDp->mQuadEntity->setInstanceCount(mDp->mQuadInfo.size());
 			cam->getRenderQueue()->submit(mDp->mQuadEntity.get(), RenderMask::DebugDraw);
+			mDp->mQuadInfo.clear();
+		}
+
+		if (!mDp->mLineInfo.empty()) {
+			bool bufferUpdated = false;
+			auto sizeByte = sizeof(LineInfo) * mDp->mLineInfo.size();
+			if (mDp->mLinePerInstanceBuffer == nullptr || mDp->lineInsBufferNumber < mDp->mLineInfo.size()) {
+				if(mDp->mLinePerInstanceBuffer){
+					RenderSystem::instance()->destroyBuffer(mDp->mLinePerInstanceBuffer);
+				}
+				BufferDesc desc{};
+				desc.bufUsage = BufferType_Vertex;
+				desc.byteSize = sizeByte;
+				desc.queueType = QueueType_Graphics;
+				mDp->mLinePerInstanceBuffer = RenderSystem::instance()->createBuffer(mDp->mLineInfo.data(), sizeByte, desc);
+				bufferUpdated = true;
+				mDp->lineInsBufferNumber = mDp->mQuadInfo.size();
+			}
+
+			if (!bufferUpdated) {
+				RenderSystem::instance()->updateBufferData(mDp->mLinePerInstanceBuffer, mDp->mLineInfo.data(), sizeByte, 0);
+			}
+
+			mDp->mLineEntity->setPerInstanceBuffer(mDp->mLinePerInstanceBuffer);
+			mDp->mLineEntity->setInstanceCount(mDp->mLineInfo.size());
+			cam->getRenderQueue()->submit(mDp->mLineEntity.get(), RenderMask::DebugDraw);
 			mDp->mQuadInfo.clear();
 		}
 	}
@@ -271,21 +376,76 @@ namespace Render {
 			IADescVec.push_back(attr);
 		}
 
-		auto matTemp = MaterialTemplateManager::instance()->createMaterialTemplate(
-			Name("DebugDrawMaterialTemplate"), stageInfo, state, desc
-		);
-		mDp->debugDrawTemp = matTemp;
-		matTemp->createMaterialPass(PassName::MainCameraTransparentPass);
-		mDp->debugDrawMat = MaterialManager::instance()->createMaterial<Material>(Name("DebugDrawMaterial"), matTemp);
-		mDp->debugDrawMat->setRenderMask(RenderMask::DebugDraw);
+		{
+			auto matTemp = MaterialTemplateManager::instance()->createMaterialTemplate(
+				Name("DebugDrawMaterialTemplate"), stageInfo, state, desc
+			);
+			mDp->debugDrawTemp = matTemp;
+			matTemp->createMaterialPass(PassName::MainCameraTransparentPass);
+			mDp->debugDrawMat = MaterialManager::instance()->createMaterial<Material>(Name("DebugDrawMaterial"), matTemp);
+			mDp->debugDrawMat->setRenderMask(RenderMask::DebugDraw);
 
-		mDp->mCubeEntity = std::make_unique<DebugDrawEntity>(Name("Builtin::Cube"));
-		mDp->mCubeEntity->material = mDp->debugDrawMat;
-		mDp->mCubeEntity->setRenderMask(RenderMask::DebugDraw);
+			mDp->mCubeEntity = std::make_unique<DebugDrawEntity>(Name("Builtin::Cube"));
+			mDp->mCubeEntity->material = mDp->debugDrawMat;
+			mDp->mCubeEntity->setRenderMask(RenderMask::DebugDraw);
 
-		mDp->mQuadEntity = std::make_unique<DebugDrawEntity>(Name("Builtin::Quad"));
-		mDp->mQuadEntity->material = mDp->debugDrawMat;
-		mDp->mQuadEntity->setRenderMask(RenderMask::DebugDraw);
+			mDp->mQuadEntity = std::make_unique<DebugDrawEntity>(Name("Builtin::Quad"));
+			mDp->mQuadEntity->material = mDp->debugDrawMat;
+			mDp->mQuadEntity->setRenderMask(RenderMask::DebugDraw);
+		}
+
+		{
+			stageInfo[0].second = "../shader/DebugDrawLine.vs";
+			state.blendStates.clear();
+			state.depthWriteEnable = true;
+			state.depthTestEnable = true;
+			desc.bindings.clear();
+			InputBufferBinding bindingInfo{};
+			bindingInfo.perInstance = true;
+			bindingInfo.stride = sizeof(LineInfo);
+			desc.bindings.push_back(bindingInfo);
+			InputAttribute attr{};
+			uint32_t offset = 0;
+			attr.binding = 0;
+			
+			desc.attributes.clear();
+
+			attr.location = 0;
+			attr.format = VertexFormat::Float3;
+			attr.offset = offsetof(LineInfo, begin);
+			desc.attributes.push_back(attr);
+
+			attr.location = 1;
+			attr.offset = offsetof(LineInfo, end);
+			attr.format = VertexFormat::Float3;
+			desc.attributes.push_back(attr);
+
+			attr.location = 2;
+			attr.format = VertexFormat::UByte4N;
+			attr.offset = offsetof(LineInfo, color);
+			desc.attributes.push_back(attr);
+
+			attr.location = 3;
+			attr.offset = offsetof(LineInfo, width);
+			attr.format = VertexFormat::Float;
+			desc.attributes.push_back(attr);
+
+		}
+
+		{
+			auto matTemp = MaterialTemplateManager::instance()->createMaterialTemplate(
+				Name("DrawLineMaterialTemplate"), stageInfo, state, desc
+			);
+			mDp->debugDrawLineTemp = matTemp;
+			matTemp->createMaterialPass(PassName::MainCameraPass);
+			mDp->debugDrawLineMat = MaterialManager::instance()->createMaterial<Material>(Name("DrawLineMaterial"), matTemp);
+			mDp->debugDrawLineMat->setRenderMask(RenderMask::DebugDraw);
+
+			mDp->mLineEntity = std::make_unique<LineDrawEntity>();
+			mDp->mLineEntity->material = mDp->debugDrawLineMat;
+			mDp->mLineEntity->setRenderMask(RenderMask::DebugDraw);
+		}
+
 	}
 
 	void DebugDrawManager::init()

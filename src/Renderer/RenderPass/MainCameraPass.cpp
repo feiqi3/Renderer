@@ -22,7 +22,7 @@ namespace Render{
 		desc.attachments = { attachmentMain,attachmentDepth };
 		desc.lastDepth  = true;
 		//Dont write depth
-		desc.writeDepth = false;
+		desc.writeDepth = true;
 
 		return desc;
 	}
@@ -37,7 +37,7 @@ namespace Render{
 		}
 
 		//1. Main cam opaque pass 
-		logicPassDesc.filterMask = RenderMask::Normal;
+		logicPassDesc.filterMask = RenderMask::Normal | RenderMask::DebugDraw;
 		logicPassDesc.priority = 5;
 		logicPassDesc.logicPassName = PassName::MainCameraPass;
 		descs.push_back(logicPassDesc);

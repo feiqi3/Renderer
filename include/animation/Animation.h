@@ -12,7 +12,7 @@ namespace Render::Anm {
 		vec3		translation;
 		vec3		scale;
 
-		inline mat4 toMatrix() const;
+		mat4 toMatrix() const;
 	};
 
 	template <class T>

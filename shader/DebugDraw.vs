@@ -16,6 +16,7 @@ layout(location = 6) in vec3  i_normal;
 layout(location = 7) in float i_usebillboard;            
 
 layout(location = 0) out vec4 o_color;
+layout(location = 1) out flat uint o_instanceID;
 
 void main(){
     mat4 i_perObjWorld = mat4(i_perObjWorld0, i_perObjWorl1, i_perObjWorld2, i_perObjWorld3);
@@ -47,5 +48,8 @@ void main(){
     }
     
     o_color = i_perObjColor.xyzw;
+
+    o_instanceID = gl_InstanceIndex;
+
     gl_Position = CAMDATA.MatViewProj * worldPos;
 }
