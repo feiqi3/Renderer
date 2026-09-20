@@ -24,10 +24,14 @@ namespace Render::Anm {
 
     void SkeletonSolverState::resetBySkeletonAndAnimation(const Skeleton* skeleton,const SkeletonAnimation* anm)
     {
-        if (!skeleton || !anm) return;
-
+        if (!skeleton || !anm) {
+            mIsinit = false;
+            return;
+        }
         if (skeleton->mJoints.size() < anm->mJointAnimations.size()) {
+            Log::error("Animation has more joints than skeleton, is that right?");
             printAniAndSkeletonMismatchInfo(skeleton, anm);
+            mIsinit = false;
             return;
         }
         JointState defaultState{ 
@@ -36,33 +40,43 @@ namespace Render::Anm {
             .lastTimeScaleSearchId = -1 
         };
 
-        this->mJointStates.assign       (skeleton->mJoints.size(), defaultState);
-        this->mJointToAnmIdx.assign     (skeleton->mJoints.size(), INT32_MAX);
+        if (skeleton == mSkeleton) {
+            this->mJointStates.assign(skeleton->mJoints.size(), defaultState);
+            this->mJointToAnmIdx.assign(skeleton->mJoints.size(), INT32_MAX);
+        }
+
+        if (anm != mAnimation) {
+            //use animation's joint to match skeleton's
+            //cause in some case, animation may have less joint than skeleton 
+            std::map<Name, uint32_t> skeletonJointsName;
+
+            for (int i = 0;i < skeleton->mJointsName.size();++i) {
+                const auto& jointAnm = skeleton->mJointsName[i];
+                skeletonJointsName.insert({ jointAnm,i });
+            }
+
+            for (int i = 0;i < anm->mJointAnimations.size();++i) {
+                const auto& jointName = anm->mJointAnimations[i].mJointName;
+                auto itor = skeletonJointsName.find(jointName);
+                if (itor == skeletonJointsName.end()) {
+                    Log::error("Cannot find joint: {" + jointName.str() + "}");
+                    printAniAndSkeletonMismatchInfo(skeleton, anm);
+                    mIsinit = false;
+                    return;
+                }
+                else {
+                    //Map animation's joint index to skeleton 
+                    mJointToAnmIdx[itor->second] = i;
+                }
+            }
+        }
+
 #if defined(DEBUG) || defined(_DEBUG)
-        this->mIsJointUpdated.assign    (skeleton->mJoints.size(), 0);
+        this->mIsJointUpdated.assign(skeleton->mJoints.size(), 0);
 #endif //DEBUG || _DEBUG
-        //use animation's joint to match skeleton's
-        //cause in some case, animation may have less joint than skeleton 
-        std::map<Name, uint32_t> skeletonJointsName;
-
-        for (int i = 0;i < skeleton->mJointsName.size();++i) {
-            const auto& jointAnm = skeleton->mJointsName[i];
-            skeletonJointsName.insert({ jointAnm,i });
-        }
-
-        for (int i = 0;i < anm->mJointAnimations.size();++i) {
-            const auto& jointName = anm->mJointAnimations[i].mJointName;
-            auto itor = skeletonJointsName.find(jointName);
-            if (itor == skeletonJointsName.end()) {
-                Log::error("Cannot find joint: {" + jointName.str() + "}");
-                printAniAndSkeletonMismatchInfo(skeleton, anm);
-                return;
-            }
-            else {
-                //Map animation's joint index to skeleton 
-                mJointToAnmIdx[itor->second] = i;
-            }
-        }
+        mSkeleton       = skeleton;
+        mAnimation      = anm;
+        mIsinit         = true;
     }
 
     

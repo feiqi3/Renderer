@@ -21,7 +21,10 @@ namespace Render::Anm {
 #if defined(DEBUG) || defined(_DEBUG)
 		std::vector<uint8_t>	mIsJointUpdated;
 #endif
+		const Skeleton* mSkeleton			= nullptr;
+		const SkeletonAnimation* mAnimation	= nullptr;
 
+		bool mIsinit = false;
 	};
 
 	//Static class

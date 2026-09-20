@@ -7,8 +7,10 @@ namespace Render {
 	class RenderPass;
 	class RenderEntity;
 	class SkeletonResource;
+	class SkeletonAnimationResource;
 	using TexturePtr	= ResourceHandle<Texture>;
 	using MaterialPtr	= ResourceHandle<Material>;
 	using SkeletonPtr   = ResourceHandle<SkeletonResource>;
+	using SkeletonAnimationPtr = ResourceHandle<SkeletonAnimationResource>;
 }
 #endif

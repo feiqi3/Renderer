@@ -1,3 +1,6 @@
+#ifndef SKELETON_RESOURCE_H_
+#define SKELETON_RESOURCE_H_
+
 #include "animation/Skeleton.h"
 #include "common/Singleton.h"
 #include "common/ResourceManager.h"
@@ -16,3 +19,4 @@ namespace Render {
 		Anm::Skeleton mSkeleton;
 	};
 }
+#endif//SKELETON_RESOURCE_H_
