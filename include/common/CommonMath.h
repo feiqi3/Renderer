@@ -36,10 +36,21 @@ namespace Render {
 	inline auto rotate(const mat4& m, const vec3& v) { return glm::mat4_cast(glm::quat(v)) * m; }
 	inline auto rotate(const mat4& m, const quat& v) { return glm::mat4_cast(v) * m; }
 	inline auto scale(const mat4& m, const vec3& v) { return glm::scale(m, v); }
-	inline auto getTRS(const vec3& t, const vec3& r, const vec3& s) {
-		return scale(rotate(translate(mat4(1.0), t), r), s);
+
+	inline auto getTRS(const vec3& t, const quat& r, const vec3& s) {
+		glm::mat4 model(1.0f);
+
+		glm::mat4 T = glm::translate(glm::mat4(1.0f), t);
+		glm::mat4 R = glm::mat4_cast(r);
+		glm::mat4 S = glm::scale(glm::mat4(1.0f), s);
+
+		return T * R * S;
 	}
-	inline bool decompose(
+
+	inline auto getTRS(const vec3& t, const vec3& r, const vec3& s) {
+		return getTRS(t, glm::quat(r),s);
+	}
+	inline bool decomposeTRS(
 		mat4 const& modelMatrix,
 		vec3& scale,
 		quat& rotation,
@@ -56,17 +67,7 @@ namespace Render {
 			perspective
 		);
 	}
-	inline auto getTRS(const vec3& t, const quat& r, const vec3& s) {
-		glm::mat4 model(1.0f);
 
-		model = glm::translate(model, t);
-
-		model = model * glm::mat4_cast(r);
-
-		model = glm::scale(model, s);
-
-		return model;
-	}
 	inline auto lookAt(const vec3& eye, const vec3& center, const vec3& up) {
 		return glm::lookAt(eye, center, up);
 	}
