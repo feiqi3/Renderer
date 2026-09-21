@@ -70,3 +70,4 @@ layout(set = 5, binding = 2 ) uniform sampler			ShadowSampler;
 #include "ShaderResource.inl"
 #include "BindlessSet.inl"
 #include "ShaderDrawMetaData.inl"
+#include "DebugPrint.inl"

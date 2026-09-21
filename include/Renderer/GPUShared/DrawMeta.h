@@ -13,7 +13,7 @@ GPU_STRUCT_BEGIN(DrawMeta)
 	uint instanceNum;
 	uint indexBaseOffset;
 	uint vertexBaseOffset;
-	uint64_t bindlessAddress;
+	uint64_t debugFlagBufferAddress;
 GPU_STRUCT_END
 
 GPU_STRUCT_BEGIN(ComputeMeta)

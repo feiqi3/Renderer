@@ -147,6 +147,13 @@ namespace {
 }
 
 namespace Render::Vulkan {
+    //Debug-print flag SSBO (see shader/DebugPrint.inl): one flag per draw-call
+    //slot. Its device address is pushed through the DrawMeta push constant so a
+    //shader prints at most once per slot instead of once per fragment.
+    static rs_buffer_vk* gDebugPrintFlagBuffer = nullptr;
+    static uint64_t      gDebugPrintFlagBufferAddress = 0;
+    static constexpr uint32_t kDebugPrintFlagCount = 4096;
+
     static inline Render::GPUShared::ComputeMeta
         genMetaDataOfThisCompute(rs_commandbuffer_vk* cb, DrawDataArray* dataArr,uint32_t x,uint32_t y,uint32_t z) {
         Render::GPUShared::ComputeMeta meta{};
@@ -167,23 +174,10 @@ namespace Render::Vulkan {
         meta.instanceNum = instanceNum;
         meta.indexBaseOffset = baseIndex;
         meta.vertexBaseOffset = baseVertex;
-        //Find The bindless set and get the address
-        if (isBindlessEnabled()) {
-            if (dataArr && (*dataArr)[1] != nullptr) {
-                //Store per pass draw data in dataArr[1]
-                const auto& drawdata = (rs_drawdata_vk*)(*dataArr)[1];
-                for(int i = 0;i < drawdata->DescriptorSets.size(); ++i){
-                    const auto& set = drawdata->DescriptorSets[i];
-                    for (const auto& slot : set.bindingTracker) {
-                        if (slot.type == UniformType::UniformBuffer) {
-                            //May be this one is the ubo stores bindless data....
-                            auto ubo = ((UniformBufferObject*)slot.rsData[0]);
-                            meta.bindlessAddress = ubo->mBuffer->gpuAddress + (uint64_t)slot.uboDyOffset;
-                        }
-                    }
-                }
-            }
-        }
+        //Carry the debug-print flag buffer address in the generic metadata slot
+        //so the upper (non-RHI) layer stays unaware of it.
+        (void)dataArr;
+        meta.debugFlagBufferAddress = gDebugPrintFlagBufferAddress;
         return meta;
     }
 
@@ -683,6 +677,24 @@ namespace Render::Vulkan {
         transitionImageState(cmdBuffer, (rs_image_vk*)defalut_no_texture, ResourceState::ShaderResource);
         transitionImageState(cmdBuffer, (rs_image_vk*)defalut_no_texture_UAV, ResourceState::ComputeUnorderedAccess);
         destroyRsBuffer(ctx, tempBuffer);
+
+        //Debug-print flags: a device-local SSBO owned by the RHI. It only exists
+        //when shader debug print is compiled in, and is zeroed on the GPU (never
+        //host mapped) both here and once per frame in beginRsFrameVk.
+        if (ShaderDebugPrint) {
+            BufferDesc flagDesc{};
+            flagDesc.byteSize = kDebugPrintFlagCount * sizeof(uint32_t);
+            flagDesc.bufUsage = BufferType::BufferType_Storage;
+            flagDesc.mappable = false;
+            gDebugPrintFlagBuffer = (rs_buffer_vk*)createRsBufferVk(ctx, flagDesc);
+            if (gDebugPrintFlagBuffer) {
+                transitionBufferState(cmdBuffer, gDebugPrintFlagBuffer, ResourceState::TransferDst);
+                cmdFillBuffer(cmdBuffer, ctx, gDebugPrintFlagBuffer, 0, flagDesc.byteSize, 0u);
+                //Shaders atomically read+write the flags, so it lives as a UAV.
+                transitionBufferState(cmdBuffer, gDebugPrintFlagBuffer, ResourceState::UnorderedAccess);
+                gDebugPrintFlagBufferAddress = gDebugPrintFlagBuffer->gpuAddress;
+            }
+        }
         cmdEndRecord(cmdBuffer);
         cmdSubmitOneShotAndWait(ctx, cmdBuffer);
     }
@@ -700,6 +712,11 @@ namespace Render::Vulkan {
         destroyRsBuffer(ctx, bufferUAV);
         destroyRsImage(ctx, texture);
         destroyRsImage(ctx, textureUAV);
+        if (gDebugPrintFlagBuffer) {
+            destroyRsBuffer(ctx, gDebugPrintFlagBuffer);
+            gDebugPrintFlagBuffer = nullptr;
+            gDebugPrintFlagBufferAddress = 0;
+        }
     }
 
     void deinitVulkanBackEnd(rs_context_vk* ctx)
@@ -1927,6 +1944,12 @@ namespace Render::Vulkan {
 			&blitRegion,
 			toVkFilter(filter)
 		);
+	}
+
+	void cmdFillBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* buffer, uint64_t offset, uint64_t size, uint32_t data)
+	{
+		cb->hasCommands = true;
+		vkCmdFillBuffer((VkCommandBuffer)cb->native, (VkBuffer)buffer->native, (VkDeviceSize)offset, (VkDeviceSize)size, data);
 	}
 
 	void cmdFlushBuffer(rs_commandbuffer_vk* cb, rs_context_vk* context, rs_buffer_vk* bufferSrc)
@@ -3439,13 +3462,14 @@ namespace Render::Vulkan {
 			if (setIdx == INVALID_BINDING_POS)continue;
 
             //Avoid multi bind after set was bind to cmd.
-            bool needUpadte = false;
-            if (descriptorPack.setUpdatedFif == curFif) {
-                needUpadte = false;
-            }
-            else {
-                needUpadte = true;
-                descriptorPack.setUpdatedFif = curFif;
+            //Frame-scoped: a pack's descriptor set is written at most once per
+            //frame. Dirty bits (per fif) still decide *which* bindings are
+            //rewritten; a brand new set starts with fifDirtyFlag == 0xFFFF, so it
+            //is always fully written.
+            const uint64_t curFrame = ctx->nextRenderFrame;
+            bool needUpadte = (descriptorPack.lastWriteDescriptorFrame != curFrame);
+            if (needUpadte) {
+                descriptorPack.lastWriteDescriptorFrame = curFrame;
             }
 
             uint32_t setFifToUse = curFif;
@@ -4039,6 +4063,24 @@ namespace Render::Vulkan {
         descriptorSetMgr->beginFrame(ctx, ctx->nextRenderFrame);
         if (ctx->nextRenderFrame == 0) {
             createDefaultResources(ctx);
+        }
+        //Reset the debug-print flags once per frame on the GPU. The buffer is
+        //device-local (not host visible) so we record a one-shot fill and wait on
+        //it; the caller has already joined the previous frame, so this cheap
+        //synchronization is debug-only and safe.
+        if (gDebugPrintFlagBuffer) {
+            const uint64_t flagBytes = (uint64_t)kDebugPrintFlagCount * sizeof(uint32_t);
+            auto flagCmd = cmdbufMgr->getCmdBufferLocalThread(ctx, ctx->nextRenderFrame, QueueType_Graphics, true);
+            cmdBeginRecord(flagCmd);
+            transitionBufferState(flagCmd, gDebugPrintFlagBuffer, ResourceState::TransferDst);
+            cmdFillBuffer(flagCmd, ctx, gDebugPrintFlagBuffer, 0, flagBytes, 0u);
+            //Shaders atomically read+write the flags, so it lives as a UAV.
+            transitionBufferState(flagCmd, gDebugPrintFlagBuffer, ResourceState::UnorderedAccess);
+            cmdEndRecord(flagCmd);
+            auto flagFence = createRsFence(ctx);
+            cmdSubmitCmdBuffer(ctx, flagCmd, QueueType_Graphics, {}, {}, flagFence);
+            waitForRsFence(ctx, flagFence, -1, -1);
+            destroyRsFence(ctx, flagFence);
         }
         return 0;
     }

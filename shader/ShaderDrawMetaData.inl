@@ -21,7 +21,10 @@ layout(push_constant, std430) uniform metaData {
 #define GET_PIPELINE_INDEX()    meta.pipelineIndex
 #define GET_INDEX_NUM()         meta.indexNum
 #define GET_INSTANCE_NUM()      meta.instanceNum
-#define GET_BINDLESS_ADDRESS()  meta.bindlessAddress
+//The RHI layer reuses the generic metadata slot (DrawMeta.debugFlagBufferAddress)
+//to carry the debug-print flag buffer address, so the upper (non-RHI) layer
+//neither allocates nor knows about that buffer.
+#define GET_DEBUG_FLAG_BUFFER_ADDRESS()  meta.debugFlagBufferAddress
 #define GET_INDEX_BASE_OFFSET() meta.indexBaseOffset
 #define GET_VERTEX_BASE_OFFSET() meta.vertexBaseOffset
 #endif //COMPUTE
@@ -37,7 +40,7 @@ layout(push_constant, std430) uniform metaData {
 #define GET_PIPELINE_INDEX() 0
 #define GET_INDEX_NUM() 0
 #define GET_INSTANCE_NUM() 0
-#define GET_BINDLESS_ADDRESS() 0
+#define GET_DEBUG_FLAG_BUFFER_ADDRESS() 0
 #define GET_INDEX_BASE_OFFSET() 0
 #define GET_VERTEX_BASE_OFFSET() 0
 #endif //COMPUTE
