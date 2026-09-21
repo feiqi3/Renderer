@@ -13,6 +13,8 @@
 #include "Renderer/Materials/PBRMaterial.h"
 #include "Renderer/MaterialTemplateManager.h"
 #include "common/ResourceSystem.h"
+#include "renderer/SkeletonResourceManager.h"
+#include "renderer/AnimationResourceManager.h"
 #include "Renderer/MaterialManager.h"
 #include "Renderer/SamplerResourceManager.h"
 #include "Renderer/ModelResourceManager.h"
@@ -475,7 +477,7 @@ namespace {
 				Render::SubMesh sub;
 				//bake into indice
 				//sub.vertexOffset = static_cast<int32_t>(baseVertexOffset);
-				sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset);
+				sub.indexOffset = static_cast<uint32_t>(baseIndiceOffset) * sizeof(uint32_t);
 				sub.indexCount = static_cast<uint32_t>(posAcc.count);
 				outSubmeshes.push_back(sub);
 				baseIndiceOffset += posAcc.count;
@@ -513,11 +515,12 @@ namespace Render {
 
                         if (n.rotation.size() == 4) {
                             // glTF: [x, y, z, w]
-                            j.rotation = vec4(
+                            j.rotation = quat(
+                                float(n.rotation[3]),
                                 float(n.rotation[0]),
                                 float(n.rotation[1]),
-                                float(n.rotation[2]),
-                                float(n.rotation[3]));
+                                float(n.rotation[2])
+                            );
                         }
 
                         if (n.scale.size() == 3) {
@@ -545,6 +548,7 @@ namespace Render {
         bool            getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model);
         bool            getGLTFScene(GLTFScene& out, const tinygltf::Scene& scene);
         bool            getSkeleton(const Name& name, GLTFSkeleton& out, const tinygltf::Model& model, const tinygltf::Skin& skin);
+        bool            getGltfAnimation(const Name& name, Anm::SkeletonAnimation& out, const tinygltf::Model& model, const tinygltf::Animation& gltfAnm);
         bool            getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh);
         bool            getMaterial(const Name& name, GLTFMaterial& out, const tinygltf::Model& model, const tinygltf::Material& mat, int idx);
         bool            getTexture(const Name& name, GLTFTexture& out, const tinygltf::Model& model, const tinygltf::Texture& texture, int idx);
@@ -553,6 +557,7 @@ namespace Render {
         bool            getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light, int idx);
 		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat);
 		GLTFLoaderSetting setting;
+
     };
 
 
@@ -690,6 +695,32 @@ namespace Render {
         return model;
     }
 
+    SkeletonPtr GLTFLoader::gltfSkeletonToEngineSkeleton(const GLTFSkeleton* gltfSkeleton)
+    {
+        Anm::Skeleton skeleton;
+        auto jointsNum = gltfSkeleton->joints.size();
+        skeleton.mJointsName.reserve(jointsNum);
+        skeleton.mJoints.reserve(jointsNum);
+        skeleton.mInverseBindingMats.reserve(jointsNum);
+        skeleton.mParents.reserve(jointsNum);
+        
+        for (const auto& joint : gltfSkeleton->joints) {
+            skeleton.mJointsName.push_back(Name(joint.name));
+
+            Anm::Joint jointTRS{};
+            jointTRS.rotation = joint.rotation;
+            jointTRS.scale    = joint.scale;
+            jointTRS.translation = joint.translation;
+            skeleton.mJoints.push_back(jointTRS);
+            
+            skeleton.mParents.push_back(joint.parent);
+
+            skeleton.mInverseBindingMats.push_back(joint.inverseBindMatrix);
+        }
+
+        return SkeletonResourceManager::instance()->createSkeletonResource(std::move(skeleton));
+    }
+
 	Object* GLTFLoader::toEngineSceneNode(Scene* scene, GLTFModel* model)
 	{
 		if (!model || model->scenes.empty()) {
@@ -708,7 +739,7 @@ namespace Render {
 			Object* currentObj = scene->createObject(objName.c_str());
 
 			currentObj->setLocalPosition(node.translation);
-			currentObj->setLocalRotation(fromEulerAngles(node.rotation));
+			currentObj->setLocalRotation((node.rotation));
 			currentObj->setLocalScale(node.scale);
 
             if (node.lightIndex >= 0 && node.lightIndex < model->lights.size()) {
@@ -767,6 +798,14 @@ namespace Render {
 			processNode(rootNodeIndex, rootObj, worldMat);
 		}
 
+        //Register resources.
+        for (const auto& skeleton : model->skeletons) {
+            gltfSkeletonToEngineSkeleton(&skeleton);
+        }
+        for (const auto& anm : model->animations) {
+            auto anmCopy = anm;//Copy!
+            SkeletonAnimationResourceManager::instance()->createSkeletonAnimationResource(anm.mSkeletonAnimationName, std::move(anmCopy));
+        }
 		return rootObj;
 	}
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)
@@ -781,6 +820,8 @@ namespace Render {
         out.lights.clear();
 
         Name modelNamePrefix = Name(modelName+":");
+
+        std::set<int>   mSkeletonJointNodeIndexSet;
 
         std::unordered_map<int, int> gltfNodeToEngine;
         std::unordered_map<int, int> gltfMeshToEngine;
@@ -888,6 +929,9 @@ namespace Render {
             if (tinySkinIdx >= static_cast<int>(model.skins.size())) return false;
             out.skeletons.push_back({});
             GLTFSkeleton& sk = out.skeletons.back();
+            for (auto& nodeIdx : model.skins[tinySkinIdx].joints) {
+                mSkeletonJointNodeIndexSet.insert(nodeIdx);
+            }
             if (!getSkeleton(modelNamePrefix, sk, model, model.skins[tinySkinIdx])) return false;
             int engIdx = static_cast<int>(out.skeletons.size() - 1);
             gltfSkinToEngine[tinySkinIdx] = engIdx;
@@ -906,7 +950,6 @@ namespace Render {
 			gltfLightToEngine[tinyLightIdx] = engLightIdx;
 			return true;
 			};
-
 
         processNode = [&](int tinyNodeIdx)->bool {
             if (tinyNodeIdx < 0) return true;
@@ -992,6 +1035,24 @@ namespace Render {
             out.scenes.push_back(std::move(sc));
         }
         out.modelName = modelName;
+
+        out.animations.clear();
+        for (size_t s = 0; s < model.animations.size(); ++s) {
+            out.animations.push_back({});
+            auto& anmToSave = out.animations.back();
+            bool notASkeletonAnimation = false;
+            for (auto& target : model.animations[s].channels) {
+                if (mSkeletonJointNodeIndexSet.find(target.target_node) == mSkeletonJointNodeIndexSet.end()) {
+                    notASkeletonAnimation = true;
+                    break;
+                }
+            };
+            if (notASkeletonAnimation)continue;
+            getGltfAnimation(modelNamePrefix, anmToSave, model,
+                model.animations[s]
+            );
+        }
+
         return true;
     }
 
@@ -1013,6 +1074,7 @@ namespace Render {
         if (skin.inverseBindMatrices < 0) {
             return false;
         }
+        out.name = name.str() + skin.name;
         const auto& nodes = model.nodes;
         const auto& jointNodes = skin.joints;
         const size_t jointCount = jointNodes.size();
@@ -1050,11 +1112,12 @@ namespace Render {
 
             if (n.rotation.size() == 4) {
                 // glTF: [x, y, z, w]
-                j.rotation = vec4(
+                j.rotation = quat(
+                    float(n.rotation[3]),
                     float(n.rotation[0]),
                     float(n.rotation[1]),
-                    float(n.rotation[2]),
-                    float(n.rotation[3]));
+                    float(n.rotation[2])
+                );
             }
 
             if (n.scale.size() == 3) {
@@ -1133,6 +1196,156 @@ namespace Render {
         else {
             return false;
         }
+        return true;
+    }
+
+    bool GLTFLoaderPrivate::getGltfAnimation(const Name& name, Anm::SkeletonAnimation& out, const tinygltf::Model& model, const tinygltf::Animation& gltfAnm)
+    {
+        auto& skeletonAnimation = out;
+        const auto& anm = gltfAnm;
+        skeletonAnimation.mSkeletonAnimationName = Name(name.str() + anm.name);
+        std::map<int, int> nodeIndexToJointAnm{};
+        float timeMinT = 100000000.f;
+        float timeMaxT =-100000000.f;
+
+        for (const auto& channel : anm.channels) {
+            int jointAnmIndex = -1;
+            auto itor = nodeIndexToJointAnm.find(channel.target_node);
+            if (itor == nodeIndexToJointAnm.end()) {
+                out.mJointAnimations.push_back({});
+                jointAnmIndex = out.mJointAnimations.size() - 1;
+                nodeIndexToJointAnm.insert({ channel.target_node ,jointAnmIndex });
+            }
+            else {
+                jointAnmIndex = itor->second;
+            }
+            Anm::JointAnimation& jointAnm = out.mJointAnimations[jointAnmIndex];
+
+            const auto& anmSampler = anm.samplers[channel.sampler];
+            auto node = channel.target_node;
+            jointAnm.mJointName = Name(model.nodes[node].name);
+            const auto& interpo = anmSampler.interpolation;
+            Anm::Interpolation interpolation = Anm::Interpolation::Linear;
+            if (interpo == "LINEAR") {
+                //When targeting a rotation, spherical linear interpolation (slerp) SHOULD be used to interpolate quaternions
+                interpolation = Anm::Interpolation::Linear;
+            }
+            else if (interpo == "STEP") {
+                interpolation = Anm::Interpolation::Nearest;
+            }
+            else if (interpo == "CUBICSPLINE") {
+                interpolation = Anm::Interpolation::Linear;
+            }
+
+            int type = 0;
+            if (channel.target_path == "translation") {
+                jointAnm.mTransTrack.mInterpolation = interpolation;
+                type = 0;
+            }
+            else if (channel.target_path == "rotation") {
+                if (interpolation == Anm::Interpolation::Linear) {
+                    interpolation = Anm::Interpolation::SphericalLinear;
+                }
+                jointAnm.mRotTrack.mInterpolation = interpolation;
+                type = 1;
+            }
+            else if (channel.target_path == "scale") {
+                jointAnm.mScaleTrack.mInterpolation = interpolation;
+                type = 2;
+            }
+            else if (channel.target_path == "weights") {
+                type = 3;
+                continue;
+            }
+
+            auto input = anmSampler.input;
+            auto output = anmSampler.output;
+            const auto& accInput = model.accessors[input];
+            const auto& bufferViewInput = model.bufferViews[accInput.bufferView];
+            uint32_t strideInput = bufferViewInput.byteStride ? bufferViewInput.byteStride : (ComponentByteSize(accInput.componentType) * NumComponentsInType(accInput.type));
+            const auto& bufferInput = model.buffers[bufferViewInput.buffer];
+            auto baseAddrInput = bufferInput.data.data() + bufferViewInput.byteOffset;
+            auto inputDataNum = accInput.count;
+            for (int i = 0;i < inputDataNum;++i) {
+                auto dataPtr = baseAddrInput + i * strideInput;
+                //This shoud be a float of time??
+                float timeT = 0.;
+                if (strideInput == 4) {
+                    timeT = *(float*)dataPtr;
+                }
+                else if (strideInput == 8) {
+                    timeT = (float)(*(double*)dataPtr);
+                }
+                else {
+                    timeT = *(float*)dataPtr;
+                }
+
+                switch (type)
+                {
+                case 0: {
+                    Anm::TranslationKey key{};
+                    key.time = timeT;
+                    jointAnm.mTransTrack.mKeyData.push_back({ key });
+                    break;
+                }
+                case 1: {
+                    Anm::RotationKey key{};
+                    key.time = timeT;
+                    jointAnm.mRotTrack.mKeyData.push_back({ key });
+                    break;
+                }
+                case 2: {
+                    Anm::ScaleKey key{};
+                    key.time = timeT;
+                    jointAnm.mScaleTrack.mKeyData.push_back({ key });
+                    break;
+                }
+                default:
+                    break;
+                }
+                timeMinT = std::min(timeMinT, timeT);
+                timeMaxT = std::max(timeMaxT, timeT);
+            }
+            const auto& accOutput = model.accessors[output];
+            const auto& bufferViewOutput = model.bufferViews[accOutput.bufferView];
+            const auto& bufferOutput = model.buffers[bufferViewOutput.buffer];
+            uint32_t strideOutput = bufferViewInput.byteStride ? bufferViewOutput.byteStride : (ComponentByteSize(accOutput.componentType) * NumComponentsInType(accOutput.type));
+            auto baseAddrOutput = bufferOutput.data.data() + bufferViewOutput.byteOffset;
+            auto outputDataNum = accOutput.count;
+            for (int i = 0;i < outputDataNum;++i) {
+                auto dataPtr = baseAddrOutput + i * strideOutput;
+                switch (type)
+                {
+                case 0: {
+                    assert(strideOutput == 12);
+                    vec3 trans{};
+                    memcpy(&trans, dataPtr, sizeof(vec3));
+                    jointAnm.mTransTrack.mKeyData[i].value = trans;
+                    break;
+                }
+                case 1: {
+                    assert(strideOutput == 16);
+                    vec4 quatV{};
+                    memcpy(&quatV, dataPtr, sizeof(vec4));
+                    quat q(quatV.w,quatV.x, quatV.y, quatV.z);
+                    jointAnm.mRotTrack.mKeyData[i].value = q;
+                    break;
+                }
+                case 2: {
+                    assert(strideOutput == 12);
+                    vec3 scale{};
+                    memcpy(&scale, dataPtr, sizeof(vec3));
+                    jointAnm.mScaleTrack.mKeyData[i].value = scale;
+                    break;
+                }
+                default:
+                    break;
+                }
+
+
+            }
+        }
+        skeletonAnimation.mDuration = timeMaxT - timeMinT;
         return true;
     }
 
@@ -1310,13 +1523,10 @@ namespace Render {
         }
 
         if (node.rotation.size() == 0) {
-            out.rotation[3] = 1;
+            out.rotation = quat(1,0,0,0);
         }
         else {
-            out.rotation[0] = node.rotation[0];
-            out.rotation[1] = node.rotation[1];
-            out.rotation[2] = node.rotation[2];
-            out.rotation[3] = node.rotation[3];
+            out.rotation = quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]);
         }
         
         if (node.scale.size() == 3) {

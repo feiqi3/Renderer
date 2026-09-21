@@ -25,7 +25,7 @@ namespace Render {
 
 	Render::SkeletonResource* SkeletonResourceManager::loadImpl(const Name& id)
 	{
-		throw std::runtime_error("SamplerResourceManager::loadImpl should not be called directly.");
+		throw std::runtime_error("SkeletonResourceManager::loadImpl should not be called directly.");
 		return nullptr;
 	}
 

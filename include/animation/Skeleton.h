@@ -15,7 +15,6 @@ namespace Render::Anm {
 	public:
 		std::vector<Name>		mJointsName;
 		std::vector<Joint>		mJoints;
-		std::vector<mat4>		mJointsLocalTRS;
 		std::vector<mat4>		mInverseBindingMats;
 		std::vector<int32_t>	mParents;
 	};

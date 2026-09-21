@@ -7,7 +7,8 @@
 namespace Render::Anm {
 
 	//Restore states to accelerate animation calculation
-	struct SkeletonSolverState {
+	class SkeletonSolverState {
+	public:
 		void resetBySkeletonAndAnimation(const Skeleton* skeleton, const SkeletonAnimation* anm);
 
 		struct JointState {
@@ -21,7 +22,10 @@ namespace Render::Anm {
 #if defined(DEBUG) || defined(_DEBUG)
 		std::vector<uint8_t>	mIsJointUpdated;
 #endif
+		const Skeleton* mSkeleton			= nullptr;
+		const SkeletonAnimation* mAnimation	= nullptr;
 
+		bool mIsinit = false;
 	};
 
 	//Static class
