@@ -5,6 +5,8 @@
 #include "Renderer/MeshResourceManager.h"
 #include "Renderer/MaterialManager.h"
 #include "Renderer/SamplerResourceManager.h"
+#include "Renderer/SkeletonResourceManager.h"
+#include "Renderer/AnimationResourceManager.h"
 namespace Render {
 
 	std::vector<Name> sRegisteredResourceName{};
@@ -29,6 +31,14 @@ namespace Render {
 			auto SamplerManager = std::make_unique<SamplerResourceManager>();
 			sRegisteredResourceName.push_back(SamplerManager->typeName());
 			resSystem->registerSystem(std::move(SamplerManager));
+
+			auto skeletonResourceManager = std::make_unique<SkeletonResourceManager>();
+			sRegisteredResourceName.push_back(skeletonResourceManager->typeName());
+			resSystem->registerSystem(std::move(skeletonResourceManager));
+
+			auto skeletonAnmResourceManager = std::make_unique<SkeletonAnimationResourceManager>();
+			sRegisteredResourceName.push_back(skeletonAnmResourceManager->typeName());
+			resSystem->registerSystem(std::move(skeletonAnmResourceManager));
 		}
 	}
 

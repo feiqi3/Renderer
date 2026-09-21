@@ -40,10 +40,8 @@ namespace Render::Anm {
             .lastTimeScaleSearchId = -1 
         };
 
-        if (skeleton == mSkeleton) {
-            this->mJointStates.assign(skeleton->mJoints.size(), defaultState);
-            this->mJointToAnmIdx.assign(skeleton->mJoints.size(), INT32_MAX);
-        }
+        this->mJointStates.assign(skeleton->mJoints.size(), defaultState);
+        this->mJointToAnmIdx.assign(skeleton->mJoints.size(), INT32_MAX);
 
         if (anm != mAnimation) {
             //use animation's joint to match skeleton's

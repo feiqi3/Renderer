@@ -1,8 +1,9 @@
-#include "renderer/AnimationResource.h"
-#include "renderer/SkeletonResource.h"
+#include "Renderer/AnimationResource.h"
+#include "Renderer/SkeletonResource.h"
 #include "animation/animation.h"
 #include "animation/skeleton.h"
 #include "animation/skeletonsolver.h"
+
 namespace Render {
 	const Name& SkeletonAnimationResource::typeName()
 	{
@@ -12,7 +13,7 @@ namespace Render {
 
 	const Name& SkeletonAnimationResource::getTypeName() const
 	{
-		return getTypeName();
+		return typeName();
 	}
 
 	float SkeletonAnimationResource::getSampleRate() const
@@ -34,20 +35,21 @@ namespace Render {
 		mAnimation = std::move(inAnm);
 	}
 
-	void SkeletonAnimationResource::sampleAnimationState(SkeletonPtr skeleton, Anm::SkeletonState*& skeletonState, Anm::SkeletonSolverState*& solverState, float t, bool isBack)
+	void SkeletonAnimationResource::sampleAnimationState(const SkeletonPtr& skeleton, Anm::SkeletonState*& skeletonState, Anm::SkeletonSolverState*& solverState, float t, bool isBack)const
 	{
-		if (!skeleton) {
+		if (nullptr == skeleton) {
 			return;
 		}
 
 		if (skeletonState == nullptr) {
 			skeletonState = new Anm::SkeletonState();
+			skeletonState->resize(skeleton->getSkeleton()->mJoints.size());
 		}
 
 		if (!solverState) {
-			solverState = new Anm::SkeletonSolverState();
+			//For different animation/Skeleton pair, solverState need to be rebuild
+			solverState = Anm::SkeletonSolver::createSkeletonSolverState(skeleton->getSkeleton(), this->getSkeletonAnimation());
 		}
-		Anm::SkeletonSolver::createSkeletonSolverState(skeleton->getSkeleton(), this->getSkeletonAnimation());
 	
 		if (solverState->mIsinit == false)return;
 		Anm::SkeletonSolver::getAnimationPosAtTimeT(

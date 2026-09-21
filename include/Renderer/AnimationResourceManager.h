@@ -4,12 +4,15 @@
 namespace Render {
 	
 	class SkeletonAnimationResourceManager : public ResourceManager< SkeletonAnimationResource>, public Singleton<SkeletonAnimationResourceManager> {
-
+	public:
 		const Name& typeName()const override;
 		SkeletonAnimationPtr createSkeletonAnimationResource(Anm::SkeletonAnimation&& inAnm);
 		SkeletonAnimationPtr createSkeletonAnimationResource(const Name& name, Anm::SkeletonAnimation&& inAnm);
 		SkeletonAnimationResource* loadImpl(const Name& id) override;
-		void unloadImpl(SkeletonResource* skeleton);
+		void unloadImpl(SkeletonAnimationResource* skeleton) override;
+		virtual void createNecessaryPersistenceResources() override;
+	private:
+		SkeletonAnimationPtr mDefaultPosPtr;
 	};
 }
 

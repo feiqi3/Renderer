@@ -19,7 +19,6 @@ namespace Render {
 		cpuMem += sizeof(Anm::Skeleton);
 		cpuMem += sizeof(Anm::Joint) * mSkeleton.mJoints.size();
 		cpuMem += sizeof(Name) * mSkeleton.mJointsName.size();
-		cpuMem += sizeof(mat4) * mSkeleton.mJointsLocalTRS.size();
 		cpuMem += sizeof(mat4) * mSkeleton.mInverseBindingMats.size();
 
 		mem.cpuMemory = cpuMem;

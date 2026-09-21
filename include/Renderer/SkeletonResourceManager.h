@@ -7,7 +7,7 @@
 
 namespace Render {
 	class SkeletonResourceManager : public ResourceManager< SkeletonResource>, public Singleton<SkeletonResourceManager> {
-	
+	public:
 		const Name& typeName()const override;
 		SkeletonPtr createSkeletonResource(Anm::Skeleton&& inSkeleton);
 		SkeletonPtr createSkeletonResource(const Name& name,Anm::Skeleton&& inSkeleton);

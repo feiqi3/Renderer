@@ -23,7 +23,7 @@ namespace Render {
 		//solverState -> a structure to restore the state that can accelerate animation sample
 		//skeletonState -> restore final animation state
 		//reverse -> is a reverse play? This can affect sample efficiency
-		void sampleAnimationState(SkeletonPtr skeleton, Anm::SkeletonState*& skeletonState,Anm::SkeletonSolverState*& solverState,float t, bool reverse);
+		void sampleAnimationState(const SkeletonPtr& skeleton, Anm::SkeletonState*& skeletonState,Anm::SkeletonSolverState*& solverState,float t, bool reverse)const;
 		virtual ResourceMemory getMemory() const override;
 
 	private:

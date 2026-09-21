@@ -30,9 +30,19 @@ namespace Render {
 		return nullptr;
 	}
 
-	void SkeletonAnimationResourceManager::unloadImpl(SkeletonResource* skeleton)
+	void SkeletonAnimationResourceManager::unloadImpl(SkeletonAnimationResource* skeleton)
 	{
 		delete skeleton;
+	}
+
+	void SkeletonAnimationResourceManager::createNecessaryPersistenceResources()
+	{
+		Anm::SkeletonAnimation defaultBindingPosAnm{};
+		auto defaultBindingPosAnmName = Name("Builtin::DefaultBindingPosAnm");
+		defaultBindingPosAnm.mSkeletonAnimationName = defaultBindingPosAnmName;
+		mDefaultPosPtr = this->createSkeletonAnimationResource(
+			defaultBindingPosAnmName,std::move(defaultBindingPosAnm)
+		);
 	}
 
 }

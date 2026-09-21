@@ -8,9 +8,17 @@
 #include "render_resource_def.h"
 #include "render_resource_createinfo.h"
 #include "MaterialInstance.h"
+#include "animation/animation.h"
+#include "renderer/ResourceFwd.h"
 namespace Render {
     class Scene;
     class Object;
+    
+    namespace Anm{
+        class Skeleton;
+        struct SkeletonAnimation;
+    }
+
     enum class GLTFAlphaMode : uint8_t {
         Opaque,
         Mask,           //AlphaTest
@@ -77,7 +85,7 @@ namespace Render {
     struct GLTFNode {
         std::string         name;
         vec3                translation;
-        vec4                rotation;
+        quat                rotation;
         vec3                scale;                 
         int                 meshIndex;   
         int                 skinIndex;
@@ -94,7 +102,7 @@ namespace Render {
     struct GLTFJoint {
         std::string name;
         vec3 translation = vec3(0.);
-        vec4 rotation = vec4(0, 0, 0, 1.);
+        quat rotation = quat(1., 0, 0, 0.);
         vec3 scale = vec3(1., 1., 1.);
         mat4 inverseBindMatrix = mat4(1.0f);
         int parent = -1;
@@ -103,6 +111,7 @@ namespace Render {
     };
 
     struct GLTFSkeleton {
+        std::string name;
         int root = -1;
         std::vector<GLTFJoint> joints;
     };
@@ -125,6 +134,7 @@ namespace Render {
         std::vector<GLTFSampler>    samplers;
         std::vector<GLTFSkeleton>   skeletons;
         std::vector<GLTFLight>      lights;
+        std::vector<Anm::SkeletonAnimation> animations;
     };
 
 
@@ -138,7 +148,10 @@ namespace Render {
 		~GLTFLoader();
 		GLTFModel*      createFromFilePath(const std::string& path);
 		class Model*    gltfModelToEngimeModel(GLTFModel* gltfModel);    
+        SkeletonPtr
+            gltfSkeletonToEngineSkeleton(const GLTFSkeleton* gltfSkeleton);
         Object*         toEngineSceneNode(Scene* scene,GLTFModel* model);
+        
 	private:
 		GLTFLoaderPrivate* mDp = nullptr;
 	};
