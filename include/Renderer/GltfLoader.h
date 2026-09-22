@@ -113,6 +113,7 @@ namespace Render {
     struct GLTFSkeleton {
         std::string name;
         int root = -1;
+        bool hasIBM = false;
         std::vector<GLTFJoint> joints;
     };
 

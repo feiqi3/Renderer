@@ -20,11 +20,11 @@
 #include "Renderer/ModelResourceManager.h"
 #include "Renderer/EnginePass.h"
 #include "function/AABB.h"
+#include "animation/SkeletonSolver.h"
 #include <vector>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "tiny_gltf.h"
-
 
 namespace {
 
@@ -703,20 +703,28 @@ namespace Render {
         skeleton.mJoints.reserve(jointsNum);
         skeleton.mInverseBindingMats.reserve(jointsNum);
         skeleton.mParents.reserve(jointsNum);
-        
+       
         for (const auto& joint : gltfSkeleton->joints) {
             skeleton.mJointsName.push_back(Name(joint.name));
 
             Anm::Joint jointTRS{};
             jointTRS.rotation = joint.rotation;
-            jointTRS.scale    = joint.scale;
+            jointTRS.scale = joint.scale;
             jointTRS.translation = joint.translation;
             skeleton.mJoints.push_back(jointTRS);
-            
-            skeleton.mParents.push_back(joint.parent);
 
-            skeleton.mInverseBindingMats.push_back(joint.inverseBindMatrix);
+            skeleton.mParents.push_back(joint.parent);
+            if (gltfSkeleton->hasIBM)
+            {
+                skeleton.mInverseBindingMats.push_back(joint.inverseBindMatrix);
+            }
         }
+
+        if (!gltfSkeleton->hasIBM) {
+            auto& ibmVec = skeleton.mInverseBindingMats;
+            Anm::SkeletonSolver::calculateInverseBindingMatrix(&skeleton, ibmVec);
+        }
+
 
         return SkeletonResourceManager::instance()->createSkeletonResource(Name(gltfSkeleton->name),std::move(skeleton));
     }
@@ -1077,28 +1085,33 @@ namespace Render {
         if (skin.joints.empty()) {
             return false;
         }
+        bool hasIBM = true;
         if (skin.inverseBindMatrices < 0) {
-            return false;
+            hasIBM = false;
         }
         out.name = name.str() + skin.name;
         const auto& nodes = model.nodes;
         const auto& jointNodes = skin.joints;
         const size_t jointCount = jointNodes.size();
-        const tinygltf::Accessor& acc = model.accessors[skin.inverseBindMatrices];
-        if (acc.type != TINYGLTF_TYPE_MAT4 || acc.count != jointCount) {
-            return false;
-        }
 
-        const tinygltf::BufferView& bv = model.bufferViews[acc.bufferView];
-        const tinygltf::Buffer& buf = model.buffers[bv.buffer];
-        const uint8_t* base =
-            buf.data.data() + bv.byteOffset + acc.byteOffset;
         std::unordered_map<int, int> nodeToJoint;
         nodeToJoint.reserve(jointCount);
         for (size_t i = 0; i < jointCount; ++i) {
             nodeToJoint[jointNodes[i]] = static_cast<int>(i);
         }
         out.joints.resize(jointCount);
+
+        const tinygltf::Accessor& acc = model.accessors[skin.inverseBindMatrices];
+        if (acc.type != TINYGLTF_TYPE_MAT4 || acc.count != jointCount) {
+            hasIBM = false;
+        }
+        out.hasIBM = hasIBM;
+        const tinygltf::BufferView& bv = model.bufferViews[acc.bufferView];
+        const tinygltf::Buffer& buf = model.buffers[bv.buffer];
+        const uint8_t* base = nullptr;
+        if (hasIBM){
+            base = buf.data.data() + bv.byteOffset + acc.byteOffset;
+        }
         for (size_t i = 0; i < jointCount; ++i) {
             const int nodeIdx = jointNodes[i];
             if (nodeIdx < 0 || nodeIdx >= static_cast<int>(nodes.size())) {
@@ -1137,13 +1150,16 @@ namespace Render {
             const float* m = reinterpret_cast<const float*>(
                 base + sizeof(float) * 16 * i);
 
-            mat4 ibm(1.0f);
-            for (int r = 0; r < 4; ++r) {
+            if (hasIBM) {
+                //GLM is col-first
+                mat4 ibm(1.0f);
                 for (int c = 0; c < 4; ++c) {
-                    ibm[c][r] = m[r * 4 + c];
+                    for (int r = 0; r < 4; ++r) {
+                        ibm[c][r] = m[c * 4 + r];
+                    }
                 }
+                j.inverseBindMatrix = ibm;
             }
-            j.inverseBindMatrix = ibm;
             j.name = n.name;
             j.parent = -1;
             j.children.clear();

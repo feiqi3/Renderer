@@ -24,6 +24,7 @@ namespace Render::Anm {
 	public:
 		void resize(size_t jointCount);
 		//Cause we dont record parent things inside state, so we need extra info from skeleton
+		//Matrix from JointSpace -> ModelSpace
 		bool calculateModelSpaceMatrix(const Skeleton* inSkeleton,std::vector<mat4>& outLocalMatrics);
 		std::vector<Transform> mJointTransforms;
 	};

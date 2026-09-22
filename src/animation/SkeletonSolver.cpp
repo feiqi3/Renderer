@@ -153,8 +153,13 @@ namespace Render::Anm {
         getAnimationPosAtTimeT(skeleton, &sklAnm, &sklState, solverState, 0, false);
         destroySkeletonSolverState(solverState);
         //now inside sklState is bindingPos -> with each joint in model space
-
-
+        std::vector<mat4> modelSpaceMatrix;
+        sklState.calculateModelSpaceMatrix(skeleton, modelSpaceMatrix);
+        outMatrix.resize(skeleton->mJoints.size());
+        for (int i = 0;i < skeleton->mJoints.size();++i) {
+            mat4 ibm = inverse(modelSpaceMatrix[i]);
+            outMatrix[i] = std::move(ibm);
+        }
     }
 
 }
