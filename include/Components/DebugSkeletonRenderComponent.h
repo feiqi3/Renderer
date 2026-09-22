@@ -12,6 +12,7 @@ namespace Render {
 	class RenderEntity;
 	namespace Anm {
 		class SkeletonState;
+		class SkeletonSolverState;
 	}
 	class SkeletonRenderComponent : public Component {
 	public:
@@ -23,11 +24,28 @@ namespace Render {
 		};
 		void setSkeletonJointDrawConfig(const Name& name, const SkeletonDrawConfig& cfg);
 		void setSkeleton(const SkeletonPtr& inSkeleton);
+		void playAnimation(const SkeletonAnimationPtr& inAnm, bool loop);
+		void playBindingPos();
+		void setPlayRate(float rate);
+		void setJointScale(float scale);
+		void setBoneWidth(float width);
 		virtual void onUpdate(float dt) override;
+	protected:
+		void resetSkeletonState();
 	private:
 		SkeletonPtr mRenderSkeleton = nullptr;
+		SkeletonAnimationPtr mSkeletonAnimation = nullptr;
 		std::map<Name, SkeletonDrawConfig> mConfigs;
 		Anm::SkeletonState* mBindingPosState = nullptr;
+		bool mIsPlayAnm = false;
+		bool mIsLoop = false;
+		float mAnmPlayTime = 0.f;
+		float mAnmLastSampleTime = 0.f;
+		float mDuration = 0.f;
+		float mPlayRate = 1.f;
+		float mJointScale = 1.f;
+		float mBoneWidth = 0.01f;
+		Anm::SkeletonSolverState* mSolverState = nullptr;
 	};
 }
 

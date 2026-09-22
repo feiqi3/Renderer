@@ -150,6 +150,8 @@ namespace Render {
 		class Model*    gltfModelToEngimeModel(GLTFModel* gltfModel);    
         SkeletonPtr
             gltfSkeletonToEngineSkeleton(const GLTFSkeleton* gltfSkeleton);
+        SkeletonAnimationPtr
+            toEngineAnimation(const Anm::SkeletonAnimation& anm);
         Object*         toEngineSceneNode(Scene* scene,GLTFModel* model);
         
 	private:

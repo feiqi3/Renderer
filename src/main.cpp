@@ -54,7 +54,7 @@ int main() {
 		glfwWindow->pollEvents();
 		InputManager::instance()->postUpdate();
 		IMGUIManager::instance()->update();
-		naiveScene->update(0.166666);
+		naiveScene->update(TimeSystem::instance()->getDeltaTime());
 		renderFlow->Excute();
 		renderSystem->EndLogicFrame();
 		renderSystem->BeginRenderFrame();

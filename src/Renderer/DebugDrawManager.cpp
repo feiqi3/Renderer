@@ -299,7 +299,7 @@ namespace Render {
 			mDp->mLineEntity->setPerInstanceBuffer(mDp->mLinePerInstanceBuffer);
 			mDp->mLineEntity->setInstanceCount(mDp->mLineInfo.size());
 			cam->getRenderQueue()->submit(mDp->mLineEntity.get(), RenderMask::DebugDraw);
-			mDp->mQuadInfo.clear();
+			mDp->mLineInfo.clear();
 		}
 	}
 

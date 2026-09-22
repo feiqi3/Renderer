@@ -718,7 +718,13 @@ namespace Render {
             skeleton.mInverseBindingMats.push_back(joint.inverseBindMatrix);
         }
 
-        return SkeletonResourceManager::instance()->createSkeletonResource(std::move(skeleton));
+        return SkeletonResourceManager::instance()->createSkeletonResource(Name(gltfSkeleton->name),std::move(skeleton));
+    }
+
+    SkeletonAnimationPtr GLTFLoader::toEngineAnimation(const Anm::SkeletonAnimation& anm)
+    {
+        auto cp = anm;
+        return SkeletonAnimationResourceManager::instance()->createSkeletonAnimationResource(anm.mSkeletonAnimationName,std::move(cp));
     }
 
 	Object* GLTFLoader::toEngineSceneNode(Scene* scene, GLTFModel* model)
@@ -1264,7 +1270,7 @@ namespace Render {
             const auto& bufferViewInput = model.bufferViews[accInput.bufferView];
             uint32_t strideInput = bufferViewInput.byteStride ? bufferViewInput.byteStride : (ComponentByteSize(accInput.componentType) * NumComponentsInType(accInput.type));
             const auto& bufferInput = model.buffers[bufferViewInput.buffer];
-            auto baseAddrInput = bufferInput.data.data() + bufferViewInput.byteOffset;
+            auto baseAddrInput = bufferInput.data.data() + bufferViewInput.byteOffset + accInput.byteOffset;
             auto inputDataNum = accInput.count;
             for (int i = 0;i < inputDataNum;++i) {
                 auto dataPtr = baseAddrInput + i * strideInput;
@@ -1310,7 +1316,7 @@ namespace Render {
             const auto& bufferViewOutput = model.bufferViews[accOutput.bufferView];
             const auto& bufferOutput = model.buffers[bufferViewOutput.buffer];
             uint32_t strideOutput = bufferViewInput.byteStride ? bufferViewOutput.byteStride : (ComponentByteSize(accOutput.componentType) * NumComponentsInType(accOutput.type));
-            auto baseAddrOutput = bufferOutput.data.data() + bufferViewOutput.byteOffset;
+            auto baseAddrOutput = bufferOutput.data.data() + bufferViewOutput.byteOffset + accOutput.byteOffset;
             auto outputDataNum = accOutput.count;
             for (int i = 0;i < outputDataNum;++i) {
                 auto dataPtr = baseAddrOutput + i * strideOutput;

@@ -104,12 +104,14 @@ namespace Render::Anm {
             if (toAnmIdx != INT32_MAX) {
                 const auto& anmJoint = anm->mJointAnimations[toAnmIdx];
                 //Sample each track
-                trans.rotation =
-                    anmJoint.mRotTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeRotSearchId, isBackSearch);
-                trans.scale =
-                    anmJoint.mScaleTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeScaleSearchId, isBackSearch);
-                trans.translation =
-                    anmJoint.mTransTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeTransSearchId, isBackSearch);
+                trans.rotation = anmJoint.mRotTrack.isEmpty() ? 
+                    skeleton->mJoints[i].rotation : anmJoint.mRotTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeRotSearchId, isBackSearch);
+                
+                trans.scale = anmJoint.mScaleTrack.isEmpty() ? 
+                    skeleton->mJoints[i].scale : anmJoint.mScaleTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeScaleSearchId, isBackSearch);;
+                
+                trans.translation = anmJoint.mTransTrack.isEmpty() ? 
+                    trans.translation = skeleton->mJoints[i].translation : anmJoint.mTransTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeTransSearchId, isBackSearch);
             }
             else {
                 //Use binding pos's instead
