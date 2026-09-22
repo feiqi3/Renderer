@@ -167,7 +167,11 @@ namespace Render::Vulkan {
 	}
 
 	struct descriptor_set_pack {
-		int16_t setUpdatedFif = -1;
+		//Frame in which this pack's descriptor set was last written. A pack is
+		//rewritten at most once per frame; later binds in the same frame only
+		//refresh dynamic offsets. Using the frame (not the fif) is what makes the
+		//guard correct when the same fif comes around again on a later frame.
+		uint64_t lastWriteDescriptorFrame = ~0ull;
 		std::vector<rs_descriptorSet_vk*> descriptorSets;
 		std::vector<rs_binding_slot>	bindingTracker;
 		struct rs_descriptorset_layout_vk*		setlayout = nullptr;

@@ -9,6 +9,6 @@ namespace Render::Vulkan {
 	uint32_t BindlessMaxBuffer = 512;
 	uint32_t Synchronize2Enable = false;
 	bool		DeviceFault = false;
-	bool		ShaderDebugPrint = false;
-	bool		ShaderDrawMeta = false;
+	bool		ShaderDebugPrint = true;
+	bool		ShaderDrawMeta = true;
 }
