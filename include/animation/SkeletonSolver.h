@@ -7,7 +7,7 @@
 namespace Render::Anm {
 
 	//Restore states to accelerate animation calculation
-	class SkeletonSolverState {
+	struct SkeletonSolverState {
 	public:
 		void resetBySkeletonAndAnimation(const Skeleton* skeleton, const SkeletonAnimation* anm);
 
@@ -35,7 +35,7 @@ namespace Render::Anm {
 		static void				     destroySkeletonSolverState(SkeletonSolverState* state);
 		static void					 getAnimationPosAtTimeT(const Skeleton* skeleton, const SkeletonAnimation* anm,
 			SkeletonState* sklState,SkeletonSolverState* solverState, float t, bool isBackSearch);
-
+		static void					 calculateInverseBindingMatrix(const Skeleton* skeleton, std::vector<mat4>& outMatrix);
 	};
 }
 

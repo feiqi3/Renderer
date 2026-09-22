@@ -16,8 +16,8 @@ namespace Render {
 	{
 		mRenderSkeleton = inSkeleton;
 		if (inSkeleton == nullptr) {
-			delete mBindingPosState;
-			mBindingPosState = nullptr;
+			delete mAnimationState;
+			mAnimationState = nullptr;
 		}
 		if (mSkeletonAnimation == nullptr) {
 			playBindingPos();
@@ -67,8 +67,9 @@ namespace Render {
 		if (!mRenderSkeleton)return;
 		if (this->mIsPlayAnm) {
 			this->mSkeletonAnimation->sampleAnimationState(
-				mRenderSkeleton, mBindingPosState, mSolverState, mAnmPlayTime, false
+				mRenderSkeleton, mAnimationState, mSolverState, mAnmPlayTime, false
 			);
+			mAnimationState->calculateModelSpaceMatrix(mRenderSkeleton->getSkeleton(), mSavedPosModelSpaceMat);
 			mAnmPlayTime += dt * mPlayRate;
 			if (mAnmPlayTime >= mSkeletonAnimation->getSkeletonAnimation()->mDuration) {
 				if (this->mIsLoop) {
@@ -90,8 +91,8 @@ namespace Render {
 		}
 
 		const auto& skl = mRenderSkeleton->getSkeleton();
-		for (int i = 0;i < mBindingPosState->mJointTransforms.size();++i) {
-			auto transformMat = localMat * mBindingPosState->mLocalMatrices[i];
+		for (int i = 0;i < mSavedPosModelSpaceMat.size();++i) {
+			auto transformMat = localMat * mSavedPosModelSpaceMat[i];
 			vec3 trans;
 			vec3 scale;
 			quat rot;

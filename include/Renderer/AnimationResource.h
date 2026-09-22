@@ -6,9 +6,9 @@
 #include <map>
 namespace Render {
 	namespace Anm {
-		class SkeletonAnimation;
-		class SkeletonState;
-		class SkeletonSolverState;
+		struct SkeletonAnimation;
+		struct SkeletonState;
+		struct SkeletonSolverState;
 	};
 
 	class SkeletonAnimationResource : public IResource {

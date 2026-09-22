@@ -20,12 +20,12 @@ namespace Render::Anm {
 	};
 
 	//Class restore
-	class SkeletonState {
+	struct SkeletonState {
 	public:
 		void resize(size_t jointCount);
-
+		//Cause we dont record parent things inside state, so we need extra info from skeleton
+		bool calculateModelSpaceMatrix(const Skeleton* inSkeleton,std::vector<mat4>& outLocalMatrics);
 		std::vector<Transform> mJointTransforms;
-		std::vector<mat4>	   mLocalMatrices;
 	};
 
 }

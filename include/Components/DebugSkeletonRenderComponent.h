@@ -11,8 +11,8 @@ namespace Render {
 	class MaterialTemplate;
 	class RenderEntity;
 	namespace Anm {
-		class SkeletonState;
-		class SkeletonSolverState;
+		struct SkeletonState;
+		struct SkeletonSolverState;
 	}
 	class SkeletonRenderComponent : public Component {
 	public:
@@ -33,10 +33,11 @@ namespace Render {
 	protected:
 		void resetSkeletonState();
 	private:
+		std::vector<mat4> mSavedPosModelSpaceMat;
 		SkeletonPtr mRenderSkeleton = nullptr;
 		SkeletonAnimationPtr mSkeletonAnimation = nullptr;
 		std::map<Name, SkeletonDrawConfig> mConfigs;
-		Anm::SkeletonState* mBindingPosState = nullptr;
+		Anm::SkeletonState* mAnimationState = nullptr;
 		bool mIsPlayAnm = false;
 		bool mIsLoop = false;
 		float mAnmPlayTime = 0.f;

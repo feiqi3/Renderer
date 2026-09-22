@@ -98,10 +98,15 @@ namespace Render::Anm {
 #if defined(DEBUG) || defined(_DEBUG)
         std::fill(solverState->mIsJointUpdated.begin(), solverState->mIsJointUpdated.end(), 0);
 #endif //DEBUG || _DEBUG
+        sklState->resize(skeleton->mJoints.size());
+
         for (int i = 0;i < skeleton->mJoints.size();++i) {
             auto toAnmIdx = solverState->mJointToAnmIdx[i];
             Transform trans{};
+            //This animation has target joint?
             if (toAnmIdx != INT32_MAX) {
+                //Animatio will affect target joint
+                //Then do a sample!
                 const auto& anmJoint = anm->mJointAnimations[toAnmIdx];
                 //Sample each track
                 trans.rotation = anmJoint.mRotTrack.isEmpty() ? 
@@ -114,14 +119,13 @@ namespace Render::Anm {
                     trans.translation = skeleton->mJoints[i].translation : anmJoint.mTransTrack.sampleFromLast(t, solverState->mJointStates[i].lastTimeTransSearchId, isBackSearch);
             }
             else {
+                //Animatio will not affect target joint
                 //Use binding pos's instead
                 trans = skeleton->mJoints[i];
             }
             sklState->mJointTransforms[i] = std::move(trans);
-            //The space where joint is origin
-            auto jointSpaceMat            = sklState->mJointTransforms[i].toMatrix();
-            int32_t parIdx                = skeleton->mParents[i];
 #if defined(DEBUG) || defined(_DEBUG)
+            int32_t parIdx = skeleton->mParents[i];
             //Check is parent updated? or error may happen
             bool isParentUpdated = false;
             if (parIdx < 0) {
@@ -135,14 +139,21 @@ namespace Render::Anm {
             }
             solverState->mIsJointUpdated[i] = 1;
 #endif //DEBUG || _DEBUG
-            if (parIdx >= 0) {
-                const auto& parLocalMat     = sklState->mLocalMatrices[parIdx];
-                sklState->mLocalMatrices[i] = parLocalMat * jointSpaceMat;
-            }
-            else {
-                sklState->mLocalMatrices[i] = std::move(jointSpaceMat);
-            }
         }
+
+    }
+
+    void SkeletonSolver::calculateInverseBindingMatrix(const Skeleton* skeleton, std::vector<mat4>& outMatrix)
+    {
+        //Use a null animation to simulate binding pos
+        SkeletonAnimation sklAnm{};
+        auto solverState = createSkeletonSolverState(skeleton, &sklAnm);
+        SkeletonState sklState{};
+        sklState.resize(skeleton->mJoints.size());
+        getAnimationPosAtTimeT(skeleton, &sklAnm, &sklState, solverState, 0, false);
+        destroySkeletonSolverState(solverState);
+        //now inside sklState is bindingPos -> with each joint in model space
+
 
     }
 
