@@ -27,7 +27,6 @@ namespace Render {
 	
 	void PBRSkinnedRenderComponent::playBindingPos()
 	{
-		if (mRenderSkeleton == nullptr)return;
 		auto bindingPosPtr = ResourceSystem::instance()->getResource<SkeletonAnimationResource>(SkeletonAnimationResource::typeName(), Name("Builtin::DefaultBindingPosAnm"));
 		this->playAnimation(bindingPosPtr, false);
 	}
@@ -35,6 +34,10 @@ namespace Render {
 
 	void PBRSkinnedRenderComponent::playAnimation(const SkeletonAnimationPtr& animation, bool loop)
 	{
+		if (!animation) {
+			playBindingPos();
+			return;
+		}
 		mSkeletonAnimation = animation;
 		this->mAnmPlayTime = 0.;
 		this->mIsPlayAnm = true;
@@ -57,7 +60,7 @@ namespace Render {
 			mSkeletonUpdateBuffer, &mJointsNum, sizeof(uint32_t), 0
 		);
 		RenderSystem::instance()->updateBufferData(
-			mSkeletonUpdateBuffer, &mSavedSkinMatrics, sizeof(mat4) * mJointsNum, sizeof(uint32_t)
+			mSkeletonUpdateBuffer, mSavedSkinMatrics.data(), sizeof(mat4) * mJointsNum, 4 * sizeof(uint32_t)
 		);
 	}
 
@@ -69,10 +72,10 @@ namespace Render {
 		);
 		//1. animation joint matrix
 		mAnimationState->calculateModelSpaceMatrix(mRenderSkeleton->getSkeleton(), mSavedSkinMatrics);
-		
+		const auto& inverseBindingMatrics = mRenderSkeleton->getSkeleton()->mInverseBindingMats;
 		//2. with Inverse binding matrix
 		for (int i = 0;i < mRenderSkeleton->getSkeleton()->mInverseBindingMats.size();++i) {
-			mSavedSkinMatrics[i] = mSavedSkinMatrics[i] * mRenderSkeleton->getSkeleton()->mInverseBindingMats[i];
+			mSavedSkinMatrics[i] = mSavedSkinMatrics[i] * inverseBindingMatrics[i];
 		}
 
 		mAnmPlayTime += dt * mPlayRate;
