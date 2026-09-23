@@ -26,7 +26,8 @@ namespace Render {
             const Name& templateName,
             const ShaderStageInfo& shaderInfo,
             const RenderState& state,
-            const VertexInputDescription& inputDesc
+            const VertexInputDescription& inputDesc,
+            ResourceLifetime lifeTime = ResourceLifetime::Transient
         );
 
         MaterialTemplatePtr getMaterialTemplate(const Name& templateName)const;

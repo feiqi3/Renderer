@@ -9,6 +9,7 @@
 #include "function/Scene.h"
 #include "function/Object.h"
 #include "Components/PBRRenderComponent.h"
+#include "Components/PBRSkinnedRenderComponent.h"
 #include "Components/LightComponent.h"
 #include "Renderer/Materials/PBRMaterial.h"
 #include "Renderer/MaterialTemplateManager.h"
@@ -135,11 +136,16 @@ namespace {
 	}
 
 	template <typename T>
-	inline uint8_t ReadGltfUint8(const uint8_t* ptr, bool normalized) {
-		float f = ReadGltfFloat<T>(ptr, normalized);
-		f = std::max(0.0f, std::min(1.0f, f));
-		return static_cast<uint8_t>(std::round(f * 255.0f));
-	}
+    inline uint8_t ReadGltfUint8(const uint8_t* ptr, bool normalized) {
+        float f = ReadGltfFloat<T>(ptr, normalized);
+        if (normalized) {
+            f = std::max(0.0f, std::min(1.0f, f));
+            return static_cast<uint8_t>(std::round(f * 255.0f));
+        }
+        else {
+            return static_cast<uint8_t>(std::round(f));
+        }
+    }
 	template <> inline uint8_t ReadGltfUint8<int8_t>(const uint8_t* ptr, bool normalized) {
 		int8_t v = *reinterpret_cast<const int8_t*>(ptr);
 		if (normalized) {
@@ -159,6 +165,62 @@ namespace {
 	template <> inline uint8_t ReadGltfUint8<uint8_t>(const uint8_t* ptr, bool normalized) {
 		return *reinterpret_cast<const uint8_t*>(ptr);
 	}
+
+    template <typename T>
+    inline uint32_t ReadGltfUint32(const uint8_t* ptr, bool normalized) {
+        float f = ReadGltfFloat<T>(ptr, normalized);
+        f = std::max(0.0f, std::min(1.0f, f));
+        return static_cast<uint32_t>(std::round(f * 4294967295.0f));
+    }
+
+    template <> inline uint32_t ReadGltfUint32<uint32_t>(const uint8_t* ptr, bool normalized) {
+        return *reinterpret_cast<const uint32_t*>(ptr);
+    }
+
+    template <> inline uint32_t ReadGltfUint32<uint16_t>(const uint8_t* ptr, bool normalized) {
+        uint16_t v = *reinterpret_cast<const uint16_t*>(ptr);
+        if (normalized) {
+            float f = static_cast<float>(v) / 65535.0f;
+            return static_cast<uint32_t>(std::round(f * 4294967295.0f));
+        }
+        return static_cast<uint32_t>(v);
+    }
+
+    template <> inline uint32_t ReadGltfUint32<uint8_t>(const uint8_t* ptr, bool normalized) {
+        uint8_t v = *reinterpret_cast<const uint8_t*>(ptr);
+        if (normalized) {
+            float f = static_cast<float>(v) / 255.0f;
+            return static_cast<uint32_t>(std::round(f * 4294967295.0f));
+        }
+        return static_cast<uint32_t>(v);
+    }
+
+    template <> inline uint32_t ReadGltfUint32<int8_t>(const uint8_t* ptr, bool normalized) {
+        int8_t v = *reinterpret_cast<const int8_t*>(ptr);
+        if (normalized) {
+            float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 127.0f));
+            return static_cast<uint32_t>(std::round((f * 0.5f + 0.5f) * 4294967295.0f));
+        }
+        return static_cast<uint32_t>(std::max(0, static_cast<int>(v)));
+    }
+
+    template <> inline uint32_t ReadGltfUint32<int16_t>(const uint8_t* ptr, bool normalized) {
+        int16_t v = *reinterpret_cast<const int16_t*>(ptr);
+        if (normalized) {
+            float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 32767.0f));
+            return static_cast<uint32_t>(std::round((f * 0.5f + 0.5f) * 4294967295.0f));
+        }
+        return static_cast<uint32_t>(std::max(0, static_cast<int>(v)));
+    }
+
+    template <> inline uint32_t ReadGltfUint32<int32_t>(const uint8_t* ptr, bool normalized) {
+        int32_t v = *reinterpret_cast<const int32_t*>(ptr);
+        if (normalized) {
+            float f = std::max(-1.0f, std::min(1.0f, static_cast<float>(v) / 2147483647.0f));
+            return static_cast<uint32_t>(std::round((f * 0.5f + 0.5f) * 4294967295.0f));
+        }
+        return static_cast<uint32_t>(std::max(0, v));
+    }
 
 	inline float DispatchReadFloat(const uint8_t* ptr, int compType, bool normalized) {
 		switch (compType) {
@@ -185,6 +247,19 @@ namespace {
 		default: return 0;
 		}
 	}
+
+    inline uint32_t DispatchReadUint32(const uint8_t* ptr, int compType, bool normalized) {
+        switch (compType) {
+        case TINYGLTF_COMPONENT_TYPE_BYTE:           return ReadGltfUint32<int8_t>(ptr, normalized);
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:  return ReadGltfUint32<uint8_t>(ptr, normalized);
+        case TINYGLTF_COMPONENT_TYPE_SHORT:          return ReadGltfUint32<int16_t>(ptr, normalized);
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: return ReadGltfUint32<uint16_t>(ptr, normalized);
+        case TINYGLTF_COMPONENT_TYPE_INT:            return ReadGltfUint32<int32_t>(ptr, normalized);
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:   return ReadGltfUint32<uint32_t>(ptr, normalized);
+        case TINYGLTF_COMPONENT_TYPE_FLOAT:          return ReadGltfUint32<float>(ptr, normalized);
+        default: return 0;
+        }
+    }
 
 	class GltfAttributeReader {
 	public:
@@ -237,15 +312,34 @@ namespace {
 				out[i] = DispatchReadUint8(compPtr, compType, normalized);
 			}
 		}
+
+        void getUint32s(size_t vtxIdx, uint32_t* out, int maxOutComps) const {
+            if (!valid) return;
+            const uint8_t* ptr = basePtr + vtxIdx * stride;
+            int compsToRead = std::min(numComps, maxOutComps);
+
+            for (int i = 0; i < compsToRead; ++i) {
+                const uint8_t* compPtr = ptr + i * ComponentByteSize(compType);
+                out[i] = DispatchReadUint32(compPtr, compType, normalized);
+            }
+        }
+
 	};
 
-    Render::MaterialTemplatePtr getPBRMaterialTemplate(const Render::GLTFMaterial* material) {
+    Render::MaterialTemplatePtr getPBRMaterialTemplate(Render::GLTFAlphaMode alphaMode,bool skinned) {
         using namespace Render;
         auto materialTemplateMgr = MaterialTemplateManager::instance();
         std::string materialName = "PBRMaterialTemplate";
+
         MacroPairs  vsMarcos;
         MacroPairs  psMarcos;
-        switch (material->alphaMode) {
+        if (skinned) {
+            materialName = "Skinned_" + materialName;
+            psMarcos.push_back({ "SKIN", "" });
+            vsMarcos.push_back({ "SKIN", "" });
+        }
+
+        switch (alphaMode) {
             case GLTFAlphaMode::Opaque:
                 materialName += "_Opaque";
 				break;
@@ -266,7 +360,7 @@ namespace {
             //PREZ
 			state.depthWriteEnable = false;
 			state.depthCompareOp = Render::CompareOp::LessOrEqual;
-            if (material->alphaMode == GLTFAlphaMode::Blend) {
+            if (alphaMode == GLTFAlphaMode::Blend) {
                 BlendState glassBlendForMainRT;
 
                 glassBlendForMainRT.blendEnable = true;
@@ -282,7 +376,12 @@ namespace {
             }
             VertexInputDescription vtxID{};
             InputBufferBinding binding{};
-			binding.stride = sizeof(StandardModelVertex);
+            if (!skinned) {
+                binding.stride = sizeof(StandardModelVertex);
+            }
+            else {
+                binding.stride = sizeof(StandardSkinnedModelVertex);
+            }
             vtxID.bindings.push_back(binding);
             int offset = 0;
             InputAttribute ia{};
@@ -317,10 +416,23 @@ namespace {
 			ia.offset = offset;
 			vtxID.attributes.push_back(ia);
 			offset += sizeof(uint32_t);
-
-            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/StandardPBR.vs"},{ShaderStage::Fragment,"../shader/StandardPBR.ps"} }, state, vtxID);
+            if (skinned) {
+                //joint indice
+                ia.location = 5;
+                ia.format = VertexFormat::UByte4;
+                ia.offset = offset;
+                vtxID.attributes.push_back(ia);
+                offset += sizeof(u32);
+                //weights
+                ia.location = 6;
+                ia.format = VertexFormat::UByte4N;
+                ia.offset = offset;
+                vtxID.attributes.push_back(ia);
+                offset += sizeof(uint32_t);
+            }
+            auto tplt = materialTemplateMgr->createMaterialTemplate(tpltName, { {ShaderStage::Vertex,"../shader/StandardPBR.vs"},{ShaderStage::Fragment,"../shader/StandardPBR.ps"} }, state, vtxID,ResourceLifetime::Manual);
             
-            if (material->alphaMode == Render::GLTFAlphaMode::Blend) {
+            if (alphaMode == Render::GLTFAlphaMode::Blend) {
 				tplt->createMaterialPass(PassName::MainCameraTransparentPass, {
                     {ShaderStage::Vertex, vsMarcos},{ShaderStage::Fragment, psMarcos}
 					});
@@ -355,13 +467,18 @@ namespace {
         }
     }
 
+
+
 	bool packPrimitiveToStandardVertices(
 		const tinygltf::Model& model,
 		const tinygltf::Mesh& mesh,
 		std::vector<Render::StandardModelVertex>& outVertices,
+        std::vector<Render::StandardSkinnedModelVertex>& outSkin,
 		std::vector<uint32_t>& outIndice,
 		std::vector<Render::SubMesh>& outSubmeshes,
-		std::vector<int>& outMaterialIndex)
+		std::vector<int>& outMaterialIndex,
+        bool& hasSkin
+    )
 	{
 		size_t totalCntVtx = 0;
 		size_t totalIndice = 0;
@@ -376,11 +493,24 @@ namespace {
             else {
                 totalIndice += static_cast<size_t>(model.accessors[prim.indices].count);
             }
+
+            if (!hasSkin) {
+                auto itWeight = prim.attributes.find("WEIGHTS_0");
+                if (itWeight != prim.attributes.end()) {
+                    hasSkin = true;
+                }
+            }
         }
 
-		outVertices.resize(totalCntVtx);
-		outIndice.resize(totalIndice, 0);
 
+
+		outIndice.resize(totalIndice, 0);
+        if (hasSkin) {
+            outSkin.resize(totalIndice, {});
+        }
+        else {
+            outVertices.resize(totalCntVtx);
+        }
 		size_t baseVertexOffset = 0;
 		size_t baseIndiceOffset = 0;
 
@@ -395,39 +525,63 @@ namespace {
             GltfAttributeReader tangReader(model, prim, "TANGENT");
             GltfAttributeReader uv0Reader(model, prim, "TEXCOORD_0");
 			GltfAttributeReader colReader(model, prim, "COLOR_0");
-
+            GltfAttributeReader jointReader(model, prim, "JOINTS_0");
+            GltfAttributeReader weightReader(model, prim, "WEIGHTS_0");
 			for (size_t i = 0; i < vertexCount; ++i) {
-				Render::StandardModelVertex vtx{};
-				vtx.color_u8x4_pack = 0xFFFFFFFFu; 
+                Render::StandardModelVertex* vtx{};
+                if (!hasSkin) {
+                    vtx = &outVertices[i];
+                }
+                else {
+                    vtx = &outSkin[i];
+                }
+				vtx->color_u8x4_pack = 0xFFFFFFFFu; 
 
 				if (posReader.valid) {
 					float pos[3] = { 0.f, 0.f, 0.f };
 					posReader.getFloats(i, pos, 3);
-					memcpy(&vtx.position, pos, sizeof(float) * 3);
+					memcpy(&vtx->position, pos, sizeof(float) * 3);
 				}
 				if (normReader.valid) {
 					float norm[3] = { 0.f, 0.f, 0.f };
 					normReader.getFloats(i, norm, 3);
-					memcpy(&vtx.normal, norm, sizeof(float) * 3);
+					memcpy(&vtx->normal, norm, sizeof(float) * 3);
 				}
 				if (uv0Reader.valid) {
 					float uv0[2] = { 0.f, 0.f };
 					uv0Reader.getFloats(i, uv0, 2);
-					memcpy(&vtx.uv_0, uv0, sizeof(float) * 2);
+					memcpy(&vtx->uv_0, uv0, sizeof(float) * 2);
 				}
 				if (tangReader.valid) {
 					float tangent[4] = {0., 0.f, 0.f,1.0f };
                     tangReader.getFloats(i, tangent, 4);
-					memcpy(&vtx.tangent, tangent, sizeof(float) * 4);
+					memcpy(&vtx->tangent, tangent, sizeof(float) * 4);
 				}
 				if (colReader.valid) {
 					uint8_t col[4] = { 255, 255, 255, 255 };
 					colReader.getUint8s(i, col, 4);
-					memcpy(&vtx.color_u8x4_pack, col, sizeof(uint8_t) * 4);
+					memcpy(&vtx->color_u8x4_pack, col, sizeof(uint8_t) * 4);
 				}
 
-				outVertices[baseVertexOffset + i] = vtx;
-                aabb.expand(vtx.position);
+                aabb.expand(vtx->position);
+                if (hasSkin) {
+                    Render::StandardSkinnedModelVertex* skinnedVtx = (Render::StandardSkinnedModelVertex*)vtx;
+                    if (jointReader.valid) {
+                        uint8_t joints[4] = { 0, 0, 0,0 };
+                        jointReader.getUint8s(i, joints, 4);
+                        memcpy(&skinnedVtx->jointIndice, joints, sizeof(uint8_t) * 4);
+                    }
+                    if (weightReader.valid) {
+                        float weights[4] = { 0.f, 0.f, 0.f,0.f };
+                        weightReader.getFloats(i, weights, 4);
+                        uint8_t weights_u8[4];
+                        for (int i = 0;i < 4;++i) {
+                            weights[i] = std::max(0.f,std::min(weights[i], 1.f));
+                            weights_u8[i] = uint8_t(weights[i] * 255.f);
+                        }
+                        memcpy(&skinnedVtx->weights, weights_u8, sizeof(uint8_t) * 4);
+                    }
+                }
 			}
 
             if (prim.indices >= 0) {
@@ -555,7 +709,7 @@ namespace Render {
         bool            getSampler(const Name& name, GLTFSampler& out, const tinygltf::Model& model, const tinygltf::Sampler& sampler);
         bool            getNode(const Name& name, GLTFNode& out, const tinygltf::Model& model, const tinygltf::Node& node);
         bool            getLight(const Name& name, GLTFLight& out, const tinygltf::Model& model, const tinygltf::Light& light, int idx);
-		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat);
+		MaterialPtr     createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat, bool skinned);
 		GLTFLoaderSetting setting;
 
     };
@@ -682,12 +836,13 @@ namespace Render {
 
     Model* GLTFLoader::gltfModelToEngimeModel(GLTFModel* gltfModel)
     {
+        assert(false);
 		Model* model = new Model;
         //set mesh and ptr
         for (auto& mesh : gltfModel->meshes) {
             std::vector<MaterialPtr> materials{};
             for (auto& matid : mesh.materialIdx) {
-				auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(gltfModel, gltfModel->materials[matid]);
+				auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(gltfModel, gltfModel->materials[matid],mesh.mesh->getHasSkin());
                 materials.push_back(matPtr);
             }
             model->addMesh(mesh.mesh, materials);
@@ -697,6 +852,9 @@ namespace Render {
 
     SkeletonPtr GLTFLoader::gltfSkeletonToEngineSkeleton(const GLTFSkeleton* gltfSkeleton)
     {
+        auto name = Name(gltfSkeleton->name);
+        auto res = ResourceSystem::instance()->getResource<SkeletonResource>(SkeletonResource::typeName(), name);
+        if (res)return res;
         Anm::Skeleton skeleton;
         auto jointsNum = gltfSkeleton->joints.size();
         skeleton.mJointsName.reserve(jointsNum);
@@ -726,11 +884,13 @@ namespace Render {
         }
 
 
-        return SkeletonResourceManager::instance()->createSkeletonResource(Name(gltfSkeleton->name),std::move(skeleton));
+        return SkeletonResourceManager::instance()->createSkeletonResource(name,std::move(skeleton));
     }
 
     SkeletonAnimationPtr GLTFLoader::toEngineAnimation(const Anm::SkeletonAnimation& anm)
-    {
+    {   
+        auto res = ResourceSystem::instance()->getResource<SkeletonAnimationResource>(SkeletonAnimationResource::typeName(), anm.mSkeletonAnimationName);
+        if (res)return res;
         auto cp = anm;
         return SkeletonAnimationResourceManager::instance()->createSkeletonAnimationResource(anm.mSkeletonAnimationName,std::move(cp));
     }
@@ -740,9 +900,23 @@ namespace Render {
 		if (!model || model->scenes.empty()) {
 			return nullptr;
 		}
-
+        getPBRMaterialTemplate(GLTFAlphaMode::Blend,false);
+        getPBRMaterialTemplate(GLTFAlphaMode::Blend,true);
+        getPBRMaterialTemplate(GLTFAlphaMode::Mask,false);
+        getPBRMaterialTemplate(GLTFAlphaMode::Mask,true);
+        getPBRMaterialTemplate(GLTFAlphaMode::Opaque,false);
+        getPBRMaterialTemplate(GLTFAlphaMode::Opaque,true);
 		Object* rootObj = scene->createObject(model->modelName.c_str());
 		assert(rootObj != nullptr);
+
+        //Register resources.
+        for (const auto& skeleton : model->skeletons) {
+            gltfSkeletonToEngineSkeleton(&skeleton);
+        }
+        for (const auto& anm : model->animations) {
+            auto anmCopy = anm;//Copy!
+            SkeletonAnimationResourceManager::instance()->createSkeletonAnimationResource(anm.mSkeletonAnimationName, std::move(anmCopy));
+        }
 
 		std::function<void(int, Object*, const mat4&)> processNode = [&](int nodeIndex, Object* parentObj,const mat4& worldMat) {
 			if (nodeIndex < 0 || nodeIndex >= model->nodes.size()) return;
@@ -783,13 +957,23 @@ namespace Render {
 
 			if (node.meshIndex >= 0 && node.meshIndex < model->meshes.size()) {
 				const auto& mesh = model->meshes[node.meshIndex];
-				auto renderComp = currentObj->addComponent<Render::PBRRenderComponent>();
+                PBRRenderComponent* renderComp = nullptr;
+                if (node.skinIndex >= 0) {
+                    renderComp = currentObj->addComponent<Render::PBRSkinnedRenderComponent>();
+                    auto skl = gltfSkeletonToEngineSkeleton(&model->skeletons[node.skinIndex]);
+                    ((Render::PBRSkinnedRenderComponent*)renderComp)->setSkeleton(
+                        skl
+                    );
+                }
+                else {
+                    renderComp = currentObj->addComponent<Render::PBRRenderComponent>();
+                }
 				renderComp->setMesh(mesh.mesh);
 				currentObj->setLocalPosition(currentObj->localPosition() + mesh.offsetByCenter);
 				int submeshIdx = 0;
 				for (int materialIDX : mesh.materialIdx) {
 					if (materialIDX >= 0 && materialIDX < model->materials.size()) {
-						auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(model, model->materials[materialIDX]);
+						auto matPtr = mDp->createPBRMaterialFromGLTFMaterial(model, model->materials[materialIDX],mesh.hasSkin);
 						renderComp->setMaterial(submeshIdx, matPtr);
 					}
 					submeshIdx++;
@@ -812,14 +996,7 @@ namespace Render {
 			processNode(rootNodeIndex, rootObj, worldMat);
 		}
 
-        //Register resources.
-        for (const auto& skeleton : model->skeletons) {
-            gltfSkeletonToEngineSkeleton(&skeleton);
-        }
-        for (const auto& anm : model->animations) {
-            auto anmCopy = anm;//Copy!
-            SkeletonAnimationResourceManager::instance()->createSkeletonAnimationResource(anm.mSkeletonAnimationName, std::move(anmCopy));
-        }
+
 		return rootObj;
 	}
     bool GLTFLoaderPrivate::getGLTFModel(const std::string& modelName, GLTFModel& out, const tinygltf::Model& model)
@@ -1374,11 +1551,14 @@ namespace Render {
     bool GLTFLoaderPrivate::getMesh(const Name& name, GLTFMesh& out, const tinygltf::Model& model, const tinygltf::Mesh& mesh)
     {
         std::vector<StandardModelVertex> vertex;
+        std::vector<StandardSkinnedModelVertex> skinned;
         std::vector<uint32_t> indice;
         std::vector<Render::SubMesh> submeshes;
         std::vector<int> matIdx;
-        bool isSuccess = packPrimitiveToStandardVertices(model, mesh, vertex, indice, submeshes, matIdx);
+        bool hasSkin = false;
+        bool isSuccess = packPrimitiveToStandardVertices(model, mesh, vertex, skinned, indice, submeshes, matIdx, hasSkin);
         if (!isSuccess)return false;
+        out.hasSkin = hasSkin;
         out.materialIdx = matIdx;
         if (setting.offsetByCenter) {
             //Offset position to center of bounding box
@@ -1387,17 +1567,32 @@ namespace Render {
                 aabb.expand(v.position);
             }
             auto center = aabb.getCenter();
-            for (auto& v : vertex) {
-                v.position -= center;
+            if (!hasSkin) {
+                for (auto& v : vertex) {
+                    v.position -= center;
+                }
+            }
+            else {
+                for (auto& v : skinned) {
+                    v.position -= center;
+                }
             }
             out.offsetByCenter = center;
         }
         else {
             out.offsetByCenter = vec3(0.f);
         }
-        MeshData meshdata = MeshData(
-            (void*)vertex.data(),sizeof(StandardModelVertex) * vertex.size(), vertex.size(), (void*)indice.data(), indice.size(), IndexType::Uint32
-        );
+        MeshData meshdata;
+        if (!hasSkin) {
+            meshdata = MeshData(
+                (void*)vertex.data(), sizeof(StandardModelVertex) * vertex.size(), vertex.size(), (void*)indice.data(), indice.size(), IndexType::Uint32
+            );
+        }
+        else {
+            meshdata = MeshData(
+                (void*)skinned.data(), sizeof(StandardSkinnedModelVertex) * skinned.size(), skinned.size(), (void*)indice.data(), indice.size(), IndexType::Uint32
+            );
+        }
 
 
 
@@ -1407,6 +1602,15 @@ namespace Render {
         meshdata.addAttribute(Render::VertexFormat::Float4, VertexSemantic::Tangent, offsetof(StandardModelVertex, tangent));
         meshdata.addAttribute(Render::VertexFormat::Float2, VertexSemantic::TexCoord0, offsetof(StandardModelVertex, uv_0));
         meshdata.addAttribute(Render::VertexFormat::UByte4N, VertexSemantic::Color0, offsetof(StandardModelVertex, color_u8x4_pack));
+
+        if (hasSkin) {
+            meshdata.addAttribute(Render::VertexFormat::UByte4N, VertexSemantic::BoneWeights, offsetof(StandardSkinnedModelVertex, weights));
+            meshdata.addAttribute(Render::VertexFormat::UByte4, VertexSemantic::BoneIndices, offsetof(StandardSkinnedModelVertex, jointIndice));
+            meshdata.setHasSkin(true);
+        }
+        else {
+            meshdata.setHasSkin(false);
+        }
         meshdata.setSubMeshes(submeshes);
         Name thisMeshResName = Name(name.str()+ "_" + mesh.name);
         out.mesh = ResourceSystem::instance()->registerResource(ResourceName::Mesh, thisMeshResName, meshdata.toMeshResource());
@@ -1601,12 +1805,16 @@ namespace Render {
         return true;
     }
 
-	MaterialPtr GLTFLoaderPrivate::createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat)
+	MaterialPtr GLTFLoaderPrivate::createPBRMaterialFromGLTFMaterial(GLTFModel* model, const GLTFMaterial& gltfMat,bool skinned)
     {
-        Name matName = Name(gltfMat.name);
+        std::string _matName = gltfMat.name;
+        if (skinned) {
+            _matName = _matName + "_Skinned";
+        }
+        Name matName = Name(_matName);
         auto pbrMatPtr = ResourceSystem::instance()->getResource<Material>(ResourceName::Material, matName);
         if (!pbrMatPtr) {
-            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName, getPBRMaterialTemplate(&gltfMat));
+            pbrMatPtr = MaterialManager::instance()->createMaterial<PBRMaterial>(matName, getPBRMaterialTemplate(gltfMat.alphaMode, skinned));
             if (gltfMat.alphaMode == GLTFAlphaMode::Blend) {
                 pbrMatPtr->setRenderMask(RenderMask::Transparent);
 			}

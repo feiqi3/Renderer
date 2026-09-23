@@ -11,7 +11,7 @@
 #include "Renderer/MaterialTemplateManager.h"
 #include "Renderer/MaterialManager.h"
 #include "Renderer/Materials/PBRMaterial.h"
-
+#include "Renderer/AnimationResource.h"
 #include "Renderer/Camera.h"
 #include "Renderer/TextureResourceMgr.h"
 #include "Renderer/SamplerResourceManager.h"
@@ -21,8 +21,10 @@
 #include "Renderer/RenderQueue.h"
 #include "Renderer/GPUShared/PBREntity.h"
 #include "Renderer/EnginePass.h"
-
+#include "Renderer/DebugDrawManager.h"
 #include "Components/RenderDebugUIComponent.h"
+#include "Components/DebugSkeletonRenderComponent.h"
+#include "Components/PBRSkinnedRenderComponent.h"
 namespace Render {
 	class MoveComponent : public Component {
 	public:
@@ -72,41 +74,72 @@ namespace Render {
 		//objectB->addComponent<SimpleRenderComponent>();
 		//objectB->addComponent<MoveComponent>( vec3(0,0,-5),3 );
 		GLTFLoader loader;
-		auto model = loader.createFromFilePath("../resources/Sponza/Sponza.gltf");
-		auto node = loader.toEngineSceneNode(naiveScene, model);
-		node->setLocalScale(vec3(3, 3, 3));
-		node->setLocalPosition(vec3(0,-10, -40));
-		node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
-		//node->addComponent<SpinComponent>();
+		auto model0 = loader.createFromFilePath("../resources/Fox/glTF/Fox.gltf");
+		auto node = loader.toEngineSceneNode(naiveScene, model0);
+		node->setLocalScale(vec3(0.1f));
+		auto foxNode = node->children()[1];
+		auto skinnRenderNode = foxNode->getComponent<PBRSkinnedRenderComponent>();
+		auto animationToPlay = loader.toEngineAnimation(model0->animations[0]);
+		skinnRenderNode->playAnimation(animationToPlay,true);
+		auto skl = loader.gltfSkeletonToEngineSkeleton(&model0->skeletons[0]);
+		delete model0;
+		auto nodeFox = naiveScene->createObject("Fox");
+		//nodeFox->setLocalScale(vec3(0.1f));
+		//auto compSklRender = nodeFox->addComponent<SkeletonRenderComponent>();
+		//compSklRender->playAnimation(animationToPlay, true);
+		//compSklRender->setSkeleton(skl);
+		//compSklRender->setJointScale(2.f);
+		//compSklRender->setPlayRate(1.f);
+		// 
+		//auto node = loader.toEngineSceneNode(naiveScene, model);
+		//node->setLocalScale(vec3(3, 3, 3));
+		//node->setLocalPosition(vec3(0, -10, -40));
+		//node->setLocalRotation(fromAxisAngle(vec3(0, 1, 0), 90));
+		////naiveScene->destroyObject(node);
+		////node->addComponent<SpinComponent>();
 		auto nodeLight = naiveScene->createObject("Lights");
 		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
 		nodeLight->setLocalPosition(vec3(0, 10, -35));
-		//nodeLight->addComponent<MoveComponent>();
+		nodeLight->addComponent<MoveComponent>();
 		pointLightcomponent->setRange(15);
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
+		auto dirLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
+		dirLightcomponent->setColor(vec3(1, 1, 1));
+		dirLightcomponent->setIntensity(15.);
+		dirLightcomponent->setHasShadow(true);
+		dirLightcomponent->setDirection(vec3(-1,-1,-1));
+		//vec3 lightColor[] = {
+		//	vec3(1,0,0),
+		//	vec3(0,1,0),
+		//	vec3(0,0,1),
+		//	vec3(1,1,1),
+		//};
+		//bool hasLastLight = false;
+		//vec3 lastLightPos{};
+		//for (int i =-5;i < 5;++i) {
+		//	for (int j = -5; j < 5;++j) {
+		//		auto nodeLight = naiveScene->createObject("Lights");
+		//		auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
+		//		auto posOfLight = vec3((-1 + i) * 10 + 10, 10, (-1 + j) * 10);
+		//		nodeLight->setLocalPosition(vec3((- 1 + i) *10 + 10, 10, (- 1 + j)* 10));
+		//		pointLightcomponent->setRange(20);
+		//		pointLightcomponent->setIntensity(40.f);
+		//		pointLightcomponent->setColor(
+		//			lightColor[abs(i + j) % 4]);
 
-		vec3 lightColor[] = {
-			vec3(1,0,0),
-			vec3(0,1,0),
-			vec3(0,0,1),
-			vec3(1,1,1),
-		};
+		//		if (hasLastLight) {
+		//			DebugDrawManager::instance()->drawLine(
+		//				lastLightPos, posOfLight, vec4(lightColor[abs(i + j) % 4], 1.f), 0.0025
+		//			);
+		//			lastLightPos = posOfLight;
+		//		}
+		//		hasLastLight = true;
+		//	}
 
-		for (int i =-5;i < 5;++i) {
-			for (int j = -5; j < 5;++j) {
-				auto nodeLight = naiveScene->createObject("Lights");
-				auto pointLightcomponent = nodeLight->addComponent<PointLightComponent>();
-				nodeLight->setLocalPosition(vec3((- 1 + i) *10 + 10, 10, (- 1 + j)* 10));
-				pointLightcomponent->setRange(20);
-				pointLightcomponent->setIntensity(40.f);
-				pointLightcomponent->setColor(
-					lightColor[abs(i + j) % 3]);
-			}
-		}
+		//}
 
 
-		delete model;
 		auto debugNode = naiveScene->createObject("DebugObject");
 		debugNode->addComponent<RenderDebugUIComponent>();
 		auto cameraNode = naiveScene->createObject("Camera");

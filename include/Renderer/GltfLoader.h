@@ -79,6 +79,7 @@ namespace Render {
         std::string         name;
         MeshPtr             mesh;
         vec3                offsetByCenter;
+        bool                hasSkin = false;
         std::vector<int>    materialIdx; // For each submesh
     };
 

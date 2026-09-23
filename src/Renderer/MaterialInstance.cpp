@@ -70,6 +70,27 @@ namespace Render {
 		mBindingTable.broadcastParameterData(name, data, size, 0);
     }
 
+    void Material::bindParameter(const Name& paramName, TexturePtr tex, int element)
+    {
+        mBindingTable.broadcastParameter(paramName, tex, element);
+    }
+
+    void Material::bindParameter(const Name& paramName, TexturePtr tex, ImageViewKey key, int element)
+    {
+        auto view = RenderSystem::instance()->getViewFromImage(tex->getRsImage(), key);
+        mBindingTable.broadcastParameter(paramName, tex, key, element);
+    }
+
+    void Material::bindParameter(const Name& paramName, rs_buffer* buffer, int element)
+    {
+        mBindingTable.broadcastParameter(paramName, buffer, element);
+    }
+
+    void Material::bindParameter(const Name& paramName, SamplerPtr sampler, int element)
+    {
+        mBindingTable.broadcastParameter(paramName, sampler, element);
+    }
+
 
     MaterialPass* Material::getMaterialPass(const Name& name) {
         return m_template->getMaterialPass(name);
@@ -98,6 +119,11 @@ namespace Render {
         return mRenderOrder;
     }
 
+
+    void Material::bindParameter(const Name& paramName, const void* data, u32 size)
+    {
+        mBindingTable.broadcastParameterData(paramName, data, size, 0);
+    }
 
     void Material::uploadUniform(Pass* pass) {
         if (!pass)return;

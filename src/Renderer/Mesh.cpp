@@ -87,7 +87,7 @@ namespace Render {
 		return idxBuffer;
 	}
 
-	Mesh* MeshData::toMeshResource()
+	Mesh* MeshData::toMeshResource(bool keepData)
 	{
 		Mesh* mesh = new Mesh();
 		mesh->mVertex = this->updateToGPUVertex();
@@ -101,8 +101,14 @@ namespace Render {
 
 		mesh->mVertexLayout = this->getAttributes();
 		mesh->mSubMeshes = this->mSubMeshes;
-
+		mesh->mHasSkin = this->mHasSkinData;
 		mesh->mState = ResourceLoadState::Loaded;
+
+		if (keepData) {
+			mesh->mMeshData = new MeshData();
+			*mesh->mMeshData = *this; //Copy
+		}
+
 		return mesh;
 	}
 
@@ -132,5 +138,16 @@ namespace Render {
 
 		memory.gpuMemory = this->mVertexByteSize + this->mIndexByteSize;
 		return memory;
+	}
+	
+	Mesh::~Mesh()
+	{
+		delete mMeshData;
+		mMeshData = nullptr;
+	}
+
+	const MeshData* Mesh::getRawData() const
+	{
+		return mMeshData;
 	}
 }

@@ -30,7 +30,7 @@ namespace Render {
 		//A rought count of memory usage
 		ResourceMemory mem{ 0, 0 };
 		mem.cpuMemory = (uint32_t)sizeof(*this);
-		mem.cpuMemory += this->mMaterialPassMap.size() * sizeof(MaterialPass);
+		mem.cpuMemory += (uint32_t)(this->mMaterialPassMap.size() * sizeof(MaterialPass));
 
 		return mem;
 	}
@@ -153,6 +153,7 @@ namespace Render {
 			auto mod = (Vulkan::rs_shader_module_vk*)sdm;
 			Vulkan::destroyRsShader(ctx, mod);
 		}
+
 		return pipeline;
 
 	}

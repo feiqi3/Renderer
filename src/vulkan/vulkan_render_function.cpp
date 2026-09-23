@@ -200,7 +200,10 @@ namespace Render::Vulkan {
         case VK_FORMAT_R8G8B8_UNORM:            return ImageFormat::RGB8_UNORM;
         case VK_FORMAT_R8G8B8A8_UNORM:          return ImageFormat::RGBA8_UNORM;
         case VK_FORMAT_B8G8R8A8_UNORM:          return ImageFormat::BGRA8_UNORM;
-        case VK_FORMAT_B8G8R8A8_SRGB:          return ImageFormat::SBGR8_ALPHA8;
+        
+        case VK_FORMAT_B8G8R8A8_UINT:           return ImageFormat::RGBA8_UINT;
+        
+        case VK_FORMAT_B8G8R8A8_SRGB:           return ImageFormat::SBGR8_ALPHA8;
 
         case VK_FORMAT_R8G8B8_SRGB:             return ImageFormat::SRGB8;
         case VK_FORMAT_R8G8B8A8_SRGB:           return ImageFormat::SRGB8_ALPHA8;
@@ -242,6 +245,8 @@ namespace Render::Vulkan {
         case ImageFormat::RGB8_UNORM:         return VK_FORMAT_R8G8B8_UNORM;
         case ImageFormat::RGBA8_UNORM:        return VK_FORMAT_R8G8B8A8_UNORM;
         case ImageFormat::BGRA8_UNORM:        return VK_FORMAT_B8G8R8A8_UNORM;
+
+        case ImageFormat::RGBA8_UINT:              return VK_FORMAT_R8G8B8A8_UINT;
 
         case ImageFormat::SRGB8:              return VK_FORMAT_R8_SRGB;
         case ImageFormat::SRGB8_ALPHA8:       return VK_FORMAT_R8G8B8A8_SRGB;

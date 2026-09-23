@@ -30,7 +30,7 @@ namespace Render {
 	FPSControllerComponent::FPSControllerComponent()
 	{
 		this->setSensitivity(0.025f);
-		this->setSpeed(1.f);
+		this->setSpeed(5.f);
 	}
 
 	void FPSControllerComponent::onUpdate(float dt)

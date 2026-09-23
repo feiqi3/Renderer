@@ -34,7 +34,7 @@ namespace Render {
 	struct SubMesh
 	{
 		int32_t  vertexOffset = 0; // base vertex for indexed draw
-		uint32_t indexOffset = 0;  // index draw
+		uint32_t indexOffset = 0;  // index draw in bytes
 		uint32_t indexCount = 0;
 		AxisAlignedBoundingBox aabb = {};
 	};
@@ -73,7 +73,8 @@ namespace Render {
 		/* ================= Attributes ================= */
 		void addAttribute(VertexFormat fmt, VertexSemantic semantic, u32 offset);
 		inline const std::vector<MeshVertexAttribute>& getAttributes() const { return mMeshVertexAttributes; }
-
+		inline void setHasSkin(bool b) { mHasSkinData = b; }
+		inline bool getHasSkin()const { return mHasSkinData; }
 		/* ================= SubMesh ================= */
 		void addSubMesh(uint32_t indexOffset, uint32_t indexCount, int32_t vertexOffset = 0);
 		void addSubMesh(uint32_t indexOffset, uint32_t indexCount, const AxisAlignedBoundingBox& aabb, int32_t vertexOffset = 0);
@@ -86,7 +87,7 @@ namespace Render {
 		// Operations
 		rs_buffer* updateToGPUVertex();
 		rs_buffer* updateToGPUIndice();
-		Mesh* toMeshResource();
+		Mesh* toMeshResource(bool keepData = false);
 
 	private:
 		/* raw data */
@@ -104,10 +105,14 @@ namespace Render {
 
 		/* submeshes */
 		std::vector<SubMesh> mSubMeshes;
+
+		bool mHasSkinData = false;
 	};
 
 	// ==========================================
 	// Class: Mesh (The actual Resource)
+	// When donot has skin -> use StandardModelVertex
+	// Has skin -> use StandardSkinnedVertex 
 	// ==========================================
 	class Mesh : public IResource {
 	public:
@@ -116,6 +121,7 @@ namespace Render {
 		virtual ResourceMemory getMemory() const override;
 
 	public:
+		~Mesh();
 		inline rs_buffer* getVertexBuffer() const { return mVertex; }
 		inline rs_buffer* getIndexBuffer()  const { return mIndice; }
 		inline IndexType  getIndexType()    const { return mIndexType; }
@@ -130,7 +136,9 @@ namespace Render {
 		inline u32 getIndexByteSize() const { return mIndexByteSize; }
 
 		inline const std::vector<MeshVertexAttribute>& getVertexLayout() const { return mVertexLayout; }
+		const MeshData* getRawData()const;
 
+		inline bool getHasSkin()const { return mHasSkin; }
 	private:
 		rs_buffer* mVertex = nullptr;
 		rs_buffer* mIndice = nullptr;
@@ -148,6 +156,9 @@ namespace Render {
 		std::vector<SubMesh> mSubMeshes;
 		std::vector<MeshVertexAttribute> mVertexLayout;
 
+		MeshData*	mMeshData = nullptr;
+
+		bool mHasSkin = false;
 		friend class MeshResourceManager;
 		friend class MeshData;
 	};

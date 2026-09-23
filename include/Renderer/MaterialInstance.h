@@ -40,6 +40,16 @@ namespace Render {
 		void bindParameter(const std::string& paramName, const T& data);
 		void bindParameter(const std::string& paramName, const void* data, u32 size);
 
+		void bindParameter(const Name& paramName, TexturePtr tex, int element = 0);
+		void bindParameter(const Name& paramName, TexturePtr tex, ImageViewKey key, int element = 0);
+		void bindParameter(const Name& paramName, rs_buffer* buffer, int element = 0);
+		void bindParameter(const Name& paramName, SamplerPtr sampler, int element = 0);
+
+		template<class T>
+		void bindParameter(const Name& paramName, const T& data);
+		void bindParameter(const Name& paramName, const void* data, u32 size);
+
+
 		void uploadUniform(Pass* pass);
 
 		// ====================================================================
@@ -78,6 +88,11 @@ namespace Render {
 
 	template<class T>
 	void Material::bindParameter(const std::string& paramName, const T& data) {
+		this->bindParameter(paramName, static_cast<const void*>(&data), sizeof(T));
+	}
+
+	template<class T>
+	inline void Material::bindParameter(const Name& paramName, const T& data){
 		this->bindParameter(paramName, static_cast<const void*>(&data), sizeof(T));
 	}
 

@@ -11,6 +11,7 @@ namespace Render {
     public:
         struct ModelPart {
             MeshPtr mesh;
+            SkeletonPtr skeleton;
             std::vector<MaterialPtr> materials; 
         };
 

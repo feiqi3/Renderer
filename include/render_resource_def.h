@@ -66,6 +66,9 @@ namespace Render {
         RGB8_UNORM,         // 8-bit R, G, B            
         RGBA8_UNORM,        // 8-bit R, G, B, A         
         BGRA8_UNORM,        // 8-bit B, G, R, A        
+        
+        // 8-bit color formats
+        RGBA8_UINT,              // 8-bit R, G, B, A     
 
         // 8-bit sRGB color formats
         SRGB8,              // 8-bit sRGB             
@@ -142,6 +145,7 @@ namespace Render {
         Half4,
 
         Uint4,   // bone indices
+        UByte4, 
         UByte4N, // normalized color / weights
         Invalid,
     };

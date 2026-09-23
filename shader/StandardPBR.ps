@@ -5,28 +5,12 @@
 
 #include "CommonSets.inl"
 #include "PBREntity.h"
-
+#include "StandardPBR.inl"
 #include "ShadowFunction.inl"
 #include "CommonMath.inl"
 #include "CommonLight.inl"
 #include "FroxelHelper.inl"
 #include "SceneLightsCullData.h"
-
-DECL_RBUFFER_STD430_BEG(PBRDataAlias)
-    PBRData pbrData;
-DECL_RBUFFER_STD430_END
-
-RESOURCE_DECL_BEG(4)
-    SLOT_TEXTURE(4,         texture2D,      u_baseColorTex)
-    SLOT_SAMPLER(4,         sampler,        u_baseColorSampler)
-    SLOT_TEXTURE(4,         texture2D,      u_normalTex)
-    SLOT_SAMPLER(4,         sampler,        u_normalSampler)
-    SLOT_TEXTURE(4,         texture2D,      u_metallicRoughnessTex)
-    SLOT_SAMPLER(4,         sampler,        u_metallicRoughnessSampler)
-    SLOT_TEXTURE(4,         texture2D,      u_AOTex)
-    SLOT_SAMPLER(4,         sampler,        u_AOSampler)
-    SLOT_CONST_BUFFER(4,    PBRDataAlias,   CBUFFER_pbrData)
-RESOURCE_DECL_END
 
 #define PBRDATA         GetBuffer(CBUFFER_pbrData).pbrData
 

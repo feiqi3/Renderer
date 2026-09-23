@@ -3,6 +3,7 @@
 #include "function/Scene.h"
 #include "function/Object.h"
 #include "Components/PBRRenderComponent.h"
+#include "Components/PBRSkinnedRenderComponent.h"
 namespace Render {
     Render::SamplerDesc fromGltfSamplerToSamplerDesc(const Render::GLTFSampler& sampler) {
         using namespace Render;
@@ -126,10 +127,19 @@ namespace Render {
         for (size_t i = 0; i < mModelParts.size(); ++i) {
             const auto& part = mModelParts[i];
             if (!part.mesh) continue;
-            auto renderComp = obj->addComponent<PBRRenderComponent>();
-            renderComp->setMesh(part.mesh);
-            for (size_t j = 0; j < part.materials.size(); ++j) {
-                renderComp->setMaterial(j, part.materials[j]);
+            if (part.mesh->getHasSkin()) {
+                auto renderComp = obj->addComponent<PBRSkinnedRenderComponent>();
+                renderComp->setMesh(part.mesh);
+                for (size_t j = 0; j < part.materials.size(); ++j) {
+                    renderComp->setMaterial(j, part.materials[j]);
+                }
+            }
+            else {
+                auto renderComp = obj->addComponent<PBRRenderComponent>();
+                renderComp->setMesh(part.mesh);
+                for (size_t j = 0; j < part.materials.size(); ++j) {
+                    renderComp->setMaterial(j, part.materials[j]);
+                }
             }
         }
 		return obj;

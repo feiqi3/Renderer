@@ -78,7 +78,9 @@ namespace Render {
         const Name& templateName,
         const ShaderStageInfo& shaderInfo,
         const RenderState& state,
-        const VertexInputDescription& inputDesc)
+        const VertexInputDescription& inputDesc,
+        ResourceLifetime lifeTime
+    )
     {
         auto* entry = this->acquire(templateName);
         if (entry) {
@@ -92,7 +94,7 @@ namespace Render {
         auto* newEntry = this->registerResource(
             templateName,
             mt,
-            ResourceLifetime::Transient,nullptr
+            lifeTime,nullptr
         );
 
         if (!newEntry) {

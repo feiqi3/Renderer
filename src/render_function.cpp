@@ -88,6 +88,7 @@ ImageFormat fromVertexFormatToImageFormat(VertexFormat fmt)
 	case VertexFormat::Half2:   return ImageFormat::RG16_SFLOAT;
 	case VertexFormat::Half4:   return ImageFormat::RGBA16_SFLOAT;
 
+	case VertexFormat::UByte4: return ImageFormat::RGBA8_UINT;
 	case VertexFormat::UByte4N: return ImageFormat::RGBA8_UNORM;
 		// 明确禁止
 	case VertexFormat::Uint4:
@@ -105,10 +106,10 @@ VertexFormat fromImaegFormatToVertexFormat(ImageFormat fmt)
 	case ImageFormat::RG32_SFLOAT:     return VertexFormat::Float2;
 	case ImageFormat::RGB32_SFLOAT:    return VertexFormat::Float3;
 	case ImageFormat::RGBA32_SFLOAT:   return VertexFormat::Float4;
-
 	case ImageFormat::RG16_SFLOAT:     return VertexFormat::Half2;
 	case ImageFormat::RGBA16_SFLOAT:  return VertexFormat::Half4;
 
+	case ImageFormat::RGBA8_UINT:	   return VertexFormat::UByte4;
 	case ImageFormat::RGBA8_UNORM:     return VertexFormat::UByte4N;
 
 	default:

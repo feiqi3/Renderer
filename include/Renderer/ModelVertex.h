@@ -9,6 +9,11 @@ namespace Render {
 		vec2		uv_0;
 		uint32_t	color_u8x4_pack;
 	};
+
+	struct StandardSkinnedModelVertex : StandardModelVertex {
+		uint32_t	jointIndice;
+		uint32_t	weights;
+	};
 }
 
 #endif

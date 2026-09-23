@@ -27,7 +27,7 @@ namespace Render {
 	private :
 		void updateRenderEntities();
 		RenderEntity* createRenderEntity(int submeshID, MaterialPtr mat);
-	private:
+	protected:
 		MeshPtr mMesh;
 		std::vector<MaterialPtr> mMaterials;
 		mutable std::vector<RenderEntity*> mRenderEntities;
