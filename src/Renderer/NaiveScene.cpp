@@ -104,11 +104,11 @@ namespace Render {
 		pointLightcomponent->setRange(15);
 		pointLightcomponent->setIntensity(50.f);
 		pointLightcomponent->setColor(vec3(1.));
-		auto dirLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
-		dirLightcomponent->setColor(vec3(1, 1, 1));
-		dirLightcomponent->setIntensity(15.);
-		dirLightcomponent->setHasShadow(true);
-		dirLightcomponent->setDirection(vec3(-1,-1,-1));
+		//auto dirLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
+		//dirLightcomponent->setColor(vec3(1, 1, 1));
+		//dirLightcomponent->setIntensity(10.);
+		//dirLightcomponent->setHasShadow(true);
+		//dirLightcomponent->setDirection(vec3(4,-1,0));
 		//vec3 lightColor[] = {
 		//	vec3(1,0,0),
 		//	vec3(0,1,0),
@@ -149,9 +149,9 @@ namespace Render {
 		cameraComponent->setCamera(camera);
 
 		auto directionalLightcomponent = nodeLight->addComponent<DirectionalLightComponent>();
-		directionalLightcomponent->setDirection(vec3(-0.1f, -1.0f, 0.1f));
+		directionalLightcomponent->setDirection(vec3(2.f, -0.8f, -1.f));
 		directionalLightcomponent->setColor(vec3(1.0, 0.95, 0.9));
-		directionalLightcomponent->setIntensity(15.f);
+		directionalLightcomponent->setIntensity(10.f);
 		directionalLightcomponent->setHasShadow(true);
 		auto skyBoxNode = naiveScene->createObject("Skybox");
 		auto skyBoxComponent = skyBoxNode->addComponent<SkyboxRenderComponent>();
