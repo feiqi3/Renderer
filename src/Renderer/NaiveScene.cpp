@@ -74,10 +74,10 @@ namespace Render {
 		//objectB->addComponent<SimpleRenderComponent>();
 		//objectB->addComponent<MoveComponent>( vec3(0,0,-5),3 );
 		GLTFLoader loader;
-		auto model0 = loader.createFromFilePath("../resources/Fox/glTF/Fox.gltf");
+		auto model0 = loader.createFromFilePath("../resources/Fox/fox.glb");
 		auto node = loader.toEngineSceneNode(naiveScene, model0);
 		node->setLocalScale(vec3(0.1f));
-		auto foxNode = node->children()[1];
+		auto foxNode = node->children()[0]->children()[0];
 		auto skinnRenderNode = foxNode->getComponent<PBRSkinnedRenderComponent>();
 		auto animationToPlay = loader.toEngineAnimation(model0->animations[0]);
 		skinnRenderNode->playAnimation(animationToPlay,true);
@@ -162,8 +162,8 @@ namespace Render {
 
 		auto cubeMesh = ResourceSystem::instance()->getResource<Mesh>(Mesh::typeName(), Name("Builtin::Cube"));
 		auto cubeNode = naiveScene->createObject("Cube");
-		cubeNode->setLocalPosition(vec3(10, 10, 10));
-		cubeNode->setLocalScale(vec3(3, 3, 3));
+		cubeNode->setLocalPosition(vec3(0.,0.,0.));
+		cubeNode->setLocalScale(vec3(40, 0.1, 40));
 		auto cubeRenderer = cubeNode->addComponent<PBRRenderComponent>();
 		cubeRenderer->setMesh(cubeMesh);
 		auto pbrTemplate = MaterialTemplateManager::instance()->getMaterialTemplate(Name("PBRMaterialTemplate_Opaque"));
