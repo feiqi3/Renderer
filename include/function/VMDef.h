@@ -91,7 +91,7 @@ namespace Render::VM {
 		uint32_t opnd : 24;
 
 	};
-	const int32_t INSTRUCTION_CONSTANT_MAX = (1 << 25) - 1;
+	const int32_t INSTRUCTION_CONSTANT_MAX = (1 << 24) - 1;
 
 	struct InstructionList {
 		Instruction* list = nullptr;

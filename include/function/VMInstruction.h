@@ -23,6 +23,7 @@ namespace Render {
 			InstructionList instructionList;
 		};
 
+		void destroyVMRunTarget(VMRunTarget* runTgt);
 	}
 }
 

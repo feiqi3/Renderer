@@ -160,6 +160,7 @@ namespace Render::VM {
 
 		void InstructionRunner::dup(uint32_t val) {
 			auto opnd = stack->pop();
+			if (stack->has_error()) return;
 			for (uint32_t i = 0; i < val + 1; ++i) {
 				stack->push(opnd);
 			}
@@ -171,8 +172,9 @@ namespace Render::VM {
 		}
 
 		void InstructionRunner::store_local(uint32_t val) {
-			auto opnd = stack->pop();
-			stack->set(val - 1, opnd);
+			auto opnd = stack->load(0);
+			stack->set(val, opnd);
+			stack->pop();
 		}
 
 		void InstructionRunner::load_param(uint32_t val) {
