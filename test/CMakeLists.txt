@@ -1,0 +1,9 @@
+set_property(DIRECTORY PROPERTY FOLDER "test")
+
+file(GLOB CHILDREN RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *)
+
+foreach(CHILD ${CHILDREN})
+    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${CHILD} AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${CHILD}/CMakeLists.txt)
+        add_subdirectory(${CHILD})
+    endif()
+endforeach()

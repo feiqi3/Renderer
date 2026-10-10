@@ -13,37 +13,43 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Gather all source files from the src folder
-file(GLOB_RECURSE SOURCES "src/*.cpp" "include/*.h")
+file(GLOB_RECURSE ENGINE_SOURCES "src/*.cpp" "include/*.h")
+#delete the main.cpp from the sources list
+list(FILTER ENGINE_SOURCES EXCLUDE REGEX "src/main\\.cpp$")
 
-# Create the Renderer executable
-add_executable(Renderer ${SOURCES})
-
-message("Sources: ${SOURCES}")
+# Create the static library target
+add_library(RendererEngine STATIC ${ENGINE_SOURCES})
+message("ENGINE_SOURCES: ${ENGINE_SOURCES}")
 
 add_subdirectory(3rd)
 
 # Add include directory for header files
-target_include_directories(Renderer PUBLIC include)
+target_include_directories(RendererEngine PUBLIC include)
 
 # Link libraries if required
 
-target_include_directories(Renderer PRIVATE 3rd/vma)
-target_include_directories(Renderer PRIVATE 3rd/volk)
-target_link_libraries(Renderer PRIVATE spirv-reflect-static)
+target_include_directories(RendererEngine PRIVATE 3rd/vma)
+target_include_directories(RendererEngine PRIVATE 3rd/volk)
+target_link_libraries(RendererEngine PRIVATE spirv-reflect-static)
 set_target_properties(spirv-reflect-static PROPERTIES FOLDER "ThirdParty/")
-target_link_libraries(Renderer PRIVATE shaderc)
+target_link_libraries(RendererEngine PRIVATE shaderc)
 set_target_properties(shaderc PROPERTIES FOLDER "ThirdParty/")
-target_link_libraries(Renderer PRIVATE glfw)
+target_link_libraries(RendererEngine PRIVATE glfw)
 set_target_properties(glfw update_mappings  PROPERTIES FOLDER "ThirdParty/glfw")
-target_link_libraries(Renderer PRIVATE volk::volk)
+target_link_libraries(RendererEngine PRIVATE volk::volk)
 set_target_properties(volk PROPERTIES FOLDER "ThirdParty/")
-target_link_libraries(Renderer PUBLIC glm)
+target_link_libraries(RendererEngine PUBLIC glm)
 set_target_properties(glm PROPERTIES FOLDER "ThirdParty/")
-target_link_libraries(Renderer PUBLIC stb)
+target_link_libraries(RendererEngine PUBLIC stb)
 set_target_properties(stb PROPERTIES FOLDER "ThirdParty/")
-target_compile_definitions(Renderer PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
-target_link_libraries(Renderer PUBLIC tinygltf)
+target_compile_definitions(RendererEngine PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
+target_link_libraries(RendererEngine PUBLIC tinygltf)
 set_target_properties(tinygltf PROPERTIES FOLDER "ThirdParty/")
-target_link_libraries(Renderer PUBLIC imgui)
-set_target_properties(tinygltf PROPERTIES FOLDER "ThirdParty/")
+target_link_libraries(RendererEngine PUBLIC imgui)
+set_target_properties(imgui PROPERTIES FOLDER "ThirdParty/")
+
+add_executable(Renderer src/main.cpp)
+target_link_libraries(Renderer PRIVATE RendererEngine)
+
+add_subdirectory(test)
 # target_link_libraries(Renderer <libname>)
