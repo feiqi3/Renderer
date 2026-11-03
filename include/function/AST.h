@@ -13,6 +13,13 @@ if(ret == false){\
 	return false;\
 }
 
+#define AST_DETECT_ERROR_AND_SET_LEAVE_SCOPE(ret,node,itmdt) \
+if(ret == false){\
+	lastErrorInfo = node->lastErrorInfo;\
+	itmdt->leaveScope();\
+	return false;\
+}
+
 #define AST_SET_NODE_INDEX(node) \
 node->nodeIndexInTree = intermediate->treeNodeIndex++;
 
@@ -26,7 +33,7 @@ namespace Render::VM {
 	struct VMRunTarget;
 }
 
-namespace Render::VM::AST {
+namespace Render::VM{
 	enum class ASTError {
 		NONE,
 		VAR_NOT_FOUND,
@@ -308,7 +315,8 @@ namespace Render::VM::AST {
 	};
 
 	struct IfNode : ExprNodeBase {
-
+		//Left node -> if true
+		//Right node ->if else
 		bool compile(VMRunTarget* runTarget, ASTCompileIntermediate* intermediate) {
 			
 			{
@@ -354,6 +362,8 @@ namespace Render::VM::AST {
 	};
 
 	struct AssignmentNode : ExprNodeBase {
+		//Left  -> no use
+		//Right -> Target value to set to target
 		virtual bool emit(VMRunTarget* runTarget, ASTCompileIntermediate* intermediate) override {
 			ParamID param;
 			bool isParam = intermediate->citeParam(targetVar,param);
@@ -380,6 +390,7 @@ namespace Render::VM::AST {
 	};
 
 	struct LiteralNode : ExprNodeBase {
+		//Operand -> target constant value
 		Operand operand;
 
 		virtual bool emit(VMRunTarget* runTarget, ASTCompileIntermediate* intermediate) override {
@@ -401,6 +412,7 @@ namespace Render::VM::AST {
 	};
 
 	struct VariableNode : ExprNodeBase {
+		//Node to cite a variable
 		std::string targetVar;
 		virtual bool emit(VMRunTarget* runTarget, ASTCompileIntermediate* intermediate) override {
 			ParamID param;
@@ -426,6 +438,7 @@ namespace Render::VM::AST {
 
 
 	struct ParamDeclareNode : ExprNodeBase {
+		//Declare a param is from outside
 		std::string targetParam;
 		virtual bool emit(VMRunTarget* runTarget, ASTCompileIntermediate* intermediate) override {
 			ParamID paramId;
@@ -447,12 +460,14 @@ namespace Render::VM::AST {
 	};
 
 	struct StatementBlockNode : ExprNodeBase {
-		ExprNodeBase* statement = nullptr;
+		std::vector<ExprNodeBase*> statments;
 		virtual bool emit(VMRunTarget* runTarget, ASTCompileIntermediate* intermediate) override {
 			intermediate->enterScope();
-			if (statement) {
-				bool ret = statement->compile(runTarget, intermediate);
-				AST_DETECT_ERROR_AND_SET(ret, statement);
+			for (auto&& statement : statments) {
+				if (statement) {
+					bool ret = statement->compile(runTarget, intermediate);
+					AST_DETECT_ERROR_AND_SET_LEAVE_SCOPE(ret, statement, intermediate);
+				}
 			}
 			intermediate->leaveScope();
 			return true;
@@ -460,6 +475,5 @@ namespace Render::VM::AST {
 	};
 
 	void compileAST(ExprNodeBase* entry, VMRunTarget** outRunTarget);
-
 }
 #endif //AST_H_

@@ -1,11 +1,6 @@
 #include "function/VM.h"
 #include "function/VMInstruction.h"
 namespace Render::VM {
-	namespace {
-
-
-
-
 		struct OperandStack {
 			static const uint32_t STACK_SIZE = 64;
 
@@ -536,5 +531,5 @@ namespace Render::VM {
 			runner.run();
 		}
 
-	}
 
+}

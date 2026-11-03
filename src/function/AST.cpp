@@ -1,6 +1,6 @@
 #include "function/AST.h"
 
-namespace Render::VM::AST {
+namespace Render::VM{
 	void compileAST(ExprNodeBase* entry, VMRunTarget** outRunTarget)
 	{
 		VMRunTarget* runTarget = new VMRunTarget;
