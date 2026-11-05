@@ -93,6 +93,7 @@ namespace Render {
 		const auto& skl = mRenderSkeleton->getSkeleton();
 		for (int i = 0;i < mSavedPosModelSpaceMat.size();++i) {
 			auto transformMat = localMat * mSavedPosModelSpaceMat[i];
+			vec3 locToGo= vec3(transformMat * vec4(0.f, 0.f, 0.f, 1.f));
 			vec3 trans;
 			vec3 scale;
 			quat rot;
@@ -100,14 +101,14 @@ namespace Render {
 			vec4 unused1;
 			float scaleLocal = std::min(scale.x, std::min(scale.y, scale.z));
 			decomposeTRS(transformMat, scale, rot, trans, unused0, unused1);
-			loc.push_back(trans);
+			loc.push_back(locToGo);
 			auto itor = mConfigs.find(skl->mJointsName[i]);
 			if (itor == mConfigs.end()) {
-				DebugDrawManager::instance()->drawCube(trans, rot, vec4(1., 1., 1., 1), scaleLocal * mJointScale * 1.f);
+				DebugDrawManager::instance()->drawCube(loc.back(), rot, vec4(1., 1., 1., 1), scaleLocal * mJointScale * 1.f);
 			}
 			else {
 				const auto& config = itor->second;
-				DebugDrawManager::instance()->drawCube(trans, rot, config.colorJoint, mJointScale * config.scaleJoint);
+				DebugDrawManager::instance()->drawCube(loc.back(), rot, config.colorJoint, mJointScale * config.scaleJoint);
 			}
 		}
 		const auto& skeletonPar = mRenderSkeleton->getSkeleton()->mParents;

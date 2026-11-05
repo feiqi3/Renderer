@@ -33,7 +33,7 @@ namespace Render::Vulkan {
 		rs_queue_vk* graphicQueue;
 		rs_queue_vk* computeQueue;
 		rs_queue_vk* transferQueue;
-		VmaAllocator allocator;
+		VmaAllocator* allocator;
 		
 		rs_swapchain_vk* swapchain = nullptr;
 		uint32_t maxSwapChainImages;

@@ -1,15 +1,13 @@
 #define VK_NO_PROTOTYPES
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-#define VMA_IMPLEMENTATION
+#include "vulkan/vulkan_render_function.h"
 #include "volk.h"
 #include <cmath>
-#include "vk_mem_alloc.h"
 #include "GLFW/glfw3.h"
 #include "render_function.h"
 #include "vulkan/vulkan_shader_reflect.h"
 #include "window/render_resource_window_glfw.h"
-#include "vulkan/vulkan_render_function.h"
 #include "bit_helper.h"
 #include "vulkan/vulkan_descriptor_set.h"
 #include "vulkan/vulkan_command.h"
@@ -28,6 +26,10 @@
 #include "renderer/GPUShared/DrawMeta.h"
 
 #include <sstream>
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 
 namespace {
     //validation callback
@@ -628,7 +630,8 @@ namespace Render::Vulkan {
         vmaCi.physicalDevice = ctx->physicalDevice;
         vmaCi.vulkanApiVersion = VulkanVersion;
         vmaCi.pVulkanFunctions = &vkFuncs;
-        vmaCreateAllocator(&vmaCi, &ctx->allocator);
+		ctx->allocator = (VmaAllocator*)std::malloc(sizeof(VmaAllocator));
+        vmaCreateAllocator(&vmaCi, ctx->allocator);
 
         auto maxFif = ctx->maxFrameInFlight;
         ctx->descriptorSetMgr = new DescriptorSetManager(ctx,maxFif);
@@ -742,6 +745,9 @@ namespace Render::Vulkan {
         ctx->cmdBufferMgr->clearAll(ctx);
         delete ctx->cmdBufferMgr;
         delete ctx->destroyer;
+        vmaDestroyAllocator(*ctx->allocator);
+        std::free(ctx->allocator);
+        ctx->allocator = nullptr;
         destroyDevice(ctx);
         destroyVkInstance(ctx);
     }
@@ -985,7 +991,7 @@ namespace Render::Vulkan {
         VmaAllocationCreateInfo ai{};
         ai.flags = vmaFlags;
         ai.usage = VMA_MEMORY_USAGE_AUTO;
-        VK_CHECK(vmaCreateBuffer(context->allocator, &CI, &ai, &buffer, &allocation, &allocInfo),
+        VK_CHECK(vmaCreateBuffer(*context->allocator, &CI, &ai, &buffer, &allocation, &allocInfo),
             {
                 return nullptr;
             }
@@ -1010,10 +1016,10 @@ namespace Render::Vulkan {
             return;
         }
         if (buffer->mappedPtr) {
-            vmaUnmapMemory(context->allocator, buffer->allocation);
+            vmaUnmapMemory(*context->allocator, buffer->allocation);
             buffer->mappedPtr = 0;
         }
-        vmaDestroyBuffer(context->allocator, (VkBuffer)buffer->native, buffer->allocation);
+        vmaDestroyBuffer(*context->allocator, (VkBuffer)buffer->native, buffer->allocation);
         buffer->native = 0;
         delete buffer;
         buffer = 0;
@@ -1033,7 +1039,7 @@ namespace Render::Vulkan {
             return buffer->mappedPtr;
         }
         void* mappedData = nullptr;
-        VkResult result = vmaMapMemory(context->allocator, buffer->allocation, &mappedData);
+        VkResult result = vmaMapMemory(*context->allocator, buffer->allocation, &mappedData);
         if (result != VK_SUCCESS) {
             return nullptr;
         }
@@ -1044,7 +1050,7 @@ namespace Render::Vulkan {
     void unmapRsBuffer(rs_context_vk* context, rs_buffer_vk* buffer)
     {
         assert(isRsBufferMappable(context,buffer));
-        vmaUnmapMemory(context->allocator, buffer->allocation);
+        vmaUnmapMemory(*context->allocator, buffer->allocation);
         buffer->mappedPtr = 0;
     }
 
@@ -1061,7 +1067,7 @@ namespace Render::Vulkan {
     bool isRsBufferMappable(rs_context_vk* context, rs_buffer_vk* buffer)
     {
         VkMemoryPropertyFlags memFlags;
-        vmaGetAllocationMemoryProperties(context->allocator, buffer->allocation, &memFlags);
+        vmaGetAllocationMemoryProperties(*context->allocator, buffer->allocation, &memFlags);
         return (memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
     }
 
@@ -1092,7 +1098,7 @@ namespace Render::Vulkan {
         VmaAllocationCreateInfo ai{};
         ai.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         VmaAllocationInfo aif;
-        vmaCreateImage(ctx->allocator, &ici, &ai, &image, &alloc, &aif);
+        vmaCreateImage(*ctx->allocator, &ici, &ai, &image, &alloc, &aif);
 
 		auto ret = new rs_image_vk;
 		ret->native = image;
@@ -1120,7 +1126,7 @@ namespace Render::Vulkan {
             context->destroyer->destroyImage(context->nextRenderFrame, image);
             return;
         }
-        vmaDestroyImage(context->allocator, (VkImage)image->native, image->allocation);
+        vmaDestroyImage(*context->allocator, (VkImage)image->native, image->allocation);
         
 		for (auto& view : image->imageViews) {
 			destroyRsImageView(context, view);
@@ -1684,7 +1690,7 @@ namespace Render::Vulkan {
         }
         if (buffer->mappedPtr) {
             vmaFlushAllocation(
-                context->allocator, buffer->allocation, 0, flushSize
+                *context->allocator, buffer->allocation, 0, flushSize
             );
         }
 
@@ -2481,6 +2487,7 @@ namespace Render::Vulkan {
 
     void destroyDevice(rs_context_vk* context)
     {
+
         vkDestroyDevice(context->device,0);
         context->device = 0;
     }
@@ -2933,6 +2940,11 @@ namespace Render::Vulkan {
         
         for (int i = 0; i < renderTarget->m_attachments.size();++i) {
             changeViewStateNoBarrier(renderTarget->m_views[i], renderPass->finalStates[i]);
+        }
+
+        if (renderTarget->m_depthStencilAttachment) {
+            changeViewStateNoBarrier(renderTarget->m_dsView,
+                renderPass->finalStates[renderTarget->m_attachments.size()]);
         }
 
         cb->currentRenderTarget = 0;

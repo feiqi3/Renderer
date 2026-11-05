@@ -92,6 +92,7 @@ namespace Render {
 		if (layer >= 0 && layer < MAX_CASCADE_LAYERS) {
 			return mCascadedCullProjectionSize[layer];
 		}
+		return 0.f;
 	}
 
 	void CascadedShadow::setTextureSize(uint32_t size) {

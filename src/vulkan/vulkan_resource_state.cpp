@@ -184,7 +184,9 @@ namespace Render::Vulkan {
     }
 
     void transitionBufferState(rs_commandbuffer_vk* cb, rs_buffer_vk* buffer, ResourceState newState) {
-        if (buffer->state == newState) {
+        // Repeated uploads may overwrite the same destination range. They still
+        // need a transfer-write dependency when the resource state is unchanged.
+        if (buffer->state == newState && newState != ResourceState::TransferDst) {
             return;
         }
         //Here we dont need pending state 
@@ -289,7 +291,7 @@ namespace Render::Vulkan {
         auto image = view->image;
         for (uint32_t layer = baseLayer; layer < baseLayer + layerCount; ++layer) {
             for (uint32_t mip = baseMipLevel; mip < baseMipLevel + mipCount; ++mip) {
-                uint32_t flatIndex = baseLayer * mipLevels + baseMipLevel;
+                uint32_t flatIndex = layer * mipLevels + mip;
                 image->subresourceStates[flatIndex] = newState;
             }
         }

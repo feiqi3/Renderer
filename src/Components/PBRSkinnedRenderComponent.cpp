@@ -12,8 +12,11 @@ namespace Render {
 	{
 
 		if (!mRenderSkeleton)return;
-		if (this->mIsPlayAnm) {
+		if (this->mIsPlayAnm && this->mRenderSkeleton != nullptr) {
 			calculateSKinMatrix(dt);
+			updateGPUSkinBuffer();
+		}
+		else if (this->mSkeletonUpdateBuffer == nullptr) {
 			updateGPUSkinBuffer();
 		}
 
@@ -47,7 +50,7 @@ namespace Render {
 
 	void PBRSkinnedRenderComponent::updateGPUSkinBuffer()
 	{
-		if (mSavedSkinMatrics.size() > mJointsNum) {
+		if (mSavedSkinMatrics.size() > mJointsNum || mSkeletonUpdateBuffer == nullptr) {
 			mJointsNum = mSavedSkinMatrics.size();
 			rebuildGPUSkinBuffer(mJointsNum);
 			static Name skinBufferName = Name("u_anmInfoList");
